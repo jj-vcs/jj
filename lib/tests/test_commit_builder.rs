@@ -15,6 +15,7 @@
 use assert_matches::assert_matches;
 use futures::StreamExt as _;
 use indoc::indoc;
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::MillisSinceEpoch;
@@ -25,6 +26,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::merged_tree::MergedTree;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -141,7 +143,12 @@ fn test_initial(backend: TestRepoBackend) -> TestResult {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_rewrite(backend: TestRepoBackend) -> TestResult {
     let settings = testutils::user_settings();
-    let test_repo = TestRepo::init_with_backend_and_settings(backend, &settings);
+    let test_repo = TestRepo::init_with_backend_and_settings(
+        backend,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
+        &settings,
+    );
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
     let store = repo.store();
@@ -236,7 +243,12 @@ fn test_rewrite(backend: TestRepoBackend) -> TestResult {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_rewrite_update_missing_user(backend: TestRepoBackend) -> TestResult {
     let missing_user_settings = UserSettings::from_config(StackedConfig::with_defaults())?;
-    let test_repo = TestRepo::init_with_backend_and_settings(backend, &missing_user_settings);
+    let test_repo = TestRepo::init_with_backend_and_settings(
+        backend,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
+        &missing_user_settings,
+    );
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
@@ -356,7 +368,12 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) -> TestResult 
 fn test_rewrite_to_identical_commit(backend: TestRepoBackend) -> TestResult {
     let timestamp = "2001-02-03T04:05:06+07:00";
     let settings = UserSettings::from_config(config_with_commit_timestamp(timestamp))?;
-    let test_repo = TestRepo::init_with_backend_and_settings(backend, &settings);
+    let test_repo = TestRepo::init_with_backend_and_settings(
+        backend,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
+        &settings,
+    );
     let repo = test_repo.repo;
     let store = repo.store();
 

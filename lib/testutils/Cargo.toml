@@ -17,6 +17,7 @@ readme = { workspace = true }
 [dependencies]
 async-trait = { workspace = true }
 bstr = { workspace = true }
+dunce = { workspace = true }
 eyre = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, features = [
@@ -24,6 +25,7 @@ gix = { workspace = true, features = [
     "worktree-mutation",
 ] }
 itertools = { workspace = true }
+jj-core = { workspace = true }
 jj-lib = { workspace = true, features = ["testing"] }
 pollster = { workspace = true }
 proptest = { workspace = true }
