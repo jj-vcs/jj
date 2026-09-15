@@ -65,8 +65,9 @@ y) * z`.
 
 The following functions are defined.
 
-* `fill(width: Integer, content: Template) -> Template`: Fill lines at
-  the given `width`.
+* `fill(width: Integer, content: Template, [break_words: bool]) -> Template`:
+  Fill lines at the given `width`. If `break_words` is `true`, any words longer
+  than `width` will be split to fit in `width` characters.
 * `indent(prefix: Template, content: Template) -> Template`: Indent
   non-empty lines by the given `prefix`.
 * `pad_start(width: Integer, content: Template, [fill_char: Template])`: Pad (or

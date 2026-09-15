@@ -3532,7 +3532,7 @@ impl LogContentFormat {
         if self.word_wrap {
             let mut recorder = FormatRecorder::new(formatter.maybe_color());
             content_fn(&mut recorder).await?;
-            text_util::write_wrapped(formatter, &recorder, self.width)?;
+            text_util::write_wrapped(formatter, &recorder, self.width, false)?;
         } else {
             content_fn(formatter).await?;
         }
