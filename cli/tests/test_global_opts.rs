@@ -603,12 +603,11 @@ fn test_broken_repo_structure() {
     work_dir.remove_dir_all(".jj");
     work_dir.create_dir(".jj");
     let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
     Internal error: The repository appears broken or inaccessible
     Caused by:
-    1: Failed to read commit backend type
-    2: Cannot access $TEST_ENV/repo/.jj/repo/store/type
+    1: Cannot access $TEST_ENV/repo/.jj/repo/workspace_store
     [EOF]
     [exit status: 255]
     ");

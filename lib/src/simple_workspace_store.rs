@@ -19,6 +19,7 @@ use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 
+use jj_core::workspace_store::WorkspaceStoreFactory;
 use prost::Message as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -58,6 +59,15 @@ pub enum SimpleWorkspaceStoreError {
 impl From<SimpleWorkspaceStoreError> for WorkspaceStoreError {
     fn from(err: SimpleWorkspaceStoreError) -> Self {
         Self::Other(Box::new(err))
+    }
+}
+
+/// Builds SimpleWorkspaceStore instances.
+pub struct SimpleWorkspaceStoreFactory;
+
+impl WorkspaceStoreFactory for SimpleWorkspaceStoreFactory {
+    fn load(&self, repo_path: &Path) -> Result<Box<dyn WorkspaceStore>, WorkspaceStoreError> {
+        Ok(Box::new(SimpleWorkspaceStore::load(repo_path)?))
     }
 }
 

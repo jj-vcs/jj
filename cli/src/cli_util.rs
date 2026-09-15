@@ -74,6 +74,8 @@ use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::default_backend_factories::default_backend_factories;
 use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
+use jj_lib::default_backend_factories::default_workspace_store_factory;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::fileset::FilesetDiagnostics;
@@ -144,7 +146,6 @@ use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy;
 use jj_lib::working_copy::WorkingCopyFactory;
 use jj_lib::working_copy::WorkingCopyFreshness;
-use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
 use jj_lib::workspace::LockedWorkspace;
 use jj_lib::workspace::WorkingCopyFactories;
 use jj_lib::workspace::Workspace;
@@ -152,6 +153,9 @@ use jj_lib::workspace::WorkspaceLoadError;
 use jj_lib::workspace::WorkspaceLoader;
 use jj_lib::workspace::WorkspaceLoaderFactory;
 use jj_lib::workspace::get_working_copy_factory;
+use jj_lib::workspace_store::WorkspaceStore;
+use jj_lib::workspace_store::WorkspaceStoreError;
+use jj_lib::workspace_store::WorkspaceStoreFactory;
 use pollster::FutureExt as _;
 use tracing::instrument;
 use tracing_chrome::ChromeLayerBuilder;
@@ -322,6 +326,7 @@ struct CommandHelperData {
     store_factories: StoreFactories,
     working_copy_factories: WorkingCopyFactories,
     workspace_loader_factory: Box<dyn WorkspaceLoaderFactory>,
+    workspace_store_factory: Box<dyn WorkspaceStoreFactory>,
 }
 
 impl CommandHelper {
@@ -578,13 +583,32 @@ impl CommandHelper {
         Ok(factory)
     }
 
+    fn load_workspace_store(
+        &self,
+        repo_path: &Path,
+    ) -> Result<Arc<dyn WorkspaceStore>, CommandError> {
+        let workspace_store = self
+            .data
+            .workspace_store_factory
+            .load(repo_path)
+            .map_err(|err| match err {
+                WorkspaceStoreError::Other(err) => internal_error_with_message(
+                    "The repository appears broken or inaccessible",
+                    err,
+                ),
+            })?;
+        Ok(Arc::from(workspace_store))
+    }
+
     /// Loads workspace for the current command.
     #[instrument(skip_all)]
     pub fn load_workspace(&self) -> Result<Workspace, CommandError> {
         let loader = self.workspace_loader()?;
+        let workspace_store = self.load_workspace_store(loader.repo_path())?;
         loader
             .load(
                 &self.data.settings,
+                workspace_store,
                 &self.data.store_factories,
                 &self.data.working_copy_factories,
             )
@@ -601,9 +625,11 @@ impl CommandHelper {
         settings: &UserSettings,
     ) -> Result<Workspace, CommandError> {
         let loader = self.new_workspace_loader_at(workspace_root)?;
+        let workspace_store = self.load_workspace_store(loader.repo_path())?;
         loader
             .load(
                 settings,
+                workspace_store,
                 &self.data.store_factories,
                 &self.data.working_copy_factories,
             )
@@ -2931,6 +2957,9 @@ jj git init",
             err @ (StoreLoadError::ReadError { .. } | StoreLoadError::Backend(_)),
         ) => internal_error_with_message("The repository appears broken or inaccessible", err),
         WorkspaceLoadError::StoreLoadError(StoreLoadError::Signing(err)) => user_error(err),
+        WorkspaceLoadError::WorkspaceStoreError(err) => {
+            internal_error_with_message("The repository appears broken or inaccessible", err)
+        }
         WorkspaceLoadError::WorkingCopyState(err) => internal_error(err),
         WorkspaceLoadError::DecodeRepoPath(_) | WorkspaceLoadError::Path(_) => user_error(err),
     }
@@ -4396,6 +4425,7 @@ pub struct CliRunner<'a> {
     store_factories: StoreFactories,
     working_copy_factories: WorkingCopyFactories,
     workspace_loader_factory: Box<dyn WorkspaceLoaderFactory>,
+    workspace_store_factory: Box<dyn WorkspaceStoreFactory>,
     revset_extensions: RevsetExtensions,
     commit_template_extensions: Vec<Arc<dyn CommitTemplateLanguageExtension>>,
     operation_template_extensions: Vec<Arc<dyn OperationTemplateLanguageExtension>>,
@@ -4420,7 +4450,8 @@ impl<'a> CliRunner<'a> {
             config_migrations: crate::config::default_config_migrations(),
             store_factories: default_backend_factories(),
             working_copy_factories: default_working_copy_factories(),
-            workspace_loader_factory: Box::new(DefaultWorkspaceLoaderFactory),
+            workspace_loader_factory: default_workspace_loader_factory(),
+            workspace_store_factory: default_workspace_store_factory(),
             revset_extensions: Default::default(),
             commit_template_extensions: vec![],
             operation_template_extensions: vec![],
@@ -4484,6 +4515,14 @@ impl<'a> CliRunner<'a> {
         workspace_loader_factory: Box<dyn WorkspaceLoaderFactory>,
     ) -> Self {
         self.workspace_loader_factory = workspace_loader_factory;
+        self
+    }
+
+    pub fn set_workspace_store_factory(
+        mut self,
+        workspace_store_factory: Box<dyn WorkspaceStoreFactory>,
+    ) -> Self {
+        self.workspace_store_factory = workspace_store_factory;
         self
     }
 
@@ -4705,6 +4744,7 @@ impl<'a> CliRunner<'a> {
             store_factories: self.store_factories,
             working_copy_factories: self.working_copy_factories,
             workspace_loader_factory: self.workspace_loader_factory,
+            workspace_store_factory: self.workspace_store_factory,
         };
         let command_helper = CommandHelper {
             data: Rc::new(command_helper_data),

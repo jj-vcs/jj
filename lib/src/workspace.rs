@@ -21,11 +21,14 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use jj_core::workspace_store::WorkspaceStore;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
 use crate::commit::Commit;
 use crate::default_backend_factories::default_working_copy_factory;
+use crate::default_backend_factories::default_workspace_loader_factory;
+use crate::default_backend_factories::default_workspace_store_factory;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
@@ -47,13 +50,13 @@ use crate::repo::RepoLoader;
 use crate::repo::StoreFactories;
 use crate::repo::StoreLoadError;
 use crate::repo::SubmoduleStoreInitializer;
+use crate::repo::WorkspaceStoreInitializer;
 use crate::repo::read_store_type;
 use crate::settings::UserSettings;
 use crate::signing::Signer;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::simple_backend::SimpleBackend;
-use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
@@ -61,7 +64,6 @@ use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
-use crate::workspace_store::WorkspaceStore as _;
 use crate::workspace_store::WorkspaceStoreError;
 
 #[derive(Error, Debug)]
@@ -96,6 +98,8 @@ pub enum WorkspaceLoadError {
     NoWorkspaceHere(PathBuf),
     #[error("Cannot read the repo")]
     StoreLoadError(#[from] StoreLoadError),
+    #[error(transparent)]
+    WorkspaceStoreError(#[from] WorkspaceStoreError),
     #[error("Repo path could not be decoded")]
     DecodeRepoPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -298,6 +302,7 @@ impl Workspace {
         workspace_root: &Path,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
+        workspace_store_initializer: &WorkspaceStoreInitializer<'_>,
         op_store_initializer: &OpStoreInitializer<'_>,
         op_heads_store_initializer: &OpHeadsStoreInitializer<'_>,
         index_store_initializer: &IndexStoreInitializer<'_>,
@@ -314,6 +319,7 @@ impl Workspace {
                 &repo_dir,
                 backend_initializer,
                 signer,
+                workspace_store_initializer,
                 op_store_initializer,
                 op_heads_store_initializer,
                 index_store_initializer,
@@ -322,10 +328,10 @@ impl Workspace {
             .await
             .map_err(|repo_init_err| match repo_init_err {
                 RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
+                RepoInitError::WorkspaceStoreError(err) => WorkspaceInitError::WorkspaceStore(err),
                 RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
                 RepoInitError::Path(err) => WorkspaceInitError::Path(err),
             })?;
-            let workspace_store = SimpleWorkspaceStore::load(&repo_dir)?;
             let (working_copy, repo) = init_working_copy(
                 &repo,
                 workspace_root,
@@ -337,7 +343,9 @@ impl Workspace {
             let repo_loader = repo.loader().clone();
             let repo_dir = dunce::canonicalize(&repo_dir).context(&repo_dir)?;
             let workspace = Self::new(workspace_root, repo_dir, working_copy, repo_loader)?;
-            workspace_store.add(workspace.workspace_name(), workspace.workspace_root())?;
+            repo.loader()
+                .workspace_store()
+                .add(workspace.workspace_name(), workspace.workspace_root())?;
             Ok((workspace, repo))
         }
         .await
@@ -357,6 +365,7 @@ impl Workspace {
             workspace_root,
             backend_initializer,
             signer,
+            ReadonlyRepo::default_workspace_store_initializer(),
             ReadonlyRepo::default_op_store_initializer(),
             ReadonlyRepo::default_op_heads_store_initializer(),
             ReadonlyRepo::default_index_store_initializer(),
@@ -389,7 +398,7 @@ impl Workspace {
         let repo_file_path = jj_dir.join("repo");
         fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
 
-        let workspace_store = SimpleWorkspaceStore::load(repo_path)?;
+        let workspace_store = repo.loader().workspace_store();
         let (working_copy, repo) = init_working_copy(
             repo,
             workspace_root,
@@ -414,8 +423,15 @@ impl Workspace {
         store_factories: &StoreFactories,
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Self, WorkspaceLoadError> {
-        let loader = DefaultWorkspaceLoader::new(workspace_path)?;
-        let workspace = loader.load(user_settings, store_factories, working_copy_factories)?;
+        let loader = default_workspace_loader_factory().create(workspace_path)?;
+        let workspace_store: Arc<dyn WorkspaceStore> =
+            Arc::from(default_workspace_store_factory().load(loader.repo_path())?);
+        let workspace = loader.load(
+            user_settings,
+            workspace_store,
+            store_factories,
+            working_copy_factories,
+        )?;
         Ok(workspace)
     }
 
@@ -535,6 +551,7 @@ pub trait WorkspaceLoader {
     fn load(
         &self,
         user_settings: &UserSettings,
+        workspace_store: Arc<dyn WorkspaceStore>,
         store_factories: &StoreFactories,
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Workspace, WorkspaceLoadError>;
@@ -606,11 +623,16 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
     fn load(
         &self,
         user_settings: &UserSettings,
+        workspace_store: Arc<dyn WorkspaceStore>,
         store_factories: &StoreFactories,
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Workspace, WorkspaceLoadError> {
-        let repo_loader =
-            RepoLoader::init_from_file_system(user_settings, &self.repo_path, store_factories)?;
+        let repo_loader = RepoLoader::init_from_file_system(
+            user_settings,
+            &self.repo_path,
+            workspace_store,
+            store_factories,
+        )?;
         let working_copy_factory = get_working_copy_factory(self, working_copy_factories)?;
         let working_copy = working_copy_factory.load_working_copy(
             repo_loader.store().clone(),
