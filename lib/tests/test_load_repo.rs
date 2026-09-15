@@ -36,6 +36,7 @@ fn test_load_at_operation() -> TestResult {
     // removed
     let loader = RepoLoader::init_from_file_system(
         &settings,
+        test_repo.env.root(),
         test_repo.repo_path(),
         &test_repo.env.default_backend_factories(),
     )?;
@@ -46,6 +47,7 @@ fn test_load_at_operation() -> TestResult {
     // it has not been removed yet
     let loader = RepoLoader::init_from_file_system(
         &settings,
+        test_repo.env.root(),
         test_repo.repo_path(),
         &test_repo.env.default_backend_factories(),
     )?;
