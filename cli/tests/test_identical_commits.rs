@@ -101,6 +101,42 @@ fn test_identical_commits_by_cycling_rewrite() {
     // TODO: Test `jj op diff --from @--`
 }
 
+/// Create commit "test1", rewrite it to "test2", undo the rewrite, then redo
+/// the same rewrite
+#[test]
+fn test_identical_commits_by_redoing_rewrite() {
+    let test_env = create_test_environment();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new", "root()", "-m=test1"]).success();
+    work_dir.run_jj(["describe", "-m=test2"]).success();
+    work_dir.run_jj(["undo"]).success();
+    // The rewrite is re-created identically. That is fine because the operation
+    // history already records it, so no edge is added to the predecessors
+    // graph.
+    insta::assert_snapshot!(work_dir.run_jj(["describe", "-m=test2"]), @"
+    ------- stderr -------
+    Working copy  (@) now at: oxmtprsl c5abd225 (empty) test2
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  c5abd2256ac0 test2
+    ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
+    @  oxmtprsl test.user@example.com 2001-01-01 11:00:00 c5abd225
+    │  (empty) test2
+    │  -- operation f66efc12e442 describe commit 053222c21fa06b9492e22346f8f70e732231ad4f
+    ○  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 053222c2 (hidden)
+       (empty) test1
+       -- operation 166b2bc3dc53 new empty commit
+    [EOF]
+    ");
+}
+
 /// Create commits "test1" and "test2" and rewrite "test1". Then rewrite "test2"
 /// to become identical to the rewritten "test1".
 #[test]

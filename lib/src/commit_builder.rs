@@ -412,9 +412,34 @@ impl DetachedCommitBuilder {
             // Recording existing commit as new would create cycle in
             // predecessors/parent mappings within the current transaction, and
             // in predecessors graph globally.
-            return Err(BackendError::Other(
-                format!("Newly-created commit {id} already exists", id = commit.id()).into(),
-            ));
+            //
+            // The exception is a rewrite that the operation history already
+            // records. Recording it again adds no edge to the predecessors
+            // graph, so it cannot create a cycle there. That happens if a
+            // rewriting operation is undone and then redone, which
+            // deterministically re-creates the same commits.
+            let new_id = commit.id();
+            let is_self_predecessor = self.predecessors.contains(new_id)
+                || self
+                    .rewrite_source
+                    .as_ref()
+                    .is_some_and(|source| source.id() == new_id);
+            let is_recorded_rewrite = if self.rewrite_source.is_none()
+                || self.predecessors.is_empty()
+                || is_self_predecessor
+            {
+                false
+            } else {
+                mut_repo
+                    .is_recorded_rewrite(new_id, &self.predecessors)
+                    .await
+                    .map_err(|err| BackendError::Other(err.into()))?
+            };
+            if !is_recorded_rewrite {
+                return Err(BackendError::Other(
+                    format!("Newly-created commit {id} already exists", id = commit.id()).into(),
+                ));
+            }
         }
         mut_repo.add_head(&commit).await?;
         mut_repo.set_predecessors(commit.id().clone(), self.predecessors);

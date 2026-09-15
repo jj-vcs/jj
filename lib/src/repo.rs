@@ -22,6 +22,7 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs;
 use std::path::Path;
+use std::pin::pin;
 use std::slice;
 use std::sync::Arc;
 
@@ -1017,6 +1018,42 @@ impl MutableRepo {
 
     pub(crate) fn set_predecessors(&mut self, id: CommitId, predecessors: Vec<CommitId>) {
         self.commit_predecessors.insert(id, predecessors);
+    }
+
+    /// Returns true if `new_id` is already recorded as a rewrite of exactly
+    /// `predecessors` in the operation history.
+    ///
+    /// Recording such a rewrite again adds no edge to the predecessors graph,
+    /// so it cannot create a cycle there. This is the case if a rewriting
+    /// operation is undone and then redone, which deterministically re-creates
+    /// the same commits.
+    ///
+    /// Returns false if `new_id` is already involved in a rewrite in this
+    /// transaction, because recording it again could create a cycle in
+    /// `commit_predecessors`/`parent_mapping`.
+    pub(crate) async fn is_recorded_rewrite(
+        &self,
+        new_id: &CommitId,
+        predecessors: &[CommitId],
+    ) -> OpStoreResult<bool> {
+        if self.commit_predecessors.contains_key(new_id) || self.parent_mapping.contains_key(new_id)
+        {
+            return Ok(false);
+        }
+        let mut op_ancestors = pin!(op_walk::walk_ancestors(slice::from_ref(
+            self.base_repo.operation()
+        )));
+        while let Some(op) = op_ancestors.try_next().await? {
+            if !op.stores_commit_predecessors() {
+                // Operation written by jj < 0.30. There may be concurrent ops,
+                // but let's ignore the rest.
+                break;
+            }
+            if op.predecessors_for_commit(new_id) == Some(predecessors) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Record a commit as having been rewritten to another commit in this
