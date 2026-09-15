@@ -230,6 +230,38 @@ pub struct ParsedBulkEditMessage<T> {
     pub unexpected: Vec<String>,
 }
 
+impl ParsedBulkEditMessage<CommitId> {
+    pub fn validate_commit_descriptions(self) -> Result<HashMap<CommitId, String>, CommandError> {
+        let Self {
+            descriptions,
+            missing,
+            duplicates,
+            unexpected,
+        } = self;
+        if !missing.is_empty() {
+            return Err(user_error(format!(
+                "The description for the following commits were not found in the edited message: \
+                 {}",
+                missing.join(", ")
+            )));
+        }
+        if !duplicates.is_empty() {
+            return Err(user_error(format!(
+                "The following commits were found in the edited message multiple times: {}",
+                duplicates.join(", ")
+            )));
+        }
+        if !unexpected.is_empty() {
+            return Err(user_error(format!(
+                "The following commits were not being edited, but were found in the edited \
+                 message: {}",
+                unexpected.join(", ")
+            )));
+        }
+        Ok(descriptions)
+    }
+}
+
 #[derive(Debug, Error, PartialEq)]
 pub enum ParseBulkEditMessageError {
     #[error(r#"Found the following line without a commit header: "{0}""#)]

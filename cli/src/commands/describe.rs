@@ -29,9 +29,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
-use crate::command_error::user_error;
 use crate::complete;
-use crate::description_util::ParsedBulkEditMessage;
 use crate::description_util::add_trailers_with_template;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
@@ -185,33 +183,8 @@ pub(crate) async fn cmd_describe(
             let description = edit_description(&text_editor, &template)?;
             commit_builders[0].set_description(description);
         } else {
-            let ParsedBulkEditMessage {
-                descriptions,
-                missing,
-                duplicates,
-                unexpected,
-            } = edit_multiple_descriptions(ui, &text_editor, &tx, &temp_commits)?;
-            if !missing.is_empty() {
-                return Err(user_error(format!(
-                    "The description for the following commits were not found in the edited \
-                     message: {}",
-                    missing.join(", ")
-                )));
-            }
-            if !duplicates.is_empty() {
-                return Err(user_error(format!(
-                    "The following commits were found in the edited message multiple times: {}",
-                    duplicates.join(", ")
-                )));
-            }
-            if !unexpected.is_empty() {
-                return Err(user_error(format!(
-                    "The following commits were not being edited, but were found in the edited \
-                     message: {}",
-                    unexpected.join(", ")
-                )));
-            }
-
+            let descriptions = edit_multiple_descriptions(ui, &text_editor, &tx, &temp_commits)?
+                .validate_commit_descriptions()?;
             for (commit, commit_builder) in iter::zip(&commits, &mut commit_builders) {
                 let description = descriptions.get(commit.id()).unwrap();
                 commit_builder.set_description(description);
