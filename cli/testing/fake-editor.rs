@@ -85,6 +85,11 @@ fn main() {
                     panic!("Failed to write file {}", args.file.to_str().unwrap())
                 });
             }
+            ["update-describe"] => {
+                let old_content = fs::read_to_string(&args.file).unwrap();
+                let new_content = update_describe_markers(payload, &old_content);
+                fs::write(&args.file, &new_content).unwrap();
+            }
             ["delete"] => {
                 fs::remove_file(&args.file).unwrap_or_else(|_| {
                     panic!("Failed to delete file {}", args.file.to_str().unwrap())
@@ -96,4 +101,21 @@ fn main() {
             }
         }
     }
+}
+
+/// Copies "JJ: describe" lines from the old content.
+fn update_describe_markers(new_content: &str, old_content: &str) -> String {
+    let mut old_markers = old_content
+        .split_inclusive('\n')
+        .filter(|line| line.starts_with("JJ: describe "));
+    new_content
+        .split_inclusive('\n')
+        .map(|line| {
+            if line.starts_with("JJ: describe ") {
+                old_markers.next().unwrap()
+            } else {
+                line
+            }
+        })
+        .collect()
 }

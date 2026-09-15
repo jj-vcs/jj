@@ -183,7 +183,7 @@ pub fn edit_multiple_descriptions(
     ui: &Ui,
     editor: &TextEditor,
     tx: &WorkspaceCommandTransaction,
-    commits: &[(&CommitId, Commit)],
+    commits: &[(&CommitId, &str, Commit)],
 ) -> Result<ParsedBulkEditMessage<CommitId>, CommandError> {
     let mut commits_map = IndexMap::new();
     let mut bulk_message = String::new();
@@ -195,13 +195,12 @@ pub fn edit_multiple_descriptions(
         JJ: - The syntax of the separator lines may change in the future.
         JJ:
     "#});
-    for (commit_id, temp_commit) in commits {
+    for (commit_id, intro, temp_commit) in commits {
         let commit_hash = short_commit_hash(commit_id);
         bulk_message.push_str("JJ: describe ");
         bulk_message.push_str(&commit_hash);
         bulk_message.push_str(" -------\n");
         commits_map.insert(commit_hash, *commit_id);
-        let intro = "";
         let template = description_template(ui, tx, intro, temp_commit)?;
         bulk_message.push_str(&template);
         append_blank_line(&mut bulk_message);
@@ -228,6 +227,38 @@ pub struct ParsedBulkEditMessage<T> {
     /// Commit IDs that were found while parsing the edited messages, but which
     /// were not originally being edited.
     pub unexpected: Vec<String>,
+}
+
+impl ParsedBulkEditMessage<CommitId> {
+    pub fn validate_commit_descriptions(self) -> Result<HashMap<CommitId, String>, CommandError> {
+        let Self {
+            descriptions,
+            missing,
+            duplicates,
+            unexpected,
+        } = self;
+        if !missing.is_empty() {
+            return Err(user_error(format!(
+                "The description for the following commits were not found in the edited message: \
+                 {}",
+                missing.join(", ")
+            )));
+        }
+        if !duplicates.is_empty() {
+            return Err(user_error(format!(
+                "The following commits were found in the edited message multiple times: {}",
+                duplicates.join(", ")
+            )));
+        }
+        if !unexpected.is_empty() {
+            return Err(user_error(format!(
+                "The following commits were not being edited, but were found in the edited \
+                 message: {}",
+                unexpected.join(", ")
+            )));
+        }
+        Ok(descriptions)
+    }
 }
 
 #[derive(Debug, Error, PartialEq)]
