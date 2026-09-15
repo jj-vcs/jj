@@ -67,6 +67,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#6745](https://github.com/jj-vcs/jj/issues/6745)
   [#8547](https://github.com/jj-vcs/jj/issues/8547)
 
+* `.gitignore` files are now respected even if they aren't materialized in the
+  working copy because they are excluded by the sparse patterns. Previously,
+  ignored files could become tracked in a sparse working copy.
+  [#2289](https://github.com/jj-vcs/jj/issues/2289)
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
