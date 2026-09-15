@@ -365,22 +365,16 @@ pub(crate) async fn cmd_split(
         };
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_parents(parents).set_tree(new_tree);
-        let mut show_editor = args.editor;
         if !use_move_flags {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
             // become divergent.
             commit_builder.generate_new_change_id();
         }
-        let description = if target.commit.description().is_empty() {
-            // If there was no description before, don't ask for one for the
-            // second commit.
-            "".to_string()
-        } else {
-            show_editor = show_editor || args.message_paragraphs.is_none();
-            // Just keep the original message unchanged
-            commit_builder.description().to_owned()
-        };
+        // If there was no description before, don't ask for one for the second
+        // commit.
+        let show_editor = args.editor
+            || (!target.commit.description().is_empty() && args.message_paragraphs.is_none());
         let description = if show_editor {
             let new_description = add_trailers(ui, &tx, &commit_builder).await?;
             commit_builder.set_description(new_description);
@@ -389,7 +383,7 @@ pub(crate) async fn cmd_split(
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         } else {
-            description
+            commit_builder.description().to_owned()
         };
         commit_builder.set_description(description);
         commit_builder.write(tx.repo_mut()).await?
