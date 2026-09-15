@@ -157,7 +157,11 @@ met:
 
  * When a commit has been rewritten (e.g, when you rebase) bookmarks and the
    working-copy will move along with it.
- * When a commit has been abandoned, all associated bookmarks will be deleted.
+ * When a commit is abandoned as part of a rewrite (e.g. when `jj squash`
+   empties it, or `jj rebase --skip-emptied` drops it), its bookmarks move to
+   the abandoned commit's parent.
+ * When a commit is abandoned with `jj abandon`, its bookmarks are deleted
+   instead. Pass `--retain-bookmarks` to move them to the parent.
 
 You could describe the updates as following along the change-id of the
 current bookmark commit, even if it isn't entirely accurate.
