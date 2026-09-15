@@ -18,6 +18,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The minimum supported Rust version (MSRV) is now 1.97.1.
 
+* `jj split` now opens a single editor session to edit descriptions for the
+  split commits.
+
 ### Deprecations
 
 ### New features
