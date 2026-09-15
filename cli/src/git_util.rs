@@ -29,6 +29,7 @@ use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_lib::backend::CommitId;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
@@ -36,6 +37,7 @@ use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitImportRefUpdate;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::GitProgress;
+use jj_lib::git::GitPushRefTargets;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
@@ -43,12 +45,17 @@ use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git_backend::GitRepoAtWorkdirError;
+use jj_lib::merge::Diff;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::ref_name::RefNameBuf;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::store::Store;
 use jj_lib::workspace::Workspace;
+use serde::Serialize;
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
@@ -562,6 +569,131 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+/// One bookmark or tag update as reported to a `git-pre-push`/`git-post-push`
+/// hook's stdin payload. See `docs/design/hooks.md`, "Invocation contract".
+#[derive(Serialize)]
+struct HookRefUpdate {
+    kind: &'static str,
+    name: String,
+    #[serde(rename = "old-commit-id")]
+    old_commit_id: Option<String>,
+    #[serde(rename = "new-commit-id")]
+    new_commit_id: Option<String>,
+    /// Absent for `git-pre-push`; `pushed`, `rejected`, or `remote-rejected`
+    /// for `git-post-push`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    outcome: Option<&'static str>,
+}
+
+#[derive(Serialize)]
+struct HookRemoteUpdates {
+    remote: String,
+    updates: Vec<HookRefUpdate>,
+}
+
+#[derive(Serialize)]
+struct HookPushPayload {
+    #[serde(rename = "schema-version")]
+    schema_version: u32,
+    remotes: Vec<HookRemoteUpdates>,
+}
+
+fn hook_outcome_for(stats: Option<&GitPushStats>, qualified_name: &str) -> Option<&'static str> {
+    let stats = stats?;
+    if stats.pushed.iter().any(|n| n.as_str() == qualified_name) {
+        Some("pushed")
+    } else if stats
+        .rejected
+        .iter()
+        .any(|(n, _)| n.as_str() == qualified_name)
+    {
+        Some("rejected")
+    } else if stats
+        .remote_rejected
+        .iter()
+        .any(|(n, _)| n.as_str() == qualified_name)
+    {
+        Some("remote-rejected")
+    } else {
+        None
+    }
+}
+
+fn hook_ref_update(
+    kind: &'static str,
+    prefix: &str,
+    name: &RefNameBuf,
+    diff: &Diff<Option<CommitId>>,
+    stats: Option<&GitPushStats>,
+) -> HookRefUpdate {
+    let qualified_name = format!("{prefix}{name}", name = name.as_str());
+    HookRefUpdate {
+        kind,
+        name: name.as_str().to_owned(),
+        old_commit_id: diff.before.as_ref().map(CommitId::hex),
+        new_commit_id: diff.after.as_ref().map(CommitId::hex),
+        outcome: hook_outcome_for(stats, &qualified_name),
+    }
+}
+
+fn hook_ref_updates(
+    targets: &GitPushRefTargets,
+    stats: Option<&GitPushStats>,
+) -> Vec<HookRefUpdate> {
+    itertools::chain(
+        targets
+            .bookmarks
+            .iter()
+            .map(|(name, diff)| hook_ref_update("bookmark", "refs/heads/", name, diff, stats)),
+        targets
+            .tags
+            .iter()
+            .map(|(name, diff)| hook_ref_update("tag", "refs/tags/", name, diff, stats)),
+    )
+    .collect()
+}
+
+/// Builds the `git-pre-push` hook's stdin payload: schema version and, for
+/// every remote about to be pushed to, the bookmark/tag updates with no
+/// outcome yet.
+pub fn git_pre_push_hook_payload(by_remote: &[(&RemoteName, GitPushRefTargets)]) -> Vec<u8> {
+    let remotes = by_remote
+        .iter()
+        .map(|(remote, targets)| HookRemoteUpdates {
+            remote: remote.as_str().to_owned(),
+            updates: hook_ref_updates(targets, None),
+        })
+        .collect();
+    serde_json::to_vec(&HookPushPayload {
+        schema_version: 1,
+        remotes,
+    })
+    .expect("hook payload should always serialize")
+}
+
+/// Builds the `git-post-push` hook's stdin payload: the same shape as
+/// [`git_pre_push_hook_payload`], with each update's outcome (`pushed`,
+/// `rejected`, `remote-rejected`) filled in from `stats`, which must be in
+/// the same order as `by_remote`.
+pub fn git_post_push_hook_payload(
+    by_remote: &[(&RemoteName, GitPushRefTargets)],
+    stats: &[GitPushStats],
+) -> Vec<u8> {
+    let remotes = by_remote
+        .iter()
+        .zip(stats)
+        .map(|((remote, targets), stats)| HookRemoteUpdates {
+            remote: remote.as_str().to_owned(),
+            updates: hook_ref_updates(targets, Some(stats)),
+        })
+        .collect();
+    serde_json::to_vec(&HookPushPayload {
+        schema_version: 1,
+        remotes,
+    })
+    .expect("hook payload should always serialize")
 }
 
 /// Disconnects the Git worktree backing a jj workspace, if there is one.
