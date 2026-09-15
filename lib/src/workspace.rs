@@ -58,7 +58,6 @@ use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
-use crate::working_copy::ResetError;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
@@ -73,8 +72,6 @@ pub enum WorkspaceInitError {
     EncodeRepoPath(#[source] BadPathEncoding),
     #[error(transparent)]
     CheckOutCommit(#[from] CheckOutCommitError),
-    #[error(transparent)]
-    Reset(#[from] ResetError),
     #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
     #[error(transparent)]
@@ -160,13 +157,6 @@ async fn init_working_copy(
         workspace_name,
         repo.settings(),
     )?;
-    let working_copy = if first_commit.id() != repo.store().root_commit_id() {
-        let mut locked_wc = working_copy.start_mutation().await?;
-        locked_wc.reset(first_commit).await?;
-        locked_wc.finish(repo.op_id().clone()).await?
-    } else {
-        working_copy
-    };
     let working_copy_type_path = working_copy_state_path.join("type");
     fs::write(&working_copy_type_path, working_copy.name()).context(&working_copy_type_path)?;
     Ok((working_copy, repo))
