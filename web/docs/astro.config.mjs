@@ -120,6 +120,7 @@ export default defineConfig({
 					label: 'Contributing',
 					items: [
 						{ label: 'Guidelines and "How to...?"', slug: 'contributing' },
+						{ label: 'AI contribution policy', slug: 'ai-policy' },
 						{ label: 'Code of conduct', slug: 'code-of-conduct' },
 						{ label: 'Style guide', slug: 'style_guide' },
 						{ label: 'Design docs', slug: 'design_docs' },
