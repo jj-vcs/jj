@@ -4223,6 +4223,9 @@ fn test_diff_revisions() {
     D
     E
     [EOF]
+    ------- stderr -------
+    Warning: Showing combined diff of multiple revisions that do not form a linear chain
+    [EOF]
     ");
 
     // Can diff a set with multiple heads
@@ -4230,6 +4233,9 @@ fn test_diff_revisions() {
     B
     C
     D
+    [EOF]
+    ------- stderr -------
+    Warning: Showing combined diff of multiple revisions that do not form a linear chain
     [EOF]
     ");
 
