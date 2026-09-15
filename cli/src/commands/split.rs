@@ -44,8 +44,7 @@ use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::description_util::add_trailers;
-use crate::description_util::description_template;
-use crate::description_util::edit_description;
+use crate::description_util::edit_multiple_descriptions;
 use crate::description_util::join_message_paragraphs;
 use crate::ui::Ui;
 
@@ -98,10 +97,7 @@ use crate::ui::Ui;
 ///                   K" (selected, inserted before J with -B J)
 /// ```
 ///
-/// If the change you split had a description, you will be asked to enter a
-/// change description for each commit. If the change did not have a
-/// description, the second commit will not get a description, and you will be
-/// asked for a description only for the first commit.
+/// You will be asked to enter change descriptions for the split commits.
 ///
 /// Splitting an empty commit is not supported because the same effect can be
 /// achieved with `jj new`.
@@ -358,49 +354,43 @@ pub(crate) async fn cmd_split(
         commit_builder
     };
 
-    let first_commit = {
-        let use_editor = args.message_paragraphs.is_none() || args.editor;
+    let use_editor = args.message_paragraphs.is_none() || args.editor;
+    if use_editor {
         // Trailers should have been added if the description wasn't empty.
-        let description = if first_commit_builder.description().is_empty() && use_editor {
-            add_trailers(ui, &tx, &first_commit_builder).await?
-        } else {
-            first_commit_builder.description().to_owned()
-        };
-        let description = if use_editor {
+        if first_commit_builder.description().is_empty() {
+            let description = add_trailers(ui, &tx, &first_commit_builder).await?;
             first_commit_builder.set_description(description);
-            let temp_commit = first_commit_builder.write_hidden().await?;
-            let intro = "Enter a description for the selected changes.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
-            edit_description(&text_editor, &template)?
-        } else {
-            description
-        };
-        first_commit_builder.set_description(description);
-        first_commit_builder.write(tx.repo_mut()).await?
-    };
-    let second_commit = {
+        }
+        let first_commit = first_commit_builder.write_hidden().await?;
+        let first_intro = "Enter a description for the selected changes.";
+
         if parallel {
             second_commit_builder.set_parents(target.commit.parent_ids().to_vec());
         } else {
             second_commit_builder.set_parents(vec![first_commit.id().clone()]);
         }
-        // If there was no description before, don't ask for one for the second
-        // commit.
-        let show_editor = args.editor
-            || (!target.commit.description().is_empty() && args.message_paragraphs.is_none());
-        let description = if show_editor {
-            let new_description = add_trailers(ui, &tx, &second_commit_builder).await?;
-            second_commit_builder.set_description(new_description);
-            let temp_commit = second_commit_builder.write_hidden().await?;
-            let intro = "Enter a description for the remaining changes.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
-            edit_description(&text_editor, &template)?
-        } else {
-            second_commit_builder.description().to_owned()
-        };
+        let description = add_trailers(ui, &tx, &second_commit_builder).await?;
         second_commit_builder.set_description(description);
-        second_commit_builder.write(tx.repo_mut()).await?
-    };
+        let second_commit = second_commit_builder.write_hidden().await?;
+        let second_intro = "Enter a description for the remaining changes.";
+
+        let temp_commits = [
+            (first_commit.id(), first_intro, first_commit.clone()),
+            (second_commit.id(), second_intro, second_commit.clone()),
+        ];
+        let descriptions = edit_multiple_descriptions(ui, &text_editor, &tx, &temp_commits)?
+            .validate_commit_descriptions()?;
+        first_commit_builder.set_description(&descriptions[first_commit.id()]);
+        second_commit_builder.set_description(&descriptions[second_commit.id()]);
+    }
+
+    let first_commit = first_commit_builder.write(tx.repo_mut()).await?;
+    if parallel {
+        second_commit_builder.set_parents(target.commit.parent_ids().to_vec());
+    } else {
+        second_commit_builder.set_parents(vec![first_commit.id().clone()]);
+    }
+    let second_commit = second_commit_builder.write(tx.repo_mut()).await?;
 
     let (first_commit, second_commit, num_rebased) = if use_move_flags {
         move_first_commit(

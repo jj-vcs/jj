@@ -23,6 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and that the working copy does go from bad to good over the provided revset.
   Use the new flag `--trust-endpoints` to disable these checks.
 
+* `jj split` now opens a single editor session to edit descriptions for the
+  split commits.
+
 ### Deprecations
 
 ### New features

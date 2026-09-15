@@ -14,6 +14,7 @@
 
 use std::path::PathBuf;
 
+use indoc::indoc;
 use test_case::test_case;
 use testutils::TestResult;
 
@@ -66,16 +67,12 @@ fn test_split_by_paths() -> TestResult {
     Committer date: 2001-02-03 04:05:08.000 +07:00[EOF]
     ");
 
-    std::fs::write(
-        &edit_script,
-        [
-            "dump editor0",
-            "write\n",
-            "next invocation\n",
-            "dump editor1",
-        ]
-        .join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        JJ: describe ************ -------
+    "};
+    std::fs::write(&edit_script, ["dump editor", edit_instr].join("\0"))?;
     let output = work_dir.run_jj([
         "split",
         "file2",
@@ -91,7 +88,13 @@ fn test_split_by_paths() -> TestResult {
     ");
     // Trailers should be added to the editor template
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe 75d98a03733d -------
     JJ: Enter a description for the selected changes.
 
 
@@ -101,9 +104,19 @@ fn test_split_by_paths() -> TestResult {
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:
+    JJ: describe 12afeee3a9cc -------
+    JJ: Enter a description for the remaining changes.
+
+
+    Trailer: value
+
+    JJ: Change ID: zsuskuln
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:     A file3
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
-    assert!(!test_env.env_root().join("editor1").exists());
 
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  zsuskulnrvyr false
@@ -222,17 +235,14 @@ fn test_split_with_non_empty_description() -> TestResult {
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
     work_dir.run_jj(["describe", "-m", "test"]).success();
-    std::fs::write(
-        edit_script,
-        [
-            "dump editor1",
-            "write\npart 1",
-            "next invocation\n",
-            "dump editor2",
-            "write\npart 2",
-        ]
-        .join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        part 1
+        JJ: describe ************ -------
+        part 2
+    "};
+    std::fs::write(edit_script, ["dump editor", edit_instr].join("\0"))?;
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -244,7 +254,13 @@ fn test_split_with_non_empty_description() -> TestResult {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe 2671a19fa813 -------
     JJ: Enter a description for the selected changes.
     test
 
@@ -252,10 +268,7 @@ fn test_split_with_non_empty_description() -> TestResult {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
-    JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "#);
-    insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
+    JJ: describe 6a758f874bda -------
     JJ: Enter a description for the remaining changes.
     test
 
@@ -285,26 +298,28 @@ fn test_split_with_default_description() -> TestResult {
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
 
-    std::fs::write(
-        edit_script,
-        ["dump editor1", "next invocation\n", "dump editor2"].join("\0"),
-    )?;
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Selected changes : qpvuntsm ff633dcc TESTED=TODO
-    Remaining changes: rlvkpnrz b1d20b7e (no description set)
-    Working copy  (@) now at: rlvkpnrz b1d20b7e (no description set)
+    Remaining changes: rlvkpnrz af8463e1 TESTED=TODO
+    Working copy  (@) now at: rlvkpnrz af8463e1 TESTED=TODO
     Parent commit (@-)      : qpvuntsm ff633dcc TESTED=TODO
     [EOF]
     ");
 
-    // Since the commit being split has no description, the user will only be
-    // prompted to add a description to the first commit, which will use the
-    // default value we set. The second commit will inherit the empty
-    // description from the commit being split.
+    // Since the commit being split has no description, the user will be
+    // prompted to add a description. Both the first and second commits will use
+    // the default value we set.
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe c664a51bff8c -------
     JJ: Enter a description for the selected changes.
 
 
@@ -314,11 +329,20 @@ fn test_split_with_default_description() -> TestResult {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
+    JJ: describe 7e5d65b1755b -------
+    JJ: Enter a description for the remaining changes.
+
+
+    TESTED=TODO
+
+    JJ: Change ID: rlvkpnrz
+    JJ: This commit contains the following changes:
+    JJ:     A file2
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
-    assert!(!test_env.env_root().join("editor2").exists());
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  rlvkpnrzqnoo false
+    @  rlvkpnrzqnoo false TESTED=TODO
     ○  qpvuntsmwlqt false TESTED=TODO
     ◆  zzzzzzzzzzzz true
     [EOF]
@@ -355,17 +379,14 @@ fn test_split_with_descendants() -> TestResult {
     ");
 
     // Set up the editor and do the split.
-    std::fs::write(
-        edit_script,
-        [
-            "dump editor1",
-            "write\nAdd file1",
-            "next invocation\n",
-            "dump editor2",
-            "write\nAdd file2",
-        ]
-        .join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        Add file1
+        JJ: describe ************ -------
+        Add file2
+    "};
+    std::fs::write(edit_script, ["dump editor", edit_instr].join("\0"))?;
     let output = work_dir.run_jj(["split", "file1", "-r", "qpvu"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -388,7 +409,13 @@ fn test_split_with_descendants() -> TestResult {
     // The commit we're splitting has a description, so the user will be
     // prompted to enter a description for each of the commits.
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe 96d63cfea6ac -------
     JJ: Enter a description for the selected changes.
     Add file1 & file2
 
@@ -396,10 +423,7 @@ fn test_split_with_descendants() -> TestResult {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
-    JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "#);
-    insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
+    JJ: describe 564fe2e7f813 -------
     JJ: Enter a description for the remaining changes.
     Add file1 & file2
 
@@ -479,10 +503,14 @@ fn test_split_with_merge_child() -> TestResult {
     ");
 
     // Set up the editor and do the split.
-    std::fs::write(
-        edit_script,
-        ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        Add file1
+        JJ: describe ************ -------
+        Add file2
+    "};
+    std::fs::write(edit_script, [edit_instr].join("\0"))?;
     let output = work_dir.run_jj(["split", "-rsubject(a)", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -526,34 +554,36 @@ fn test_split_parallel_no_descendants() -> TestResult {
     [EOF]
     ");
 
-    std::fs::write(
-        edit_script,
-        ["dump editor1", "next invocation\n", "dump editor2"].join("\0"),
-    )?;
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
     let output = work_dir.run_jj(["split", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Selected changes : qpvuntsm 7bcd474c TESTED=TODO
-    Remaining changes: kkmpptxz 431886f6 (no description set)
-    Working copy  (@) now at: kkmpptxz 431886f6 (no description set)
+    Remaining changes: kkmpptxz a99637f9 TESTED=TODO
+    Working copy  (@) now at: kkmpptxz a99637f9 TESTED=TODO
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  kkmpptxzrspx false
+    @  kkmpptxzrspx false TESTED=TODO
     │ ○  qpvuntsmwlqt false TESTED=TODO
     ├─╯
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
 
-    // Since the commit being split has no description, the user will only be
-    // prompted to add a description to the first commit, which will use the
-    // default value we set. The second commit will inherit the empty
-    // description from the commit being split.
+    // Since the commit being split has no description, the user will be
+    // prompted to add a description. Both the first and second commits will use
+    // the default value we set.
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe 94b062264b80 -------
     JJ: Enter a description for the selected changes.
 
 
@@ -563,9 +593,18 @@ fn test_split_parallel_no_descendants() -> TestResult {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
+    JJ: describe 431886f6d6ce -------
+    JJ: Enter a description for the remaining changes.
+
+
+    TESTED=TODO
+
+    JJ: Change ID: kkmpptxz
+    JJ: This commit contains the following changes:
+    JJ:     A file2
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
-    assert!(!test_env.env_root().join("editor2").exists());
 
     // Check the evolog for the first commit. It shows three entries:
     // - The initial empty commit.
@@ -575,7 +614,7 @@ fn test_split_parallel_no_descendants() -> TestResult {
     insta::assert_snapshot!(evolog_1, @"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 7bcd474c
     │  TESTED=TODO
-    │  -- operation 46ec05e13358 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation b18b49f72827 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
     │  -- operation 9173705f4b2a snapshot working copy
@@ -589,9 +628,9 @@ fn test_split_parallel_no_descendants() -> TestResult {
     // changes after the split.
     let evolog_2 = work_dir.run_jj(["evolog", "-r", "kkmpp"]);
     insta::assert_snapshot!(evolog_2, @"
-    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 431886f6
-    │  (no description set)
-    │  -- operation 46ec05e13358 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 a99637f9
+    │  TESTED=TODO
+    │  -- operation b18b49f72827 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
     │  -- operation 9173705f4b2a snapshot working copy
@@ -636,17 +675,14 @@ fn test_split_parallel_with_descendants() -> TestResult {
     ");
 
     // Set up the editor and do the split.
-    std::fs::write(
-        edit_script,
-        [
-            "dump editor1",
-            "write\nAdd file1",
-            "next invocation\n",
-            "dump editor2",
-            "write\nAdd file2",
-        ]
-        .join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        Add file1
+        JJ: describe ************ -------
+        Add file2
+    "};
+    std::fs::write(edit_script, ["dump editor", edit_instr].join("\0"))?;
     let output = work_dir.run_jj(["split", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -672,7 +708,13 @@ fn test_split_parallel_with_descendants() -> TestResult {
     // The commit we're splitting has a description, so the user will be
     // prompted to enter a description for each of the sibling commits.
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe a364ede727a0 -------
     JJ: Enter a description for the selected changes.
     Add file1 & file2
 
@@ -680,10 +722,7 @@ fn test_split_parallel_with_descendants() -> TestResult {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
-    JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "#);
-    insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
+    JJ: describe 2d2750c8c3f7 -------
     JJ: Enter a description for the remaining changes.
     Add file1 & file2
 
@@ -722,10 +761,14 @@ fn test_split_parallel_with_merge_child() -> TestResult {
     ");
 
     // Set up the editor and do the split.
-    std::fs::write(
-        edit_script,
-        ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        Add file1
+        JJ: describe ************ -------
+        Add file2
+    "};
+    std::fs::write(edit_script, [edit_instr].join("\0"))?;
     let output = work_dir.run_jj(["split", "-rsubject(a)", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -939,12 +982,26 @@ fn test_split_interactive() -> TestResult {
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe c664a51bff8c -------
     JJ: Enter a description for the selected changes.
 
 
     JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
+    JJ:
+    JJ: describe 7e5d65b1755b -------
+    JJ: Enter a description for the remaining changes.
+
+
+    JJ: Change ID: rlvkpnrz
+    JJ: This commit contains the following changes:
+    JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
@@ -1006,12 +1063,27 @@ fn test_split_interactive_with_paths() -> TestResult {
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe cdc9960af442 -------
     JJ: Enter a description for the selected changes.
 
 
     JJ: Change ID: rlvkpnrz
     JJ: This commit contains the following changes:
     JJ:     A file1
+    JJ:
+    JJ: describe 7255f07037e1 -------
+    JJ: Enter a description for the remaining changes.
+
+
+    JJ: Change ID: kkmpptxz
+    JJ: This commit contains the following changes:
+    JJ:     M file2
+    JJ:     M file3
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
@@ -1070,10 +1142,14 @@ fn test_split_with_multiple_workspaces_same_working_copy() -> TestResult {
     let setup_opid = main_dir.current_operation_id();
 
     // Do the split in the default workspace.
-    std::fs::write(
-        &edit_script,
-        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        first-commit
+        JJ: describe ************ -------
+        second-commit
+    "};
+    std::fs::write(&edit_script, [edit_instr].join("\0"))?;
     main_dir.run_jj(["split", "file2"]).success();
     // The working copy for both workspaces will be the second split commit.
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
@@ -1085,10 +1161,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() -> TestResult {
 
     // Test again with a --parallel split.
     main_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(
-        &edit_script,
-        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )?;
+    std::fs::write(&edit_script, [edit_instr].join("\0"))?;
     main_dir.run_jj(["split", "file2", "--parallel"]).success();
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  yostqsxwqrlt default@ second@ second-commit
@@ -1129,10 +1202,14 @@ fn test_split_with_multiple_workspaces_different_working_copy() -> TestResult {
     let setup_opid = main_dir.current_operation_id();
 
     // Do the split in the default workspace.
-    std::fs::write(
-        &edit_script,
-        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        first-commit
+        JJ: describe ************ -------
+        second-commit
+    "};
+    std::fs::write(&edit_script, [edit_instr].join("\0"))?;
     main_dir.run_jj(["split", "file2"]).success();
     // Only the working copy commit for the default workspace changes.
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
@@ -1146,10 +1223,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() -> TestResult {
 
     // Test again with a --parallel split.
     main_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(
-        &edit_script,
-        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )?;
+    std::fs::write(&edit_script, [edit_instr].join("\0"))?;
     main_dir.run_jj(["split", "file2", "--parallel"]).success();
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  vruxwmqvtpmx default@ second-commit
@@ -1174,17 +1248,14 @@ fn test_split_with_non_empty_description_and_trailers() -> TestResult {
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
     work_dir.run_jj(["describe", "-m", "test"]).success();
-    std::fs::write(
-        edit_script,
-        [
-            "dump editor1",
-            "write\npart 1",
-            "next invocation\n",
-            "dump editor2",
-            "write\npart 2",
-        ]
-        .join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        part 1
+        JJ: describe ************ -------
+        part 2
+    "};
+    std::fs::write(edit_script, ["dump editor", edit_instr].join("\0"))?;
 
     test_env.add_config(
         r#"[templates]
@@ -1201,7 +1272,13 @@ fn test_split_with_non_empty_description_and_trailers() -> TestResult {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe 4f1d1ad5ab54 -------
     JJ: Enter a description for the selected changes.
     test
 
@@ -1211,10 +1288,7 @@ fn test_split_with_non_empty_description_and_trailers() -> TestResult {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
-    JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "#);
-    insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
+    JJ: describe 02820ad72233 -------
     JJ: Enter a description for the remaining changes.
     test
 
@@ -1596,10 +1670,14 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) -> TestResult 
     let setup_opid = main_dir.current_operation_id();
 
     // Do the split.
-    std::fs::write(
-        &edit_script,
-        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        first-commit
+        JJ: describe ************ -------
+        second-commit
+    "};
+    std::fs::write(&edit_script, [edit_instr].join("\0"))?;
     let output = main_dir.run_jj(["split", "file2"]);
     match bookmark_behavior {
         BookmarkBehavior::LeaveBookmarkWithTarget => {
@@ -1646,10 +1724,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) -> TestResult 
 
     // Test again with a --parallel split.
     main_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(
-        &edit_script,
-        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )?;
+    std::fs::write(&edit_script, [edit_instr].join("\0"))?;
     main_dir.run_jj(["split", "file2", "--parallel"]).success();
     match bookmark_behavior {
         BookmarkBehavior::LeaveBookmarkWithTarget => {
@@ -1691,17 +1766,14 @@ fn test_split_with_editor_and_message_args() -> TestResult {
         .run_jj(["describe", "-m", "original description"])
         .success();
 
-    std::fs::write(
-        &edit_script,
-        [
-            "dump editor1",
-            "write\nedited message 1",
-            "next invocation\n",
-            "dump editor2",
-            "write\nedited message 2",
-        ]
-        .join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        edited message 1
+        JJ: describe ************ -------
+        edited message 2
+    "};
+    std::fs::write(&edit_script, ["dump editor", edit_instr].join("\0"))?;
     work_dir
         .run_jj([
             "split",
@@ -1712,9 +1784,17 @@ fn test_split_with_editor_and_message_args() -> TestResult {
         ])
         .success();
 
-    // Verify editor was opened for the first commit with message from command line
+    // Verify editor was opened for
+    // - the first commit with message from command line
+    // - the second commit with the original description
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe 80efb1f15c2d -------
     JJ: Enter a description for the selected changes.
     message from command line
 
@@ -1722,12 +1802,7 @@ fn test_split_with_editor_and_message_args() -> TestResult {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
-    JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "#);
-
-    // Verify editor was opened for the second commit with the original description
-    insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
+    JJ: describe d89f256f76ff -------
     JJ: Enter a description for the remaining changes.
     original description
 
@@ -1761,17 +1836,14 @@ fn test_split_with_editor_and_empty_message() -> TestResult {
 
     // Use --editor with an empty message. The trailers should be added because
     // the editor will be opened.
-    std::fs::write(
-        &edit_script,
-        [
-            "dump editor1",
-            "write\nfirst commit",
-            "next invocation\n",
-            "dump editor2",
-            "write\nsecond commit",
-        ]
-        .join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        first commit
+        JJ: describe ************ -------
+        second commit
+    "};
+    std::fs::write(&edit_script, ["dump editor", edit_instr].join("\0"))?;
     work_dir
         .run_jj([
             "split",
@@ -1784,10 +1856,17 @@ fn test_split_with_editor_and_empty_message() -> TestResult {
         ])
         .success();
 
-    // Verify editor was opened for the first commit with trailers added to the
-    // empty message
+    // Verify editor was opened for
+    // - the first commit with trailers added to the empty message
+    // - the second commit with the original description
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe fbbee0833887 -------
     JJ: Enter a description for the selected changes.
 
 
@@ -1797,11 +1876,7 @@ fn test_split_with_editor_and_empty_message() -> TestResult {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
-    JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "#);
-    // Verify editor was opened for the second commit with the original description
-    insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
+    JJ: describe e35b501c1340 -------
     JJ: Enter a description for the remaining changes.
     original description
 
@@ -1836,22 +1911,25 @@ fn test_split_with_editor_without_message() -> TestResult {
         .success();
 
     // --editor without -m should behave the same as without --editor (normal flow)
-    std::fs::write(
-        &edit_script,
-        [
-            "dump editor0",
-            "write\nfrom editor1",
-            "next invocation\n",
-            "dump editor1",
-            "write\nfrom editor2",
-        ]
-        .join("\0"),
-    )?;
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        from editor1
+        JJ: describe ************ -------
+        from editor2
+    "};
+    std::fs::write(&edit_script, ["dump editor", edit_instr].join("\0"))?;
     work_dir.run_jj(["split", "--editor", "file1"]).success();
 
-    // Verify editor was opened for the first commit
+    // Verify editor was opened
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe da8f283497e2 -------
     JJ: Enter a description for the selected changes.
     original description
 
@@ -1859,11 +1937,7 @@ fn test_split_with_editor_without_message() -> TestResult {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
-    JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "#);
-    // Verify editor was opened for the second commit
-    insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
+    JJ: describe 0e6f9c32af0f -------
     JJ: Enter a description for the remaining changes.
     original description
 

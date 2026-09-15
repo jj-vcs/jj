@@ -3352,10 +3352,7 @@ J                 J'
                   K" (selected, inserted before J with -B J)
 ```
 
-If the change you split had a description, you will be asked to enter a
-change description for each commit. If the change did not have a
-description, the second commit will not get a description, and you will be
-asked for a description only for the first commit.
+You will be asked to enter change descriptions for the split commits.
 
 Splitting an empty commit is not supported because the same effect can be
 achieved with `jj new`.
