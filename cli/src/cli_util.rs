@@ -566,16 +566,32 @@ impl CommandHelper {
     }
 
     pub fn get_working_copy_factory(&self) -> Result<&dyn WorkingCopyFactory, CommandError> {
-        let loader = self.workspace_loader()?;
+        self.working_copy_factory_from_loader(
+            self.workspace_loader()?,
+            self.data.global_args.repository.as_deref(),
+        )
+    }
 
+    pub fn get_working_copy_factory_at(
+        &self,
+        workspace_root: &Path,
+    ) -> Result<&dyn WorkingCopyFactory, CommandError> {
+        self.working_copy_factory_from_loader(
+            self.new_workspace_loader_at(workspace_root)?.as_ref(),
+            None,
+        )
+    }
+
+    fn working_copy_factory_from_loader(
+        &self,
+        loader: &dyn WorkspaceLoader,
+        user_wc_path: Option<&str>,
+    ) -> Result<&dyn WorkingCopyFactory, CommandError> {
         // We convert StoreLoadError -> WorkspaceLoadError -> CommandError
         let factory: Result<_, WorkspaceLoadError> =
             get_working_copy_factory(loader, &self.data.working_copy_factories)
                 .map_err(|e| e.into());
-        let factory = factory.map_err(|err| {
-            map_workspace_load_error(err, self.data.global_args.repository.as_deref())
-        })?;
-        Ok(factory)
+        factory.map_err(|err| map_workspace_load_error(err, user_wc_path))
     }
 
     /// Loads workspace for the current command.

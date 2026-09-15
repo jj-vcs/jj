@@ -57,6 +57,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util diff <path1> <path2>` to compare files on disk.
 
+* `jj git worktree adopt` adopts existing Git worktrees as jj
+  workspaces. With no arguments it adopts the worktree at the current
+  directory; with names it adopts specific worktrees; with `--all` it
+  adopts every unadopted worktree at once.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
