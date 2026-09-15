@@ -120,10 +120,8 @@ pub struct View {
     #[prost(bytes = "vec", tag = "2")]
     pub wc_commit_id: ::prost::alloc::vec::Vec<u8>,
     #[prost(map = "string, bytes", tag = "8")]
-    pub wc_commit_ids: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::vec::Vec<u8>,
-    >,
+    pub wc_commit_ids:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::vec::Vec<u8>>,
     /// Local bookmarks and remote bookmarks in legacy form.
     #[prost(message, repeated, tag = "5")]
     pub bookmarks: ::prost::alloc::vec::Vec<Bookmark>,
@@ -159,6 +157,8 @@ pub struct RemoteView {
     pub bookmarks: ::prost::alloc::vec::Vec<RemoteRef>,
     #[prost(message, repeated, tag = "3")]
     pub tags: ::prost::alloc::vec::Vec<RemoteRef>,
+    #[prost(message, repeated, tag = "4")]
+    pub other_refs: ::prost::alloc::vec::Vec<RemoteRef>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Operation {
@@ -200,10 +200,8 @@ pub struct OperationMetadata {
     #[prost(string, optional, tag = "8")]
     pub workspace_name: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(map = "string, string", tag = "6")]
-    pub attributes: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub attributes:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CommitPredecessors {

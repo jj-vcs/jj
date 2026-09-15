@@ -53,7 +53,6 @@ use jj_lib::git::GitPushError;
 use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitPushRefTargets;
 use jj_lib::git::GitPushStats;
-use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
 use jj_lib::git::GitResetHeadError;
 use jj_lib::git::GitSettings;
@@ -73,6 +72,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::LocalRemoteRefTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
+use jj_lib::op_store::RemoteRefKind;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::ref_name::GitRefNameBuf;
 use jj_lib::ref_name::RefName;
@@ -254,6 +254,7 @@ fn fetch_all_with(fetcher: &mut GitFetch, remote: &RemoteName) -> Result<(), Git
     let ref_expr = GitFetchRefExpression {
         bookmark: StringExpression::all(),
         tag: StringExpression::all(),
+        other_ref: StringExpression::none(),
     };
     fetch_with(fetcher, remote, ref_expr)
 }
@@ -2234,7 +2235,7 @@ fn test_import_some_refs() -> TestResult {
     // Import bookmarks feature1, feature2, and feature3.
     let mut tx = repo.start_transaction();
     git::import_some_refs(tx.repo_mut(), &import_options, |kind, symbol| {
-        kind == GitRefKind::Bookmark
+        kind == RemoteRefKind::Bookmark
             && symbol.remote == "origin"
             && symbol.name.as_str().starts_with("feature")
     })
@@ -2329,7 +2330,7 @@ fn test_import_some_refs() -> TestResult {
     delete_git_ref(&git_repo, "refs/remotes/origin/feature4");
     let mut tx = repo.start_transaction();
     git::import_some_refs(tx.repo_mut(), &import_options, |kind, symbol| {
-        kind == GitRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature2"
+        kind == RemoteRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature2"
     })
     .block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -2345,7 +2346,7 @@ fn test_import_some_refs() -> TestResult {
     // corresponding commit should stay because it is reachable from feature2.
     let mut tx = repo.start_transaction();
     git::import_some_refs(tx.repo_mut(), &import_options, |kind, symbol| {
-        kind == GitRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature1"
+        kind == RemoteRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature1"
     })
     .block_on()?;
     // No descendant should be rewritten.
@@ -2362,7 +2363,7 @@ fn test_import_some_refs() -> TestResult {
     // feature4 should be left alone even though it is no longer in git.
     let mut tx = repo.start_transaction();
     git::import_some_refs(tx.repo_mut(), &import_options, |kind, symbol| {
-        kind == GitRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature3"
+        kind == RemoteRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature3"
     })
     .block_on()?;
     // No descendant should be rewritten
@@ -2378,7 +2379,7 @@ fn test_import_some_refs() -> TestResult {
     // Import feature4: both the head and the bookmark will disappear.
     let mut tx = repo.start_transaction();
     git::import_some_refs(tx.repo_mut(), &import_options, |kind, symbol| {
-        kind == GitRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature4"
+        kind == RemoteRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature4"
     })
     .block_on()?;
     // No descendant should be rewritten
@@ -4424,6 +4425,7 @@ fn test_fetch_empty_refspecs() -> TestResult {
     let ref_expr = GitFetchRefExpression {
         bookmark: StringExpression::none(),
         tag: StringExpression::none(),
+        other_ref: StringExpression::none(),
     };
     fetch_with(&mut fetcher, "origin".as_ref(), ref_expr)?;
     fetcher.import_refs().block_on()?;
@@ -4725,6 +4727,7 @@ fn test_fetch_multiple_branches() -> TestResult {
             StringExpression::exact("noexist2"),
         ]),
         tag: StringExpression::none(),
+        other_ref: StringExpression::none(),
     };
     fetch_with(&mut fetcher, "origin".as_ref(), ref_expr)?;
     let stats = fetcher.import_refs().block_on()?;
@@ -4867,6 +4870,7 @@ fn test_fetch_with_explicit_tag_patterns() -> TestResult {
             // implicitly.
             bookmark: StringExpression::all(),
             tag,
+            other_ref: StringExpression::none(),
         };
         fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
         fetcher.import_refs().block_on().unwrap()
@@ -4949,6 +4953,7 @@ fn test_fetch_export_annotated_tags() -> TestResult {
         let ref_expr = GitFetchRefExpression {
             bookmark: StringExpression::none(),
             tag: StringExpression::all(),
+            other_ref: StringExpression::none(),
         };
         fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
         fetcher.import_refs().block_on().unwrap()

@@ -56,6 +56,7 @@ use crate::op_store::OperationId;
 use crate::op_store::OperationMetadata;
 use crate::op_store::RefTarget;
 use crate::op_store::RemoteRef;
+use crate::op_store::RemoteRefKind;
 use crate::op_store::RemoteRefState;
 use crate::op_store::RemoteView;
 use crate::op_store::RootOperationData;
@@ -718,7 +719,7 @@ fn bookmark_views_to_proto_legacy(
     local_bookmarks: &BTreeMap<RefNameBuf, RefTarget>,
     remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
 ) -> Vec<crate::protos::simple_op_store::Bookmark> {
-    op_store::merge_join_ref_views(local_bookmarks, remote_views, |view| &view.bookmarks)
+    op_store::merge_join_ref_views(local_bookmarks, remote_views, RemoteRefKind::Bookmark)
         .map(|(name, bookmark_target)| {
             let local_target = ref_target_to_proto(bookmark_target.local_target);
             // TODO: Drop serialization to the old format in jj 0.40 or so.
@@ -792,6 +793,7 @@ fn remote_views_to_proto(
             name: name.into(),
             bookmarks: remote_refs_to_proto(&view.bookmarks),
             tags: remote_refs_to_proto(&view.tags),
+            other_refs: remote_refs_to_proto(&view.other_refs),
         })
         .collect()
 }
@@ -806,6 +808,7 @@ fn remote_views_from_proto(
             let view = RemoteView {
                 bookmarks: remote_refs_from_proto(proto.bookmarks)?,
                 tags: remote_refs_from_proto(proto.tags)?,
+                other_refs: remote_refs_from_proto(proto.other_refs)?,
             };
             Ok((name, view))
         })
@@ -1022,6 +1025,8 @@ mod tests {
                         "v1.0".into() => tracked_remote_ref(&tag_v1_origin_target),
                         "deleted".into() => new_remote_ref(&tag_deleted_origin_target),
                     },
+                    other_refs: btreemap! {
+                    },
                 },
             },
             git_refs: btreemap! {
@@ -1174,6 +1179,7 @@ mod tests {
                     "main".into() => tracked_remote_ref(&main_target),
                 },
                 tags: btreemap! {},
+                other_refs: btreemap! {},
             },
         };
         let proto = crate::protos::simple_op_store::View {
@@ -1198,6 +1204,7 @@ mod tests {
                         tags: btreemap! {
                             "v1.0".into() => tracked_remote_ref(&v1_target),
                         },
+                other_refs: btreemap! {},
                     },
                 }
             );
@@ -1241,12 +1248,14 @@ mod tests {
                     "bookmark1".into() => tracked_remote_ref(&git_bookmark1_target),
                 },
                 tags: btreemap! {},
+                other_refs: btreemap! {},
             },
             "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
                     "bookmark1".into() => tracked_remote_ref(&remote1_bookmark1_target),
                 },
                 tags: btreemap! {},
+                other_refs: btreemap! {},
             },
             "remote2".into() => RemoteView {
                 bookmarks: btreemap! {
@@ -1255,6 +1264,7 @@ mod tests {
                     "bookmark4".into() => tracked_remote_ref(&remote2_bookmark4_target),
                 },
                 tags: btreemap! {},
+                other_refs: btreemap! {},
             },
         };
 

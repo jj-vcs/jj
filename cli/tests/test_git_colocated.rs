@@ -1096,7 +1096,7 @@ fn test_git_colocated_external_checkout() -> TestResult {
     [EOF]
     ------- stderr -------
     Reset the working copy parent to the new Git HEAD.
-    Operation left uncommitted because --no-integrate-operation was requested: bbe960f5b642
+    Operation left uncommitted because --no-integrate-operation was requested: cb03a127da90
     [EOF]
     ");
     let output = work_dir.run_jj(["status", "--no-integrate-operation"]);
@@ -1107,7 +1107,7 @@ fn test_git_colocated_external_checkout() -> TestResult {
     [EOF]
     ------- stderr -------
     Reset the working copy parent to the new Git HEAD.
-    Operation left uncommitted because --no-integrate-operation was requested: a995bf65df58
+    Operation left uncommitted because --no-integrate-operation was requested: 25c1cee26150
     [EOF]
     ");
 

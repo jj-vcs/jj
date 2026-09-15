@@ -30,6 +30,7 @@ use jj_lib::graph::TopoGroupedGraph;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
+use jj_lib::op_store::RemoteRefKind;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::refs::diff_named_commit_ids;
 use jj_lib::refs::diff_named_ref_targets;
@@ -506,87 +507,59 @@ pub async fn show_op_diff(
         RemoteRefState::Tracked => "tracked",
     };
 
-    let changed_remote_bookmarks = diff_named_remote_refs(
-        from_repo.view().all_remote_bookmarks(),
-        to_repo.view().all_remote_bookmarks(),
-    )
-    // Skip updates to the local git repo, since they should typically be covered in
-    // local branches.
-    .filter(|(symbol, _)| ignored_remote.is_none_or(|ignored| symbol.remote != ignored))
-    .collect_vec();
-    if !changed_remote_bookmarks.is_empty() {
-        writeln!(formatter)?;
-        with_content_format
-            .write(formatter, async |formatter| {
-                writeln!(formatter, "Changed remote bookmarks:")
-            })
-            .await?;
-        for (symbol, (from_ref, to_ref)) in changed_remote_bookmarks {
+    for kind in RemoteRefKind::ALL_VARIANTS {
+        let changed = diff_named_remote_refs(
+            from_repo.view().all_remote_refs(kind),
+            to_repo.view().all_remote_refs(kind),
+        )
+        // Skip updates to the local git repo, since they should typically be covered in
+        // local branches.
+        .filter(|(symbol, _)| ignored_remote.is_none_or(|ignored| symbol.remote != ignored))
+        .collect_vec();
+        if !changed.is_empty() {
+            writeln!(formatter)?;
             with_content_format
                 .write(formatter, async |formatter| {
-                    writeln!(formatter, "{symbol}:")?;
-                    write_ref_target_summary(
+                    writeln!(
                         formatter,
-                        current_repo,
-                        commit_summary_template,
-                        &to_ref.target,
-                        true,
-                        Some(get_remote_ref_prefix(to_ref)),
+                        "Changed remote {}:",
+                        match kind {
+                            RemoteRefKind::Bookmark => "bookmarks",
+                            RemoteRefKind::Tag => "tags",
+                            RemoteRefKind::Other => "refs",
+                        }
                     )
-                    .await?;
-                    write_ref_target_summary(
-                        formatter,
-                        current_repo,
-                        commit_summary_template,
-                        &from_ref.target,
-                        false,
-                        Some(get_remote_ref_prefix(from_ref)),
-                    )
-                    .await
                 })
                 .await?;
-        }
-    }
-
-    let changed_remote_tags = diff_named_remote_refs(
-        from_repo.view().all_remote_tags(),
-        to_repo.view().all_remote_tags(),
-    )
-    // Skip updates to the local git repo, since they should typically be covered in
-    // local tags.
-    .filter(|(symbol, _)| ignored_remote.is_none_or(|ignored| symbol.remote != ignored))
-    .collect_vec();
-    if !changed_remote_tags.is_empty() {
-        writeln!(formatter)?;
-        with_content_format
-            .write(formatter, async |formatter| {
-                writeln!(formatter, "Changed remote tags:")
-            })
-            .await?;
-        for (symbol, (from_ref, to_ref)) in changed_remote_tags {
-            with_content_format
-                .write(formatter, async |formatter| {
-                    writeln!(formatter, "{symbol}:")?;
-                    write_ref_target_summary(
-                        formatter,
-                        current_repo,
-                        commit_summary_template,
-                        &to_ref.target,
-                        true,
-                        Some(get_remote_ref_prefix(to_ref)),
-                    )
+            for (symbol, (from_ref, to_ref)) in changed {
+                with_content_format
+                    .write(formatter, async |formatter| {
+                        let prefix = match kind {
+                            RemoteRefKind::Bookmark | RemoteRefKind::Tag => "",
+                            RemoteRefKind::Other => "/",
+                        };
+                        writeln!(formatter, "{prefix}{symbol}:")?;
+                        write_ref_target_summary(
+                            formatter,
+                            current_repo,
+                            commit_summary_template,
+                            &to_ref.target,
+                            true,
+                            Some(get_remote_ref_prefix(to_ref)),
+                        )
+                        .await?;
+                        write_ref_target_summary(
+                            formatter,
+                            current_repo,
+                            commit_summary_template,
+                            &from_ref.target,
+                            false,
+                            Some(get_remote_ref_prefix(from_ref)),
+                        )
+                        .await
+                    })
                     .await?;
-                    write_ref_target_summary(
-                        formatter,
-                        current_repo,
-                        commit_summary_template,
-                        &from_ref.target,
-                        false,
-                        Some(get_remote_ref_prefix(from_ref)),
-                    )
-                    .await
-                })
-                .await?;
+            }
         }
     }
 

@@ -37,12 +37,12 @@ use jj_lib::git::GitImportRefUpdate;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::GitProgress;
 use jj_lib::git::GitPushStats;
-use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git_backend::GitRepoAtWorkdirError;
+use jj_lib::op_store::RemoteRefKind;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
@@ -231,8 +231,9 @@ fn print_imported_changes(
     stats: &GitImportStats,
 ) -> Result<(), CommandError> {
     for (kind, changes) in [
-        (GitRefKind::Bookmark, &stats.changed_remote_bookmarks),
-        (GitRefKind::Tag, &stats.changed_remote_tags),
+        (RemoteRefKind::Bookmark, &stats.changed_remote_bookmarks),
+        (RemoteRefKind::Tag, &stats.changed_remote_tags),
+        (RemoteRefKind::Other, &stats.changed_remote_other_refs),
     ] {
         let refs_stats = changes
             .iter()
@@ -401,17 +402,19 @@ fn draw_progress(progress: f32, buffer: &mut String, width: usize) {
 }
 
 struct RefStatus {
-    ref_kind: GitRefKind,
+    ref_kind: RemoteRefKind,
     symbol: String,
     remote_ref_state: RemoteRefState,
     import_status: ImportStatus,
 }
 
 impl RefStatus {
-    fn new(ref_kind: GitRefKind, update: &GitImportRefUpdate, repo: &dyn Repo) -> Self {
-        let new_remote_ref = match ref_kind {
-            GitRefKind::Bookmark => repo.view().get_remote_bookmark(update.symbol.as_ref()),
-            GitRefKind::Tag => repo.view().get_remote_tag(update.symbol.as_ref()),
+    fn new(ref_kind: RemoteRefKind, update: &GitImportRefUpdate, repo: &dyn Repo) -> Self {
+        let new_remote_ref = repo.view().get_remote_ref(ref_kind, update.symbol.as_ref());
+
+        let symbol = match ref_kind {
+            RemoteRefKind::Bookmark | RemoteRefKind::Tag => update.symbol.to_string(),
+            RemoteRefKind::Other => format!("/{}", update.symbol),
         };
 
         let import_status = match (
@@ -424,7 +427,7 @@ impl RefStatus {
         };
 
         Self {
-            symbol: update.symbol.to_string(),
+            symbol,
             remote_ref_state: new_remote_ref.state,
             import_status,
             ref_kind,
@@ -448,8 +451,9 @@ impl RefStatus {
         let padded_symbol = format!("{}{:>pad_width$}", self.symbol, "", pad_width = pad_width);
 
         let label = match self.ref_kind {
-            GitRefKind::Bookmark => "bookmark",
-            GitRefKind::Tag => "tag",
+            RemoteRefKind::Bookmark => "bookmark",
+            RemoteRefKind::Tag => "tag",
+            RemoteRefKind::Other => "ref",
         };
 
         write!(out, "{label}: ")?;

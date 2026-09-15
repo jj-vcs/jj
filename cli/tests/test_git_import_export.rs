@@ -149,7 +149,7 @@ fn test_git_export_undo() -> TestResult {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 29447db431a3 (2001-02-03 08:05:10) export git refs
+    Undid operation: be88d6a18112 (2001-02-03 08:05:10) export git refs
     Restored to operation: 5142cb3d7c38 (2001-02-03 08:05:08) create bookmark a pointing to commit e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");

@@ -120,6 +120,7 @@ message RemoteView {
   string name = 1;
   repeated RemoteRef bookmarks = 2;
   repeated RemoteRef tags = 3;
+  repeated RemoteRef other_refs = 4;
 }
 
 message Operation {

@@ -132,6 +132,17 @@ impl RefTarget {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum RemoteRefKind {
+    Bookmark,
+    Tag,
+    Other,
+}
+
+impl RemoteRefKind {
+    pub const ALL_VARIANTS: [Self; 3] = [Self::Bookmark, Self::Tag, Self::Other];
+}
+
 /// Remote bookmark or tag.
 #[derive(ContentHash, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct RemoteRef {
@@ -285,19 +296,38 @@ pub struct RemoteView {
     // the bookmark if the bookmark's state on the remote was just not known.
     pub bookmarks: BTreeMap<RefNameBuf, RemoteRef>,
     pub tags: BTreeMap<RefNameBuf, RemoteRef>,
+    pub other_refs: BTreeMap<RefNameBuf, RemoteRef>,
+}
+
+impl RemoteView {
+    pub fn refs(&self, kind: RemoteRefKind) -> &BTreeMap<RefNameBuf, RemoteRef> {
+        match kind {
+            RemoteRefKind::Bookmark => &self.bookmarks,
+            RemoteRefKind::Tag => &self.tags,
+            RemoteRefKind::Other => &self.other_refs,
+        }
+    }
+
+    pub fn refs_mut(&mut self, kind: RemoteRefKind) -> &mut BTreeMap<RefNameBuf, RemoteRef> {
+        match kind {
+            RemoteRefKind::Bookmark => &mut self.bookmarks,
+            RemoteRefKind::Tag => &mut self.tags,
+            RemoteRefKind::Other => &mut self.other_refs,
+        }
+    }
 }
 
 /// Iterates pair of local and remote refs by name.
 pub(crate) fn merge_join_ref_views<'a>(
     local_refs: &'a BTreeMap<RefNameBuf, RefTarget>,
     remote_views: &'a BTreeMap<RemoteNameBuf, RemoteView>,
-    get_remote_refs: impl FnMut(&RemoteView) -> &BTreeMap<RefNameBuf, RemoteRef>,
+    kind: RemoteRefKind,
 ) -> impl Iterator<Item = (&'a RefName, LocalRemoteRefTarget<'a>)> {
     let mut local_refs_iter = local_refs
         .iter()
         .map(|(name, target)| (&**name, target))
         .peekable();
-    let mut remote_refs_iter = flatten_remote_refs(remote_views, get_remote_refs).peekable();
+    let mut remote_refs_iter = flatten_remote_refs(remote_views, kind).peekable();
 
     iter::from_fn(move || {
         // Pick earlier bookmark name
@@ -323,12 +353,13 @@ pub(crate) fn merge_join_ref_views<'a>(
 /// Iterates `(symbol, remote_ref)`s in lexicographical order.
 pub(crate) fn flatten_remote_refs(
     remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
-    mut get_remote_refs: impl FnMut(&RemoteView) -> &BTreeMap<RefNameBuf, RemoteRef>,
+    kind: RemoteRefKind,
 ) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
     remote_views
         .iter()
         .map(|(remote, remote_view)| {
-            get_remote_refs(remote_view)
+            remote_view
+                .refs(kind)
                 .iter()
                 .map(move |(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
         })
@@ -527,22 +558,25 @@ mod tests {
                     "bookmark2".into() => git_bookmark2_remote_ref.clone(),
                 },
                 tags: btreemap! {},
+                other_refs: btreemap! {},
             },
             "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
                     "bookmark1".into() => remote1_bookmark1_remote_ref.clone(),
                 },
                 tags: btreemap! {},
+                other_refs: btreemap! {},
             },
             "remote2".into() => RemoteView {
                 bookmarks: btreemap! {
                     "bookmark2".into() => remote2_bookmark2_remote_ref.clone(),
                 },
                 tags: btreemap! {},
+                other_refs: btreemap! {},
             },
         };
         assert_eq!(
-            merge_join_ref_views(&local_bookmarks, &remote_views, |view| &view.bookmarks)
+            merge_join_ref_views(&local_bookmarks, &remote_views, RemoteRefKind::Bookmark)
                 .collect_vec(),
             vec![
                 (
@@ -574,7 +608,7 @@ mod tests {
         };
         let remote_views = btreemap! {};
         assert_eq!(
-            merge_join_ref_views(&local_bookmarks, &remote_views, |view| &view.bookmarks)
+            merge_join_ref_views(&local_bookmarks, &remote_views, RemoteRefKind::Bookmark)
                 .collect_vec(),
             vec![(
                 "bookmark1".as_ref(),
@@ -593,10 +627,11 @@ mod tests {
                     "bookmark1".into() => remote1_bookmark1_remote_ref.clone(),
                 },
                 tags: btreemap! {},
+                other_refs: btreemap! {},
             },
         };
         assert_eq!(
-            merge_join_ref_views(&local_bookmarks, &remote_views, |view| &view.bookmarks)
+            merge_join_ref_views(&local_bookmarks, &remote_views, RemoteRefKind::Bookmark)
                 .collect_vec(),
             vec![(
                 "bookmark1".as_ref(),

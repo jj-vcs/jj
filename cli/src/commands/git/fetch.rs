@@ -202,7 +202,12 @@ pub async fn cmd_git_fetch(
                     .map(|(name, _)| StringExpression::exact(name))
                     .collect(),
             );
-            let ref_expr = GitFetchRefExpression { bookmark, tag };
+            let other_ref = StringExpression::none();
+            let ref_expr = GitFetchRefExpression {
+                bookmark,
+                tag,
+                other_ref,
+            };
             let expanded = expand_fetch_refspecs(remote, ref_expr)?;
             expansions.push((remote, expanded));
         }
@@ -225,7 +230,12 @@ pub async fn cmd_git_fetch(
             } else {
                 StringExpression::all()
             };
-            let ref_expr = GitFetchRefExpression { bookmark, tag };
+            let other_ref = StringExpression::none();
+            let ref_expr = GitFetchRefExpression {
+                bookmark,
+                tag,
+                other_ref,
+            };
             let expanded = expand_fetch_refspecs(remote, ref_expr)?;
             expansions.push((remote, expanded));
         }
