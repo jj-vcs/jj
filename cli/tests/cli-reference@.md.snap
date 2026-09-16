@@ -1878,6 +1878,11 @@ Create a new Git backed repo
 
   Possible values: `sha1`, `sha256`
 
+* `--bare` — Create a bare repo with no initial workspace
+
+   A bare repo stores version history and metadata but has no working copy of its own. Workspaces can be added afterward with `jj workspace add`.
+
+   This mirrors the `git init --bare` workflow. The destination directory will contain only `.jj/`, with workspaces added as siblings.
 * `--git-repo <GIT_REPO>` — Specifies a path to an **existing** git repository to be used as the backing git repo for the newly created `jj` repo.
 
    If the specified `--git-repo` path happens to be the same as the `jj` repo path (both .jj and .git directories are in the same working directory), then both `jj` and `git` commands will work on the same repo. This is called a colocated workspace.
