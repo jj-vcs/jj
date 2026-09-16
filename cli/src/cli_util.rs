@@ -174,6 +174,7 @@ use crate::config::ConfigArgKind;
 use crate::config::ConfigEnv;
 use crate::config::RawConfig;
 use crate::config::config_from_environment;
+use crate::config::is_alias_enabled;
 use crate::config::load_aliases_map;
 use crate::config::parse_config_args;
 use crate::description_util::TextEditor;
@@ -4010,6 +4011,9 @@ fn load_aliases<'config>(
 ) -> Result<HashMap<&'config str, Vec<String>>, CommandError> {
     let mut defined_aliases = HashMap::new();
     for alias in config.table_keys("aliases") {
+        if !is_alias_enabled(config, alias) {
+            continue;
+        }
         let definition: Result<Vec<String>, ConfigGetError> = match config.get(["aliases", alias]) {
             Ok(definition) => Ok(definition),
             Err(original_error) => match config.get(["aliases", alias, "definition"]) {

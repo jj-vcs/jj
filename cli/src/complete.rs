@@ -40,6 +40,7 @@ use crate::config::ConfigArgKind;
 use crate::config::ConfigEnv;
 use crate::config::config_from_environment;
 use crate::config::default_config_layers;
+use crate::config::is_alias_enabled;
 use crate::merge_tools::ExternalMergeTool;
 use crate::merge_tools::configured_merge_tools;
 use crate::merge_tools::get_external_tool_config;
@@ -295,6 +296,7 @@ pub fn aliases() -> Vec<CompletionCandidate> {
             // aliases don't need to be completed and they would only clutter
             // the output of `jj <TAB>`.
             .filter(|alias| alias.len() > 2)
+            .filter(|alias| is_alias_enabled(settings.config(), alias))
             .map(|alias| {
                 CompletionCandidate::new(alias).help(
                     settings

@@ -848,6 +848,11 @@
                     {
                         "type": "object",
                         "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "description": "Whether this alias is enabled",
+                                "default": true
+                            },
                             "definition": {
                                 "type": "array",
                                 "items": {
@@ -861,6 +866,16 @@
                         "required": [
                             "definition"
                         ]
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "const": false,
+                                "description": "Disable this alias."
+                            }
+                        }
                     }
                 ]
             }
