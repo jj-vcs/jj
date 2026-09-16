@@ -94,6 +94,8 @@ pub enum WorkspaceLoadError {
     RepoDoesNotExist(PathBuf),
     #[error("There is no Jujutsu repo in {0}")]
     NoWorkspaceHere(PathBuf),
+    #[error("{0} is a bare repo root; run commands from inside a workspace")]
+    BareRepoHere(PathBuf),
     #[error("Cannot read the repo")]
     StoreLoadError(#[from] StoreLoadError),
     #[error("Repo path could not be decoded")]
@@ -199,6 +201,66 @@ impl Workspace {
             &|_settings, store_path| Ok(Box::new(SimpleBackend::init(store_path)));
         let signer = signer_from_settings(user_settings)?;
         Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer).await
+    }
+
+    /// Initializes a bare repo (no workspace, no working copy) with a Git backend.
+    ///
+    /// Creates `.jj/`, `.jj/repo/`, and writes the `.jj/bare` marker file.
+    /// Use `init_workspace_with_existing_repo` to add workspaces afterward.
+    #[cfg(feature = "git")]
+    pub async fn init_bare_git(
+        user_settings: &UserSettings,
+        repo_root: &Path,
+        object_hash: gix::hash::Kind,
+    ) -> Result<Arc<ReadonlyRepo>, WorkspaceInitError> {
+        let backend_initializer: &BackendInitializer = &|settings, store_path| {
+            Ok(Box::new(crate::git_backend::GitBackend::init_internal(
+                settings,
+                store_path,
+                object_hash,
+            )?))
+        };
+        let signer = signer_from_settings(user_settings)?;
+        Self::init_bare_with_backend(user_settings, repo_root, backend_initializer, signer).await
+    }
+
+    /// Initializes a bare repo (no workspace, no working copy) with the given backend.
+    ///
+    /// Creates `.jj/`, `.jj/repo/`, and writes the `.jj/bare` marker file.
+    pub async fn init_bare_with_backend(
+        user_settings: &UserSettings,
+        repo_root: &Path,
+        backend_initializer: &BackendInitializer<'_>,
+        signer: Signer,
+    ) -> Result<Arc<ReadonlyRepo>, WorkspaceInitError> {
+        let jj_dir = create_jj_dir(repo_root)?;
+        async {
+            let repo_dir = jj_dir.join("repo");
+            std::fs::create_dir(&repo_dir).context(&repo_dir)?;
+            let repo = ReadonlyRepo::init(
+                user_settings,
+                &repo_dir,
+                backend_initializer,
+                signer,
+                ReadonlyRepo::default_op_store_initializer(),
+                ReadonlyRepo::default_op_heads_store_initializer(),
+                ReadonlyRepo::default_index_store_initializer(),
+                ReadonlyRepo::default_submodule_store_initializer(),
+            )
+            .await
+            .map_err(|repo_init_err| match repo_init_err {
+                RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
+                RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
+                RepoInitError::Path(err) => WorkspaceInitError::Path(err),
+            })?;
+            let bare_marker_path = jj_dir.join(BARE_MARKER);
+            fs::write(&bare_marker_path, b"").context(&bare_marker_path)?;
+            Ok(repo)
+        }
+        .await
+        .inspect_err(|_err| {
+            std::fs::remove_dir_all(jj_dir).ok();
+        })
     }
 
     /// Initializes a workspace with a new Git backend and bare Git repo in
@@ -565,6 +627,10 @@ struct DefaultWorkspaceLoader {
 
 pub type WorkingCopyFactories = HashMap<String, Box<dyn WorkingCopyFactory>>;
 
+/// Name of the marker file written inside `.jj/` to indicate a bare repo root.
+/// Its presence means this directory contains a repo with no working copy.
+pub const BARE_MARKER: &str = "bare";
+
 impl DefaultWorkspaceLoader {
     pub fn new(workspace_root: &Path) -> Result<Self, WorkspaceLoadError> {
         let jj_dir = workspace_root.join(".jj");
@@ -572,6 +638,9 @@ impl DefaultWorkspaceLoader {
             return Err(WorkspaceLoadError::NoWorkspaceHere(
                 workspace_root.to_owned(),
             ));
+        }
+        if jj_dir.join(BARE_MARKER).exists() {
+            return Err(WorkspaceLoadError::BareRepoHere(workspace_root.to_owned()));
         }
         let mut repo_dir = jj_dir.join("repo");
         // If .jj/repo is a file, then we interpret its contents as a relative path to
