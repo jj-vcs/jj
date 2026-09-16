@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::path::Path;
+
 use test_case::test_case;
 use testutils::TestResult;
 use testutils::git;
@@ -2365,6 +2367,105 @@ fn test_workspaces_add_colocated_unborn_head() {
     let tertiary_repo = git::open(test_env.env_root().join("tertiary"));
     assert_eq!(git_head(&tertiary_repo), "refs/jj/root");
     assert!(!test_env.env_root().join("tertiary/file").exists());
+}
+
+fn copy_dir_all(src: &Path, dst: &Path) {
+    std::fs::create_dir_all(dst).unwrap();
+    for entry in std::fs::read_dir(src).unwrap() {
+        let entry = entry.unwrap();
+        let child_src = entry.path();
+        let child_dst = dst.join(entry.file_name());
+        if child_src.is_dir() {
+            copy_dir_all(&child_src, &child_dst);
+        } else {
+            std::fs::copy(&child_src, &child_dst).unwrap();
+        }
+    }
+}
+
+#[test_case(false; "without_jj_dir")]
+#[test_case(true; "with_jj_dir")]
+fn test_workspace_add_adopt(with_jj_dir: bool) {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "main", "--colocate"])
+        .success();
+    let repo_dir = test_env.work_dir("main");
+    let ws_dir = test_env.work_dir("workspace");
+
+    repo_dir.write_file("common", "common\n");
+    repo_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // Simulate a copy-on-write snapshot of repo.
+    copy_dir_all(repo_dir.root(), ws_dir.root());
+
+    repo_dir.write_file("repo_only", "repo_only\n");
+    ws_dir.write_file("ws_only", "ws_only\n");
+
+    if !with_jj_dir {
+        std::fs::remove_dir_all(ws_dir.root().join(".jj")).unwrap();
+        std::fs::remove_dir_all(ws_dir.root().join(".git")).unwrap();
+    }
+
+    let output = repo_dir.run_jj(["workspace", "add", "--adopt", "../workspace", "--colocate"]);
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(output.normalize_backslash(), @r#"
+        ------- stderr -------
+        Created Git worktree for the new workspace.
+        Created workspace in "../workspace"
+        Working copy  (@) now at: pmmvwywv 2d2aee39 (empty) (no description set)
+        Parent commit (@-)      : qpvuntsm fce12334 initial
+        Added 0 files, modified 0 files, removed 1 files
+        [EOF]
+        "#);
+    }
+
+    let assert_disk_state_correct = || {
+        assert!(!ws_dir.root().join("repo_only").exists());
+        assert_eq!(repo_dir.read_file("repo_only"), "repo_only\n");
+        assert_eq!(ws_dir.read_file("ws_only"), "ws_only\n");
+        assert!(!repo_dir.root().join("ws_only").exists());
+    };
+    assert_disk_state_correct();
+
+    // Working copy in repo should not have been affected.
+    let output = repo_dir.run_jj(["status"]);
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(output, @r"
+        Working copy changes:
+        A repo_only
+        Working copy  (@) : rlvkpnrz 50d736ff (no description set)
+        Parent commit (@-): qpvuntsm fce12334 initial
+        [EOF]
+        ");
+    }
+
+    // Working copy in adopted workspace reflects the untracked file on disk
+    let output = ws_dir.run_jj(["status"]);
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(output, @r"
+        Working copy changes:
+        A ws_only
+        Working copy  (@) : pmmvwywv 0c608046 (no description set)
+        Parent commit (@-): qpvuntsm fce12334 initial
+        [EOF]
+        ");
+    }
+
+    assert_disk_state_correct();
+
+    // Tracked modification from main's @ is reverted back to @-
+    // But they shouldn't apply to @
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(get_log_output(&ws_dir), @r#"
+        @  0c608046979f workspace@
+        │ ○  50d736ff960f default@
+        ├─╯
+        ○  fce123340f96 "initial"
+        ◆  000000000000
+        [EOF]
+        "#);
+    }
 }
 
 /// Returns the repo's Git HEAD: the ref name if HEAD points at a ref, or the

@@ -97,6 +97,7 @@ ratatui = { workspace = true }
 rpassword = { workspace = true }
 sapling-renderdag = { workspace = true }
 sapling-streampager = { workspace = true }
+same-file = { workspace = true }
 scm-record = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
