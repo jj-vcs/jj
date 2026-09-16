@@ -1074,6 +1074,32 @@ echo "args: $@"
 > Note: Shebangs (e.g. `#!/usr/bin/env`) aren't necessary since you're already
 > explicitly passing your script into the right shell.
 
+### Disabling aliases
+
+Sometimes you may want to disable an alias, such as a built-in alias that you
+prefer not to use (for example, `jj des<tab>` may result in `jj desc<cursor>`
+instead of `jj describe <cursor>` because there are two possible completions,
+`desc` and `describe`, with the same prefix) or an alias defined in an earlier
+config that you want to disable in a later layer (such as in a repo config or
+in a [conditional variables](#conditional-variables) scope). To do so, set
+`aliases.<name>.enabled` to `false`:
+
+```toml
+[aliases]
+desc.enabled = false
+
+best-log = {
+  enabled = false,  # WIP; don't enable yet
+  doc = "The best `jj log`",
+  definition = ["log", "-r", "the_perfect_revset()"]
+}
+```
+
+Normal alias overriding rules apply, which means another configuration file may
+define the alias again later. Disabling aliases only applies to the `aliases`
+table; `template-aliases`, `revset-aliases`, and `fileset-aliases` cannot be
+disabled.
+
 ## Editor
 
 The default editor is set via `ui.editor`, though there are several places to

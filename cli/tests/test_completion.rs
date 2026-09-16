@@ -920,6 +920,45 @@ fn test_aliases_are_completed(shell: Shell) {
         output.status.success() && output.stdout.is_empty(),
         "completion expected to come back empty, but got: {output}"
     );
+
+    // Disable an alias.
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            "aliases.user-alias.enabled",
+            "false",
+        ])
+        .success();
+    let output = work_dir.complete_at(shell, 1, ["user-"]);
+    match shell {
+        Shell::Bash => {
+            insta::assert_snapshot!(output, @"");
+        }
+        Shell::Zsh => {
+            insta::assert_snapshot!(output, @"");
+        }
+        Shell::Fish => {
+            insta::assert_snapshot!(output, @"");
+        }
+        _ => unimplemented!("unexpected shell '{shell}'"),
+    }
+
+    // Unknown alias is not completed.
+    let output = work_dir.complete_at(shell, 1, ["unknown"]);
+    match shell {
+        Shell::Bash => {
+            insta::assert_snapshot!(output, @"");
+        }
+        Shell::Zsh => {
+            insta::assert_snapshot!(output, @"");
+        }
+        Shell::Fish => {
+            insta::assert_snapshot!(output, @"");
+        }
+        _ => unimplemented!("unexpected shell '{shell}'"),
+    }
 }
 
 #[test]

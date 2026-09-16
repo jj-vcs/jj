@@ -295,6 +295,11 @@ pub fn aliases() -> Vec<CompletionCandidate> {
             // aliases don't need to be completed and they would only clutter
             // the output of `jj <TAB>`.
             .filter(|alias| alias.len() > 2)
+            .filter(|alias| {
+                settings
+                    .get_bool(["aliases", alias, "enabled"])
+                    .unwrap_or(true)
+            })
             .map(|alias| {
                 CompletionCandidate::new(alias).help(
                     settings

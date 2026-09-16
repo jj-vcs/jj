@@ -146,6 +146,8 @@ where
 
 /// Collects values under the given `filter_prefix` name recursively, from all
 /// layers.
+///
+/// This does not exclude disabled `aliases` values.
 pub fn resolved_config_values(
     stacked_config: &StackedConfig,
     filter_prefix: &ConfigNamePathBuf,
@@ -1145,6 +1147,10 @@ impl fmt::Display for CommandNameAndArgs {
     }
 }
 
+/// Loads map of `{fileset,revset,template}-aliases` table.
+///
+/// This function does not handle loading the `aliases` table, which supports
+/// disabled aliases.
 pub fn load_aliases_map<P>(
     ui: &Ui,
     config: &StackedConfig,

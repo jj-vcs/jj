@@ -4010,7 +4010,14 @@ fn load_aliases<'config>(
 ) -> Result<HashMap<&'config str, Vec<String>>, CommandError> {
     let mut defined_aliases = HashMap::new();
     for alias in config.table_keys("aliases") {
-        let definition: Result<Vec<String>, ConfigGetError> = match config.get(["aliases", alias]) {
+        if config
+            .get::<bool>(["aliases", alias, "enabled"])
+            .optional()?
+            .is_some_and(|enabled| !enabled)
+        {
+            continue;
+        }
+        let definition: Result<Vec<String>, _> = match config.get(["aliases", alias]) {
             Ok(definition) => Ok(definition),
             Err(original_error) => match config.get(["aliases", alias, "definition"]) {
                 Ok(definition) => Ok(definition),
