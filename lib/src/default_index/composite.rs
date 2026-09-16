@@ -665,8 +665,8 @@ impl Index for CompositeIndex {
         &self,
         expression: &ResolvedExpression,
         store: &Arc<Store>,
-    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
-        let revset_impl = revset_engine::evaluate(expression, store, self)?;
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
+        let revset_impl = revset_engine::evaluate(expression, store, self.clone())?;
         Ok(Box::new(revset_impl))
     }
 }

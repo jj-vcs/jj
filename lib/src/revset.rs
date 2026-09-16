@@ -694,10 +694,10 @@ impl UserRevsetExpression {
 
 impl ResolvedRevsetExpression {
     /// Optimizes and evaluates this expression.
-    pub fn evaluate<'index>(
+    pub fn evaluate(
         self: Arc<Self>,
-        repo: &'index dyn Repo,
-    ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+        repo: &dyn Repo,
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
         let expr = optimize(self).to_backend_expression(repo);
         repo.index().evaluate_revset(&expr, repo.store())
     }
@@ -706,10 +706,10 @@ impl ResolvedRevsetExpression {
     ///
     /// Use this function if `self` is already optimized, or to debug
     /// optimization pass.
-    pub fn evaluate_unoptimized<'index>(
+    pub fn evaluate_unoptimized(
         self: &Arc<Self>,
-        repo: &'index dyn Repo,
-    ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+        repo: &dyn Repo,
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
         // Since referenced commits change the evaluation result, they must be
         // collected no matter if optimization is disabled.
         let expr = resolve_referenced_commits(self)

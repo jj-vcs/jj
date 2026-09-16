@@ -774,7 +774,7 @@ impl Index for DefaultReadonlyIndex {
         &self,
         expression: &ResolvedExpression,
         store: &Arc<Store>,
-    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
         self.0.evaluate_revset(expression, store)
     }
 }

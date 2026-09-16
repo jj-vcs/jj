@@ -117,7 +117,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     }
 
     /// Evaluates the expression.
-    pub fn evaluate(&self) -> Result<Box<dyn Revset + 'repo>, UserRevsetEvaluationError> {
+    pub fn evaluate(&self) -> Result<Box<dyn Revset>, UserRevsetEvaluationError> {
         self.resolve()
             .map_err(UserRevsetEvaluationError::Resolution)?
             .evaluate(self.repo)
@@ -129,7 +129,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     pub fn evaluate_to_commit_ids(
         &self,
     ) -> Result<
-        LocalBoxStream<'repo, Result<CommitId, RevsetEvaluationError>>,
+        LocalBoxStream<'static, Result<CommitId, RevsetEvaluationError>>,
         UserRevsetEvaluationError,
     > {
         Ok(self.evaluate()?.stream())
