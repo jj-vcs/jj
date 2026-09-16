@@ -57,6 +57,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util diff <path1> <path2>` to compare files on disk.
 
+* `nvim` (neovim) is now usable out-of-the-box as a diff editor & merge tool
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
