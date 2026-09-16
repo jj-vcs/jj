@@ -315,7 +315,7 @@ impl MutableCommitIndexSegment {
     /// If the mutable segment has more than half the commits of its parent
     /// segment, return mutable segment with the commits from both. This is done
     /// recursively, so the stack of index segments has O(log n) files.
-    pub(super) fn maybe_squash_with_ancestors(self) -> Self {
+    pub(super) fn maybe_squash_with_ancestors(self: Arc<Self>) -> Arc<Self> {
         let mut num_new_commits = self.num_local_commits();
         let mut files_to_squash = vec![];
         let mut base_parent_file = None;
@@ -342,8 +342,8 @@ impl MutableCommitIndexSegment {
         for parent_file in files_to_squash.iter().rev() {
             squashed.add_commits_from(parent_file.as_ref());
         }
-        squashed.add_commits_from(&self);
-        squashed
+        squashed.add_commits_from(self.as_ref());
+        Arc::new(squashed)
     }
 
     pub(super) fn save_in(&self, dir: &Path) -> Result<Arc<ReadonlyCommitIndexSegment>, PathError> {
@@ -456,7 +456,7 @@ pub struct DefaultMutableIndex(CompositeIndex);
 
 impl DefaultMutableIndex {
     pub(super) fn full(lengths: FieldLengths) -> Self {
-        let commits = Box::new(MutableCommitIndexSegment::full(lengths));
+        let commits = Arc::new(MutableCommitIndexSegment::full(lengths));
         // Changed-path index isn't enabled by default.
         let mut changed_paths = CompositeChangedPathIndex::null();
         changed_paths.make_mutable();
@@ -464,7 +464,7 @@ impl DefaultMutableIndex {
     }
 
     pub(super) fn incremental(parent_index: &DefaultReadonlyIndex) -> Self {
-        let commits = Box::new(MutableCommitIndexSegment::incremental(
+        let commits = Arc::new(MutableCommitIndexSegment::incremental(
             parent_index.readonly_commits().clone(),
         ));
         let mut changed_paths = parent_index.changed_paths().clone();
@@ -474,7 +474,7 @@ impl DefaultMutableIndex {
 
     pub(super) fn into_segment(
         self,
-    ) -> (Box<MutableCommitIndexSegment>, CompositeChangedPathIndex) {
+    ) -> (Arc<MutableCommitIndexSegment>, CompositeChangedPathIndex) {
         self.0.into_mutable().expect("must have mutable")
     }
 

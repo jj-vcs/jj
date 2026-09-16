@@ -518,7 +518,7 @@ impl CompositeCommitIndex {
 #[derive(Clone, Debug)]
 enum CompositeCommitIndexSegment {
     Readonly(Arc<ReadonlyCommitIndexSegment>),
-    Mutable(Box<MutableCommitIndexSegment>),
+    Mutable(Arc<MutableCommitIndexSegment>),
 }
 
 #[derive(Clone, Debug)]
@@ -539,7 +539,7 @@ impl CompositeIndex {
     }
 
     pub(super) fn from_mutable(
-        commits: Box<MutableCommitIndexSegment>,
+        commits: Arc<MutableCommitIndexSegment>,
         changed_paths: CompositeChangedPathIndex,
     ) -> Self {
         Self {
@@ -550,7 +550,7 @@ impl CompositeIndex {
 
     pub(super) fn into_mutable(
         self,
-    ) -> Option<(Box<MutableCommitIndexSegment>, CompositeChangedPathIndex)> {
+    ) -> Option<(Arc<MutableCommitIndexSegment>, CompositeChangedPathIndex)> {
         let commits = match self.commits {
             CompositeCommitIndexSegment::Readonly(_) => return None,
             CompositeCommitIndexSegment::Mutable(segment) => segment,
@@ -575,7 +575,7 @@ impl CompositeIndex {
     pub(super) fn mutable_commits(&mut self) -> Option<&mut MutableCommitIndexSegment> {
         match &mut self.commits {
             CompositeCommitIndexSegment::Readonly(_) => None,
-            CompositeCommitIndexSegment::Mutable(segment) => Some(segment),
+            CompositeCommitIndexSegment::Mutable(segment) => Some(Arc::make_mut(segment)),
         }
     }
 
