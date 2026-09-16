@@ -8,6 +8,13 @@ Jujutsu keeps commits on anonymous branches around until they are explicitly
 abandoned. Visible anonymous branches are tracked by the [view](#view), which
 stores a list of [heads](#head) of such branches.
 
+## Bare repo
+
+A bare repo is a repository with no default working copy. The `.jj/` directory
+lives at the project root on its own; working copies are added as named
+[workspaces](#workspace) alongside it. This mirrors Git's bare+worktree layout.
+See `jj git init --bare` and the [bare workspaces guide](guides/bare-workspaces.md).
+
 ## Author date
 
 The author date of a [commit](#commit) records when the commit's changes were
@@ -36,8 +43,8 @@ A bookmark is a named pointer to a [commit](#commit). They are similar to Git's
 bookmarks](https://wiki.mercurial-scm.org/Bookmarks). See [here](bookmarks.md)
 for details.
 
-Unlike in Git, there is no concept of a "current bookmark"; bookmarks *do not*
-move when you create a new commit. Bookmarks *do* automatically follow the
+Unlike in Git, there is no concept of a "current bookmark"; bookmarks _do not_
+move when you create a new commit. Bookmarks _do_ automatically follow the
 commit if it gets [rewritten](#rewrite).
 
 ## Branch
