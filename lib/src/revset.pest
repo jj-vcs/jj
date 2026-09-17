@@ -79,7 +79,9 @@ intersection_op = { "&" }
 difference_op = { "~" }
 compat_add_op = { "+" }
 compat_sub_op = { "-" }
-infix_op = _{ union_op | intersection_op | difference_op | compat_add_op | compat_sub_op }
+
+// The union op is separated in the grammar, because it's also parsed differently (unions are flattened/don't recurse).
+non_union_infix_op = _{ intersection_op | difference_op | compat_add_op | compat_sub_op }
 
 function = { function_name ~ "(" ~ whitespace* ~ function_arguments ~ whitespace* ~ ")" }
 function_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
@@ -95,7 +97,56 @@ formal_parameters = {
 }
 
 pattern = { strict_identifier ~ pattern_kind_op ~ pattern_value_expression }
-pattern_value_expression = { neighbors_expression }
+
+// Negating inside of these rules will produce a Pair on each success that needs
+// to be filtered out before Pratt parsing. However, it also results in a nice
+// named error, because it fails on a specific rule, which affords better UX.
+//
+// Currently, each of these is set to limit of 64, with the exception of the
+// `recursive_depth_limit_reached` which is will be anywhere between 64 and
+// 128 repetitions (due to shared stacked between all rules).
+//
+// TODO: move this into an inline grammar into the revset_parser.rs -- so that
+// bounds can be set as consts and kepty in sync for tests.
+prefix_op_width_limit_reached = {
+  !PEEK[65..]
+}
+
+postfix_op_width_limit_reached = {
+  !PEEK[65..]
+}
+
+range_expression_width_limit_reached = {
+  !PEEK[65..]
+}
+
+// All of the Pratt recursion happens through "primary", so it is bound recursively to
+// a maximum nesting depth P. However, due to bounding the expression_range as well,
+// and stack sharing, the limit brought in by that bound E can also count, where in
+// worst case scenario only (P - E) nesting depth is allowed.
+recursive_depth_limit_reached = {
+  !PEEK[129..]
+}
+
+// Instead of putting a bound inside primary, expression and pattern_value_expression
+// are bound instead. These two rules form a feedback vertex set for the recursive
+// cycle through the primary. This is done for better error reporting (otherwise the
+// recursive_depth_limit_reached is not reported by pest).
+//
+// When pattern_value_expression is matched, an empty string is pushed to the stack.
+// Empty string always matches, and doesn't consume any tokens. Next, a bound
+// checking rule is used, which, for a given bound B, peeks at the stack offsetted
+// by B+1. If that many empty strings have already been pushed, the rule must
+// have already recursed for B levels, an empty string pattern is tried, which
+// always succeeds, and the rule fails. If the recursing sub-rule doesn't recurse,
+// DROP is called, which just drops the top of the stack, without trying to match.
+// If less than B strings have been pushed to the stack, PEEK will fail and the
+// bound-checking rule succeeds, allowing recursion to potentially continue.
+pattern_value_expression = {
+  PUSH("") ~ recursive_depth_limit_reached
+  ~ neighbors_expression
+  ~ DROP
+}
 
 primary = {
   "(" ~ whitespace* ~ expression ~ whitespace* ~ ")"
@@ -108,7 +159,24 @@ primary = {
   | at_op
 }
 
-neighbors_expression = _{ primary ~ (parents_op | children_op | compat_parents_op)* }
+// Recursively bound the number of postfix_op repetitions to the bound set
+// in postfix_op_width_limit_reached. See comment above pattern_value_expression
+// for explanation of the mechanism. In addition, adding a fallback rule that
+// matches empty string (always succeeds) provides a base case for the recursion
+// and also encodes the case where there are *no* postfix_ops. This is basically
+// an alternative to writing (parent_op | children_op | compat_parents_op){,B}.
+// The latter is simpler and has its merits, but using it will significantly
+// increase the binary size. Note also that it can also be used for limiting the
+// token tree "width", but not its nesting depth.
+bounded_postfix_op = _{
+  (parents_op | children_op | compat_parents_op)
+  ~ PUSH("") ~ postfix_op_width_limit_reached
+  ~ bounded_postfix_op
+  ~ DROP
+  | ""
+}
+
+neighbors_expression = _{ primary ~ bounded_postfix_op }
 
 range_expression = _{
   // The alternatives starting with neighbors_expression are factored so that it
@@ -119,9 +187,45 @@ range_expression = _{
   | range_all_ops
 }
 
+// See comments above bounded_postfix_op.
+bounded_prefix_op = _{
+  negate_op
+  ~ PUSH("") ~ prefix_op_width_limit_reached
+  ~ whitespace* ~ bounded_prefix_op
+  ~ DROP
+  | ""
+}
+
+// See comments above pattern_value_expression.
+bounded_range_expression = _{
+  whitespace* ~ non_union_infix_op ~ whitespace* ~ bounded_prefix_op ~ range_expression
+  ~ PUSH("") ~ range_expression_width_limit_reached
+  ~ bounded_range_expression
+  ~ DROP
+  | ""
+}
+
+// This will match a bounded number of prefix ops (possibly zero), followed by a range
+// expression followed by a bounded number of range_expressions with non-union infixes
+// (possibly zero), intermixed with an arbitrary number of range_expressions with the
+// union infix.
+//
+// First thing to note: bounded_infix_range_expression necessitates a range_expression,
+// so union expressions are valid, or they simply transition to non-union infix chain.
+//
+// Second, and more important: this is safe, because union op has the lowest precedence,
+// all other terms will bind together before it, so it cannot be used to bypass the
+// nesting depth bound. It is also parsed differently, namely by union chains being
+// folded into a single AST node (holding a Vec). Thus leaving it unbounded, could
+// lead to increased resource usage, but no stack overflows.
+bounded_infix_range_expression = _{
+  bounded_prefix_op ~ range_expression ~ bounded_range_expression
+}
+
 expression = {
-  (negate_op ~ whitespace*)* ~ range_expression
-  ~ (whitespace* ~ infix_op ~ whitespace* ~ (negate_op ~ whitespace*)* ~ range_expression)*
+  PUSH("") ~ recursive_depth_limit_reached
+  ~ bounded_infix_range_expression ~ (whitespace* ~ union_op ~ whitespace* ~ bounded_infix_range_expression)*
+  ~ DROP
 }
 
 program = _{
