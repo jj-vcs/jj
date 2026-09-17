@@ -277,24 +277,44 @@ fn test_alias_invalid_definition() {
     let output = test_env.run_jj_in(".", ["non-list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     ------- stderr -------
-    Config error: Invalid type or value for aliases.non-list
-    Caused by: invalid type: integer `5`, expected a sequence
+    Warning: Failed to load `aliases.non-list`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.non-list
+    2: invalid type: integer `5`, expected a sequence
 
-    Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    Warning: Failed to load `aliases.non-string-list`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.non-string-list
+    2: invalid type: integer `0`, expected a string
+
+    error: unrecognized subcommand 'non-list'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
     [EOF]
-    [exit status: 1]
+    [exit status: 2]
     ");
     let output = test_env.run_jj_in(".", ["non-string-list"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Config error: Invalid type or value for aliases.non-string-list
-    Caused by: invalid type: integer `0`, expected a string
+    Warning: Failed to load `aliases.non-list`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.non-list
+    2: invalid type: integer `5`, expected a sequence
 
-    Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    Warning: Failed to load `aliases.non-string-list`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.non-string-list
+    2: invalid type: integer `0`, expected a string
+
+    error: unrecognized subcommand 'non-string-list'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
     [EOF]
-    [exit status: 1]
+    [exit status: 2]
     ");
 }
 

@@ -4002,12 +4002,37 @@ fn resolve_default_command(
     Ok(string_args)
 }
 
+/// Loads alias definitions from the `aliases` table.
 fn load_aliases<'config>(
     ui: &Ui,
     config: &'config StackedConfig,
     app: &Command,
-) -> Result<HashSet<&'config str>, CommandError> {
-    let mut defined_aliases: HashSet<_> = config.table_keys("aliases").collect();
+) -> Result<HashMap<&'config str, Vec<String>>, CommandError> {
+    let mut defined_aliases = HashMap::new();
+    for alias in config.table_keys("aliases") {
+        let definition: Result<Vec<String>, ConfigGetError> = match config.get(["aliases", alias]) {
+            Ok(definition) => Ok(definition),
+            Err(original_error) => match config.get(["aliases", alias, "definition"]) {
+                Ok(definition) => Ok(definition),
+                Err(_) => Err(original_error),
+            },
+        };
+        match definition {
+            Ok(definition) => {
+                defined_aliases.insert(alias, definition);
+            }
+            Err(err) => {
+                writeln!(
+                    ui.warning_default(),
+                    "Failed to load `aliases.{alias}`: Expected a string list or a table with a \
+                     `definition`"
+                )?;
+                print_error_sources(ui, Some(&err))?;
+            }
+        }
+    }
+    // Print warnings for aliases that match real commands and remove them from
+    // the mapping.
     let mut real_commands = HashSet::new();
     for command in app.get_subcommands() {
         real_commands.insert(command.get_name());
@@ -4016,7 +4041,8 @@ fn load_aliases<'config>(
         }
     }
     for alias in defined_aliases
-        .extract_if(|a| real_commands.contains(a))
+        .extract_if(|a, _| real_commands.contains(*a))
+        .map(|(a, _)| a)
         .sorted()
     {
         writeln!(
@@ -4028,9 +4054,8 @@ fn load_aliases<'config>(
 }
 
 fn resolve_aliases(
-    config: &StackedConfig,
     app: &Command,
-    defined_aliases: &HashSet<&str>,
+    defined_aliases: &HashMap<&str, Vec<String>>,
     mut string_args: Vec<String>,
 ) -> Result<Vec<String>, CommandError> {
     let mut recursion_check_stack: Vec<(&str, Range<usize>)> = Vec::new();
@@ -4048,15 +4073,11 @@ fn resolve_aliases(
             .unwrap_or_default()
             .map(|arg| arg.to_str().unwrap().to_string())
             .collect_vec();
-        let Some(&alias_name) = defined_aliases.get(&*alias_name) else {
-            // Not a real command and not an alias, so return what we've resolved so far
+        let Some((&alias_name, alias_definition)) = defined_aliases.get_key_value(&*alias_name)
+        else {
+            // Not a real command and not an alias, so return what we've
+            // resolved so far.
             return Ok(string_args);
-        };
-        let alias_definition: Vec<String> = match config.get(["aliases", alias_name]) {
-            Ok(definition) => definition,
-            Err(original_err) => config
-                .get(["aliases", alias_name, "definition"])
-                .map_err(|_| original_err)?,
         };
         let alias_position = string_args.len() - 1 - alias_args.len();
 
@@ -4089,7 +4110,7 @@ fn resolve_aliases(
 
         assert!(string_args.ends_with(&alias_args));
         string_args.truncate(alias_position);
-        string_args.extend(alias_definition);
+        string_args.extend(alias_definition.clone());
         string_args.extend_from_slice(&alias_args);
     }
 }
@@ -4242,9 +4263,9 @@ pub fn expand_args(
 ) -> Result<Vec<String>, CommandError> {
     let mut string_args = to_string_args(args_os)?;
     let aliases = load_aliases(ui, config, app)?;
-    string_args = resolve_aliases(config, app, &aliases, string_args)?;
+    string_args = resolve_aliases(app, &aliases, string_args)?;
     string_args = resolve_default_command(ui, config, app, string_args)?;
-    string_args = resolve_aliases(config, app, &aliases, string_args)?;
+    string_args = resolve_aliases(app, &aliases, string_args)?;
     Ok(string_args)
 }
 
@@ -4260,7 +4281,7 @@ fn expand_args_for_completion(
     // Resolution of subcommand aliases must not consider the argument that is being
     // completed.
     let cursor_arg = string_args.pop();
-    string_args = resolve_aliases(config, app, &aliases, string_args)?;
+    string_args = resolve_aliases(app, &aliases, string_args)?;
     string_args.extend(cursor_arg);
 
     // If a subcommand has been given, including the potentially incomplete argument
@@ -4269,7 +4290,7 @@ fn expand_args_for_completion(
     string_args = resolve_default_command(ui, config, app, string_args)?;
 
     let cursor_arg = string_args.pop();
-    string_args = resolve_aliases(config, app, &aliases, string_args)?;
+    string_args = resolve_aliases(app, &aliases, string_args)?;
     string_args.extend(cursor_arg);
 
     Ok(string_args)
