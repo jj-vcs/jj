@@ -346,14 +346,11 @@ impl MutableCommitIndexSegment {
         squashed
     }
 
-    pub(super) fn save_in(
-        mut self,
-        dir: &Path,
-    ) -> Result<Arc<ReadonlyCommitIndexSegment>, PathError> {
+    pub(super) fn save_in(&self, dir: &Path) -> Result<Arc<ReadonlyCommitIndexSegment>, PathError> {
         if self.num_local_commits() == 0
-            && let Some(parent_file) = self.parent_file.take()
+            && let Some(parent_file) = &self.parent_file
         {
-            return Ok(parent_file);
+            return Ok(parent_file.clone());
         }
 
         let mut buf = Vec::new();
@@ -375,7 +372,7 @@ impl MutableCommitIndexSegment {
         Ok(ReadonlyCommitIndexSegment::load_with_parent_file(
             &mut &buf[local_entries_offset..],
             index_file_id,
-            self.parent_file,
+            self.parent_file.clone(),
             self.field_lengths,
         )
         .expect("in-memory index data should be valid and readable"))
