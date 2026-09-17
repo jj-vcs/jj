@@ -89,6 +89,13 @@ formal_parameters = {
   | ""
 }
 
+map = { "{" ~ map_entries ~ "}" }
+map_entries = _{
+  map_entry ~ ("," ~ map_entry)* ~ ","?
+  | ""
+}
+map_entry = { template ~ "=>" ~ template }
+
 // NOTE: Pattern identifiers additionally allow "-" in them, which results in
 // some oddness with the `-` operator.
 pattern_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
@@ -99,6 +106,7 @@ primary = {
   ("(" ~ template ~ ")")
   | function
   | lambda
+  | map
   | pattern
   | identifier
   | string_literal
