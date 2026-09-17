@@ -98,6 +98,10 @@ removed. Removing the current workspace works on Unix, but Windows won't remove
 a directory that a process is running in; run the command from another directory
 using `jj -R` instead.
 
+Use `jj workspace move <name> <destination>` to move a secondary workspace to a
+new path on the same filesystem. The main workspace cannot be moved. On Windows,
+run the command from outside the workspace being moved.
+
 ## Stale working copy
 
 Almost all commands go through three main steps:
