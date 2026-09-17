@@ -3066,6 +3066,9 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         &mut self,
         expression: &UserRevsetExpression,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
+        // Make sure that we're not running into a stack overflow.
+        crate::stacker::check_stack().map_err(Box::from)?;
+
         match expression {
             // 'present(x)' opens new symbol resolution scope to map error to 'none()'
             RevsetExpression::Present(candidates) => {
