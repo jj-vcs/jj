@@ -22,11 +22,10 @@ use clap_complete::CompletionCandidate;
 use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigNamePathBuf;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::file_util::normalize_path;
 use jj_lib::file_util::slash_path;
 use jj_lib::settings::UserSettings;
-use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
-use jj_lib::workspace::WorkspaceLoaderFactory as _;
 
 use crate::cli_util::GlobalArgs;
 use crate::cli_util::expand_args;
@@ -1192,7 +1191,8 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
         .map_err(user_error)?;
     // No config migration for completion. Simply ignore deprecated variables.
     let mut config_env = ConfigEnv::from_environment();
-    let maybe_cwd_workspace_loader = DefaultWorkspaceLoaderFactory.create(find_workspace_dir(&cwd));
+    let maybe_cwd_workspace_loader =
+        default_workspace_loader_factory().create(find_workspace_dir(&cwd));
     config_env.reload_system_config(&mut raw_config).ok();
     config_env.reload_user_config(&mut raw_config).ok();
     if let Ok(loader) = &maybe_cwd_workspace_loader {
@@ -1217,7 +1217,7 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
 
     if let Some(repository) = args.repository {
         // Try to update repo-specific config on a best-effort basis.
-        if let Ok(loader) = DefaultWorkspaceLoaderFactory.create(&cwd.join(&repository)) {
+        if let Ok(loader) = default_workspace_loader_factory().create(&cwd.join(&repository)) {
             config_env.reset_repo_path(loader.repo_path());
             config_env.reload_repo_config(&ui, &mut raw_config).ok();
             config_env.reset_workspace_path(loader.workspace_root());

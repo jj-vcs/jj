@@ -90,14 +90,12 @@ pub async fn cmd_op_show(
     let settings = workspace_command.settings();
     let op = workspace_command.resolve_single_op(&args.operation)?;
     let parent_ops = op.parents().await?;
-    let workspace_name = None;
     let transaction_description = None;
     let command_args = [];
     let merged_parent_op = merge_operations(
         None,
         repo_loader,
         parent_ops.clone(),
-        workspace_name,
         transaction_description,
         &command_args,
     )
