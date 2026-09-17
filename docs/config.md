@@ -642,6 +642,15 @@ you can add this to your config:
 config_list = "builtin_config_list_detailed"
 ```
 
+You can include the workspace root path when you do `jj workspace list`. `root`
+is optional, so guard it the way the builtin template does; otherwise a
+workspace whose root is not recorded or no longer resolves prints a blank path:
+
+```toml
+[templates]
+workspace_list = 'name ++ ": " ++ if(root, root, "(root unknown)") ++ "\n"'
+```
+
 ## Log
 
 ### Default revisions
