@@ -625,6 +625,13 @@ Thanks to the people who made this release happen!
 * `JJ_PAGER` can now override the `ui.pager` config, matching `JJ_EDITOR` for
   callers that need a jj-specific environment override.
 
+* jj configuration can now be stored in version control. This is known as
+  "managed" configuration.
+  * The config file is stored at `$REPO/.config/jj/config.toml`
+  * Existing `jj config` subcommands now have the flag `--managed`
+  * For security reasons, jj will prompt you when managed config is available
+    to ask you whether you trust it.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`

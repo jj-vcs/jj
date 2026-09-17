@@ -34,6 +34,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj config gc`↴](#jj-config-gc)
 * [`jj config get`↴](#jj-config-get)
 * [`jj config list`↴](#jj-config-list)
+* [`jj config managed`↴](#jj-config-managed)
 * [`jj config path`↴](#jj-config-path)
 * [`jj config set`↴](#jj-config-set)
 * [`jj config unset`↴](#jj-config-unset)
@@ -765,6 +766,7 @@ See [`jj help -k config`] to know more about file locations, supported config op
 * `gc` — Find and optionally delete repo-level config directories whose repo path no longer exists
 * `get` — Get the value of a given config option.
 * `list` — List variables set in config files, along with their values
+* `managed` — Set the trust level of jj's managed in-repo configuration
 * `path` — Print the paths to the config files
 * `set` — Update a config file to set the given option to a given value
 * `unset` — Update a config file to unset the given option
@@ -777,7 +779,7 @@ Start an editor on a jj config file.
 
 Creates the file if it doesn't already exist regardless of what the editor does.
 
-**Usage:** `jj config edit <--user|--repo|--workspace|--file <PATH>>`
+**Usage:** `jj config edit <--user|--repo|--workspace|--managed|--file <PATH>>`
 
 **Command Alias:** `e`
 
@@ -786,6 +788,7 @@ Creates the file if it doesn't already exist regardless of what the editor does.
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--managed` — Target the managed config
 * `--file <PATH>` — Target the config file specified by the given path
 
    The path must point to a valid configuration file location recognized by Jujutsu (such as a user/repo/workspace config, a file inside a `conf.d/` directory, or any file loaded via system configs, `$JJ_CONFIG`, or `--config-file`).
@@ -845,6 +848,7 @@ List variables set in config files, along with their values
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--managed` — Target the managed config
 * `-T`, `--template <TEMPLATE>` — Render each variable using the given template
 
    The following keywords are available in the template expression:
@@ -868,6 +872,32 @@ List variables set in config files, along with their values
 
 
 
+## `jj config managed`
+
+Set the trust level of jj's managed in-repo configuration.
+
+When no arguments are provided, will take you through the review process for the current managed config.
+
+Managed configuration is like jj's repo configuration, but is stored in the repository itself, in `.config/jj/config.toml`. It is used for configuration specific to a repository but not a user, such as formatter configuration.
+
+Because it is stored in-repo, a malicious actor could modify it to execute arbitrary code. For this reason, managed configuration is untrusted by default.
+
+**Usage:** `jj config managed [OPTIONS]`
+
+**Command Alias:** `m`
+
+###### **Options:**
+
+* `--ignore` — Ignore the managed config for this repo.
+
+   Use this if you don't trust the managed config and don't want to go through the process of reviewing it.
+* `--review` — The user will explicitly either approve or reject each change
+* `--trust` — Trust the managed config.
+
+   Use this only if you trust that the authors of the repo will ensure that the managed config is safe.
+
+
+
 ## `jj config path`
 
 Print the paths to the config files
@@ -878,7 +908,7 @@ If `--repo` or `--workspace` is specified and the config file does not exist, jj
 
 See `jj config edit` if you'd like to immediately edit a file.
 
-**Usage:** `jj config path <--user|--repo|--workspace>`
+**Usage:** `jj config path <--user|--repo|--workspace|--managed>`
 
 **Command Alias:** `p`
 
@@ -887,6 +917,7 @@ See `jj config edit` if you'd like to immediately edit a file.
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--managed` — Target the managed config
 
 
 
@@ -894,7 +925,7 @@ See `jj config edit` if you'd like to immediately edit a file.
 
 Update a config file to set the given option to a given value
 
-**Usage:** `jj config set <--user|--repo|--workspace|--file <PATH>> <NAME> <VALUE>`
+**Usage:** `jj config set <--user|--repo|--workspace|--managed|--file <PATH>> <NAME> <VALUE>`
 
 **Command Alias:** `s`
 
@@ -912,6 +943,7 @@ Update a config file to set the given option to a given value
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--managed` — Target the managed config
 * `--file <PATH>` — Target the config file specified by the given path
 
    The path must point to a valid configuration file location recognized by Jujutsu (such as a user/repo/workspace config, a file inside a `conf.d/` directory, or any file loaded via system configs, `$JJ_CONFIG`, or `--config-file`).
@@ -926,7 +958,7 @@ Update a config file to set the given option to a given value
 
 Update a config file to unset the given option
 
-**Usage:** `jj config unset <--user|--repo|--workspace|--file <PATH>> <NAME>`
+**Usage:** `jj config unset <--user|--repo|--workspace|--managed|--file <PATH>> <NAME>`
 
 **Command Alias:** `u`
 
@@ -939,6 +971,7 @@ Update a config file to unset the given option
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--managed` — Target the managed config
 * `--file <PATH>` — Target the config file specified by the given path
 
    The path must point to a valid configuration file location recognized by Jujutsu (such as a user/repo/workspace config, a file inside a `conf.d/` directory, or any file loaded via system configs, `$JJ_CONFIG`, or `--config-file`).
