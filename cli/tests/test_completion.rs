@@ -473,6 +473,227 @@ fn test_completions_are_generated() {
 }
 
 #[test]
+fn test_bash_completion_registration() {
+    let mut test_env = TestEnvironment::default();
+    test_env.add_env_var("COMPLETE", "bash");
+    let mut insta_settings = insta::Settings::clone_current();
+    insta_settings.add_filter(r#"(?m)^\s+.* -- "\$\{words\[@\]\}" \\$"#, r"    .. \"); // omit path to jj binary
+    let _guard = insta_settings.bind_to_scope();
+
+    let output = test_env.run_jj_in(".", [""; 0]);
+    insta::assert_snapshot!(output, @r#"
+    # Bash splits the completed word at COMP_WORDBREAKS characters (the "@" in
+    # "main@origin", the ":" in "main::", ...), which would reach the completion
+    # as separate words otherwise. Rejoin them here and rebase the returned
+    # candidates on the part of the word that bash will actually replace. Like
+    # git-completion.bash, but unlike editing COMP_WORDBREAKS, this leaves the
+    # rest of the shell session untouched.
+    _clap_complete_jj_reassembled() {
+        local line=$COMP_LINE
+        local -a words=()
+        local cword=0
+        local j=0 i
+        for i in "${!COMP_WORDS[@]}"; do
+            if ((i > 0)) && [[ -n $line && $line == [[:space:]]* ]]; then
+                j=$((j + 1))
+            fi
+            words[j]=${words[j]-}${COMP_WORDS[i]}
+            line=${line#*"${COMP_WORDS[i]}"}
+            # Skip a closing quote so that quoted words are not glued to the
+            # following word in bash versions that strip quotes from COMP_WORDS.
+            # Words that mix quotes with unquoted text around word break
+            # characters may still be reassembled incorrectly.
+            line=${line#[\'\"]}
+            if ((i == COMP_CWORD)); then
+                cword=$j
+            fi
+        done
+
+        local cur=$2
+        local word=${words[cword]}
+        if [[ -n $cur && $word != *"$cur" ]]; then
+            # The cursor is in the middle of a word; leave the word as bash
+            # split it and let the completion handle just the typed part.
+            _clap_complete_jj "$1" "$cur"
+            return
+        fi
+
+        # Bash replaces only the part of the word after the last COMP_WORDBREAKS
+        # character (bash's $2), or inserts at the cursor when $2 is empty, so
+        # the typed part of the word has to be stripped from the candidates
+        # below. Candidates that strip to the empty string are for words that
+        # are already fully typed.
+        local keep=$word
+        if [[ -n $cur ]]; then
+            keep=${word%"$cur"}
+        fi
+
+        local -a saved_words=("${COMP_WORDS[@]}")
+        local saved_cword=$COMP_CWORD
+        COMP_WORDS=("${words[@]}")
+        COMP_CWORD=$cword
+        _clap_complete_jj "${words[0]}" "$word"
+        COMP_WORDS=("${saved_words[@]}")
+        COMP_CWORD=$saved_cword
+
+        local -a adjusted=()
+        local candidate
+        if [[ ${#COMPREPLY[@]} -gt 0 ]]; then
+            for candidate in "${COMPREPLY[@]}"; do
+                if [[ -n $keep && $candidate == "$keep"* ]]; then
+                    candidate=${candidate#"$keep"}
+                fi
+                # Drop candidates that are already fully typed, so that bash
+                # doesn't replace the typed part of the word with them.
+                if [[ -n $candidate ]]; then
+                    adjusted+=("$candidate")
+                fi
+            done
+        fi
+        COMPREPLY=()
+        if [[ ${#adjusted[@]} -gt 0 ]]; then
+            COMPREPLY=("${adjusted[@]}")
+        fi
+    }
+
+
+    _clap_complete_jj() {
+        local IFS=$'\013'
+        local _CLAP_COMPLETE_INDEX=${COMP_CWORD}
+        local _CLAP_COMPLETE_COMP_TYPE=${COMP_TYPE}
+        if compopt +o nospace 2> /dev/null; then
+            local _CLAP_COMPLETE_SPACE=false
+        else
+            local _CLAP_COMPLETE_SPACE=true
+        fi
+        local words=("${COMP_WORDS[@]}")
+        if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+            words[COMP_CWORD]="$2"
+        fi
+        COMPREPLY=( $( \
+            _CLAP_IFS="$IFS" \
+            _CLAP_COMPLETE_INDEX="$_CLAP_COMPLETE_INDEX" \
+            _CLAP_COMPLETE_COMP_TYPE="$_CLAP_COMPLETE_COMP_TYPE" \
+            _CLAP_COMPLETE_SPACE="$_CLAP_COMPLETE_SPACE" \
+            COMPLETE="bash" \
+        .. \
+        ) )
+        if [[ $? != 0 ]]; then
+            unset COMPREPLY
+        elif [[ $_CLAP_COMPLETE_SPACE == false ]] && [[ "${COMPREPLY-}" =~ [=/:]$ ]]; then
+            compopt -o nospace
+        fi
+    }
+    if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
+        complete -o nospace -o bashdefault -o nosort -F _clap_complete_jj_reassembled jj
+    else
+        complete -o nospace -o bashdefault -F _clap_complete_jj_reassembled jj
+    fi
+
+
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_bash_completion_word_reassembly() {
+    let mut test_env = TestEnvironment::default();
+    test_env.add_env_var("COMPLETE", "bash");
+    let registration = test_env.run_jj_in(".", [""; 0]).stdout;
+
+    // Drive the reassembly wrapper directly with the COMP_* values bash
+    // would set, with the clap-generated completion function stubbed out to
+    // record its inputs and return fixed candidates. Requires a usable bash;
+    // skipped where there is none.
+    let script = format!(
+        r#"{registration}
+_clap_complete_jj() {{
+    printf 'inner cword=%s cur=<%s> words=' "$COMP_CWORD" "$2"
+    local w
+    for w in "${{COMP_WORDS[@]}}"; do printf '<%s>' "$w"; done
+    printf '\n'
+    COMPREPLY=("${{stub_replies[@]}}")
+}}
+run() {{
+    COMP_LINE=$1
+    COMP_POINT=${{#1}}
+    COMP_CWORD=$2
+    local cur=$3
+    stub_replies=($4)
+    shift 4
+    COMP_WORDS=("$@")
+    COMP_WORDBREAKS=$' \t\n"\'@><=;|&(:'
+    _clap_complete_jj_reassembled jj "$cur"
+    printf 'replies='
+    local c
+    for c in "${{COMPREPLY[@]}}"; do printf '<%s>' "$c"; done
+    printf ' words='
+    local w
+    for w in "${{COMP_WORDS[@]}}"; do printf '<%s>' "$w"; done
+    printf '\n'
+}}
+run 'jj rebase -d master@' 4 '@' 'master@origin' jj rebase -d master '@'
+run 'jj rebase -d master@o' 5 '@o' 'master@origin' jj rebase -d master '@' o
+run 'jj rebase -d master@origin' 5 'origin' 'master@origin' jj rebase -d master '@' origin
+run 'jj git push --named a=master@o' 7 'o' 'a=master@origin' jj git push --named a = master '@' o
+run 'jj git push --named a=master' 6 'master' 'a=master a=master@origin' jj git push --named a = master
+run 'jj log -r master::' 4 '' 'master::master master::t' jj log -r master '::'
+run 'jj log -r master@ ' 5 '' 'master@origin' jj log -r master '@' ''
+run 'jj rebase -d master@' 5 '' 'master@origin' jj rebase -d master '@' ''
+run "jj log -r 'foo bar' mas" 4 'mas' 'master' jj log -r "'foo bar'" mas
+run 'jj log master' 2 'mas' 'master' jj log master
+run 'jj new @' 2 '@' 'master@origin' jj new '@'
+"#
+    );
+    // Skip where bash exists but can't run a script. The Windows CI runners
+    // resolve `bash` to the WSL launcher, which bails out unless a
+    // distribution is installed.
+    let bash_works = std::process::Command::new("bash")
+        .args(["-c", "exit 0"])
+        .output()
+        .is_ok_and(|output| output.status.success());
+    if !bash_works {
+        return;
+    }
+
+    let script_path = test_env.env_root().join("completion.sh");
+    std::fs::write(&script_path, script).unwrap();
+    let output = std::process::Command::new("bash")
+        .arg(script_path)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "bash script failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"
+    inner cword=3 cur=<master@> words=<jj><rebase><-d><master@>
+    replies=<@origin> words=<jj><rebase><-d><master><@>
+    inner cword=3 cur=<master@o> words=<jj><rebase><-d><master@o>
+    replies=<@origin> words=<jj><rebase><-d><master><@><o>
+    inner cword=3 cur=<master@origin> words=<jj><rebase><-d><master@origin>
+    replies=<origin> words=<jj><rebase><-d><master><@><origin>
+    inner cword=4 cur=<a=master@o> words=<jj><git><push><--named><a=master@o>
+    replies=<origin> words=<jj><git><push><--named><a><=><master><@><o>
+    inner cword=4 cur=<a=master> words=<jj><git><push><--named><a=master>
+    replies=<master><master@origin> words=<jj><git><push><--named><a><=><master>
+    inner cword=3 cur=<master::> words=<jj><log><-r><master::>
+    replies=<master><t> words=<jj><log><-r><master><::>
+    inner cword=4 cur=<> words=<jj><log><-r><master@><>
+    replies=<master@origin> words=<jj><log><-r><master><@><>
+    inner cword=3 cur=<master@> words=<jj><rebase><-d><master@>
+    replies=<origin> words=<jj><rebase><-d><master><@><>
+    inner cword=4 cur=<mas> words=<jj><log><-r><'foo bar'><mas>
+    replies=<master> words=<jj><log><-r><'foo bar'><mas>
+    inner cword=2 cur=<mas> words=<jj><log><master>
+    replies=<master> words=<jj><log><master>
+    inner cword=2 cur=<@> words=<jj><new><@>
+    replies=<master@origin> words=<jj><new><@>
+    ");
+}
+
+#[test]
 fn test_bad_complete_env() {
     let mut test_env = TestEnvironment::default();
 
@@ -1176,12 +1397,32 @@ fn test_revisions() {
     [EOF]
     ");
 
+    // same, but through the bash code path, which strips help text
+    let output = work_dir.complete_at(Shell::Bash, 2, ["abandon", "y::"]);
+    insta::assert_snapshot!(output, @"
+    y::conflicted_bookmark
+    y::mutable_bookmark
+    y::wv
+    y::x
+    y::u
+    y::wq/0
+    y::wq/1
+    y::m
+    y::r
+    y::alias_with_newline
+    y::siblings[EOF]
+    ");
+
     // complete remote bookmarks in a revset expression
     let output = work_dir.complete_fish(["log", "-r", "remote_bookmark@"]);
     insta::assert_snapshot!(output, @"
     remote_bookmark@origin	remote_commit
     [EOF]
     ");
+
+    // same, but through the bash code path, which strips help text
+    let output = work_dir.complete_at(Shell::Bash, 3, ["log", "-r", "remote_bookmark@"]);
+    insta::assert_snapshot!(output, @"remote_bookmark@origin[EOF]");
 
     // complete conflicted revisions in a revset expression
     let output = work_dir.complete_fish(["resolve", "-r", ""]);
@@ -1253,6 +1494,14 @@ fn test_revisions() {
     a=alias_with_newline	    roots(
     [EOF]
     ");
+
+    // a value with both "=" and "@" in it, through the bash code path
+    let output = work_dir.complete_at(
+        Shell::Bash,
+        4,
+        ["git", "push", "--named", "a=remote_bookmark@"],
+    );
+    insta::assert_snapshot!(output, @"a=remote_bookmark@origin[EOF]");
 }
 
 #[test]
