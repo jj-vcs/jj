@@ -1933,6 +1933,25 @@ fn add_worktree_to_populated_dir(
 }
 
 #[derive(Debug, Error)]
+pub enum GitRepairWorktreeError {
+    #[error(transparent)]
+    Subprocess(#[from] GitSubprocessError),
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
+}
+
+pub fn repair_worktree(
+    store: &Store,
+    subprocess_options: GitSubprocessOptions,
+    worktree_path: &Path,
+) -> Result<(), GitRepairWorktreeError> {
+    let git_backend = get_git_backend(store)?;
+    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
+    git_ctx.spawn_worktree_repair(worktree_path)?;
+    Ok(())
+}
+
+#[derive(Debug, Error)]
 pub enum GitUnlinkWorktreeError {
     #[error("Failed to remove .git gitlink file")]
     RemoveGitLink(#[source] PathError),
