@@ -700,8 +700,10 @@ fn test_status_no_working_copy() {
     let work_dir = test_env.work_dir("repo");
     work_dir.run_jj(["workspace", "forget"]).success();
 
-    insta::assert_snapshot!(work_dir.run_jj(["status"]), @"
-    No working copy.
+    insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
+    ------- stderr -------
+    Error: The workspace at $TEST_ENV/repo has been forgetten
     [EOF]
+    [exit status: 1]
     ");
 }
