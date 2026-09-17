@@ -15,15 +15,21 @@
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
+use itertools::Itertools as _;
 use jj_lib::absorb::AbsorbSource;
+use jj_lib::absorb::UnabsorbedHunk;
+use jj_lib::absorb::UnabsorbedReason;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
+use jj_lib::backend::CommitId;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::merge::Diff;
+use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
@@ -81,6 +87,86 @@ pub(crate) struct AbsorbArgs {
     #[arg(long, value_name = "NAME")]
     #[arg(add = ArgValueCandidates::new(complete::diff_editors))]
     tool: Option<String>,
+}
+
+/// Number of unabsorbed hunks to report individually before summarizing the
+/// rest.
+///
+/// Kept low because each warning spans several lines, unlike a commit summary.
+const MAX_UNABSORBED_HUNKS: usize = 5;
+
+/// Prints a warning for each hunk which was left in the source revision.
+fn print_unabsorbed_hunks(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
+    hunks: &[UnabsorbedHunk],
+) -> Result<(), CommandError> {
+    for hunk in hunks.iter().take(MAX_UNABSORBED_HUNKS) {
+        print_unabsorbed_hunk(ui, workspace_command, hunk)?;
+    }
+    if hunks.len() > MAX_UNABSORBED_HUNKS {
+        writeln!(
+            ui.warning_default(),
+            "Could not absorb {} other hunks",
+            hunks.len() - MAX_UNABSORBED_HUNKS
+        )?;
+    }
+    Ok(())
+}
+
+/// Prints a warning for a single hunk which was left in the source revision.
+fn print_unabsorbed_hunk(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
+    hunk: &UnabsorbedHunk,
+) -> Result<(), CommandError> {
+    let ui_path = workspace_command
+        .path_converter()
+        .format_file_path(&hunk.path);
+    let lines = if hunk.lines.end == hunk.lines.start + 1 {
+        format!("line {}", hunk.lines.start)
+    } else {
+        format!("lines {}-{}", hunk.lines.start, hunk.lines.end - 1)
+    };
+    match &hunk.reason {
+        UnabsorbedReason::NoDestination => {
+            writeln!(
+                ui.warning_default(),
+                "Could not absorb {ui_path} at {lines}: no destination commit could be determined"
+            )?;
+        }
+        UnabsorbedReason::Ambiguous(commit_ids) => {
+            writeln!(
+                ui.warning_default(),
+                "Could not absorb {ui_path} at {lines}: could be absorbed into multiple commits; \
+                 use `--into` to pick one:"
+            )?;
+            print_candidate_commits(ui, workspace_command, commit_ids)?;
+        }
+        UnabsorbedReason::SpansMultipleCommits(commit_ids) => {
+            writeln!(
+                ui.warning_default(),
+                "Could not absorb {ui_path} at {lines}: spans lines modified by multiple commits:"
+            )?;
+            print_candidate_commits(ui, workspace_command, commit_ids)?;
+        }
+    }
+    Ok(())
+}
+
+/// Prints the candidate destination commits, one per line.
+fn print_candidate_commits(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
+    commit_ids: &[CommitId],
+) -> Result<(), CommandError> {
+    let template = workspace_command.commit_summary_template();
+    let commits: Vec<_> = commit_ids
+        .iter()
+        .map(|commit_id| workspace_command.repo().store().get_commit(commit_id))
+        .try_collect()?;
+    print_updated_commits(&mut *ui.warning_no_heading(), &template, commits.iter())?;
+    Ok(())
 }
 
 #[instrument(skip_all)]
@@ -153,11 +239,10 @@ pub(crate) async fn cmd_absorb(
     let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).await?;
 
     let path_converter = workspace_command.path_converter();
-    for (path, reason) in selected_trees.skipped_paths {
-        let ui_path = path_converter.format_file_path(&path);
+    for (path, reason) in &selected_trees.skipped_paths {
+        let ui_path = path_converter.format_file_path(path);
         writeln!(ui.warning_default(), "Skipping {ui_path}: {reason}")?;
     }
-
     workspace_command
         .check_rewritable(selected_trees.target_commits.keys())
         .await?;
@@ -186,6 +271,12 @@ pub(crate) async fn cmd_absorb(
             )?;
         }
     }
+
+    print_unabsorbed_hunks(
+        ui,
+        tx.base_workspace_helper(),
+        &selected_trees.unabsorbed_hunks,
+    )?;
 
     tx.finish(
         ui,
