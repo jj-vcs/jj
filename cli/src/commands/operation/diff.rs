@@ -127,14 +127,12 @@ pub async fn cmd_op_diff(
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let workspace_name = None;
     let transaction_description = None;
     let command_args = [];
     let merged_from_op = merge_operations(
         None,
         repo_loader,
         from_ops.clone(),
-        workspace_name,
         transaction_description,
         &command_args,
     )
@@ -250,10 +248,12 @@ fn resolve_op_diff_changes_exprs(
         .symbol_resolvers();
     let from_repo_symbol_resolver = SymbolResolver::new(from_repo, extensions);
     let to_repo_symbol_resolver = SymbolResolver::new(to_repo, extensions);
-    let from_op_diff_changes_expr =
-        op_diff_changes_expr.resolve_user_expression(from_repo, &from_repo_symbol_resolver)?;
-    let to_op_diff_changes_expr =
-        op_diff_changes_expr.resolve_user_expression(to_repo, &to_repo_symbol_resolver)?;
+    let from_op_diff_changes_expr = op_diff_changes_expr
+        .resolve_user_expression(from_repo, &from_repo_symbol_resolver)?
+        .into_expression();
+    let to_op_diff_changes_expr = op_diff_changes_expr
+        .resolve_user_expression(to_repo, &to_repo_symbol_resolver)?
+        .into_expression();
     Ok((from_op_diff_changes_expr, to_op_diff_changes_expr))
 }
 
