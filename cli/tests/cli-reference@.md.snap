@@ -131,6 +131,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj workspace add`↴](#jj-workspace-add)
 * [`jj workspace forget`↴](#jj-workspace-forget)
 * [`jj workspace list`↴](#jj-workspace-list)
+* [`jj workspace move`↴](#jj-workspace-move)
 * [`jj workspace remove`↴](#jj-workspace-remove)
 * [`jj workspace rename`↴](#jj-workspace-rename)
 * [`jj workspace root`↴](#jj-workspace-root)
@@ -3965,6 +3966,7 @@ Each workspace also has own sparse patterns.
 * `add` — Add a workspace
 * `forget` — Stop tracking a workspace's working-copy commit in the repo
 * `list` — List workspaces
+* `move` — Move a workspace to a new path
 * `remove` — Remove a workspace and its working-copy files from disk
 * `rename` — Renames the current workspace
 * `root` — Show the workspace root directory
@@ -4047,6 +4049,21 @@ List workspaces
    [`WorkspaceRef` type]: https://docs.jj-vcs.dev/latest/templates/#workspaceref-type
 
    [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
+
+
+
+## `jj workspace move`
+
+Move a workspace to a new path
+
+The workspace containing the repository cannot be moved. The source and destination must be on the same filesystem. On Windows, the command must be run from outside the workspace being moved.
+
+**Usage:** `jj workspace move <WORKSPACE> <DESTINATION>`
+
+###### **Arguments:**
+
+* `<WORKSPACE>` — Workspace to move
+* `<DESTINATION>` — New path for the workspace
 
 
 

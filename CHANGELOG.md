@@ -46,6 +46,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj workspace remove` removes a workspace and its directory from disk. The
   working-copy state is snapshotted into a commit before removal.
 
+* `jj workspace move` moves a workspace to a new path.
+  [#7113](https://github.com/jj-vcs/jj/issues/7113)
+
 * `jj git colocation status`/`enable`/`disable` now work on child
   workspaces. `status` correctly reports colocation state and includes
   the workspace name. `enable` creates a Git worktree and `disable`
