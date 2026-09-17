@@ -99,6 +99,7 @@
           cargo-llvm-cov
 
           # Miscellaneous tools
+          rumdl
           watchman
 
           # In case you need to run `cargo run --bin gen-protos`
