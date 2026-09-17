@@ -1675,9 +1675,10 @@ to the current parents may contain changes from multiple commits.
             // TODO: maybe use path() and interpolate(), which can process non-utf-8
             // path on Unix.
             if let Some(value) = config.string("core.excludesFile") {
+                let home_dir = self.env.command.config_env().home_dir();
                 let path = str::from_utf8(&value)
                     .ok()
-                    .map(jj_lib::file_util::expand_home_path)?;
+                    .map(|value| jj_lib::file_util::expand_home_path(value, home_dir))?;
                 // The configured path is usually absolute, but if it's relative,
                 // the "git" command would read the file at the work-tree directory.
                 Some(self.workspace_root().join(path))
@@ -4687,7 +4688,10 @@ impl<'a> CliRunner<'a> {
             warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
         }
 
-        let settings = UserSettings::from_config(config)?;
+        let settings = UserSettings::from_config_and_home_dir(
+            config,
+            config_env.home_dir().map(ToOwned::to_owned),
+        )?;
         let command_helper_data = CommandHelperData {
             app: self.app,
             cwd,

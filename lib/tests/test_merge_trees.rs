@@ -257,5 +257,5 @@ fn settings_with_same_change(same_change: SameChange) -> UserSettings {
         .set_value("merge.same-change", same_change_str)
         .unwrap();
     config.add_layer(layer);
-    UserSettings::from_config(config).unwrap()
+    testutils::user_settings_from_config(config)
 }
