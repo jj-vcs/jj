@@ -102,6 +102,7 @@ pub mod ssh_signing;
 pub mod stacked_table;
 pub mod store;
 pub use jj_core::str_util;
+pub mod stacker;
 pub mod submodule_store;
 pub mod subprocess_util;
 #[cfg(feature = "testing")]

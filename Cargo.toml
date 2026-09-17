@@ -120,6 +120,7 @@ smallvec = { version = "1.15.1", features = [
     "serde",
     "union",
 ] }
+stacker = "0.1.25"
 strsim = "0.11.1"
 syn = "3.0.3"
 tempfile = "3.27.0"

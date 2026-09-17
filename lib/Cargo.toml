@@ -56,6 +56,7 @@ ref-cast = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
+stacker = { workspace = true }
 strsim = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
