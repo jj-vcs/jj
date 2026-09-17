@@ -99,6 +99,7 @@
           cargo-llvm-cov
 
           # Miscellaneous tools
+          markdownlint-cli2
           watchman
 
           # In case you need to run `cargo run --bin gen-protos`

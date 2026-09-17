@@ -1,0 +1,13 @@
+# Rule settings live in .markdownlint.yaml so editors can use the same policy.
+globs:
+  - "**/*.md"
+  - "**/*.mdx"
+  # Both documentation sites include this generated Markdown.
+  - "cli/tests/cli-reference@.md.snap"
+gitignore: true
+ignores:
+  - "**/node_modules/**"
+  # These symlinks duplicate files already covered above.
+  - "cli/docs/**"
+  - "docs/governance/GOVERNANCE.md"
+noInlineConfig: true

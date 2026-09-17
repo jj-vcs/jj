@@ -172,6 +172,21 @@ jobs:
           components: rustfmt
       - run: cargo +nightly fmt --all -- --check
 
+  check-markdown:
+    name: check (markdownlint)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Bundles markdownlint-cli2 0.23.2 / markdownlint 0.41.1.
+      # Keep the version in .config/mise.toml in sync when upgrading.
+      - uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0
+        with:
+          config: .markdownlint-cli2.yaml
+          # Use only the file selection in the shared configuration.
+          globs: ""
+
   check-clippy:
     name: check (clippy)
     permissions:
@@ -345,6 +360,7 @@ jobs:
     - build-nix
     - check-protos
     - check-rustfmt
+    - check-markdown
     - check-clippy
     - check-cargo-deny
     - check-codespell

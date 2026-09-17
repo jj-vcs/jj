@@ -9,7 +9,20 @@ non-empty slice as input, it's fine to call `slice[0]` and panic.
 
 ## Markdown
 
-Try to wrap at 80 columns. We don't have a formatter yet.
+Try to wrap at 80 columns. Markdownlint checks a small set of rules in CI;
+line-length checks are not enabled yet.
+
+Local installation is optional. To check or fix Markdown with the repository's
+configuration, run `mise check:markdown` or `mise fix:markdown`. Mise installs
+the pinned tool and Node.js as needed. With Node.js already installed, use
+`npx markdownlint-cli2@0.23.2` or add `--fix` to apply fixes.
+
+The Nix development shell also includes markdownlint-cli2. Run
+`nix develop -c markdownlint-cli2` to check Markdown, or add `--fix` to apply fixes.
+
+Editors should use the root `.markdownlint.yaml` rather than a separate rule
+set. The configuration lists the enabled rules and baseline counts for rules
+we have not enabled. Add further rules and their cleanup in separate changes.
 
 ## Prefer lower-level tests to end-to-end tests
 
