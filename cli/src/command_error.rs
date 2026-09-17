@@ -543,6 +543,7 @@ mod git {
     use jj_lib::git::GitPushError;
     use jj_lib::git::GitRefExpansionError;
     use jj_lib::git::GitRemoteManagementError;
+    use jj_lib::git::GitRepairWorktreeError;
     use jj_lib::git::GitResetHeadError;
     use jj_lib::git::UnexpectedGitBackendError;
 
@@ -633,6 +634,12 @@ jj currently does not support partial clones. To use jj with this repository, tr
     impl From<GitCreateWorktreeError> for CommandError {
         fn from(err: GitCreateWorktreeError) -> Self {
             user_error(err)
+        }
+    }
+
+    impl From<GitRepairWorktreeError> for CommandError {
+        fn from(err: GitRepairWorktreeError) -> Self {
+            user_error_with_message("Failed to repair Git worktree", err)
         }
     }
 
