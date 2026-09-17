@@ -6,9 +6,9 @@ new_tmp_dir
 {
     jj git clone https://github.com/octocat/Hello-World
     cd Hello-World
-    jj abandon --ignore-immutable test@origin
+    jj abandon --allow-immutable test@origin
     jj bookmark forget test
-    jj abandon --ignore-immutable octocat-patch-1@origin
+    jj abandon --allow-immutable octocat-patch-1@origin
     jj bookmark forget octocat-patch-1
 }> /dev/null 2>&1
 

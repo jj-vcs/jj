@@ -3159,12 +3159,12 @@ fn test_op_immutable_revisions() {
 
     // Abandon the immutable stack
     work_dir
-        .run_jj(["abandon", "--ignore-immutable", "::t1 & ~root()"])
+        .run_jj(["abandon", "--allow-immutable", "::t1 & ~root()"])
         .success();
     insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
-    57739a739904 test-username@host.example.com default@ 2001-02-03 04:05:16.000 +07:00 - 2001-02-03 04:05:16.000 +07:00
+    431f72dc4378 test-username@host.example.com default@ 2001-02-03 04:05:16.000 +07:00 - 2001-02-03 04:05:16.000 +07:00
     abandon commit 9c86781f3fe9097ffc530e65fd2ab4aff1e654bd and 5 more
-    args: jj abandon --ignore-immutable '::t1 & ~root()'
+    args: jj abandon --allow-immutable '::t1 & ~root()'
 
     Changed commits:
     ○  - royxmykx/0 9c86781f (hidden) (empty) commit 5
@@ -3175,8 +3175,8 @@ fn test_op_immutable_revisions() {
     // Undo
     work_dir.run_jj(["op", "revert"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
-    d5b2b3f52ef8 test-username@host.example.com default@ 2001-02-03 04:05:18.000 +07:00 - 2001-02-03 04:05:18.000 +07:00
-    revert operation 57739a7399047ab60f9bf4aedcf1c604e868abd0f33795f7e18f99b86acb5fd8549c852fb49eb18f8c85fcfb4784e95161f2d9efc24b01c603f468a52689405f
+    368267637ecd test-username@host.example.com default@ 2001-02-03 04:05:18.000 +07:00 - 2001-02-03 04:05:18.000 +07:00
+    revert operation 431f72dc43786abd4bea77b396bee3e124e7448a1f1a724bbb76d7e2b390990bc2eec6adb2170fb3099f8fa3b14b4a00dc65c868e09cfe3057c36c4dadbfdfd8
     args: jj op revert
 
     Changed commits:
@@ -3203,13 +3203,13 @@ fn test_op_immutable_revisions() {
 
     // Abandon both chains
     work_dir
-        .run_jj(["abandon", "--ignore-immutable", "(::f1 | ::f2) & ~root()"])
+        .run_jj(["abandon", "--allow-immutable", "(::f1 | ::f2) & ~root()"])
         .success();
     let op_id_for_diff = work_dir.current_operation_id();
     insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
-    a3d69d664845 test-username@host.example.com default@ 2001-02-03 04:05:31.000 +07:00 - 2001-02-03 04:05:31.000 +07:00
+    5d4ca18eacb0 test-username@host.example.com default@ 2001-02-03 04:05:31.000 +07:00 - 2001-02-03 04:05:31.000 +07:00
     abandon commit 7c60d8fd187f77196d1def564b0d893d477b7e56 and 11 more
-    args: jj abandon --ignore-immutable '(::f1 | ::f2) & ~root()'
+    args: jj abandon --allow-immutable '(::f1 | ::f2) & ~root()'
 
     Changed commits:
     ○  - tlkvzzqu/0 7c60d8fd (hidden) (empty) f2 3
@@ -3222,9 +3222,9 @@ fn test_op_immutable_revisions() {
 
     // Use `--show-changes-in none()` to see only elisions
     insta::assert_snapshot!(work_dir.run_jj(["op", "show", "--show-changes-in", "none()"]), @"
-    a3d69d664845 test-username@host.example.com default@ 2001-02-03 04:05:31.000 +07:00 - 2001-02-03 04:05:31.000 +07:00
+    5d4ca18eacb0 test-username@host.example.com default@ 2001-02-03 04:05:31.000 +07:00 - 2001-02-03 04:05:31.000 +07:00
     abandon commit 7c60d8fd187f77196d1def564b0d893d477b7e56 and 11 more
-    args: jj abandon --ignore-immutable '(::f1 | ::f2) & ~root()'
+    args: jj abandon --allow-immutable '(::f1 | ::f2) & ~root()'
 
     Changed commits:
        (Elided 10+ newly removed revisions)
@@ -3256,12 +3256,12 @@ fn test_op_immutable_revisions() {
 
     // Rebase bb chain onto ba head.
     work_dir
-        .run_jj(["rebase", "--ignore-immutable", "-s", "bb----", "-d", "ba"])
+        .run_jj(["rebase", "--allow-immutable", "-s", "bb----", "-d", "ba"])
         .success();
     insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
-    e92cd1c233e5 test-username@host.example.com default@ 2001-02-03 04:05:48.000 +07:00 - 2001-02-03 04:05:48.000 +07:00
+    8bc3d67d2eaf test-username@host.example.com default@ 2001-02-03 04:05:48.000 +07:00 - 2001-02-03 04:05:48.000 +07:00
     rebase commit 6c3a9c2476ba8a8e5bac722f9c0e2ca914b9577d and descendants
-    args: jj rebase --ignore-immutable -s bb---- -d ba
+    args: jj rebase --allow-immutable -s bb---- -d ba
 
     Changed commits:
     ○  + wtlqussy bf3146c8 (empty) (no description set)
@@ -3283,9 +3283,9 @@ fn test_op_immutable_revisions() {
 
     // Use `--show-changes-in none()` to see only elisions
     insta::assert_snapshot!(work_dir.run_jj(["op", "show", "--show-changes-in", "none()"]), @"
-    e92cd1c233e5 test-username@host.example.com default@ 2001-02-03 04:05:48.000 +07:00 - 2001-02-03 04:05:48.000 +07:00
+    8bc3d67d2eaf test-username@host.example.com default@ 2001-02-03 04:05:48.000 +07:00 - 2001-02-03 04:05:48.000 +07:00
     rebase commit 6c3a9c2476ba8a8e5bac722f9c0e2ca914b9577d and descendants
-    args: jj rebase --ignore-immutable -s bb---- -d ba
+    args: jj rebase --allow-immutable -s bb---- -d ba
 
     Changed commits:
        (Elided 6 newly added and 6 newly removed revisions)
@@ -3312,12 +3312,12 @@ fn test_op_immutable_revisions() {
         .success();
     // Abandon to see single removal elision
     work_dir
-        .run_jj(["abandon", "--ignore-immutable", "::ts & ~root()"])
+        .run_jj(["abandon", "--allow-immutable", "::ts & ~root()"])
         .success();
     insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
-    95b73748d059 test-username@host.example.com default@ 2001-02-03 04:05:55.000 +07:00 - 2001-02-03 04:05:55.000 +07:00
+    4e99e23e023e test-username@host.example.com default@ 2001-02-03 04:05:55.000 +07:00 - 2001-02-03 04:05:55.000 +07:00
     abandon commit 4ebd4aa1d0bfee524ccd21882606990e3b75fc12 and 1 more
-    args: jj abandon --ignore-immutable '::ts & ~root()'
+    args: jj abandon --allow-immutable '::ts & ~root()'
 
     Changed commits:
     ○  + ztnvrxlv 41578768 (empty) (no description set)
@@ -3334,8 +3334,8 @@ fn test_op_immutable_revisions() {
     // Undo to see single addition elision
     work_dir.run_jj(["op", "revert"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
-    6efe5476f4ba test-username@host.example.com default@ 2001-02-03 04:05:57.000 +07:00 - 2001-02-03 04:05:57.000 +07:00
-    revert operation 95b73748d0599916938dca69ee15ca6a483ff989edc9623a4de65da4059d6b80613dbaa61c24145b621886f1e8562d2a951de817a3ea2ae46a59ec40bc67e4ec
+    1608fa794c02 test-username@host.example.com default@ 2001-02-03 04:05:57.000 +07:00 - 2001-02-03 04:05:57.000 +07:00
+    revert operation 4e99e23e023ec963ef0f601c3ba4a9f2c5f7e890328587498997b8cb35ef89a1bc41a17523102d4850233153082828f15a100f152a073899a41ee31fa9e0e032
     args: jj op revert
 
     Changed commits:
@@ -3352,8 +3352,8 @@ fn test_op_immutable_revisions() {
 
     // 5. op diff and op log tests
     insta::assert_snapshot!(work_dir.run_jj(["op", "diff", "--from", &op_id_for_diff]), @"
-    From operation: a3d69d664845 (2001-02-03 08:05:31) abandon commit 7c60d8fd187f77196d1def564b0d893d477b7e56 and 11 more
-      To operation: 6efe5476f4ba (2001-02-03 08:05:57) revert operation 95b73748d0599916938dca69ee15ca6a483ff989edc9623a4de65da4059d6b80613dbaa61c24145b621886f1e8562d2a951de817a3ea2ae46a59ec40bc67e4ec
+    From operation: 5d4ca18eacb0 (2001-02-03 08:05:31) abandon commit 7c60d8fd187f77196d1def564b0d893d477b7e56 and 11 more
+      To operation: 1608fa794c02 (2001-02-03 08:05:57) revert operation 4e99e23e023ec963ef0f601c3ba4a9f2c5f7e890328587498997b8cb35ef89a1bc41a17523102d4850233153082828f15a100f152a073899a41ee31fa9e0e032
 
     Changed commits:
     ○  + ztnvrxlv 13887367 (empty) (no description set)
@@ -3383,8 +3383,8 @@ fn test_op_immutable_revisions() {
     ");
 
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-p", "--limit", "1"]), @"
-    @  6efe5476f4ba test-username@host.example.com default@ 2001-02-03 04:05:57.000 +07:00 - 2001-02-03 04:05:57.000 +07:00
-    │  revert operation 95b73748d0599916938dca69ee15ca6a483ff989edc9623a4de65da4059d6b80613dbaa61c24145b621886f1e8562d2a951de817a3ea2ae46a59ec40bc67e4ec
+    @  1608fa794c02 test-username@host.example.com default@ 2001-02-03 04:05:57.000 +07:00 - 2001-02-03 04:05:57.000 +07:00
+    │  revert operation 4e99e23e023ec963ef0f601c3ba4a9f2c5f7e890328587498997b8cb35ef89a1bc41a17523102d4850233153082828f15a100f152a073899a41ee31fa9e0e032
     │  args: jj op revert
     │
     │  Changed commits:
@@ -3447,7 +3447,7 @@ fn test_op_immutable_revisions() {
     // Operation A: Hide acc-c3 by abandoning it. c1 and c2 remain visible via
     // bookmarks.
     work_dir
-        .run_jj(["abandon", "--ignore-immutable", "-r", &c3_id])
+        .run_jj(["abandon", "--allow-immutable", "-r", &c3_id])
         .success();
     let op_a = work_dir.current_operation_id();
 
@@ -3455,7 +3455,7 @@ fn test_op_immutable_revisions() {
     // newly_hidden = {c1, c2}.
     // Option 1 (Fix) shows the head (c2) and elides the parent (c1).
     work_dir
-        .run_jj(["abandon", "--ignore-immutable", "-r", &c1_id, "-r", &c2_id])
+        .run_jj(["abandon", "--allow-immutable", "-r", &c1_id, "-r", &c2_id])
         .success();
     let op_b = work_dir.current_operation_id();
 
@@ -3472,8 +3472,8 @@ fn test_op_immutable_revisions() {
         "all()",
     ]);
     insta::assert_snapshot!(output, @"
-    From operation: 5e7f0dc78d52 (2001-02-03 08:06:12) abandon commit 65f87c2d667d5088987ce6bed60f31f783b9e2ba
-      To operation: 251152d9b321 (2001-02-03 08:06:13) abandon commit 7d9fcee9d7dedaa91bee64d976a4252c74750905 and 1 more
+    From operation: e658ab6a11bc (2001-02-03 08:06:12) abandon commit 65f87c2d667d5088987ce6bed60f31f783b9e2ba
+      To operation: 8a8901e4afd8 (2001-02-03 08:06:13) abandon commit 7d9fcee9d7dedaa91bee64d976a4252c74750905 and 1 more
 
     Changed commits:
     ○  - quyylypw/0 7d9fcee9 (hidden) (empty) acc-c2
@@ -3493,8 +3493,8 @@ fn test_op_immutable_revisions() {
     // of the newly hidden set and elide c1.
     let output = work_dir.run_jj(["op", "diff", "--from", &op_a, "--to", &op_b]);
     insta::assert_snapshot!(output, @"
-    From operation: 5e7f0dc78d52 (2001-02-03 08:06:12) abandon commit 65f87c2d667d5088987ce6bed60f31f783b9e2ba
-      To operation: 251152d9b321 (2001-02-03 08:06:13) abandon commit 7d9fcee9d7dedaa91bee64d976a4252c74750905 and 1 more
+    From operation: e658ab6a11bc (2001-02-03 08:06:12) abandon commit 65f87c2d667d5088987ce6bed60f31f783b9e2ba
+      To operation: 8a8901e4afd8 (2001-02-03 08:06:13) abandon commit 7d9fcee9d7dedaa91bee64d976a4252c74750905 and 1 more
 
     Changed commits:
     ○  - quyylypw/0 7d9fcee9 (hidden) (empty) acc-c2
