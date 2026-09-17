@@ -101,7 +101,7 @@ mod tests {
 
     fn get_commit_index_stats(commits: &Arc<ReadonlyCommitIndexSegment>) -> IndexStats {
         let changed_paths = CompositeChangedPathIndex::null();
-        let index = DefaultReadonlyIndex::from_segment(commits.clone(), changed_paths);
+        let index = DefaultReadonlyIndex::from_segment(commits.clone(), Arc::new(changed_paths));
         index.stats()
     }
 

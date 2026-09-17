@@ -219,7 +219,10 @@ impl DefaultIndexStore {
         } else {
             CompositeChangedPathIndex::null()
         };
-        Ok(DefaultReadonlyIndex::from_segment(commits, changed_paths))
+        Ok(DefaultReadonlyIndex::from_segment(
+            commits,
+            Arc::new(changed_paths),
+        ))
     }
 
     /// Rebuilds index for the given `operation`.
@@ -444,7 +447,7 @@ impl DefaultIndexStore {
 
         // Update the operation link to point to the new segments
         let commits = index.readonly_commits().clone();
-        let index = DefaultReadonlyIndex::from_segment(commits, new_changed_paths);
+        let index = DefaultReadonlyIndex::from_segment(commits, Arc::new(new_changed_paths));
         self.associate_index_with_operation(&index, op_id)
             .map_err(|source| DefaultIndexStoreError::AssociateIndex {
                 op_id: op_id.to_owned(),
@@ -467,8 +470,9 @@ impl DefaultIndexStore {
             .maybe_squash_with_ancestors()
             .save_in(&self.commit_segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
-        changed_paths.maybe_squash_with_ancestors();
-        changed_paths
+        let changed_paths_mut = Arc::make_mut(&mut changed_paths);
+        changed_paths_mut.maybe_squash_with_ancestors();
+        changed_paths_mut
             .save_in(&self.changed_path_segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
         let index = DefaultReadonlyIndex::from_segment(commits, changed_paths);

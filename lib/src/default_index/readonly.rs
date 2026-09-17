@@ -616,7 +616,7 @@ pub struct DefaultReadonlyIndex(CompositeIndex);
 impl DefaultReadonlyIndex {
     pub(super) fn from_segment(
         commits: Arc<ReadonlyCommitIndexSegment>,
-        changed_paths: CompositeChangedPathIndex,
+        changed_paths: Arc<CompositeChangedPathIndex>,
     ) -> Self {
         Self(CompositeIndex::from_readonly(commits, changed_paths))
     }

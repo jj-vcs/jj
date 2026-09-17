@@ -460,7 +460,10 @@ impl DefaultMutableIndex {
         // Changed-path index isn't enabled by default.
         let mut changed_paths = CompositeChangedPathIndex::null();
         changed_paths.make_mutable();
-        Self(CompositeIndex::from_mutable(commits, changed_paths))
+        Self(CompositeIndex::from_mutable(
+            commits,
+            Arc::new(changed_paths),
+        ))
     }
 
     pub(super) fn incremental(parent_index: &DefaultReadonlyIndex) -> Self {
@@ -469,12 +472,18 @@ impl DefaultMutableIndex {
         ));
         let mut changed_paths = parent_index.changed_paths().clone();
         changed_paths.make_mutable();
-        Self(CompositeIndex::from_mutable(commits, changed_paths))
+        Self(CompositeIndex::from_mutable(
+            commits,
+            Arc::new(changed_paths),
+        ))
     }
 
     pub(super) fn into_segment(
         self,
-    ) -> (Arc<MutableCommitIndexSegment>, CompositeChangedPathIndex) {
+    ) -> (
+        Arc<MutableCommitIndexSegment>,
+        Arc<CompositeChangedPathIndex>,
+    ) {
         self.0.into_mutable().expect("must have mutable")
     }
 

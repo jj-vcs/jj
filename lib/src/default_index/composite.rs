@@ -524,13 +524,13 @@ enum CompositeCommitIndexSegment {
 #[derive(Clone, Debug)]
 pub(super) struct CompositeIndex {
     commits: CompositeCommitIndexSegment,
-    changed_paths: CompositeChangedPathIndex,
+    changed_paths: Arc<CompositeChangedPathIndex>,
 }
 
 impl CompositeIndex {
     pub(super) fn from_readonly(
         commits: Arc<ReadonlyCommitIndexSegment>,
-        changed_paths: CompositeChangedPathIndex,
+        changed_paths: Arc<CompositeChangedPathIndex>,
     ) -> Self {
         Self {
             commits: CompositeCommitIndexSegment::Readonly(commits),
@@ -540,7 +540,7 @@ impl CompositeIndex {
 
     pub(super) fn from_mutable(
         commits: Arc<MutableCommitIndexSegment>,
-        changed_paths: CompositeChangedPathIndex,
+        changed_paths: Arc<CompositeChangedPathIndex>,
     ) -> Self {
         Self {
             commits: CompositeCommitIndexSegment::Mutable(commits),
@@ -550,7 +550,10 @@ impl CompositeIndex {
 
     pub(super) fn into_mutable(
         self,
-    ) -> Option<(Arc<MutableCommitIndexSegment>, CompositeChangedPathIndex)> {
+    ) -> Option<(
+        Arc<MutableCommitIndexSegment>,
+        Arc<CompositeChangedPathIndex>,
+    )> {
         let commits = match self.commits {
             CompositeCommitIndexSegment::Readonly(_) => return None,
             CompositeCommitIndexSegment::Mutable(segment) => segment,
@@ -584,7 +587,7 @@ impl CompositeIndex {
     }
 
     pub(super) fn changed_paths_mut(&mut self) -> &mut CompositeChangedPathIndex {
-        &mut self.changed_paths
+        Arc::make_mut(&mut self.changed_paths)
     }
 }
 
