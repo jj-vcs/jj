@@ -10,6 +10,7 @@ cargo_nextest_version = "0.9.113"
 rust_version = "1.97.1"
 uv_version = "0.8.13"
 node_version = "24"
+rumdl_version = "0.2.77"
 
 [tools]
 # We need cargo-binstall so that Mise would download "cargo:" tools instead of building them.
@@ -93,6 +94,11 @@ env.NEXTEST_STATUS_LEVEL = "slow"
 env.NEXTEST_FINAL_STATUS_LEVEL = "none"
 run = "cargo insta test --check --workspace --test-runner nextest --"
 
+[tasks."check:markdown"]
+description = "Check Markdown with the repository's rules"
+tools."github:rvben/rumdl" = "{{vars.rumdl_version}}"
+run = "rumdl check . cli/tests/cli-reference@.md.snap"
+
 [tasks."check:zizmor"]
 description = "Check GitHub workflows with Zizmor"
 tools."cargo:zizmor" = "latest"
@@ -125,6 +131,11 @@ tools."cargo:cargo-nextest" = "{{vars.cargo_nextest_version}}"
 env.NEXTEST_STATUS_LEVEL = "slow"
 env.NEXTEST_FINAL_STATUS_LEVEL = "none"
 run = "cargo insta test --accept --workspace --test-runner nextest --"
+
+[tasks."fix:markdown"]
+description = "Fix Markdown with the repository's rules"
+tools."github:rvben/rumdl" = "{{vars.rumdl_version}}"
+run = "rumdl check --fix . cli/tests/cli-reference@.md.snap"
 
 
 [tasks."serve:docs"]
