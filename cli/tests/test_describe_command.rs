@@ -349,17 +349,17 @@ fn test_describe_multiple_commits() -> TestResult {
     std::fs::write(
         &edit_script,
         indoc! {"
-            write
+            update-describe
             JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
 
             JJ: More header tests. Library tests verify parsing in other situations.
 
-            JJ: describe 650ac8f249be -------
+            JJ: describe ************ -------
             description from editor of @-
 
             further commit message of @-
 
-            JJ: describe 4c3ccb9d4fb2 -------
+            JJ: describe ************ -------
             description from editor of @
 
             further commit message of @
@@ -473,10 +473,10 @@ fn test_describe_multiple_commits() -> TestResult {
     std::fs::write(
         &edit_script,
         indoc! {"
-            write
+            update-describe
             description from editor of @-
 
-            JJ: describe 9b9041eb2f04 -------
+            JJ: describe ************ -------
             description from editor of @
 
             JJ: Lines starting with \"JJ: \" (like this one) will be removed.
@@ -514,15 +514,15 @@ fn test_describe_multiple_commits() -> TestResult {
     std::fs::write(
         &edit_script,
         indoc! {"
-            write
-            JJ: describe 9b9041eb2f04 -------
-            description from editor for @-
+            update-describe
+            JJ: describe ************ -------
+            description from editor for @--
 
             JJ: ignore-rest
             content after ignore-rest should not be included
 
-            JJ: describe 0ff65c91377a -------
-            description from editor for @--
+            JJ: describe ************ -------
+            description from editor for @-
 
             JJ: ignore-rest
             each commit should skip their own ignore-rest
