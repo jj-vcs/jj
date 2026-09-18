@@ -57,6 +57,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util diff <path1> <path2>` to compare files on disk.
 
+* `jj git clone` accepts a repeatable `--sparse` option to create a sparse
+  working copy. The whole repository is still fetched, but only the given paths
+  are written to disk, so a large repo can be cloned without materializing
+  everything.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
