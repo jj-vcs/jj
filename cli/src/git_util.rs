@@ -14,6 +14,7 @@
 
 //! Git utilities shared by various commands.
 
+use std::collections::HashSet;
 use std::error;
 use std::fs;
 use std::io;
@@ -728,6 +729,19 @@ fn canonicalize_existing(path: &Path) -> Result<Option<PathBuf>, CommandError> {
     }
 }
 
+pub(crate) struct GitWorktreeRepoContext {
+    pub(crate) workspace_store: SimpleWorkspaceStore,
+    pub(crate) git_settings: GitSettings,
+}
+
+/// Returns whether the repository's Git HEAD points at a commit.
+///
+/// A freshly initialized repository has an unborn HEAD, so there is nothing
+/// for Git to check out yet.
+pub(crate) fn git_head_resolves(git_repo: &gix::Repository) -> bool {
+    git_repo.head_id().is_ok()
+}
+
 pub(crate) fn workspace_abs_path(
     repo_path: &Path,
     workspace_store: &SimpleWorkspaceStore,
@@ -780,6 +794,26 @@ pub(crate) fn repair_jj_repo_link(
     fs::write(&repo_file_path, repo_dir_bytes)
         .map_err(|err| user_error_with_message("Failed to repair jj workspace link", err))?;
     Ok(())
+}
+
+/// Returns the roots of every live Git worktree, including the main one.
+pub(crate) fn git_worktree_paths(
+    git_repo: &gix::Repository,
+) -> Result<HashSet<PathBuf>, CommandError> {
+    let mut paths = HashSet::new();
+    // `worktrees()` lists linked worktrees only, so add the main one.
+    let main_workdir = git_repo.workdir().map(Path::to_owned);
+    let worktree_bases = git_repo
+        .worktrees()
+        .map_err(|err| user_error_with_message("Failed to list Git worktrees", err))?
+        .into_iter()
+        .filter_map(|proxy| proxy.base().ok());
+    for path in main_workdir.into_iter().chain(worktree_bases) {
+        if let Ok(path) = dunce::canonicalize(path) {
+            paths.insert(path);
+        }
+    }
+    Ok(paths)
 }
 
 #[cfg(test)]

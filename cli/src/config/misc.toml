@@ -25,6 +25,7 @@ disabled-branches = []
 # no builtin aliases
 
 [git]
+auto-sync-worktrees = false
 colocate = true
 object-hash = "sha1"
 private-commits = "none()"
