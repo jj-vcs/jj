@@ -17,10 +17,12 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io;
+use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
@@ -128,6 +130,31 @@ fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
         }
         Err(e) => Err(e.into()),
     }
+}
+
+pub fn write_workspace_repo_link(
+    workspace_root: &Path,
+    repo_path: &Path,
+) -> Result<(), WorkspaceInitError> {
+    let jj_dir = workspace_root.join(".jj");
+    let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
+    let jj_dir_abs = dunce::canonicalize(&jj_dir).context(&jj_dir)?;
+    let path_to_store = file_util::relative_path(&jj_dir_abs, &repo_dir);
+    let path_to_store = if path_to_store.is_relative() {
+        file_util::slash_path(&path_to_store).into_owned()
+    } else {
+        path_to_store
+    };
+    let repo_dir_bytes =
+        file_util::path_to_bytes(&path_to_store).map_err(WorkspaceInitError::EncodeRepoPath)?;
+    let repo_file_path = jj_dir.join("repo");
+    let temp_file = NamedTempFile::new_in(&jj_dir).context(&jj_dir)?;
+    temp_file
+        .as_file()
+        .write_all(repo_dir_bytes)
+        .context(temp_file.path())?;
+    file_util::persist_temp_file(temp_file, &repo_file_path).context(&repo_file_path)?;
+    Ok(())
 }
 
 async fn init_working_copy(
@@ -377,17 +404,7 @@ impl Workspace {
         let jj_dir = create_jj_dir(workspace_root)?;
 
         let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
-        let jj_dir_abs = dunce::canonicalize(&jj_dir).context(&jj_dir)?;
-        let path_to_store = file_util::relative_path(&jj_dir_abs, &repo_dir);
-        let path_to_store = if path_to_store.is_relative() {
-            file_util::slash_path(&path_to_store).into_owned()
-        } else {
-            path_to_store
-        };
-        let repo_dir_bytes =
-            file_util::path_to_bytes(&path_to_store).map_err(WorkspaceInitError::EncodeRepoPath)?;
-        let repo_file_path = jj_dir.join("repo");
-        fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
+        write_workspace_repo_link(workspace_root, &repo_dir)?;
 
         let workspace_store = SimpleWorkspaceStore::load(repo_path)?;
         let (working_copy, repo) = init_working_copy(

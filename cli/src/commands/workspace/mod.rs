@@ -15,6 +15,7 @@
 mod add;
 mod forget;
 mod list;
+mod move_;
 mod remove;
 mod rename;
 mod root;
@@ -30,6 +31,8 @@ use self::forget::WorkspaceForgetArgs;
 use self::forget::cmd_workspace_forget;
 use self::list::WorkspaceListArgs;
 use self::list::cmd_workspace_list;
+use self::move_::WorkspaceMoveArgs;
+use self::move_::cmd_workspace_move;
 use self::remove::WorkspaceRemoveArgs;
 use self::remove::cmd_workspace_remove;
 use self::rename::WorkspaceRenameArgs;
@@ -58,6 +61,7 @@ pub(crate) enum WorkspaceCommand {
     Add(WorkspaceAddArgs),
     Forget(WorkspaceForgetArgs),
     List(WorkspaceListArgs),
+    Move(WorkspaceMoveArgs),
     Remove(WorkspaceRemoveArgs),
     Rename(WorkspaceRenameArgs),
     Root(WorkspaceRootArgs),
@@ -74,6 +78,7 @@ pub(crate) async fn cmd_workspace(
         WorkspaceCommand::Add(args) => cmd_workspace_add(ui, command, args).await,
         WorkspaceCommand::Forget(args) => cmd_workspace_forget(ui, command, args).await,
         WorkspaceCommand::List(args) => cmd_workspace_list(ui, command, args).await,
+        WorkspaceCommand::Move(args) => cmd_workspace_move(ui, command, args).await,
         WorkspaceCommand::Remove(args) => cmd_workspace_remove(ui, command, args).await,
         WorkspaceCommand::Rename(args) => cmd_workspace_rename(ui, command, args).await,
         WorkspaceCommand::Root(args) => cmd_workspace_root(ui, command, args).await,
