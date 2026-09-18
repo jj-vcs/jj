@@ -1,0 +1,263 @@
+# This config starts with markdownlint's defaults and disables the rules our docs don't
+# yet pass. Each exception records the finding count to give a sense of the churn
+# involved in re-enabling it. As we address those findings, we can remove exceptions
+# and incrementally tighten Markdown formatting without a repo-wide cleanup.
+# Rules that don't suit jj can stay disabled or use different settings.
+# See https://github.com/jj-vcs/jj/issues/10210.
+default: true
+
+# Baseline: e6dd2c0d, 2026-09-16, 113 source files + 1 generated CLI snapshot.
+# We checked these counts and defaults with markdownlint 0.41.1.
+# The tool version is pinned in the mise and CI configurations.
+# Markdownlint's defaults reported 2,594 findings across 29 rules with inline suppression
+# disabled. Recount when enabling a rule.
+
+# Defaults below match that version's bundled rule documentation.
+# Commented settings show the defaults; true means the rule has no options.
+# These 20 default checks remain enabled (0 findings each):
+# heading-style:
+#   style: "consistent"
+# no-trailing-spaces:
+#   br_spaces: 2
+#   code_blocks: false
+#   list_item_empty_lines: false
+#   strict: false
+# no-hard-tabs:
+#   code_blocks: true
+#   ignore_code_languages: []
+#   spaces_per_tab: 1
+# no-reversed-links: true
+# no-missing-space-atx: true
+# no-multiple-space-atx: true
+# no-missing-space-closed-atx: true
+# no-multiple-space-closed-atx: true
+# heading-start-left: true
+# single-title:
+#   front_matter_title: "^\\s*title\\s*[:=]"
+#   level: 1
+# hr-style:
+#   style: "consistent"
+# no-emphasis-as-heading:
+#   punctuation: ".,;:!?。，；：！？"
+# no-space-in-links: true
+# no-empty-links: true
+# code-fence-style:
+#   style: "consistent"
+# strong-style:
+#   style: "consistent"
+# link-fragments:
+#   ignore_case: false
+#   ignored_pattern: ""
+# table-pipe-style:
+#   style: "consistent"
+# table-column-count: true
+# blanks-around-tables: true
+
+# Four more defaults remain enabled but do nothing without additional settings:
+# required-headings:
+#   headings: []
+#   match_case: false
+# proper-names:
+#   code_blocks: true
+#   html_elements: true
+#   names: []
+# link-image-style:
+#   autolink: true
+#   collapsed: true
+#   full: true
+#   inline: true
+#   shortcut: true
+#   url_inline: true
+# table-column-style:
+#   aligned_delimiter: false
+#   style: "any"
+
+# 107 findings. Heading levels increase by at most one.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md001.md
+# heading-increment:
+#   front_matter_title: "^\\s*title\\s*[:=]"
+heading-increment: false
+
+# 225 findings. Unordered-list markers match the first marker in the document.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md004.md
+# ul-style:
+#   style: "consistent"
+ul-style: false
+
+# 11 findings. List items at the same level have matching indentation.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md005.md
+# list-indent: true
+list-indent: false
+
+# 68 findings. Nested unordered lists use 2-space indentation.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md007.md
+# ul-indent:
+#   indent: 2
+#   start_indent: 2
+#   start_indented: false
+ul-indent: false
+
+# 259 findings. Consecutive blank lines do not exceed 1.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md012.md
+# no-multiple-blanks:
+#   maximum: 1
+no-multiple-blanks: false
+
+# 748 findings. Lines stay within 80 characters, including headings, code, and tables.
+# Long unbreakable text is allowed.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md013.md
+# line-length:
+#   code_block_line_length: 80
+#   code_blocks: true
+#   heading_line_length: 80
+#   headings: true
+#   line_length: 80
+#   stern: false
+#   strict: false
+#   tables: true
+line-length: false
+
+# 120 findings. Shell examples without output omit dollar prompts.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md014.md
+# commands-show-output: true
+commands-show-output: false
+
+# 3 findings. Headings have blank lines around them.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md022.md
+# blanks-around-headings:
+#   include_front_matter: false
+#   lines_above: 1
+#   lines_below: 1
+blanks-around-headings: false
+
+# 400 findings. Heading text is unique within each document.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md024.md
+# no-duplicate-heading:
+#   siblings_only: false
+no-duplicate-heading: false
+
+# 7 findings. Headings have no trailing punctuation from the configured set.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md026.md
+# no-trailing-punctuation:
+#   punctuation: ".,;:!。，；：！"
+no-trailing-punctuation: false
+
+# 2 findings. Blockquote markers have at most 1 following space.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md027.md
+# no-multiple-space-blockquote:
+#   list_items: true
+no-multiple-space-blockquote: false
+
+# 4 findings. Adjacent blockquotes have no unmarked blank lines between them.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md028.md
+# no-blanks-blockquote: true
+no-blanks-blockquote: false
+
+# 20 findings. Each ordered list uses all 1s or sequential numbering.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md029.md
+# ol-prefix:
+#   style: "one_or_ordered"
+ol-prefix: false
+
+# 144 findings. List markers have 1 following space.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md030.md
+# list-marker-space:
+#   ol_multi: 1
+#   ol_single: 1
+#   ul_multi: 1
+#   ul_single: 1
+list-marker-space: false
+
+# 32 findings. Fenced code blocks have blank lines around them, including inside lists.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md031.md
+# blanks-around-fences:
+#   list_items: true
+blanks-around-fences: false
+
+# 43 findings. Lists have blank lines around them.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md032.md
+# blanks-around-lists: true
+blanks-around-lists: false
+
+# 60 findings. Documents contain no disallowed HTML elements.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md033.md
+# no-inline-html:
+#   allowed_elements: []
+#   table_allowed_elements: []
+no-inline-html: false
+
+# 29 findings. Checks that URLs and email addresses use link syntax or code spans.
+# Angle-bracket autolinks broke the MDX trial build.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md034.md
+# no-bare-urls: true
+no-bare-urls: false
+
+# 2 findings. Emphasis markers have no spaces just inside them.
+# False positives in JSX comments.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md037.md
+# no-space-in-emphasis: true
+no-space-in-emphasis: false
+
+# 14 findings. Code spans have no unnecessary spaces at their edges.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md038.md
+# no-space-in-code: true
+no-space-in-code: false
+
+# 52 findings. Each code fence has a language label.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md040.md
+# fenced-code-language:
+#   allowed_languages: []
+#   language_only: false
+fenced-code-language: false
+
+# 7 findings. Documents start with an H1 or have a frontmatter title.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md041.md
+# first-line-heading:
+#   allow_preamble: false
+#   front_matter_title: "^\\s*title\\s*[:=]"
+#   level: 1
+first-line-heading: false
+
+# 8 findings. Images have alternative text.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md045.md
+# no-alt-text: true
+no-alt-text: false
+
+# 90 findings. Code blocks match the first block's fenced or indented style.
+# Flags MkDocs syntax.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md046.md
+# code-block-style:
+#   style: "consistent"
+code-block-style: false
+
+# 1 finding. Files end with a single newline.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md047.md
+# single-trailing-newline: true
+single-trailing-newline: false
+
+# 16 findings. Emphasis markers match the first marker in the document.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md049.md
+# emphasis-style:
+#   style: "consistent"
+emphasis-style: false
+
+# 1 finding. Reference links and images use defined labels.
+# False positive on a footnote.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md052.md
+# reference-links-images:
+#   ignored_labels: ["x"]
+#   shortcut_syntax: false
+reference-links-images: false
+
+# 58 findings. Reference definitions are used and not duplicated.
+# Check MDX references before deleting definitions.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md053.md
+# link-image-reference-definitions:
+#   ignored_definitions: ["//"]
+link-image-reference-definitions: false
+
+# 63 findings. Link text avoids the configured generic phrases, such as "here".
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md059.md
+# descriptive-link-text:
+#   prohibited_texts: ["click here","here","link","more"]
+descriptive-link-text: false
