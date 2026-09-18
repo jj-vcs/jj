@@ -23,8 +23,11 @@ use crate::repo::StoreFactories;
 use crate::simple_backend::SimpleBackend;
 use crate::simple_op_heads_store::SimpleOpHeadsStore;
 use crate::simple_op_store::SimpleOpStore;
+use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::working_copy::WorkingCopyFactory;
+use crate::workspace::DefaultWorkspaceLoaderFactory;
 use crate::workspace::WorkingCopyFactories;
+use crate::workspace::WorkspaceLoaderFactory;
 
 /// Returns default store factories.
 pub fn default_backend_factories() -> StoreFactories {
@@ -52,6 +55,12 @@ pub fn default_backend_factories() -> StoreFactories {
                 settings, store_path,
             )?))
         }),
+    );
+
+    // WorkspaceStores
+    factories.add_workspace_store(
+        SimpleWorkspaceStore::name(),
+        Box::new(|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::load(store_path)))),
     );
 
     // OpStores
@@ -96,4 +105,9 @@ pub fn default_working_copy_factories() -> WorkingCopyFactories {
 /// Returns the default (local-disk) working copy factory.
 pub fn default_working_copy_factory() -> Box<dyn WorkingCopyFactory> {
     Box::new(LocalWorkingCopyFactory {})
+}
+
+/// Returns the default workspace loader factory.
+pub fn default_workspace_loader_factory() -> Box<dyn WorkspaceLoaderFactory> {
+    Box::new(DefaultWorkspaceLoaderFactory)
 }
