@@ -61,15 +61,25 @@ name. For example, `glob-i:"*.TXT"` will match both `file.txt` and `FILE.TXT`.
 The following operators are supported. `x` and `y` below can be any fileset
 expressions.
 
-* `~x`: Matches everything but `x`.
-* `x & y`: Matches both `x` and `y`.
-* `x ~ y`: Matches `x` but not `y`.
-* `x | y`: Matches either `x` or `y` (or both).
+Operators are listed in order of binding power from strongest to weakest, e.g.
+`x | y & z` is interpreted as `x | (y & z)` since `&` has stronger binding power
+than `|`. Infix operators of the same binding power are parsed from left to
+right, e.g. `x ~ y & z` is interpreted as `(x ~ y) & z` rather than `x ~ (y &
+z)`.
 
-(listed in order of binding strengths)
+As seen above, parentheses can be used to control evaluation order, e.g. `(x &
+y) | z` or `x & (y | z)`.
 
-You can use parentheses to control evaluation order, such as `(x & y) | z` or
-`x & (y | z)`.
+1. * `f(x)`: Function call.
+
+2. * `p:x`: File pattern or pattern alias named `p`.
+
+3. * `~x`: Matches everything but `x`.
+
+4. * `x & y`: Matches both `x` and `y`.
+   * `x ~ y`: Matches `x` but not `y`.
+
+5. * `x | y`: Matches either `x` or `y` (or both).
 
 ## Functions
 
@@ -77,6 +87,44 @@ You can also specify patterns by using functions.
 
 * `all()`: Matches everything.
 * `none()`: Matches nothing.
+
+## Aliases
+
+New symbols, functions, and `<name>:<value>` patterns can be defined in the
+config file, by using any combination of the predefined symbols / functions and
+other aliases.
+
+Alias functions can be overloaded by the number of parameters. However, builtin
+function will be shadowed by name, and can't co-exist with aliases.
+
+For example:
+
+```toml
+[fileset-aliases]
+LOCK = '**/Cargo.lock | **/package-lock.json | **/uv.lock'
+'not:x' = '~x'
+```
+
+### Alias descriptions
+
+Alias descriptions can be surfaced in shell completions by defining the alias
+as a table with `.doc` and `.definition` properties. For example:
+
+```toml
+[fileset-aliases]
+LOCK = {
+    definition = '**/Cargo.lock | **/package-lock.json | **/uv.lock',
+    doc = 'Lockfiles'
+}
+```
+
+You can also use the dotted key syntax:
+
+```toml
+[fileset-aliases]
+LOCK.definition = '**/Cargo.lock | **/package-lock.json | **/uv.lock'
+LOCK.doc = 'Lockfiles'
+```
 
 ## Examples
 

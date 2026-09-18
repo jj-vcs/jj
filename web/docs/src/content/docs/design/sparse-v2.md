@@ -14,9 +14,9 @@ end state.
 Redesign Sparse Patterns to accommodate more advanced features for native
 and custom implementations. This includes three main goals:
 
-1.  Sparse Patterns should be versioned with the working copy
-1.  Sparse Patterns should support more [flexible matching rules](https://github.com/jj-vcs/jj/issues/1896)
-1.  Sparse Patterns should support [client path remapping](https://github.com/jj-vcs/jj/issues/2288)
+1. Sparse Patterns should be versioned with the working copy
+1. Sparse Patterns should support more [flexible matching rules](https://github.com/jj-vcs/jj/issues/1896)
+1. Sparse Patterns should support [client path remapping](https://github.com/jj-vcs/jj/issues/2288)
 
 ## Current State (as of jj 0.13.0)
 
@@ -198,7 +198,7 @@ vec![WorkingCopyMapping {
 ```
 
 `WorkingCopyPatterns` will provide an interface to map working copy paths into
-repo paths and vice versa. The `WorkingCopy`` trait will apply this mapping to
+repo paths and vice versa. The `WorkingCopy` trait will apply this mapping to
 all snapshot and checkout operations, and jj commands which accept relative
 paths will need to be updated to perform working copy path -> repo path
 translations as needed. It's not clear at this time _which_ commands will need
@@ -261,8 +261,8 @@ This gives the user the ability to update the active `WorkingCopyPatterns`
 whilst not interacting with the local working copy, which is useful for custom
 integrations which may not be _able_ to check out particular working copy
 patterns due to problems with the backend (encoding, permission errors, etc.). A
-bad `jj sparse set --add oops` command can thus be undone, even via `jj op undo`
-if desired.
+bad `jj sparse set --add oops` command can thus be undone, even via `jj undo` if
+desired.
 
 #### View Updates
 

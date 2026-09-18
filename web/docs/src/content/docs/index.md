@@ -1,5 +1,5 @@
 ---
-title: "Jujutsu—a version control system"
+title: Jujutsu—a version control system
 ---
 
 <figure>
