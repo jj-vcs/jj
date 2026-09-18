@@ -31,6 +31,7 @@ use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::str_util::StringExpression;
 use jj_lib::workspace::Workspace;
 
@@ -44,6 +45,7 @@ use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
+use crate::commands::sparse::update_sparse_patterns_with;
 use crate::config::ConfigEnv;
 use crate::git_util::GitSubprocessUi;
 use crate::git_util::absolute_git_url;
@@ -107,6 +109,22 @@ pub struct GitCloneArgs {
     /// Create a shallow clone of the given depth
     #[arg(long)]
     depth: Option<NonZeroU32>,
+
+    /// Paths to include in the working copy (can be repeated)
+    ///
+    /// The working copy is created with only these paths, as if `jj sparse set
+    /// --clear --add <PATH>` had been run on a full clone. Other files are
+    /// never written to disk.
+    ///
+    /// The whole repository is still fetched, so `jj sparse set --add <PATH>`
+    /// can materialize further paths later.
+    #[arg(
+        long,
+        value_name = "PATH",
+        value_hint = clap::ValueHint::AnyPath,
+        value_parser = |s: &str| RepoPathBuf::from_relative_path(s),
+    )]
+    sparse: Vec<RepoPathBuf>,
 
     /// Name of the branch to fetch and use as the parent of the working-copy
     /// change (can be repeated)
@@ -220,7 +238,7 @@ pub async fn cmd_git_clone(
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
     let clone_result: Result<_, CommandError> = async {
-        let (workspace_command, config_env) = init_workspace(
+        let (mut workspace_command, config_env) = init_workspace(
             ui,
             command,
             &canonical_wc_path,
@@ -228,6 +246,19 @@ pub async fn cmd_git_clone(
             object_hash.into(),
         )
         .await?;
+        // Set the sparse patterns before the first checkout so that excluded files
+        // are never written to disk.
+        if !args.sparse.is_empty() {
+            update_sparse_patterns_with(ui, &mut workspace_command, |_ui, _old_patterns| {
+                // Sort and deduplicate to match what `jj sparse set --clear --add`
+                // would store.
+                let mut patterns = args.sparse.clone();
+                patterns.sort_unstable();
+                patterns.dedup();
+                Ok(patterns)
+            })
+            .await?;
+        }
         let remote_settings = workspace_command.settings().remote_settings()?;
         let bookmark = if let Some(expr) = &specific_bookmark_expr {
             expr.clone()

@@ -1056,6 +1056,141 @@ fn test_git_clone_with_depth() {
 }
 
 #[test]
+fn test_git_clone_sparse() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git::init(git_repo_path);
+    let mut parents = vec![];
+    for filename in ["README.md", "lib/lib.rs", "cli/cli.rs"] {
+        let result = git::add_commit(
+            &git_repo,
+            "refs/heads/main",
+            filename,
+            b"content",
+            "message",
+            &parents,
+        );
+        parents = vec![result.commit_id];
+    }
+    git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
+
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "--sparse",
+        "lib",
+        "--sparse",
+        "cli/cli.rs",
+        // Duplicates are dropped, like in `jj sparse set --add`.
+        "--sparse",
+        "lib",
+        "source",
+        "clone",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`.
+    Working copy  (@) now at: sqpuoqvx e5386ae8 (empty) (no description set)
+    Parent commit (@-)      : orzpmnxs c8e78722 main | message
+    Added 2 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+
+    // Only the requested paths are materialized.
+    let clone_dir = test_env.work_dir("clone");
+    assert!(clone_dir.root().join("lib").join("lib.rs").exists());
+    assert!(clone_dir.root().join("cli").join("cli.rs").exists());
+    assert!(!clone_dir.root().join("README.md").exists());
+    let output = clone_dir.run_jj(["sparse", "list"]);
+    // `jj sparse list` prints filesystem paths, so the separator varies by platform.
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    cli/cli.rs
+    lib
+    [EOF]
+    ");
+
+    // The whole repo was still cloned, so other paths can be added later.
+    let output = clone_dir.run_jj(["sparse", "set", "--add", "README.md"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+    assert!(clone_dir.root().join("README.md").exists());
+
+    // Writing the sparse patterns to the working copy is not possible when the
+    // working copy is ignored.
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "--ignore-working-copy",
+        "--sparse",
+        "lib",
+        "source",
+        "ignored",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: This command must be able to update the working copy.
+    Hint: Don't use --ignore-working-copy.
+    [EOF]
+    [exit status: 1]
+    ");
+    assert!(!test_env.env_root().join("ignored").exists());
+}
+
+#[test]
+fn test_git_clone_sparse_colocated() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git::init(git_repo_path);
+    let mut parents = vec![];
+    for filename in ["README.md", "lib/lib.rs"] {
+        let result = git::add_commit(
+            &git_repo,
+            "refs/heads/main",
+            filename,
+            b"content",
+            "message",
+            &parents,
+        );
+        parents = vec![result.commit_id];
+    }
+    git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
+
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "--colocate",
+        "--sparse",
+        "lib",
+        "source",
+        "clone",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`.
+    Working copy  (@) now at: sqpuoqvx f050bab7 (empty) (no description set)
+    Parent commit (@-)      : tymtkvkk 903b7592 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+
+    let clone_dir = test_env.work_dir("clone");
+    assert!(clone_dir.root().join(".git").exists());
+    assert!(clone_dir.root().join("lib").join("lib.rs").exists());
+    assert!(!clone_dir.root().join("README.md").exists());
+}
+
+#[test]
 fn test_git_clone_invalid_immutable_heads() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
