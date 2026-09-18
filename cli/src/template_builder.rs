@@ -2381,14 +2381,24 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildFunctionFnMap::<L>::new();
     map.insert("fill", |language, diagnostics, build_ctx, function| {
-        let [width_node, content_node] = function.expect_exact_arguments()?;
+        let ([width_node, content_node], [break_words_node]) =
+            function.expect_named_arguments(&["", "", "break_words"])?;
         let width = expect_usize_expression(language, diagnostics, build_ctx, width_node)?;
         let content = expect_template_expression(language, diagnostics, build_ctx, content_node)?;
-        let template =
-            ReformatTemplate::new(content, move |formatter, recorded| match width.extract() {
-                Ok(width) => text_util::write_wrapped(formatter.as_mut(), recorded, width),
-                Err(err) => formatter.handle_error(err),
-            });
+        let break_words = break_words_node
+            .map(|node| expect_boolean_expression(language, diagnostics, build_ctx, node))
+            .transpose()?;
+        let template = ReformatTemplate::new(content, move |formatter, recorded| {
+            match (width.extract(), break_words.extract()) {
+                (Ok(width), Ok(break_words)) => text_util::write_wrapped(
+                    formatter.as_mut(),
+                    recorded,
+                    width,
+                    break_words.unwrap_or(false),
+                ),
+                (Err(err), _) | (_, Err(err)) => formatter.handle_error(err),
+            }
+        });
         Ok(L::Property::wrap_template(Box::new(template)))
     });
     map.insert("indent", |language, diagnostics, build_ctx, function| {
