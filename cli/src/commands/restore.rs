@@ -158,6 +158,9 @@ pub(crate) async fn cmd_restore(
             to_commit = workspace_command.format_commit_summary(&to_commit),
         }
     };
+    let derive_tracked_from_ignores = workspace_command
+        .settings()
+        .get_bool("snapshot.derive-tracked-from-ignores")?;
     let new_tree = diff_selector
         .select(
             ui,
@@ -168,6 +171,7 @@ pub(crate) async fn cmd_restore(
             ),
             &matcher,
             format_instructions,
+            derive_tracked_from_ignores,
         )
         .await?;
 
