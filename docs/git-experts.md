@@ -112,3 +112,38 @@ It doesn't solve all cases: If multiple commits in the stack modified the same
 line as was changed in the working copy, it will not move that change. But it
 does help the trivial cases, leaving you to decide how to squash the remaining
 changes.
+
+## Bare repos replace the bare+worktree workflow
+
+Many Git users keep their repositories in a bare+worktree layout:
+
+```sh
+git init --bare my-project
+cd my-project
+git worktree add main
+git worktree add feat-payment
+```
+
+This keeps the working copies as peers with no single "main" checkout. Jujutsu
+supports the same layout natively with `jj git init --bare`:
+
+```sh
+jj git init --bare my-project
+cd my-project
+jj workspace add main
+jj workspace add feat-payment
+```
+
+The result is a `my-project/` directory containing only `.jj/` alongside the
+workspace directories. No workspace is privileged — you can delete any of them
+without affecting the others.
+
+A few commands work from the bare repo root:
+
+- `jj workspace add <name>` — add a new workspace
+- `jj workspace list` — list all workspaces
+- `jj log` — show the working-copy commits for all workspaces
+
+All other commands require you to be inside a workspace.
+
+See the [bare workspaces guide](guides/bare-workspaces.md) for full details.

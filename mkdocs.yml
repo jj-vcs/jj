@@ -138,6 +138,7 @@ nav: # This lists all the files that become part of the documentation
       - Glossary: 'glossary.md'
 
   - Guides:
+      - Bare workspaces: 'guides/bare-workspaces.md'
       - CLI options for specifying revisions: 'guides/cli-revision-options.md'
       - Divergent changes: 'guides/divergence.md'
       - Multiple remotes: 'guides/multiple-remotes.md'
