@@ -284,6 +284,25 @@ jobs:
       - name: Check that `mkdocs` can build the docs
         run: uv run --python-preference=only-managed -- mkdocs build --strict
 
+  check-astro:
+    name: check (astro)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: true
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+      - name: Check that `astro` can build the docs
+        working-directory: web
+        run: npm run build
+
   check-zizmor:
     name: check (zizmor)
     runs-on: ubuntu-latest
@@ -351,6 +370,7 @@ jobs:
     - check-doctests
     - check-mkdocs
     # - check-mkdocs-latest
+    - check-astro
     # - check-zizmor
     - check-cargo-lock-bloat
     runs-on: ubuntu-latest

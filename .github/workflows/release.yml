@@ -96,22 +96,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          python-version: 3.11
-      - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          version: "0.5.1"
-          enable-cache: false
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
       - name: Compile docs and zip them up
+        working-directory: web
         run: |
-          uv run mkdocs build
+          npm run build
           archive="jj-${RELEASE_TAG_NAME}-docs-html.tar.gz"
-          tar czf "$archive" -C "rendered-docs" .
+          tar czf "$archive" -C "dist" .
+          mv "$archive" ..
           echo "ASSET=$archive" >> $GITHUB_ENV
         env:
-          MKDOCS_OFFLINE: true
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
       - name: Upload release archive
         env:
@@ -128,24 +129,22 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          # `.github/scripts/docs-build-deploy` will need to `git push` to the docs branch
+          # `.github/scripts/docs-build-deploy` will need to `git push` to the gh-pages branch
           persist-credentials: true
-      - run:  "git fetch origin gh-pages --depth=1"
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - run: git fetch origin gh-pages --depth=1
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          python-version: 3.11
-      - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          version: "0.5.1"
-          enable-cache: false
-      - name: Install dependencies, compile and deploy docs to the "latest release" section of the website
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+      - name: Compile and deploy docs to the "latest release" section of the website
         run: |
           git config user.name 'jj-docs[bot]'
           git config user.email 'jj-docs[bot]@users.noreply.github.io'
-          # Using the 'latest' tag below makes the website default
-          # to this version.
-          .github/scripts/docs-build-deploy "${RELEASE_TAG_NAME}" latest --update-aliases --push
+          .github/scripts/docs-build-deploy "${RELEASE_TAG_NAME}"
         env:
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
       - name: "Show `git diff --stat`"
