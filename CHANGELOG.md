@@ -65,6 +65,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util diff <path1> <path2>` to compare files on disk.
 
+* New `first_children()` and `first_descendants()` revset functions which are
+  similar to `children()` and `descendants()`, but only traverse first-parent
+  relations to commits. These serve as the dual to `first_parent()` and
+  `first_ancestors()`, walking the same revisions but in the other direction.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,

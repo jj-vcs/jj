@@ -267,6 +267,14 @@ revsets (expressions) as arguments.
   commit is conventionally the branch into which changes are being merged, so
   `first_ancestors()` can be used to exclude changes made on other branches.
 
+* `first_children(x, [depth])`: `first_children(x)` is similar to `children(x)`,
+  but when a child is a merge, it only returns that child if the commit is its
+  first parent. The `depth` argument also works similarly, so
+  `first_children(x, 2)` is equivalent to `first_children(first_children(x))`.
+
+* `first_descendants(x, [depth])`: Similar to `descendants(x, [depth])`, but only
+  traverses first-parent relationships.
+
 * `reachable(srcs, domain)`: All commits reachable from `srcs`, traversing all
   parent and child edges, such that the entire path is within `domain`. This is
   useful for finding all related commits in a branch or feature without
