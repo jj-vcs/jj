@@ -1667,6 +1667,7 @@ fn test_merge_tools() {
     meld
     meld-3
     vimdiff
+    nvim
     abracadabra
     [EOF]
     ");
@@ -1683,6 +1684,7 @@ fn test_merge_tools() {
     vimdiff
     vscode
     vscodium
+    nvim
     [EOF]
     ");
 }

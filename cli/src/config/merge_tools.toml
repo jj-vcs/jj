@@ -101,3 +101,16 @@ conflict-marker-style = "git"
 diff-args=["--diff", "$left", "$right", "--wait"]
 diff-invocation-mode="file-by-file"
 edit-args = []
+
+[merge-tools.nvim]
+# nvim.difftool is a "built-in" plugin shipped as part of neovim
+# support for dirdiffs landed in 0.12.0
+program = "nvim"
+edit-args = ["-c", "packadd nvim.difftool", "-c", "DiffTool $left $right"]
+# `-d` enables diff mode. `-f` makes vim run in foreground even if it starts a GUI.
+# The other options make sure that only the output file can be modified.
+merge-args = ["-f", "-d", "$output", "-M", "$left", "$base", "$right",
+              "-c", "wincmd J", "-c", "set modifiable", "-c", "set write",
+              "-c", "/<<<<<</+2"]
+merge-tool-edits-conflict-markers = true
+diff-args = []  # Corrupts terminal state, non-functional

@@ -1287,6 +1287,10 @@ Using `ui.diff-editor = "vimdiff"` is possible but not recommended. For a better
 experience, you can follow [instructions from the Wiki] to configure the
 [DirDiff Vim plugin] and/or the [vimtabdiff Python script].
 
+Neovim, on the other hand, has built-in support for jj's (diff edit) dirdiffs
+via its `nvim.difftool`.  It should work out of the box in jj as a diff editor
+(and merge tool, via vimdiff) as `--tool nvim`.
+
 [instructions from the Wiki]: https://github.com/jj-vcs/jj/wiki/Vim,-Neovim#using-vim-as-a-diff-tool
 
 [DirDiff Vim plugin]: https://github.com/will133/vim-dirdiff
@@ -1309,6 +1313,7 @@ The following tools can be used out of the box, as long as they are installed:
 - "kdiff3"
 - "meld"
 - "mergiraf"
+- "nvim"
 - "smerge"
 - "vimdiff"
 - "vscode"
