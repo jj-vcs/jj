@@ -31,6 +31,15 @@ alternative to the default `:builtin` diff-editor.
 
 Find it [here][hunk.nvim].
 
+## JayJay
+
+JayJay is a native macOS GUI for Jujutsu built with Rust and SwiftUI. It features
+a DAG graph view, Myers diff with syntax highlighting, side-by-side diffs, conflict
+resolution, bookmark manager, command palette, and AI commit messages. The diff
+engine is available as a standalone Rust crate (`jj-diff`).
+
+Find it [here][jayjay].
+
 ## JJ-FZF
 
 Centered around the `jj log` graph view, jj-fzf provides previews of diffs, the
@@ -38,6 +47,14 @@ evolution-log, browses the op log and offers a large number of key bindings for
 commonly used `jj` operations from rebase to undo, and helps with divergent commits.
 
 Find it [here][jj-fzf].
+
+## jj-hunk
+
+jj-hunk is a command-line tool for programmatic hunk selection. It can split,
+commit, and squash selected hunks without opening an interactive diff editor,
+which is useful for scripts and AI coding agents.
+
+Find it [here][jj-hunk].
 
 ## JJ TUI
 
@@ -84,7 +101,13 @@ Find it [here][jjui].
 
 Selvejj is a JetBrains plugin for integrating Jujutsu as a first-class VCS within the IDE.
 
-Find it [here][selvejj].
+Find it [here][selvejj] and [here (Marketplace)][selvejj-marketplace].
+
+## Jujutsu plugin for IntelliJ IDEA
+
+Native IntelliJ integration for Jujutsu.
+
+Find it [here][jj-idea] and [here (Marketplace)][jj-idea-marketplace].
 
 ## PSCompletions
 
@@ -94,6 +117,26 @@ It can provide completions via `psc add jj`, or offer a better completion menu f
 
 Find it [here][PSCompletions].
 
+## LightJJ
+
+A fast, keyboard-driven browser UI for Jujutsu.
+
+Find it [here][LightJJ].
+
+## JJ View
+
+JJ View is an open-source Visual Studio Code extension that provides a rich, native graphical interface for Jujutsu. It features a Git-style Source Control (SCM) view for easy change management, an interactive visual commit history graph, and built-in commands for common `jj` operations like squashing, abandoning, and absorbing modifications directly from the editor. It also includes native Gerrit integration for streamlined code review workflows.
+
+Find it [here][jj-view].
+
+## jj-stack
+
+`jj-stack` turns a linear series of local `jj` changes into a stack of GitHub pull requests.
+Rewrite, split, squash, or reorder your changes with `jj`, then run `jj-stack submit` to update
+GitHub. Existing PRs follow their change IDs, keeping comments and review history together.
+
+Find it [here][jj-stack].
+
 ## Finding other integrations
 
 You can find other community contributed tools and integrations in our
@@ -102,13 +145,21 @@ You can find other community contributed tools and integrations in our
 [diffedit3]: https://github.com/ilyagr/diffedit3
 [gg]: https://github.com/gulbanana/gg
 [hunk.nvim]: https://github.com/julienvincent/hunk.nvim
+[jayjay]: https://github.com/hewigovens/jayjay
 [jj-fzf]: https://github.com/tim-janik/jj-fzf
+[jj-hunk]: https://github.com/laulauland/jj-hunk
 [jj_tui]: https://github.com/faldor20/jj_tui
+[jj-idea]: https://github.com/kkkev/jj-idea
+[jj-idea-marketplace]: https://plugins.jetbrains.com/plugin/30576-jujutsu-vcs-integration
 [jjk]: https://github.com/keanemind/jjk
 [jjui]: https://github.com/idursun/jjui
 [lazyjj]: https://github.com/Cretezy/lazyjj
 [PSCompletions]: https://github.com/abgox/PSCompletions
+[LightJJ]: https://github.com/chronologos/lightjj
 [selvejj]: https://selvejj.com
+[selvejj-marketplace]: https://plugins.jetbrains.com/plugin/28081-selvejj
 [visualjj]: https://www.visualjj.com
 [vjj]: https://github.com/noahmayr/vjj
+[jj-view]: https://github.com/brychanrobot/jj-view
+[jj-stack]: https://www.serpentine.com/software/jj-stack
 [Wiki]: https://github.com/jj-vcs/jj/wiki

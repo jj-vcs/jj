@@ -25,7 +25,7 @@ $ jj commit -m 'feat(bar): add support for bar'
 # Let Jujutsu generate a bookmark name and push that to GitHub. Note that we
 # push the working-copy commit's *parent* because the working-copy commit
 # itself is empty.
-$ jj git push -c @-
+$ jj git push --change @- # or -c for short
 ```
 
 ### Using a named bookmark
@@ -54,10 +54,15 @@ a new commits. Unlike Git, Jujutsu will not do it automatically.
 
 ## Updating the repository
 
-As of October 2023, Jujutsu has no equivalent to a `git pull` command (see
-[issue #1039][sync-issue]). Until such a command is added, you need to use
-`jj git fetch` followed by a `jj rebase -o $main_bookmark` to update your
-changes.
+Jujutsu does not currently have a direct equivalent of `git pull`, though it may
+gain [a similar command someday][sync-issue].
+
+In the meantime, updating your branches is a two step process. The first is to
+`jj git fetch` to fetch everything that's happened on your remote. The second is
+to rebase all of your branches on top of your `main` branch with `jj rebase -o
+main`. This command's default is the same as passing `-b @`, so if you have more
+than one outstanding branch, you'll need to call `jj rebase` again with the `-b`
+flag for each of them, or pass multiple `-b` arguments, one for every branch.
 
 [sync-issue]: https://github.com/jj-vcs/jj/issues/1039
 
@@ -93,7 +98,7 @@ $ # Do your work
 $ jj commit
 $ # Push change "mw", letting Jujutsu automatically create a bookmark called
 $ # "push-mwmpwkwknuz"
-$ jj git push --change mw
+$ jj git push -c mw
 ```
 
 ## Addressing review comments
@@ -125,9 +130,11 @@ $ jj git push
 Notably, the above workflow creates a new commit for you. The same can be
 achieved without creating a new commit.
 
-:::caution
-We strongly suggest to `jj new` after the example below, as all further edits
-still get amended to the previous commit.
+:::note
+If the working copy commit becomes immutable (for example, after
+`jj git push`), Jujutsu automatically creates a new working-copy commit on
+top. If you need to make further edits before pushing, run `jj new` to
+avoid amending them to the previous commit.
 :::
 
 ```shell
@@ -185,7 +192,7 @@ that aren't [colocated](./git-compatibility.md#colocated-jujutsugit-repos)
 point it to the right path:
 
 ```shell
-$ GIT_DIR=.jj/repo/store/git gh issue list
+$ GIT_DIR=$(jj git root) gh issue list
 ```
 
 You can make that automatic by installing [direnv](https://direnv.net) and
@@ -193,7 +200,7 @@ defining hooks in a `.envrc` file in the repository root to configure `$GIT_DIR`
 Just add this line into `.envrc`:
 
 ```shell
-export GIT_DIR=$PWD/.jj/repo/store/git
+export GIT_DIR=$(jj git root)
 ```
 
 and run `direnv allow` to approve it for direnv to run. Then GitHub CLI will
@@ -245,7 +252,6 @@ the [tutorial][tut].
 
 [auto-bookmark]: config.md#automatic-tracking-of-bookmarks
 [detached]: https://git-scm.com/docs/git-checkout#_detached_head
-[gh]: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
 [tut]: tutorial.md#conflicts
 [stacked]: https://jg.gg/2018/09/29/stacked-diffs-versus-pull-requests/
 
@@ -268,8 +274,8 @@ or `master@upstream`.
 
 You might want to `jj git fetch` from "upstream" and to `jj git push`
 to "origin". You can configure the default remotes to fetch from and
-push to in your configuration file (for example,
-`.jj/repo/config.toml`):
+push to in your configuration file
+(`jj config edit --user|repo|workspace`):
 
 ```toml
 [git]
@@ -288,3 +294,57 @@ keep your own bookmarks synchronized through your `origin` repository:
 fetch = ["upstream", "origin"]
 push = "origin"
 ```
+
+## Git push options
+
+`jj git push` supports passing Git “push options” to the server via
+`-o`/`--option`. These are forwarded to the remote and interpreted by the hosting
+platform, if it supports them. You can repeat `-o` to send multiple options.
+
+- Syntax: `jj git push -o <push_option>` or `jj git push --option <push_option>`
+- Multiple options: `jj git push -o foo -o bar=val`
+- Quoting: If the option’s value has spaces, wrap it in double quotes.
+
+Support is server-dependent. GitLab supports push options for CI and merge
+requests; other platforms may not. Refer to your host’s documentation for the
+full list and behavior.
+
+Examples with GitLab push options (see GitLab docs for details):
+
+- Skip CI for a push:
+  ```shell
+  jj git push -o ci.skip
+  ```
+- Pass CI variables to the created pipeline:
+  ```shell
+  jj git push -o 'ci.variable=MAX_RETRIES=10' -o 'ci.variable=MAX_TIME=600'
+  ```
+- Create a merge request with metadata on push:
+  ```shell
+  jj git push \
+    -o merge_request.create \
+    -o merge_request.target=main \
+    -o 'merge_request.title=Add feature X' \
+    -o 'merge_request.description=Implements X with tests' \
+    -o merge_request.draft
+  ```
+- Auto-merge when pipeline succeeds and remove the source branch:
+  ```shell
+  jj git push \
+    -o merge_request.merge_when_pipeline_succeeds \
+    -o merge_request.remove_source_branch
+  ```
+- Add and remove labels:
+  ```shell
+  jj git push \
+    -o 'merge_request.label=label1' \
+    -o 'merge_request.label=label2' \
+    -o 'merge_request.unlabel=label3'
+  ```
+- Assign and unassign users:
+  ```shell
+  jj git push \
+    -o 'merge_request.assign=user1' \
+    -o 'merge_request.assign=user2' \
+    -o 'merge_request.unassign=user3'
+  ```

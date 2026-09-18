@@ -15,11 +15,13 @@ Contributions to this project must be accompanied by a Contributor License
 Agreement. You (or your employer) retain the copyright to your contribution;
 this simply gives us permission to use and redistribute your contributions as
 part of the project. Head over to [https://cla.developers.google.com/](https://cla.developers.google.com/) to see
-your current agreements on file or to sign a new one.
+whether you have already signed the CLA or to sign it.
 
 You generally only need to submit a CLA once, so if you've already submitted one
 (even if it was for a different project), you probably don't need to do it
-again.
+again. In other words, the Google CLA is not scoped to a specific project. If
+you sign the Google CLA, it applies to other Google open-source projects as
+well (including future projects).
 
 ### Commit guidelines
 
@@ -47,7 +49,14 @@ the reviewers will help you provide a topic if you have difficulties choosing
 it. [How to Write a Git Commit Message] is a good
 guide if you're new to writing good commit messages. We are not particularly
 strict about the style, but please do explain the reason for the change unless
-it's obvious.
+it's obvious. If the PR closes an open issue or feature request for the
+project, include the `Closes #<issue-number>` or `Fixes #<issue-number>` in
+the commit description.
+
+If you have been invited to the `jj-vcs/` organization feel free to create
+branches directly in the repo, ideally prefixed by your name or username. This
+allows other people to directly check out your work and possibly integrate them
+in their custom builds of jj.
 
 [Conventional Commits]: https://www.conventionalcommits.org/en/v1.0.0/
 [How to Write a Git Commit Message]: https://cbea.ms/git-commit/
@@ -75,11 +84,14 @@ commit. You can do that by creating a new commit on top of the initial commit
 `jj git push`
 will automatically force-push the bookmark.
 
+Mark conversation threads as resolved when you have addressed them. If you
+realize that a comment requires non-trivial changes, write a reply instead and
+ask your reviewer to take another look after updating the code.
+
 When your first PR has been approved, we typically invite you to the
 `jj-vcs/contributors` team to give you contributor access,
 so you can address any remaining minor comments and then merge the PR yourself
-when you're ready. If you realize that some comments require non-trivial
-changes, please ask your reviewer to take another look.
+when you're ready.
 
 If your employer pays anyone (not necessarily you) to contribute to Jujutsu,
 please make sure your GitHub username is [recorded](paid_contributors.md).
@@ -95,12 +107,53 @@ your company's interests, do feel free to approve it.
 This project follows [Google's Open Source Community
 Guidelines](https://opensource.google/conduct/).
 
+### Deprecations and Removals
+
+If your PR removes or renames an option, a command, or config option don't
+remove it immediately. Instead implement a warning that the command, command
+option, or config option is deprecated and will be removed in
+jj `v<current> + 6`. Also add a `// TODO: remove in jj<version+6>+` comment so
+other contributors can remove it later. As we currently release monthly this
+translates to a six month deprecation period. This is something the project
+does to not break workflows and gives users the the option to
+provide feedback on features we plan to remove or supersede with other
+approaches.
+
+Changes to the repo format (everything which is in `.jj/`) are more disruptive.
+We aim to be backwards-compatible for at least a year (12 releases). Also
+consider if it's worth being forwards-compatible (i.e making sure that the last
+N versions of `jj` can read the new format). Examples of such changes are moving
+repo-level configuration out of the repository or deriving the evolog from the
+op-log.
+
+Some things are required to be supported for even longer but that is in the end
+a maintainer decision. Some examples of this were the `jj checkout/merge`
+commands (removed after 24 months/releases) or the `--destination` flag for
+which there is no final removal date yet.
+
 ## Contributing large patches
 
-Before sending a PR for a large change which designs/redesigns or reworks an
-existing component, we require an architecture review from  multiple
-stakeholders, which we do with [Design Docs](design_docs.md), see the
-[process here](design_docs.md#process).
+We welcome contributions from anyone.
+
+If you wish to contribute a new large feature, you are encouraged to discuss
+it in Discord or a GitHub Discussion first before diving in. Before spending
+too much time on a particular design, you should see if the community and the
+maintainers have any feedback on your idea and general approach. It also is a
+better experience for you as an author if you contributed smaller patches
+first, so you understand how the project and the community around it works.
+
+If you open a pull request without discussion first, you may find that the
+community already has discussed this and found a better approach, or that it
+already was deemed not to be a fit for the project.
+
+Since many ideas have come up before, but they haven't been implemented because
+they might be deceptively nuanced, or there may be strong opinions around them,
+bringing it up to the community first helps discover past discussions, so your
+design can be informed by them.
+
+Once you have vetted your idea with the community, please write a
+[Design Doc](design_docs.md) which requires an architecture review from
+multiple stakeholders, see the [process here](design_docs.md#process).
 
 ## Contributing to the documentation
 
@@ -284,15 +337,20 @@ mount | grep tmpfs
 ```
 
 <details>
-<summary>Some details and speculation</summary>
+<summary> Some details and speculation </summary>
 
-Hard drive speed is not the issue here. Experimentally, when `/tmp`
+{/* MkDocs doesn't support Markdown markup inside `details` :( */}
+
+Hard drive speed is not the issue here. Experimentally, when <code>/tmp</code>
 is physical, Ilya experienced the tests doing writes at 60MB/s (as reported by
 the Activity Monitor) on an SSD that should be many times as fast.
 
 Instead, it seems to have something to do with file locking and
-`fdatasync`. A likely curlprit is the presence of [global kernel locks in APFS](https://gregoryszorc.com/blog/2018/10/29/global-kernel-locks-in-apfs/). There are some benchmarks in
-[this PR](https://github.com/jj-vcs/jj/pull/7493#issuecomment-3289020874).
+<code>fdatasync</code>. A likely curlprit is the presence of <a
+href="https://gregoryszorc.com/blog/2018/10/29/global-kernel-locks-in-apfs/">
+global kernel locks in APFS</a>. There are some benchmarks in
+<a href="https://github.com/jj-vcs/jj/pull/7493#issuecomment-3289020874">this
+PR</a>.
 
 It might be possible to add an entry to `/etc/fstab` to mount tmpfs
 automatically. If you succeed with this, let us (and Ilya in particular) know!
@@ -373,23 +431,23 @@ Other tools like `uv`, `cargo-insta`, `cargo-nextest` and more are installed,
 and so you should be able to follow any other recommendations in this guide as
 needed.
 
-!!! tip "Editor integration"
+:::tip[Editor integration]
+Launch your editor from within the `nix develop` shell so that
+rust-analyzer and other LSP tools can find the correct toolchain. For
+example:
 
-    Launch your editor from within the `nix develop` shell so that
-    rust-analyzer and other LSP tools can find the correct toolchain. For
-    example:
+```shell
+nix develop
+code .  # or your editor of choice
+```
+:::
 
-    ```shell
-    nix develop
-    code .  # or your editor of choice
-    ```
-
-!!! note "direnv users"
-
-    If you use [direnv](https://direnv.net/) with
-    [nix-direnv](https://github.com/nix-community/nix-direnv), you can `echo
-    "source_env .envrc.recommended" >> .envrc` to automatically activate the
-    development environment when entering the directory.
+:::note[direnv users]
+If you use [direnv](https://direnv.net/) with
+[nix-direnv](https://github.com/nix-community/nix-direnv), you can `echo
+"source_env .envrc.recommended" >> .envrc` to automatically activate the
+development environment when entering the directory.
+:::
 
 ### Alternative development setup with `mise`
 
@@ -556,7 +614,7 @@ to the `prerelease` version, at `https://jjfan.github.io/jj/prerelease/`.
 back and forth, you can also rebuild the docs for the latest release as follows.
 
     ```shell
-    jj new v1.33.1  # Let's say `jj 1.33.1` is the currently the latest release
+    jj new v1.33.1  # Let's say `jj 1.33.1` is the latest release
     .github/scripts/docs-build-deploy v1.33.1 latest --push
     ```
 

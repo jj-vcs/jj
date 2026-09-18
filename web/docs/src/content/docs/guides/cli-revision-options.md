@@ -11,22 +11,22 @@ This document explains the difference between each option.
 
 These flags are used to specify the sources of the operation:
 
-| Long flag                       | Short flag | Description                                                                    |
-| ------------------------------- | ---------- | ------------------------------------------------------------------------------ |
-| `--revision` (or `--revisions`) | `-r`       | The default, especially for commands that don't need to specify a destination. |
-| `--source`                      | `-s`       | The specified revision and all its descendants.                                |
-| `--from`                        | `-f`       | The _contents_ of a revision.                                                  |
-| `--branch`                      | `-b`       | A whole branch, relative to the destination.                                   |
+| Long flag                       | Short flag | Description                                                                     |
+| ------------------------------- | ---------- | ------------------------------------------------------------------------------- |
+| `--revision` (or `--revisions`) | `-r`       | The default, especially for commands that don't need to specify a destination.  |
+| `--source`                      | `-s`       | The specified revision and all its descendants.                                 |
+| `--from`                        | `-f`       | The _contents_ of a revision, or the bookmarks on a revision.                   |
+| `--branch`                      | `-b`       | A whole branch, relative to the destination.                                    |
 
 These flags are used when commands need both a "source" revision and a
 "destination" revision:
 
-| Long flag         | Short flag | Description                                                  |
-| ----------------- | ---------- | ------------------------------------------------------------ |
-| `--onto`          | `-o`       | Create children of the specified revisions.                  |
-| `--insert-after`  | `-A`       | Insert _between_ the specified revisions and their children. |
-| `--insert-before` | `-B`       | Insert _between_ the specified revisions and their parents.  |
-| `--to`, `--into`  | `-t`       | Which revision to place the selected _contents_.             |
+| Long flag         | Short flag | Description                                                                                                                      |
+| ----------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--onto`          | `-o`       | Create children of the specified revisions.                                                                                      |
+| `--insert-after`  | `-A`       | Insert _between_ the specified revisions and their children.                                                                     |
+| `--insert-before` | `-B`       | Insert _between_ the specified revisions and their parents.                                                                      |
+| `--to`, `--into`  | `-t`       | Which revision to place the selected _contents_ into, or move the bookmarks to, or compare the `from` revision contents against. |
 
 ## Manipulating revisions
 
@@ -94,8 +94,8 @@ Most commands accept revisions as options and paths as positional parameters.
 For example, the command to display the diff of a specific file in a specific
 revision is:
 
-```shell
-$ jj diff -r REV file.txt
+```sh
+jj diff -r REV file.txt
 ```
 
 However, some commands cannot accept paths, so they allow omitting the `-r`

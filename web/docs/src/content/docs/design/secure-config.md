@@ -50,7 +50,8 @@ created the repo.
 
 1.  The victim uploads a zip file of a repository they have locally on their
     system
-2.  The attacker can now see stored in the repository
+2.  The attacker can now see any configs / config references stored in the
+    repository
 3.  The attacker runs
     `jj config set --repo fix.tools.foo ‘[“malicious”, “command”]’`
 4.  The attacker copies the victim’s cryptographic signature and puts it in
@@ -67,7 +68,7 @@ the repo was stored at.
 
 1.  The victim uploads a zip file of a repository they have locally on their
     system at `/path/to/repo`
-2.  The attacker can now see any cryptographic signatures stored in the
+2.  The attacker can now see any configs / config references stored in the
     repository
 3.  The attacker runs
     `jj config set --repo fix.tools.foo ‘[“malicious”, “command”]’`
@@ -88,7 +89,7 @@ untamperable.
 2.  The victim runs `jj config set --repo fix.tools.foo = [“$repo/format.py”]`
 3.  The victim uploads a zip file of a repository they have locally on their
     system at `/path/to/repo`
-4.  The attacker can now see any cryptographic signatures stored in the
+4.  The attacker can now see any configs / config references stored in the
     repository
 5.  The attacker modifies `format.py` to be malicious
 6.  The attacker zips up their repo and sends it to the victim
@@ -108,9 +109,9 @@ of the transitive closure of files that can be accessed via jj configs to solve.
 ### Non-goals (Optional)
 
 *   Use strategies such as sandboxing to mitigate damage
-    *   We could do this for formatters, for example, but then repo hooks would
-        have the same problem
-    *   These options are not mutually exclusive
+  *   We could do this for formatters, for example, but then repo hooks would
+      have the same problem
+  *   These options are not mutually exclusive
 
 ## Detailed Design
 
@@ -217,10 +218,10 @@ config ID has not yet been generated, we will silently perform the following
 4.  Atomically generate a `config-id` file containing `abc123`
 5.  Remove the original config file
 6.  For the user's convenience, and for older version of jj, we:
-    *   Try to symlink the old config to the new config
-    *   If this fails (symlinks don't play nice on windows), we replace it with
-        the same file content, with an extra comment at the top telling the user
-        not to edit the file, and set it to readonly.
+  *   Try to symlink the old config to the new config
+  *   If this fails (symlinks don't play nice on windows), we replace it with
+      the same file content, with an extra comment at the top telling the user
+      not to edit the file, and set it to readonly.
 
 After the migration period is over, we will:
 * Stop the auto-migration
@@ -271,14 +272,19 @@ unavoidable.
 
 ### Garbage collection
 
-We could, in the future, add a `gc` command to garbage-collect configs to
-deleted repo configs. However, there are some things to consider before doing
-so:
-* Each config would likely be very small, so cleaning it up may have limited
-  benefit.
+There is `jj config gc` command to delete configuration for repos that
+are deleted/moved. The command asks for user approval because of the
+following considerations:
+
 * It is impossible to distinguish "deleted" from "moved".
 * If you have something like a chroot or a dual boot where you share the
   config, you may have references to config IDs with a different path.
+
+For safety, the command only removes the well-known files it manages
+(`config.toml` and `metadata.binpb`) and then removes the per-repo
+directory non-recursively. If a user (or another tool) has placed an
+unrelated file inside the directory, the directory is left in place and
+a warning is printed instead.
 
 ### Attack vectors remaining
 
@@ -314,10 +320,10 @@ is the replay attack I mentioned above.
 *   Copying the repo is essentially a symlink to an old config until you update
     it
 *   Multiple users on the same system would each have different per-repo configs
-    *   This can be solved by simply symlinking `$HOME/.config/jj` to
-        `%APPDATA%/jj` (or vice versa) to solve this issue. You were probably
-        doing this anyway with specifically the user config file instead of the
-        directory.
+  *   This can be solved by simply symlinking `$HOME/.config/jj` to
+      `%APPDATA%/jj` (or vice versa) to solve this issue. You were probably
+      doing this anyway with specifically the user config file instead of the
+      directory.
 *   The repo config will no longer be available across machines if the user is
     using something like a distributed file system. This is probably OK, since
     if the user has a complex setup like this, they will also have issues with

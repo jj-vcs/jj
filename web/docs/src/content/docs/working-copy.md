@@ -53,7 +53,7 @@ main disadvantage of that is that it's harder to inspect the conflict
 resolutions.
 
 With the `jj resolve` command, you can use an external merge tool to resolve
-conflicts that have 2 sides and a base.  There is not yet a good way of
+conflicts that have 2 sides and a base. There is not yet a good way of
 resolving conflicts between directories, files, and symlinks
 (<https://github.com/jj-vcs/jj/issues/19>). You can use `jj restore` to choose
 one side of the conflict, but there's no way to even see where the involved
@@ -83,11 +83,22 @@ commit checked out.
 
 Having multiple workspaces can be useful for running long-running tests in one
 while you continue developing in another, for example. If needed,
-`jj workspace root` prints the root path of the current workspace.
+`jj workspace root --name <workspace>` prints the root path of the specified
+workspace (defaults to the current one).
+
+`jj workspace list` shows every workspace together with its available root path.
 
 When you're done using a workspace, use `jj workspace forget` to make the repo
-forget about it. The files can be deleted from disk separately (either before or
-after).
+forget about it. The workspace directory and files are left on disk. This is
+useful when the workspace path is no longer accessible or when you want to keep
+the files around.
+
+Use `jj workspace remove` to forget a workspace and remove its directory from
+disk. Tracked changes are snapshotted before the directory is removed, but
+ignored files in that directory are deleted. The main workspace cannot be
+removed. Removing the current workspace works on Unix, but Windows won't remove
+a directory that a process is running in; run the command from another directory
+using `jj -R` instead.
 
 ## Stale working copy
 

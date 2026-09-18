@@ -8,7 +8,7 @@ their job to contribute or not.
 
 The purpose of this list is to make it easy to spot conflicts of interest, such
 as when an employee approves changes from another employee of the same company.
-See [contribution docs](contributing.md#code-reviews) for details on this policy.
+See [contribution docs](contributing.mdx#code-reviews) for details on this policy.
 
 ## East River Source Control
 
@@ -17,42 +17,55 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * ConnerPetzold
 * davidbarsky
 * ilyagr
+* martinvonz
 * steveklabnik
 * thoughtpolice
 
-## Google
+## Alphabet/Google
 
 * 06393993
+* 2079884FDavid
+* aabmass
+* ajaspers
 * algmyr
 * AM5800
 * aspotashev
+* brychanrobot
 * daehyeok
 * drieber
 * durin42
 * edre
 * emesterhazy
 * essiene
-* finque
 * ffyuanda
+* finque
 * honglooker
 * hooper
 * incognito124
 * jonathantanmy
 * josephlou5
 * kevincliao
+* kiranani
 * lukegb
-* martinvonz
 * matts1
 * matttproud
 * michaelchirico
 * mlcui-corp
 * orthros
+* pmandloi28
 * prattmic
 * qfel
 * Ralith
 * rdamazio
+* sbarfurth
 * solson
 * spectral54
 * steadmon
 * tbodt
+* vaghinak-vardanyan
 * zygoloid
+
+## IMC Trading
+
+* freundTech
+* HoelzelJon
