@@ -194,6 +194,111 @@ fn test_workspaces_add_with_message() {
     "#);
 }
 
+/// Test how sparse patterns are created
+#[test]
+fn test_workspaces_sparse() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "ws1"]).success();
+    let ws1_dir = test_env.work_dir("ws1");
+    let ws2_dir = test_env.work_dir("ws2");
+    let ws3_dir = test_env.work_dir("ws3");
+    let ws4_dir = test_env.work_dir("ws4");
+    let ws5_dir = test_env.work_dir("ws5");
+    ws1_dir
+        .run_jj(["sparse", "set", "--clear", "--add=notinherited"])
+        .success();
+
+    // --sparse foo, creates new ws with foo
+    ws1_dir
+        .run_jj(["workspace", "add", "--sparse", "foo", "../ws2"])
+        .success();
+    let output = ws2_dir.run_jj(["sparse", "list"]);
+    insta::assert_snapshot!(output, @"
+    foo
+    [EOF]
+    ");
+
+    // --sparse foo --sparse bar, creates new ws with foo and bar
+    ws1_dir
+        .run_jj([
+            "workspace",
+            "add",
+            "--sparse",
+            "foo",
+            "--sparse",
+            "bar",
+            "../ws3",
+        ])
+        .success();
+    let output = ws3_dir.run_jj(["sparse", "list"]);
+    insta::assert_snapshot!(output, @"
+    bar
+    foo
+    [EOF]
+    ");
+
+    // --sparse 'root:"foo"' creates new ws
+    ws1_dir
+        .run_jj(["workspace", "add", "--sparse", "root:\"foo\"", "../ws4"])
+        .success();
+    let output = ws4_dir.run_jj(["sparse", "list"]);
+    insta::assert_snapshot!(output, @"
+    foo
+    [EOF]
+    ");
+
+    // --sparse 'all()' creates new ws with .
+    ws1_dir
+        .run_jj(["workspace", "add", "--sparse", "all()", "../ws5"])
+        .success();
+    let output = ws5_dir.run_jj(["sparse", "list"]);
+    insta::assert_snapshot!(output, @"
+    .
+    [EOF]
+    ");
+
+    // --sparse 'glob:"*.rs"' fails, no dir created
+    let output = ws1_dir.run_jj(["workspace", "add", "--sparse", "glob:\"*.rs\"", "../fail1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Glob patterns are not yet supported in sparse patterns
+    [EOF]
+    [exit status: 1]
+    ");
+    assert!(!test_env.env_root().join("fail1").exists());
+
+    // --sparse '. ~ foo' fails, no dir created
+    let output = ws1_dir.run_jj(["workspace", "add", "--sparse", ". ~ foo", "../fail2"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Intersection and difference are not yet supported in sparse patterns
+    [EOF]
+    [exit status: 1]
+    ");
+    assert!(!test_env.env_root().join("fail2").exists());
+
+    // --sparse foo --sparse-patterns=full fails, no dir created
+    let output = ws1_dir.run_jj([
+        "workspace",
+        "add",
+        "--sparse",
+        "foo",
+        "--sparse-patterns=full",
+        "../fail3",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: the argument '--sparse <FILESET/PATH>' cannot be used with '--sparse-patterns <SPARSE_PATTERNS>'
+
+    Usage: jj workspace add --sparse <FILESET/PATH> <DESTINATION>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    assert!(!test_env.env_root().join("fail3").exists());
+}
+
 /// Test how sparse patterns are inherited
 #[test]
 fn test_workspaces_sparse_patterns() {

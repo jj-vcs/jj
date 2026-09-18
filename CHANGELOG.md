@@ -72,6 +72,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   disable them. This can be used to disable built-in aliases or disable aliases
   in later layers (such as repo config files).
 
+* `jj workspace add --sparse` sets the workspace's sparse patterns directly.
+  The patterns are fileset expressions, though only plain paths are currently
+  supported.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
