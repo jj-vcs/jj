@@ -15,13 +15,16 @@
 //! Test that optimized revset evaluates to the same result as the original
 //! expression.
 //!
-//! Use `PROPTEST_CASES=10000` to increase the number of test cases to run.
+//! Use `HEGEL_TEST_CASES=10000` to increase the number of test cases to run.
 //! The default is `256`, which might be too small to catch edge-case bugs.
-//! <https://proptest-rs.github.io/proptest/proptest/tutorial/config.html>
 
 use std::sync::Arc;
 
 use futures::TryStreamExt as _;
+use hegel::Hegel;
+use hegel::Settings;
+use hegel::generators;
+use hegel::generators::Generator as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -36,7 +39,6 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
-use proptest::prelude::*;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestResult;
@@ -76,93 +78,92 @@ fn rebase_descendants(repo: &mut MutableRepo) -> Vec<Commit> {
     commits
 }
 
-/// Strategy to generate arbitrary revset expressions.
+/// Generator of arbitrary revset expressions.
 fn arb_expression(
     known_commits: Vec<CommitId>,
     visible_heads: Vec<Vec<CommitId>>,
-) -> impl Strategy<Value = Arc<ResolvedRevsetExpression>> {
-    // https://proptest-rs.github.io/proptest/proptest/tutorial/recursive.html
+) -> impl generators::PrintableGenerator<Arc<ResolvedRevsetExpression>> {
     let max_commits = known_commits.len();
-    let leaf_expr = prop_oneof![
-        Just(RevsetExpression::none()),
-        Just(RevsetExpression::all()),
-        Just(RevsetExpression::visible_heads()),
-        Just(RevsetExpression::root()),
-        Just(RevsetExpression::forks()),
-        proptest::sample::subsequence(known_commits, 1..=5.min(max_commits))
-            .prop_map(RevsetExpression::commits),
+    let leaf = hegel::one_of!(
+        generators::just(RevsetExpression::none()),
+        generators::just(RevsetExpression::all()),
+        generators::just(RevsetExpression::visible_heads()),
+        generators::just(RevsetExpression::root()),
+        generators::just(RevsetExpression::forks()),
+        generators::subsequences(known_commits)
+            .min_size(1)
+            .max_size(5.min(max_commits))
+            .map(RevsetExpression::commits),
         // Use merges() as a filter that isn't constant. Since we don't have an
         // optimization rule that rewrites filter predicates, we wouldn't have
         // to add various filter predicates.
-        Just(RevsetExpression::filter(
+        generators::just(RevsetExpression::filter(
             RevsetFilterPredicate::ParentCount(2..u32::MAX)
         )),
-    ];
-    leaf_expr.prop_recursive(
-        10,  // depth
-        100, // total nodes
-        2,   // unary or binary
-        move |expr| {
-            // This table includes redundant expressions (e.g. parents() and
-            // ancestors()) if they are common, which will probably make them be
-            // more weighted?
-            prop_oneof![
-                // Ancestors
-                expr.clone().prop_map(|x| x.parents()),
-                expr.clone().prop_map(|x| x.ancestors()),
-                (expr.clone(), 0..5_u64).prop_map(|(x, d)| x.ancestors_range(0..d)),
-                // Descendants
-                expr.clone().prop_map(|x| x.children()),
-                expr.clone().prop_map(|x| x.descendants()),
-                (expr.clone(), 0..5_u64).prop_map(|(x, d)| x.descendants_range(0..d)),
-                // First ancestors
-                expr.clone().prop_map(|x| x.first_ancestors_at(1)),
-                expr.clone().prop_map(|x| x.first_ancestors()),
-                (expr.clone(), 0..5_u64).prop_map(|(x, d)| x.first_ancestors_range(0..d)),
-                // Range
-                (expr.clone(), expr.clone()).prop_map(|(x, y)| x.range(&y)),
-                // DagRange
-                (expr.clone(), expr.clone()).prop_map(|(x, y)| x.dag_range_to(&y)),
-                expr.clone().prop_map(|x| x.connected()),
-                // Reachable
-                (expr.clone(), expr.clone()).prop_map(|(x, y)| x.reachable(&y)),
-                // Heads
-                expr.clone().prop_map(|x| x.heads()),
-                // Roots
-                expr.clone().prop_map(|x| x.roots()),
-                // ForkPoint
-                expr.clone().prop_map(|x| x.fork_point()),
-                // MergePoint
-                expr.clone().prop_map(|x| x.merge_point()),
-                // Latest
-                (expr.clone(), 0..5_usize).prop_map(|(x, n)| x.latest(n)),
-                // AtOperation (or WithinVisibility)
-                (
-                    expr.clone(),
-                    proptest::sample::select(visible_heads.clone())
-                )
-                    .prop_map(|(candidates, visible_heads)| Arc::new(
-                        RevsetExpression::WithinVisibility {
-                            candidates,
-                            visible_heads
-                        }
-                    )),
-                // Coalesce (in binary form)
-                [expr.clone(), expr.clone()].prop_map(|xs| RevsetExpression::coalesce(&xs)),
-                // General set operations
-                expr.clone().prop_map(|x| x.negated()),
-                (expr.clone(), expr.clone()).prop_map(|(x, y)| x.union(&y)),
-                (expr.clone(), expr.clone()).prop_map(|(x, y)| x.intersection(&y)),
-                (expr.clone(), expr.clone()).prop_map(|(x, y)| x.minus(&y)),
-            ]
-        },
-    )
+    );
+    generators::recursive(leaf, move |inner| {
+        let depth = || generators::integers::<u64>().max_value(4);
+        let pair = || generators::tuples2(inner.clone(), inner.clone());
+        // This table includes redundant expressions (e.g. parents() and
+        // ancestors()) if they are common, which will probably make them be
+        // more weighted?
+        hegel::one_of!(
+            // Ancestors
+            inner.clone().map(|x| x.parents()),
+            inner.clone().map(|x| x.ancestors()),
+            generators::tuples2(inner.clone(), depth()).map(|(x, d)| x.ancestors_range(0..d)),
+            // Descendants
+            inner.clone().map(|x| x.children()),
+            inner.clone().map(|x| x.descendants()),
+            generators::tuples2(inner.clone(), depth()).map(|(x, d)| x.descendants_range(0..d)),
+            // First ancestors
+            inner.clone().map(|x| x.first_ancestors_at(1)),
+            inner.clone().map(|x| x.first_ancestors()),
+            generators::tuples2(inner.clone(), depth()).map(|(x, d)| x.first_ancestors_range(0..d)),
+            // Range
+            pair().map(|(x, y)| x.range(&y)),
+            // DagRange
+            pair().map(|(x, y)| x.dag_range_to(&y)),
+            inner.clone().map(|x| x.connected()),
+            // Reachable
+            pair().map(|(x, y)| x.reachable(&y)),
+            // Heads
+            inner.clone().map(|x| x.heads()),
+            // Roots
+            inner.clone().map(|x| x.roots()),
+            // ForkPoint
+            inner.clone().map(|x| x.fork_point()),
+            // MergePoint
+            inner.clone().map(|x| x.merge_point()),
+            // Latest
+            generators::tuples2(inner.clone(), generators::integers::<usize>().max_value(4))
+                .map(|(x, n)| x.latest(n)),
+            // AtOperation (or WithinVisibility)
+            generators::tuples2(
+                inner.clone(),
+                generators::sampled_from(visible_heads.clone()),
+            )
+            .map(|(candidates, visible_heads)| {
+                Arc::new(RevsetExpression::WithinVisibility {
+                    candidates,
+                    visible_heads,
+                })
+            }),
+            // Coalesce (in binary form)
+            generators::arrays::<_, _, 2>(inner.clone()).map(|xs| RevsetExpression::coalesce(&xs)),
+            // General set operations
+            inner.clone().map(|x| x.negated()),
+            pair().map(|(x, y)| x.union(&y)),
+            pair().map(|(x, y)| x.intersection(&y)),
+            pair().map(|(x, y)| x.minus(&y)),
+        )
+    })
+    .max_depth(32)
+    .max_leaves(100)
+    .print_as_debug()
 }
 
-fn verify_optimized(
-    repo: &dyn Repo,
-    expression: &Arc<ResolvedRevsetExpression>,
-) -> Result<(), TestCaseError> {
+fn verify_optimized(repo: &dyn Repo, expression: &Arc<ResolvedRevsetExpression>) {
     let optimized_revset = expression.clone().evaluate(repo).unwrap();
     let unoptimized_revset = expression.clone().evaluate_unoptimized(repo).unwrap();
     let optimized_ids: Vec<_> = optimized_revset.stream().try_collect().block_on().unwrap();
@@ -171,8 +172,7 @@ fn verify_optimized(
         .try_collect()
         .block_on()
         .unwrap();
-    prop_assert_eq!(optimized_ids, unoptimized_ids);
-    Ok(())
+    assert_eq!(optimized_ids, unoptimized_ids);
 }
 
 #[test]
@@ -226,9 +226,13 @@ fn test_mostly_linear() -> TestResult {
         vec![commit_ids[8].clone(), commit_ids[9].clone()],
     ];
 
-    proptest!(|(expression in arb_expression(commit_ids, visible_heads))| {
-        verify_optimized(repo.as_ref(), &expression)?;
-    });
+    let expressions = arb_expression(commit_ids, visible_heads);
+    Hegel::new(|tc| {
+        let expression = tc.draw(&expressions);
+        verify_optimized(repo.as_ref(), &expression);
+    })
+    .settings(Settings::new().test_cases(256))
+    .run();
     Ok(())
 }
 
@@ -280,9 +284,13 @@ fn test_weird_merges() -> TestResult {
         vec![commit_ids[4].clone(), commit_ids[8].clone()],
     ];
 
-    proptest!(|(expression in arb_expression(commit_ids, visible_heads))| {
-        verify_optimized(repo.as_ref(), &expression)?;
-    });
+    let expressions = arb_expression(commit_ids, visible_heads);
+    Hegel::new(|tc| {
+        let expression = tc.draw(&expressions);
+        verify_optimized(repo.as_ref(), &expression);
+    })
+    .settings(Settings::new().test_cases(256))
+    .run();
     Ok(())
 }
 
@@ -361,9 +369,13 @@ fn test_feature_branches() -> TestResult {
         vec![commit_ids[9].clone()],
     ];
 
-    proptest!(|(expression in arb_expression(commit_ids, visible_heads))| {
-        verify_optimized(repo.as_ref(), &expression)?;
-    });
+    let expressions = arb_expression(commit_ids, visible_heads);
+    Hegel::new(|tc| {
+        let expression = tc.draw(&expressions);
+        verify_optimized(repo.as_ref(), &expression);
+    })
+    .settings(Settings::new().test_cases(256))
+    .run();
     Ok(())
 }
 
@@ -430,8 +442,12 @@ fn test_rewritten() -> TestResult {
         vec![commit_ids[7].clone(), commit_ids[9].clone()],
     ];
 
-    proptest!(|(expression in arb_expression(commit_ids, visible_heads))| {
-        verify_optimized(repo.as_ref(), &expression)?;
-    });
+    let expressions = arb_expression(commit_ids, visible_heads);
+    Hegel::new(|tc| {
+        let expression = tc.draw(&expressions);
+        verify_optimized(repo.as_ref(), &expression);
+    })
+    .settings(Settings::new().test_cases(256))
+    .run();
     Ok(())
 }
