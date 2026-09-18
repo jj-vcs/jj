@@ -15,20 +15,24 @@
 //! Git utilities shared by various commands.
 
 use std::error;
+use std::fs;
 use std::io;
 use std::io::Write as _;
 use std::iter;
 use std::mem;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
+use bstr::BString;
 use bstr::ByteSlice as _;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
@@ -44,11 +48,15 @@ use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git_backend::GitRepoAtWorkdirError;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::ref_name::WorkspaceName;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::RemoteSettingsMap;
+use jj_lib::simple_workspace_store::SimpleWorkspaceStore;
 use jj_lib::store::Store;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace_store::WorkspaceStore as _;
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
@@ -58,6 +66,7 @@ use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::print_error_sources;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_message;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::revset_util::parse_remote_auto_track_bookmarks_map;
@@ -591,6 +600,185 @@ pub fn unlink_git_worktree(
             print_error_sources(ui, Some(&err))?;
         }
     }
+    Ok(())
+}
+
+pub struct GitWorktreePaths {
+    pub worktree_root: PathBuf,
+    pub common_git_dir: PathBuf,
+}
+
+/// Discovers the linked Git worktree containing `cwd`.
+///
+/// Returns `None` if `cwd` isn't inside a Git worktree at all, or is inside
+/// the main worktree rather than a linked one.
+pub fn discover_git_worktree_paths(cwd: &Path) -> Result<Option<GitWorktreePaths>, CommandError> {
+    let Ok(git_repo) = gix::discover(cwd) else {
+        return Ok(None);
+    };
+    let Some(worktree_root) = git_repo.workdir() else {
+        return Ok(None);
+    };
+    let Some(worktree_root) = canonicalize_existing(worktree_root)? else {
+        return Ok(None);
+    };
+    let Some(git_dir) = canonicalize_existing(git_repo.git_dir())? else {
+        return Ok(None);
+    };
+    let Some(common_git_dir) = canonicalize_existing(git_repo.common_dir())? else {
+        return Ok(None);
+    };
+    // A linked worktree keeps its own git dir under the common one, whereas
+    // the main worktree's git dir *is* the common dir.
+    if git_dir == common_git_dir {
+        return Ok(None);
+    }
+    Ok(Some(GitWorktreePaths {
+        worktree_root,
+        common_git_dir,
+    }))
+}
+
+pub(crate) struct GitLinkedWorktree {
+    pub(crate) id: BString,
+    pub(crate) worktree_root: PathBuf,
+}
+
+pub(crate) fn list_git_linked_worktrees(
+    repo: &ReadonlyRepo,
+) -> Result<Vec<GitLinkedWorktree>, CommandError> {
+    let git_repo = git::get_git_backend(repo.store())?.git_repo();
+    let proxies = git_repo
+        .worktrees()
+        .map_err(|err| user_error_with_message("Failed to list Git worktrees", err))?;
+    let mut worktrees = Vec::new();
+    for proxy in proxies {
+        let Ok(base) = proxy.base() else {
+            continue;
+        };
+        let worktree_root = match dunce::canonicalize(&base) {
+            Ok(path) => path,
+            Err(err) if err.kind() == io::ErrorKind::NotFound => continue,
+            Err(err) => {
+                return Err(user_error_with_message(
+                    format!("Failed to resolve Git worktree '{}'", base.display()),
+                    err,
+                ));
+            }
+        };
+        worktrees.push(GitLinkedWorktree {
+            id: proxy.id().to_owned(),
+            worktree_root,
+        });
+    }
+    worktrees.sort_by(|left, right| left.worktree_root.cmp(&right.worktree_root));
+    Ok(worktrees)
+}
+
+pub(crate) fn workspace_name_for_path(
+    repo: &ReadonlyRepo,
+    repo_path: &Path,
+    workspace_store: &SimpleWorkspaceStore,
+    workspace_root: &Path,
+) -> Result<Option<WorkspaceNameBuf>, CommandError> {
+    for workspace_name in repo.view().wc_commit_ids().keys() {
+        if workspace_abs_path(repo_path, workspace_store, workspace_name)?.as_deref()
+            == Some(workspace_root)
+        {
+            return Ok(Some(workspace_name.clone()));
+        }
+    }
+    Ok(None)
+}
+
+pub(crate) fn unique_workspace_name(
+    repo: &ReadonlyRepo,
+    workspace_root: &Path,
+) -> Result<WorkspaceNameBuf, CommandError> {
+    let name = workspace_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .ok_or_else(|| user_error("Git worktree path has no valid UTF-8 file name"))?;
+    if repo
+        .view()
+        .get_wc_commit_id(WorkspaceName::new(name))
+        .is_none()
+    {
+        return Ok(name.into());
+    }
+    for suffix in 2.. {
+        let candidate: WorkspaceNameBuf = format!("{name}-{suffix}").into();
+        if repo.view().get_wc_commit_id(&candidate).is_none() {
+            return Ok(candidate);
+        }
+    }
+    unreachable!()
+}
+
+/// Canonicalizes `path`, treating a missing path as `None`.
+fn canonicalize_existing(path: &Path) -> Result<Option<PathBuf>, CommandError> {
+    match dunce::canonicalize(path) {
+        Ok(path) => Ok(Some(path)),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(user_error_with_message(
+            format!("Failed to resolve git path '{}'", path.display()),
+            err,
+        )),
+    }
+}
+
+pub(crate) fn workspace_abs_path(
+    repo_path: &Path,
+    workspace_store: &SimpleWorkspaceStore,
+    workspace_name: &WorkspaceName,
+) -> Result<Option<PathBuf>, CommandError> {
+    let Some(path) = workspace_store.get_workspace_path(workspace_name)? else {
+        return Ok(None);
+    };
+    let path = if path.is_absolute() {
+        path
+    } else {
+        repo_path.join(path)
+    };
+    match dunce::canonicalize(&path) {
+        Ok(path) => Ok(Some(path)),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Some(path)),
+        Err(err) => Err(user_error_with_message(
+            format!("Failed to resolve workspace path '{}'", path.display()),
+            err,
+        )),
+    }
+}
+
+pub(crate) fn repair_jj_repo_link(
+    workspace_root: &Path,
+    repo_path: &Path,
+) -> Result<(), CommandError> {
+    let jj_dir = workspace_root.join(".jj");
+    let repo_file_path = jj_dir.join("repo");
+    if !repo_file_path.is_file() {
+        return Ok(());
+    }
+    let jj_dir_abs = dunce::canonicalize(&jj_dir).map_err(|err| {
+        user_error_with_message(format!("Failed to resolve '{}'", jj_dir.display()), err)
+    })?;
+    let repo_dir = dunce::canonicalize(repo_path).map_err(|err| {
+        user_error_with_message(format!("Failed to resolve '{}'", repo_path.display()), err)
+    })?;
+    let path_to_store = file_util::relative_path(&jj_dir_abs, &repo_dir);
+    let path_to_store = if path_to_store.is_relative() {
+        file_util::slash_path(&path_to_store).into_owned()
+    } else {
+        path_to_store
+    };
+    let repo_dir_bytes = file_util::path_to_bytes(&path_to_store)
+        .map_err(|err| user_error_with_message("Failed to encode jj repo path", err))?;
+    if fs::read(&repo_file_path).ok().as_deref() == Some(repo_dir_bytes) {
+        return Ok(());
+    }
+    fs::write(&repo_file_path, repo_dir_bytes)
+        .map_err(|err| user_error_with_message("Failed to repair jj workspace link", err))?;
     Ok(())
 }
 
