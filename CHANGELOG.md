@@ -67,6 +67,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* The dynamic bash completion now works for arguments containing `@`, `:`,
+  or `=`, such as remote bookmarks (`jj rebase -o main@<TAB>`), revset
+  ranges (`main::<TAB>`), and `key=value` arguments (`jj git push --named
+  a=<TAB>`, `jj --config ui.conflict-marker-style=<TAB>`). The completion
+  function now rejoins the words that bash splits at these characters, like
+  git's bash completion does, without modifying shell-global completion
+  settings.
+  [#7758](https://github.com/jj-vcs/jj/issues/7758)
+
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
   such as `ssh` asking for a key passphrase or for confirmation of an unknown
   host key. Subprocesses started from a terminal now inherit its console, rather
