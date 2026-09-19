@@ -79,23 +79,154 @@ y) | z` or `x & (y | z)`.
 
 2. * `x-`: Parents of `x`, can be empty.
    * `x+`: Children of `x`, can be empty.
+    
+    ??? note "Example (`x-`, `x+`)"
+        
+        ```
+          A-         B-        D-        root()-   none()-    (A|D)-     (B|C)-
+
+          D          D         D          D         D          D          D
+          |\         |\        | \        |\        |\         | \        |\
+          B C        B C      [B] [C]     B C       B C       [B] [C]     B C
+          |/         |/        | /        |/        |/         | /        |/
+          A         [A]        A          A         A          A         [A]
+          |          |         |          |         |          |          |
+        [root()]    root()    root()     root()    root()    [root()]    root()
+
+        {root()}     {A}      {B,C}       {}        {}      {root,B,C}    {A}
+        ```
+        
+        ```
+         A+         B+        D+       root()+   none()+   (A|D)+    (B|C)+
+
+         D         [D]        D         D         D         D        [D]
+         | \        |\        |\        |\        |\        | \       |\
+        [B] [C]     B C       B C       B C       B C      [B] C      B C
+         | /        |/        |/        |/        |/        | /       |/
+         A          A         A        [A]        A         A         A
+         |          |         |         |         |         |         |
+        root()     root()    root()    root()    root()    root()    root()
+
+        {B,C}       {D}       {}        {A}       {}        {B}       {D}
+        ```
 
 3. * `p:x`: String/date pattern or pattern alias named `p`.
 
 4. * `x::`: Descendants of `x`, including the commits in `x` itself. Equivalent to
      `x::visible_heads()` if no hidden revisions are mentioned.
-   * `x..`: Revisions that are not ancestors of `x`. Equivalent to `~::x`, and
-     `x..visible_heads()` if no hidden revisions are mentioned.
    * `::x`: Ancestors of `x`, including the commits in `x` itself. Shorthand for
      `root()::x`.
+    
+    ??? note "Example (`x::`, `::x`)"
+        
+        ```
+          A::        B::       D::       root()::   none()::  (A|D)::    (B|C)::
+
+         [D]        [D]       [D]        [D]         D        [D]        [D]
+          | \        | \       |\         | \        |\        | \        | \
+         [B] [C]    [B] C      B C       [B] [C]     B C      [B] [C]    [B] [C]
+          | /        | /       |/         | /        |/        | /        | /
+         [A]         A         A         [A]         A        [A]         A
+          |          |         |          |          |         |          |
+         root()     root()    root()    [root()]    root()    root()     root()
+
+        {A,B,C,D}   {B,D}      {D}      {root(),     {}      {A,B,C,D}   {B,C,D}
+                                         A,B,C,D}
+        ```
+        
+        ```
+          ::A         ::B         ::D       ::root()   ::none()   ::(A|D)     ::(B|C)
+
+          D           D          [D]          D          D         [D]          D
+          |\          | \         | \         |\         |\         | \         | \
+          B C        [B] C       [B] [C]      B C        B C       [B] [C]     [B] [C]
+          |/          | /         | /         |/         |/         | /         | /
+         [A]         [A]         [A]          A          A         [A]         [A]
+          |           |           |           |          |          |           |
+        [root()]    [root()]    [root()]    [root()]    root()    [root()]    [root()]
+
+        {root(),    {root(),    {root(),    {root()}     {}       {root(),    {root(),
+         A}          A,B}        A,B,C,D}                          A,B,C,D}    A,B,C}
+        ```
+
+   * `x..`: Revisions that are not ancestors of `x`. Equivalent to `~::x`, and
+     `x..visible_heads()` if no hidden revisions are mentioned.
    * `..x`: Ancestors of `x`, including the commits in `x` itself, but excluding
      the root commit. Shorthand for `root()..x`. Equivalent to `::x ~ root()`.
+    
+    ??? note "Example (`x..`, `..x`)"
+        
+        ```
+         A..        B..       D..      root()..    none()..   (A|D)..   (B|C)..
+
+        [D]        [D]        D        [D]         [D]         D        [D]
+         | \        | \       |\        | \         | \        |\        |\
+        [B] [C]     B [C]     B C      [B] [C]     [B] [C]     B C       B C
+         | /        | /       |/        | /         | /        |/        |/
+         A          A         A        [A]         [A]         A         A
+         |          |         |         |           |          |         |
+        root()     root()    root()    root()     [root()]    root()    root()
+
+        {B,C,D}    {C,D}      {}      {A,B,C,D}   {root(),     {}        {D}
+                                                    A,B,C,D}
+        ```
+        
+        ```
+         ..A       ..B       ..D     ..root()  ..none()    ..(A|D)    ..(B|C)
+
+         D         D        [D]         D         D        [D]         D
+         |\        | \       | \        |\        |\        | \        | \
+         B C      [B] C     [B] [C]     B C       B C      [B] [C]    [B] [C]
+         |/        | /       | /        |/        |/        | /        | /
+        [A]       [A]       [A]         A         A        [A]        [A]
+         |         |         |          |         |         |          |
+        root()    root()    root()     root()    root()    root()     root()
+
+         {A}      {A,B}    {A,B,C,D}    {}        {}      {A,B,C,D}   {A,B,C}
+        ```
+
    * `x::y`: Descendants of `x` that are also ancestors of `y`. Equivalent
       to `x:: & ::y`. This is what `git log` calls `--ancestry-path x..y`.
+
+    ??? note "Example (`x::y`)"
+        
+        ```
+         A::D       B::C      B::D      D::B      D::D    root()::D   none()::D  (B|C)::(B|C)
+
+         [D]         D        [D]        D        [D]        [D]         D         D
+          | \        |\        | \       |\        |\         | \        |\        | \
+         [B] [C]     B C      [B] C      B C       B C       [B] [C]     B C      [B] [C]
+          | /        |/        | /       |/        |/         | /        |/        | /
+         [A]         A         A         A         A         [A]         A         A
+          |          |         |         |         |          |          |         |
+         root()     root()    root()    root()    root()    [root()]    root()    root()
+
+        {A,B,C,D}    {}       {B,D}      {}        {D}      {root(),     {}       {B,C}
+                                                             A,B,C,D}
+        ```
+
    * `x..y`: Ancestors of `y` that are not also ancestors of `x`. Equivalent to
      `::y ~ ::x`. This is what `git log` calls `x..y` (i.e. the same as we call it).
      Note that this is *not* a "path" between `x` and `y` in the commit graph -- `x`
      and `y` do not need to be related by ancestry.
+
+    ??? note "Example (`x..y`)"
+        
+        ```
+        A..D       B..C      B..D      D..B      D..D    root()..D   none()..D   (B|C)..(B|C)
+
+        [D]         D        [D]        D         D        [D]         [D]         D
+         | \        | \       | \       |\        |\        | \         | \        |\
+        [B] [C]     B [C]     B [C]     B C       B C      [B] [C]     [B] [C]     B C
+         | /        | /       | /       |/        |/        | /         | /        |/
+         A          A         A         A         A        [A]         [A]         A
+         |          |         |         |         |         |           |          |
+        root()     root()    root()    root()    root()    root()     [root()]    root()
+
+        {B,C,D}     {C}      {C,D}      {}        {}      {A,B,C,D}   {root(),     {}
+                                                                        A,B,C,D}
+        ```
+
    * `::`: All visible commits in the repo. Equivalent to `all()`, and
      `root()::visible_heads()` if no hidden revisions are mentioned.
    * `..`: All visible commits in the repo, but excluding the root commit.
@@ -113,113 +244,24 @@ y) | z` or `x & (y | z)`.
 side. For example, `(A | B)..` is **not** equivalent to `A.. | B..`. The
 expression `(A | B)..` means "commits that are not ancestors of A *and* not
 ancestors of B", while `A.. | B..` means "commits that are not ancestors of A
-*or* not ancestors of B". In fact, `(A | B).. = A.. & B..`. See the examples
+*or* not ancestors of B". In fact, `(A | B).. = A.. & B..`. See the example
 below for concrete illustrations.
 
-<!-- The following format will be understood by the web site generator, and will
- generate a folded section that can be unfolded at will. -->
+??? note "Example"
 
-??? examples
-
-    Given this history:
     ```
-    D
-    |\
-    B C
-    |/
-    A
-    |
-    root()
+     B..         C..       B.. | C..   B.. & C..    (B|C)..
+    
+    [D]         [D]         [D]          [D]         [D]
+     | \         | \         | \          |\          |\
+     B [C]      [B] C       [B] [C]       B C         B C
+     | /         | /         | /          |/          |/
+     A           A           A            A           A
+     |           |           |            |           |
+    root()      root()      root()       root()      root()
+    
+    {C,D}       {B,D}       {B,C,D}       {D}         {D}
     ```
-
-    **Operator** `x-`
-
-    * `D-` ⇒ `{C,B}`
-    * `B-` ⇒ `{A}`
-    * `A-` ⇒ `{root()}`
-    * `root()-` ⇒ `{}` (empty set)
-    * `none()-` ⇒ `{}` (empty set)
-    * `(D|A)-` ⇒ `{C,B,root()}`
-    * `(C|B)-` ⇒ `{A}`
-
-    **Operator** `x+`
-
-    * `D+` ⇒ `{}` (empty set)
-    * `B+` ⇒ `{D}`
-    * `A+` ⇒ `{B,C}`
-    * `root()+` ⇒ `{A}`
-    * `none()+` ⇒ `{}` (empty set)
-    * `(C|B)+` ⇒ `{D}`
-    * `(B|root())+` ⇒ `{D,A}`
-
-    **Operator** `x::`
-
-    * `D::` ⇒ `{D}`
-    * `B::` ⇒ `{D,B}`
-    * `A::` ⇒ `{D,C,B,A}`
-    * `root()::` ⇒ `{D,C,B,A,root()}`
-    * `none()::` ⇒ `{}` (empty set)
-    * `(C|B)::` ⇒ `{D,C,B}`
-
-    **Operator** `x..`
-
-    * `D..` ⇒ `{}` (empty set)
-    * `B..` ⇒ `{D,C}` (note that, unlike `B::`, this includes `C`)
-    * `A..` ⇒ `{D,C,B}`
-    * `root()..` ⇒ `{D,C,B,A}`
-    * `none()..` ⇒ `{D,C,B,A,root()}`
-    * `(C|B)..` ⇒ `{D}`
-
-    **Operator** `::x`
-
-    * `::D` ⇒ `{D,C,B,A,root()}`
-    * `::B` ⇒ `{B,A,root()}`
-    * `::A` ⇒ `{A,root()}`
-    * `::root()` ⇒ `{root()}`
-    * `::none()` ⇒ `{}` (empty set)
-    * `::(C|B)` ⇒ `{C,B,A,root()}`
-
-    **Operator** `..x`
-
-    * `..D` ⇒ `{D,C,B,A}`
-    * `..B` ⇒ `{B,A}`
-    * `..A` ⇒ `{A}`
-    * `..root()` ⇒ `{}` (empty set)
-    * `..none()` ⇒ `{}` (empty set)
-    * `..(C|B)` ⇒ `{C,B,A}`
-
-    **Operator** `x::y`
-
-    * `D::D` ⇒ `{D}`
-    * `B::D` ⇒ `{D,B}` (note that, unlike `B..D`, this includes `B` and excludes `C`)
-    * `B::C` ⇒ `{}` (empty set) (note that, unlike `B..C`, this excludes `C`)
-    * `A::D` ⇒ `{D,C,B,A}`
-    * `root()::D` ⇒ `{D,C,B,A,root()}`
-    * `none()::D` ⇒ `{}` (empty set)
-    * `D::B` ⇒ `{}` (empty set)
-    * `(C|B)::(C|B)` ⇒ `{C,B}`
-
-    **Operator** `x..y`
-
-    * `D..D` ⇒ `{}` (empty set)
-    * `B..D` ⇒ `{D,C}` (note that, unlike `B::D`, this includes `C` and excludes `B`)
-    * `B..C` ⇒ `{C}` (note that, unlike `B::C`, this includes `C`)
-    * `A..D` ⇒ `{D,C,B}`
-    * `root()..D` ⇒ `{D,C,B,A}`
-    * `none()..D` ⇒ `{D,C,B,A,root()}`
-    * `D..B` ⇒ `{}` (empty set)
-    * `(C|B)..(C|B)` ⇒ `{}` (empty set)
-
-    **Non-distributivity of `..` over union (left side)**
-
-    Using the same graph, observe that `(C|B)..` ⇒ `{D}`, but:
-    * `C..` ⇒ `{D,B}`
-    * `B..` ⇒ `{D,C}`
-    * `C.. | B..` ⇒ `{D,C,B}`
-    * `C.. & B..` ⇒ `{D}`
-
-    So `(C|B)..` ≠ `C.. | B..`, but `(C|B).. = C.. & B..`. The `..` operator
-    converts union to intersection on its left side.
 
 ## Functions
 
