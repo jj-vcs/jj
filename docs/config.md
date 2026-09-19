@@ -1998,6 +1998,73 @@ you can:
 executable-path = "/path/to/git"
 ```
 
+## Hooks
+
+Hooks are user-provided executables that jj runs at defined points in a
+command's lifecycle. The first hook kinds are `git-pre-push` and
+`git-post-push`, run around `jj git push`.
+
+### Locations and precedence
+
+* Global: `$config_dir/jj/hooks/<hook-name>` (e.g. `~/.config/jj/hooks/` on
+  Linux), alongside the user config file. These are as trusted as the rest
+  of your configuration, since they can't be delivered by cloning a
+  repository.
+* Repository-scoped: `<workspace root>/.jj-hooks/<hook-name>`, a plain
+  directory next to `.jj` rather than inside it, so it's an ordinary
+  tracked path that gets versioned like any other file in the repo.
+
+For a given hook name, a repository-scoped hook runs instead of the global
+one if it exists and is currently enabled and trusted for that repository
+(see "Trust model" below). This is a full override, not a merge. If neither
+a repository-scoped nor a global hook exists, nothing runs.
+
+### Hook kinds
+
+`git-pre-push` runs once per `jj git push` invocation, before anything is
+sent to any remote, covering every remote matched by that invocation. A
+nonzero exit aborts the push to all matched remotes.
+
+`git-post-push` runs once after every matched remote has been attempted,
+only if all of them fully succeeded.
+
+Neither hook runs for `--dry-run`, nor when `--no-hooks` is passed.
+
+### Invocation contract
+
+Hooks run in the workspace root, with `JJ_HOOK` (the hook name) and
+`JJ_REPO_ROOT` set in the environment. A JSON document is written to their
+stdin: a schema-version field and a list of remotes, each with the
+bookmark/tag updates being (or having been) pushed. `git-post-push` also
+includes each update's outcome (`pushed`, `rejected`, or
+`remote-rejected`). Stdout/stderr are passed through to your terminal.
+
+### Trust model
+
+Because `.jj-hooks/` is an ordinary tracked directory, it arrives with a
+`git clone` just like any other file, which would let a malicious
+repository run code on checkout if jj executed it unconditionally. Trusting
+a repository-scoped hook therefore requires two things, both of which live
+in the repository's local, secure per-repo config rather than anywhere a
+clone could pre-populate:
+
+1. Running `jj hook enable` in that specific checkout. This is per
+   repository and per clone: cloning a repository that already has
+   `.jj-hooks/` populated never enables execution by itself.
+2. The hook file's content still matching what `jj hook enable` last
+   approved. If it changes afterward, whether from a local edit or content
+   that arrived via `jj git fetch`, a rebase, or a checkout of a different
+   bookmark, jj treats it as untrusted again: it's skipped (falling back to
+   the global hook of the same name, or running nothing), with a warning
+   pointing back at `jj hook enable`.
+
+`jj hook disable` clears both the enabled flag and every recorded approval,
+so re-enabling always re-lists and re-approves whatever is currently under
+`.jj-hooks/`.
+
+See `jj hook status` for the current state of both hook kinds, and
+`jj hook --help` for the `jj hook enable`/`disable`/`status` subcommands.
+
 ## Gerrit settings
 
 ### Default remote
