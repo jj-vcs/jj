@@ -65,6 +65,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util diff <path1> <path2>` to compare files on disk.
 
+* Aliases now support setting `aliases.<name>.enabled = false`, which will
+  disable them. This can be used to disable built-in aliases or disable aliases
+  in later layers (such as repo config files).
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,

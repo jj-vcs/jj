@@ -165,11 +165,22 @@ fn test_alias_cannot_override_builtin() {
     let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(r#"aliases.log = ["rebase"]"#);
+    test_env.add_config(r#"aliases.diff = {enabled=false, definition=["describe"]}"#);
+
     // Alias should give a warning
     let output = work_dir.run_jj(["log", "-r", "root()"]);
     insta::assert_snapshot!(output, @"
     ◆  zzzzzzzz root() 00000000
     [EOF]
+    ------- stderr -------
+    Warning: Cannot define an alias that overrides the built-in command 'log'.
+    [EOF]
+    ");
+
+    // But if the alias is disabled, it doesn't matter. (The warning is always
+    // printed when aliases are loaded.)
+    let output = work_dir.run_jj(["diff", "-r", "root()"]);
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Cannot define an alias that overrides the built-in command 'log'.
     [EOF]
@@ -277,25 +288,150 @@ fn test_alias_invalid_definition() {
     let output = test_env.run_jj_in(".", ["non-list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     ------- stderr -------
-    Config error: Invalid type or value for aliases.non-list
-    Caused by: invalid type: integer `5`, expected a sequence
+    Warning: Failed to load `aliases.non-list`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.non-list
+    2: invalid type: integer `5`, expected a sequence
 
-    Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    Warning: Failed to load `aliases.non-string-list`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.non-string-list
+    2: invalid type: integer `0`, expected a string
+
+    error: unrecognized subcommand 'non-list'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
     [EOF]
-    [exit status: 1]
+    [exit status: 2]
     ");
     let output = test_env.run_jj_in(".", ["non-string-list"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Config error: Invalid type or value for aliases.non-string-list
-    Caused by: invalid type: integer `0`, expected a string
+    Warning: Failed to load `aliases.non-list`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.non-list
+    2: invalid type: integer `5`, expected a sequence
 
-    Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    Warning: Failed to load `aliases.non-string-list`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.non-string-list
+    2: invalid type: integer `0`, expected a string
+
+    error: unrecognized subcommand 'non-string-list'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
     [EOF]
-    [exit status: 1]
+    [exit status: 2]
     ");
+}
+
+#[test]
+fn test_alias_disabled() {
+    let test_env = TestEnvironment::default();
+
+    test_env.add_config(
+        r#"[aliases]
+        # Disable some built-in aliases.
+        desc.enabled = false
+        ci = { enabled = false }
+
+        # Create a disabled alias.
+        my_alias = { enabled = false, definition = ["root"] }
+
+        # Create "enabled" aliases.
+        invalid.enabled = true
+        valid.enabled = true
+        valid.definition = ["config", "list", "aliases"]
+        "#,
+    );
+    let output = test_env.run_jj_in(".", ["desc"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    ------- stderr -------
+    Warning: Failed to load `aliases.invalid`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.invalid
+    2: invalid type: map, expected a sequence
+
+    error: unrecognized subcommand 'desc'
+
+      tip: a similar subcommand exists: 'describe'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = test_env.run_jj_in(".", ["ci"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    ------- stderr -------
+    Warning: Failed to load `aliases.invalid`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.invalid
+    2: invalid type: map, expected a sequence
+
+    error: unrecognized subcommand 'ci'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = test_env.run_jj_in(".", ["my_alias"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    ------- stderr -------
+    Warning: Failed to load `aliases.invalid`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.invalid
+    2: invalid type: map, expected a sequence
+
+    error: unrecognized subcommand 'my_alias'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = test_env.run_jj_in(".", ["invalid"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to load `aliases.invalid`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.invalid
+    2: invalid type: map, expected a sequence
+
+    error: unrecognized subcommand 'invalid'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = test_env.run_jj_in(".", ["valid"]);
+    insta::assert_snapshot!(output, @r#"
+    aliases.desc.enabled = false
+    aliases.ci.enabled = false
+    aliases.my_alias.enabled = false
+    aliases.my_alias.definition = ["root"]
+    aliases.invalid.enabled = true
+    aliases.valid.enabled = true
+    aliases.valid.definition = ["config", "list", "aliases"]
+    [EOF]
+    ------- stderr -------
+    Warning: Failed to load `aliases.invalid`: Expected a string list or a table with a `definition`
+    Caused by:
+    1: Invalid type or value for aliases.invalid
+    2: invalid type: map, expected a sequence
+
+    [EOF]
+    "#);
 }
 
 #[test]
