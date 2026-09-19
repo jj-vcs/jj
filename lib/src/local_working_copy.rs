@@ -819,6 +819,7 @@ fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
 }
 
 const RESERVED_DIR_NAMES: &[&str] = &[".git", ".jj"];
+const RESERVED_DIR_NAMES_BYTES: &[&[u8]] = &[b".git", b".jj"];
 
 fn file_identity_from_symlink_path(disk_path: &Path) -> io::Result<Option<FileIdentity>> {
     match FileIdentity::from_symlink_path(disk_path) {
@@ -1514,6 +1515,11 @@ struct DirectoryToVisit<'a> {
     file_states: FileStates<'a>,
 }
 
+struct FileToVisit<'a> {
+    entry: &'a DirEntry,
+    name: OsString,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum PresentDirEntryKind {
     Dir,
@@ -1582,20 +1588,42 @@ impl FileSnapshotter<'_> {
         } = directory_to_visit;
 
         let git_ignore = git_ignore.chain_with_file(&dir, disk_dir.join(".gitignore"))?;
-        let dir_entries: Vec<_> = disk_dir
+        let dir_entries0: Vec<_> = disk_dir
             .read_dir()
             .and_then(|entries| entries.try_collect())
             .map_err(|err| SnapshotError::Other {
                 message: format!("Failed to read directory {}", disk_dir.display()),
                 err: err.into(),
             })?;
+
+        let mut dir_entries = vec![];
+        for dentry in &dir_entries0 {
+            let filename = dentry.file_name();
+            if !dir.is_root() {
+                // If a submodule was added in commit C, and a user decides to run
+                // `jj new <something before C>` from after C, then the submodule
+                // files stick around but it is no longer seen as a submodule.
+                // We need to ensure that it is not tracked as if it was added to
+                // the main repo.
+                // See https://github.com/jj-vcs/jj/issues/4349.
+                // To solve this, we ignore all nested repos entirely.
+                if RESERVED_DIR_NAMES_BYTES.contains(&filename.as_encoded_bytes()) {
+                    return Ok(());
+                }
+            }
+            dir_entries.push(FileToVisit {
+                entry: dentry,
+                name: filename,
+            });
+        }
+
         let (dirs, files) = dir_entries
             .into_par_iter()
             // Don't split into too many small jobs. For a small directory,
             // sequential scan should be fast enough.
             .with_min_len(100)
             .filter_map(|entry| {
-                self.process_dir_entry(&dir, &git_ignore, file_states, &entry, scope)
+                self.process_dir_entry(&dir, &git_ignore, file_states, entry, scope)
                     .block_on()
                     .transpose()
             })
@@ -1615,12 +1643,12 @@ impl FileSnapshotter<'_> {
         dir: &RepoPath,
         git_ignore: &Arc<GitIgnoreFile>,
         file_states: FileStates<'scope>,
-        entry: &DirEntry,
+        file_to_visit: FileToVisit<'_>,
         scope: &rayon::Scope<'scope>,
     ) -> Result<Option<(PresentDirEntryKind, String)>, SnapshotError> {
+        let entry = file_to_visit.entry;
         let file_type = entry.file_type().unwrap();
-        let file_name = entry.file_name();
-        let name_string = match file_name.into_string() {
+        let name_string = match file_to_visit.name.into_string() {
             Ok(name_string) => name_string,
             Err(name) => {
                 // A path that isn't valid UTF-8 can't be represented as a
@@ -1645,19 +1673,6 @@ impl FileSnapshotter<'_> {
 
         if file_type.is_dir() {
             let file_states = file_states.prefixed_at(dir, name);
-            // If a submodule was added in commit C, and a user decides to run
-            // `jj new <something before C>` from after C, then the submodule
-            // files stick around but it is no longer seen as a submodule.
-            // We need to ensure that it is not tracked as if it was added to
-            // the main repo.
-            // See https://github.com/jj-vcs/jj/issues/4349.
-            // To solve this, we ignore all nested repos entirely.
-            let disk_dir = entry.path();
-            for &name in RESERVED_DIR_NAMES {
-                if disk_dir.join(name).symlink_metadata().is_ok() {
-                    return Ok(None);
-                }
-            }
 
             if git_ignore.matches_dir(&path)
                 && self.force_tracking_matcher.visit(&path).is_nothing()
@@ -1673,7 +1688,7 @@ impl FileSnapshotter<'_> {
             } else if !self.matcher.visit(&path).is_nothing() {
                 let directory_to_visit = DirectoryToVisit {
                     dir: path,
-                    disk_dir,
+                    disk_dir: entry.path(),
                     git_ignore: git_ignore.clone(),
                     file_states,
                 };
