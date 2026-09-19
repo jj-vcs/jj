@@ -412,23 +412,33 @@ async fn apply_diff_builtin(
     // Start with the right tree to match external tool behavior.
     // This ensures unmatched paths keep their values from the right tree.
     let mut tree_builder = MergedTreeBuilder::new(right_tree.clone());
-
-    // First, revert all changed files to their left versions
-    for path in &changed_files {
-        let left_value = left_tree.path_value(path).await?;
-        tree_builder.set_or_remove(path.clone(), left_value);
+    let left_resolved = left_tree.tree_ids().is_resolved();
+    if !left_resolved {
+        for path in &changed_files {
+            let left_value = left_tree.path_value(path).await?;
+            tree_builder.set_or_remove(path.clone(), left_value);
+        }
     }
 
-    // Then apply only the selected changes
     apply_changes(
         &mut tree_builder,
         changed_files,
         files,
+        left_resolved,
         async |path| left_tree.path_value(path).await,
         async |path| right_tree.path_value(path).await,
         async |path, contents, executable| {
-            let old_value = left_tree.path_value(path).await?;
-            let copy_id = resolve_file_copy_id(&old_value).unwrap_or_else(CopyId::placeholder);
+            let left_value = left_tree.path_value(path).await?;
+            let right_value = right_tree.path_value(path).await?;
+            let copy_id = resolve_file_copy_id(&left_value).unwrap_or_else(CopyId::placeholder);
+            let old_value = if left_resolved
+                && !right_value.is_resolved()
+                && right_value.to_file_merge().is_some()
+            {
+                right_value
+            } else {
+                left_value
+            };
             let new_value = if old_value.is_resolved() {
                 let id = store.write_file(path, &mut &contents[..]).await?;
                 Merge::normal(TreeValue::File {
@@ -452,7 +462,15 @@ async fn apply_diff_builtin(
                         executable,
                         copy_id,
                     })),
-                    Err(file_ids) => old_value.with_new_file_ids(&file_ids),
+                    Err(file_ids) => {
+                        let mut value = old_value.with_new_file_ids(&file_ids);
+                        for tree_value in value.iter_mut().flatten() {
+                            if let TreeValue::File { copy_id: cid, .. } = tree_value {
+                                *cid = copy_id.clone();
+                            }
+                        }
+                        value
+                    }
                 }
             } else {
                 panic!("unexpected content change at {path:?}: {old_value:?}");
@@ -468,6 +486,7 @@ async fn apply_changes(
     tree_builder: &mut MergedTreeBuilder,
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File<'_>],
+    restore_unselected_to_left: bool,
     select_left: impl AsyncFn(&RepoPath) -> BackendResult<MergedTreeValue>,
     select_right: impl AsyncFn(&RepoPath) -> BackendResult<MergedTreeValue>,
     write_file: impl AsyncFn(&RepoPath, &[u8], bool) -> BackendResult<MergedTreeValue>,
@@ -502,6 +521,9 @@ async fn apply_changes(
             // should remove it from the tree,
             if file_mode_change_selected {
                 tree_builder.set_or_remove(path, Merge::absent());
+            } else if restore_unselected_to_left {
+                let value = select_left(&path).await?;
+                tree_builder.set_or_remove(path, value);
             }
             // or the file's creation has been split out of the change, in which case we
             // don't need to change the tree.
@@ -516,8 +538,9 @@ async fn apply_changes(
                     // File contents haven't changed, but file mode needs to be updated on the tree.
                     let value = override_file_executable_bit(select_left(&path).await?, executable);
                     tree_builder.set_or_remove(path, value);
-                } else {
-                    // Neither file mode, nor contents changed => Do nothing.
+                } else if restore_unselected_to_left {
+                    let value = select_left(&path).await?;
+                    tree_builder.set_or_remove(path, value);
                 }
             }
             scm_record::SelectedContents::Binary {
@@ -741,6 +764,7 @@ async fn apply_merge_builtin(
         &mut tree_builder,
         changed_files,
         files,
+        false,
         async |path| tree.path_value(path).await,
         // FIXME: It doesn't make sense to select a new value from the source tree.
         // Presently, `select_right` is never actually called, since it is used to select binary
@@ -1947,6 +1971,52 @@ mod tests {
             all_changes_tree,
             "all-changes tree was different",
         );
+    }
+
+    #[test]
+    fn test_edit_diff_builtin_keeps_conflict_when_left_resolved() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let file_a = repo_path("A");
+        let file_b = repo_path("B");
+        let left_tree =
+            testutils::create_tree(&test_repo.repo, &[(file_a, "C\n"), (file_b, "C\n")]);
+        let right_tree = {
+            let base =
+                testutils::create_single_tree(&test_repo.repo, &[(file_a, "A\n"), (file_b, "B\n")]);
+            let left =
+                testutils::create_single_tree(&test_repo.repo, &[(file_a, "C\n"), (file_b, "C\n")]);
+            let right =
+                testutils::create_single_tree(&test_repo.repo, &[(file_a, "D\n"), (file_b, "D\n")]);
+            MergedTree::new(
+                store.clone(),
+                Merge::from_vec(vec![
+                    left.id().clone(),
+                    base.id().clone(),
+                    right.id().clone(),
+                ]),
+                ConflictLabels::from_vec(vec!["side-c".into(), "base".into(), "side-d".into()]),
+            )
+        };
+
+        let (changed_files, mut files) = make_diff(store, &left_tree, &right_tree);
+        assert_eq!(changed_files, vec![file_a.to_owned(), file_b.to_owned()]);
+
+        files[0].toggle_all();
+        let result = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_eq!(
+            result.path_value(file_a).block_on()?,
+            right_tree.path_value(file_a).block_on()?
+        );
+        assert_eq!(
+            result.path_value(file_b).block_on()?,
+            left_tree.path_value(file_b).block_on()?
+        );
+        assert!(!result.path_value(file_a).block_on()?.is_resolved());
+        assert!(result.path_value(file_b).block_on()?.is_resolved());
+        assert_eq!(result.labels(), right_tree.labels());
+        Ok(())
     }
 
     #[test]
