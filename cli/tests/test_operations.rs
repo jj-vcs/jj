@@ -3137,6 +3137,59 @@ fn test_op_log_anonymize() {
 }
 
 #[test]
+fn test_op_log_anonymize_diff() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["describe", "-m", "description 0"])
+        .success();
+
+    // Without overriding commit_summary, the changed commits section is not
+    // redacted even when using builtin_op_log_redacted.
+    let output = work_dir.run_jj(["op", "log", "-Tbuiltin_op_log_redacted", "-d", "-n1"]);
+    insta::assert_snapshot!(output, @"
+    @  8501e29d2d94 user-5910 workspace-ab88@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │  (redacted)
+    │
+    │  Changed commits:
+    │  ○  + qpvuntsm 3ae22e7f (empty) description 0
+    │     - qpvuntsm/1 e8849ae1 (hidden) (empty) (no description set)
+    │
+    │  Changed working copy default@:
+    │  + qpvuntsm 3ae22e7f (empty) description 0
+    │  - qpvuntsm/1 e8849ae1 (hidden) (empty) (no description set)
+    [EOF]
+    ");
+
+    // With commit_summary overridden, the changed commits section is also redacted.
+    let output = work_dir.run_jj([
+        "op",
+        "log",
+        "-Tbuiltin_op_log_redacted",
+        "-d",
+        "-n1",
+        "--config",
+        "templates.commit_summary=format_commit_summary_redacted(self)",
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  8501e29d2d94 user-5910 workspace-ab88@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │  (redacted)
+    │
+    │  Changed commits:
+    │  ○  + qpvuntsm 3ae22e7f (empty) (redacted)
+    │     - qpvuntsm/1 e8849ae1 (hidden) (empty) (redacted)
+    │
+    │  Changed working copy default@:
+    │  + qpvuntsm 3ae22e7f (empty) (redacted)
+    │  - qpvuntsm/1 e8849ae1 (hidden) (empty) (redacted)
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_op_immutable_revisions() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
