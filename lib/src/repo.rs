@@ -551,7 +551,7 @@ impl StoreFactories {
         let workspace_store_type = read_store_type_compat(
             "workspace",
             store_path.join("type"),
-            SimpleWorkspaceStore::name,
+            SimpleWorkspaceStore::NAME,
         )?;
         let workspace_store_factory = self
             .workspace_store_factories
@@ -660,13 +660,12 @@ pub fn read_store_type(
 fn read_store_type_compat(
     store: &'static str,
     path: impl AsRef<Path>,
-    default: impl FnOnce() -> &'static str,
+    default_type: &str,
 ) -> Result<String, StoreLoadError> {
     let path = path.as_ref();
     let read_or_write_default = || match fs::read_to_string(path) {
         Ok(content) => Ok(content),
         Err(err) if err.kind() == ErrorKind::NotFound => {
-            let default_type = default();
             fs::create_dir(path.parent().unwrap()).ok();
             fs::write(path, default_type)?;
             Ok(default_type.to_owned())

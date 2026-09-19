@@ -95,7 +95,7 @@ async fn run_custom_command(
 fn main() -> std::process::ExitCode {
     let mut working_copy_factories = WorkingCopyFactories::new();
     working_copy_factories.insert(
-        ConflictsWorkingCopy::name().to_owned(),
+        ConflictsWorkingCopy::NAME.to_owned(),
         Box::new(ConflictsWorkingCopyFactory {}),
     );
     CliRunner::init()
@@ -118,9 +118,7 @@ struct ConflictsWorkingCopy {
 }
 
 impl ConflictsWorkingCopy {
-    fn name() -> &'static str {
-        "conflicts"
-    }
+    const NAME: &str = "conflicts";
 
     fn init(
         store: Arc<Store>,
@@ -162,7 +160,7 @@ impl ConflictsWorkingCopy {
 #[async_trait(?Send)]
 impl WorkingCopy for ConflictsWorkingCopy {
     fn name(&self) -> &str {
-        Self::name()
+        Self::NAME
     }
 
     fn workspace_name(&self) -> &WorkspaceName {

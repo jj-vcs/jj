@@ -108,9 +108,7 @@ pub struct DefaultIndexStore {
 }
 
 impl DefaultIndexStore {
-    pub fn name() -> &'static str {
-        "default"
-    }
+    pub const NAME: &str = "default";
 
     pub fn init(dir: &Path) -> Result<Self, DefaultIndexStoreInitError> {
         let store = Self {
@@ -517,7 +515,7 @@ impl DefaultIndexStore {
 #[async_trait(?Send)]
 impl IndexStore for DefaultIndexStore {
     fn name(&self) -> &str {
-        Self::name()
+        Self::NAME
     }
 
     async fn get_index_at_op(

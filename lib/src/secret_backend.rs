@@ -58,9 +58,7 @@ pub struct SecretBackend {
 
 impl SecretBackend {
     /// "secret"
-    pub fn name() -> &'static str {
-        "secret"
-    }
+    pub const NAME: &str = "secret";
 
     /// Loads the backend from the given path.
     pub fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
@@ -77,7 +75,7 @@ impl SecretBackend {
                 .join("repo")
                 .join("store")
                 .join("type"),
-            Self::name(),
+            Self::NAME,
         )
         .unwrap();
     }
@@ -86,7 +84,7 @@ impl SecretBackend {
 #[async_trait]
 impl Backend for SecretBackend {
     fn name(&self) -> &str {
-        Self::name()
+        Self::NAME
     }
 
     fn commit_id_length(&self) -> usize {

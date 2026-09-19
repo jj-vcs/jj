@@ -72,10 +72,8 @@ pub struct SimpleWorkspaceStore {
 }
 
 impl SimpleWorkspaceStore {
-    /// Returns the name of this WorkspaceStore implementation.
-    pub fn name() -> &'static str {
-        "simple_workspace_store"
-    }
+    /// The name of this WorkspaceStore implementation.
+    pub const NAME: &str = "simple_workspace_store";
 
     fn new(store_dir: &Path) -> Self {
         let store_dir = store_dir.to_path_buf();
@@ -146,8 +144,8 @@ impl SimpleWorkspaceStore {
 }
 
 impl WorkspaceStore for SimpleWorkspaceStore {
-    fn name(&self) -> &'static str {
-        Self::name()
+    fn name(&self) -> &str {
+        Self::NAME
     }
 
     fn add(&self, workspace_name: &WorkspaceName, path: &Path) -> Result<(), WorkspaceStoreError> {

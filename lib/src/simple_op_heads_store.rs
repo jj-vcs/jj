@@ -59,9 +59,7 @@ impl Debug for SimpleOpHeadsStore {
 }
 
 impl SimpleOpHeadsStore {
-    pub fn name() -> &'static str {
-        "simple_op_heads_store"
-    }
+    pub const NAME: &str = "simple_op_heads_store";
 
     pub fn init(dir: &Path, root_op_id: &OperationId) -> Result<Self, SimpleOpHeadsStoreInitError> {
         let op_heads_dir = dir.join("heads");
@@ -108,7 +106,7 @@ impl OpHeadsStoreLock for SimpleOpHeadsStoreLock {}
 #[async_trait]
 impl OpHeadsStore for SimpleOpHeadsStore {
     fn name(&self) -> &str {
-        Self::name()
+        Self::NAME
     }
 
     async fn update_op_heads(

@@ -98,9 +98,7 @@ pub struct SimpleBackend {
 }
 
 impl SimpleBackend {
-    pub fn name() -> &'static str {
-        "Simple"
-    }
+    pub const NAME: &str = "Simple";
 
     pub fn init(store_path: &Path) -> Self {
         fs::create_dir(store_path.join("commits")).unwrap();
@@ -151,7 +149,7 @@ impl SimpleBackend {
 #[async_trait]
 impl Backend for SimpleBackend {
     fn name(&self) -> &str {
-        Self::name()
+        Self::NAME
     }
 
     fn commit_id_length(&self) -> usize {

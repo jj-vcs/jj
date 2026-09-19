@@ -35,12 +35,12 @@ pub fn default_backend_factories() -> StoreFactories {
 
     // Backends
     factories.add_backend(
-        SimpleBackend::name(),
+        SimpleBackend::NAME,
         Box::new(|_settings, store_path| Ok(Box::new(SimpleBackend::load(store_path)))),
     );
     #[cfg(feature = "git")]
     factories.add_backend(
-        crate::git_backend::GitBackend::name(),
+        crate::git_backend::GitBackend::NAME,
         Box::new(|settings, store_path| {
             Ok(Box::new(crate::git_backend::GitBackend::load(
                 settings, store_path,
@@ -49,7 +49,7 @@ pub fn default_backend_factories() -> StoreFactories {
     );
     #[cfg(feature = "testing")]
     factories.add_backend(
-        crate::secret_backend::SecretBackend::name(),
+        crate::secret_backend::SecretBackend::NAME,
         Box::new(|settings, store_path| {
             Ok(Box::new(crate::secret_backend::SecretBackend::load(
                 settings, store_path,
@@ -59,13 +59,13 @@ pub fn default_backend_factories() -> StoreFactories {
 
     // WorkspaceStores
     factories.add_workspace_store(
-        SimpleWorkspaceStore::name(),
+        SimpleWorkspaceStore::NAME,
         Box::new(|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::load(store_path)?))),
     );
 
     // OpStores
     factories.add_op_store(
-        SimpleOpStore::name(),
+        SimpleOpStore::NAME,
         Box::new(|_settings, store_path, root_data| {
             Ok(Box::new(SimpleOpStore::load(store_path, root_data)))
         }),
@@ -73,19 +73,19 @@ pub fn default_backend_factories() -> StoreFactories {
 
     // OpHeadsStores
     factories.add_op_heads_store(
-        SimpleOpHeadsStore::name(),
+        SimpleOpHeadsStore::NAME,
         Box::new(|_settings, store_path| Ok(Box::new(SimpleOpHeadsStore::load(store_path)))),
     );
 
     // Index
     factories.add_index_store(
-        DefaultIndexStore::name(),
+        DefaultIndexStore::NAME,
         Box::new(|_settings, store_path| Ok(Box::new(DefaultIndexStore::load(store_path)))),
     );
 
     // SubmoduleStores
     factories.add_submodule_store(
-        DefaultSubmoduleStore::name(),
+        DefaultSubmoduleStore::NAME,
         Box::new(|_settings, store_path| Ok(Box::new(DefaultSubmoduleStore::load(store_path)))),
     );
 
@@ -96,7 +96,7 @@ pub fn default_backend_factories() -> StoreFactories {
 pub fn default_working_copy_factories() -> WorkingCopyFactories {
     let mut factories = WorkingCopyFactories::new();
     factories.insert(
-        LocalWorkingCopy::name().to_owned(),
+        LocalWorkingCopy::NAME.to_owned(),
         Box::new(LocalWorkingCopyFactory {}),
     );
     factories

@@ -92,9 +92,7 @@ pub struct SimpleOpStore {
 }
 
 impl SimpleOpStore {
-    pub fn name() -> &'static str {
-        "simple_op_store"
-    }
+    pub const NAME: &str = "simple_op_store";
 
     /// Creates an empty OpStore. Returns error if it already exists.
     pub fn init(
@@ -139,7 +137,7 @@ impl SimpleOpStore {
 #[async_trait]
 impl OpStore for SimpleOpStore {
     fn name(&self) -> &str {
-        Self::name()
+        Self::NAME
     }
 
     fn root_operation_id(&self) -> &OperationId {

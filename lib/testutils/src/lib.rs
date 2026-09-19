@@ -207,7 +207,7 @@ impl TestEnvironment {
             Box::new(move |_settings, store_path| Ok(Box::new(factory.load(store_path))))
         });
         factories.add_backend(
-            SecretBackend::name(),
+            SecretBackend::NAME,
             Box::new(|settings, store_path| {
                 Ok(Box::new(SecretBackend::load(settings, store_path)?))
             }),

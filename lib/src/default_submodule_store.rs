@@ -26,6 +26,8 @@ pub struct DefaultSubmoduleStore {
 }
 
 impl DefaultSubmoduleStore {
+    pub const NAME: &str = "default";
+
     /// Load an existing SubmoduleStore
     pub fn load(store_path: &Path) -> Self {
         Self {
@@ -38,14 +40,10 @@ impl DefaultSubmoduleStore {
             path: store_path.to_path_buf(),
         }
     }
-
-    pub fn name() -> &'static str {
-        "default"
-    }
 }
 
 impl SubmoduleStore for DefaultSubmoduleStore {
     fn name(&self) -> &str {
-        Self::name()
+        Self::NAME
     }
 }

@@ -197,9 +197,7 @@ pub struct GitBackend {
 }
 
 impl GitBackend {
-    pub fn name() -> &'static str {
-        "git"
-    }
+    pub const NAME: &str = "git";
 
     fn new(
         base_repo: gix::ThreadSafeRepository,
@@ -1078,7 +1076,7 @@ impl Debug for GitBackend {
 #[async_trait]
 impl Backend for GitBackend {
     fn name(&self) -> &str {
-        Self::name()
+        Self::NAME
     }
 
     fn commit_id_length(&self) -> usize {

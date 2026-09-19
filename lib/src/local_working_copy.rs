@@ -2640,7 +2640,7 @@ pub struct LocalWorkingCopy {
 #[async_trait(?Send)]
 impl WorkingCopy for LocalWorkingCopy {
     fn name(&self) -> &str {
-        Self::name()
+        Self::NAME
     }
 
     fn workspace_name(&self) -> &WorkspaceName {
@@ -2692,9 +2692,7 @@ impl WorkingCopy for LocalWorkingCopy {
 }
 
 impl LocalWorkingCopy {
-    pub fn name() -> &'static str {
-        "local"
-    }
+    pub const NAME: &str = "local";
 
     /// Initializes a new working copy at `working_copy_path`. The working
     /// copy's state will be stored in the `state_path` directory. The working
