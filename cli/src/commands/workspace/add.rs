@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::fs;
+use std::path::Path;
 
 use futures::future::try_join_all;
 use itertools::Itertools as _;
@@ -31,6 +32,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
@@ -67,6 +69,19 @@ pub struct WorkspaceAddArgs {
     /// directory.
     #[arg(long)]
     name: Option<WorkspaceNameBuf>,
+
+    /// Adopt an existing directory without checking out files.
+    ///
+    /// The destination directory must already exist and must not contain a .jj
+    /// directory.
+    ///
+    /// Any changes made between the working copy commit and the destination
+    /// directory will be preserved in in the working copy of the new workspace.
+    ///
+    /// This is best used in combination with a CoW filesystem such as btrfs or
+    /// zfs to get instantaneous snapshotting.
+    #[arg(long)]
+    adopt: bool,
 
     /// A list of parent revisions for the working-copy commit of the newly
     /// created workspace. You may specify nothing, or any number of parents.
@@ -108,6 +123,60 @@ pub struct WorkspaceAddArgs {
     sparse_patterns: SparseInheritance,
 }
 
+/// Checks if a workspace is suitable for adoption.
+async fn check_workspace_to_adopt(
+    command: &CommandHelper,
+    old_workspace_command: &WorkspaceCommandHelper,
+    destination_path: &Path,
+) -> Result<(), CommandError> {
+    if !destination_path.is_dir() {
+        return Err(user_error("Destination path is not a directory"));
+    }
+    let jj_dir = destination_path.join(".jj");
+    if !jj_dir.exists() {
+        return Ok(());
+    }
+    if same_file::is_same_file(&jj_dir, old_workspace_command.workspace_root().join(".jj"))
+        .unwrap_or(false)
+    {
+        return Err(user_error(
+            "The destination cannot be the same repo as the source",
+        ));
+    }
+
+    // Secondary workspaces don't own the repository store, so adopting them cannot cause data loss.
+    let repo_dir = jj_dir.join("repo");
+    if !repo_dir.is_dir() {
+        return Ok(());
+    }
+
+    let new_workspace =
+        command.load_workspace_at(destination_path, old_workspace_command.settings())?;
+    let new_repo = new_workspace
+        .repo_loader()
+        .load_at_head()
+        .await
+        .map_err(|err| user_error(format!("Failed to load workspace to adopt: {err}")))?;
+
+    let op_exists = old_workspace_command
+        .repo()
+        .op_store()
+        .read_operation(new_repo.op_id())
+        .await
+        .is_ok();
+    if !op_exists {
+        return Err(user_error(
+            "The workspace to adopt's current operation does not exist in the main workspace. \
+             Aborting due to a potential for data loss",
+        )
+        .hinted(
+            "If you *really* know what you're doing and that it's safe, you can delete the .jj \
+             directory to override this error",
+        ));
+    }
+    Ok(())
+}
+
 #[instrument(skip_all)]
 pub async fn cmd_workspace_add(
     ui: &mut Ui,
@@ -136,7 +205,23 @@ pub async fn cmd_workspace_add(
             name = workspace_name.as_symbol()
         )));
     }
-    if !destination_path.exists() {
+    let mut adopt_wc_dir = None;
+    if args.adopt {
+        check_workspace_to_adopt(command, &old_workspace_command, &destination_path).await?;
+        let dot_jj = destination_path.join(".jj");
+        let wc_dir = dot_jj.join("working_copy");
+        if wc_dir.is_dir() {
+            let tmp_dir = tempfile::Builder::new()
+                .prefix(".jj_adopt_backup_")
+                .tempdir_in(&destination_path)
+                .context(&destination_path)?;
+            fs::rename(&wc_dir, tmp_dir.path().join("working_copy")).context(&wc_dir)?;
+            adopt_wc_dir = Some(tmp_dir);
+        }
+        if dot_jj.exists() {
+            fs::remove_dir_all(&dot_jj).context(&dot_jj)?;
+        }
+    } else if !destination_path.exists() {
         fs::create_dir(&destination_path).context(&destination_path)?;
     } else if !file_util::is_empty_dir(&destination_path)? {
         return Err(user_error(
@@ -146,6 +231,15 @@ pub async fn cmd_workspace_add(
 
     #[cfg(feature = "git")]
     {
+        // If we're adopting, we should be removing .git and potentially replacing it with a .git file depending on should_colocate.
+        if args.adopt {
+            let dot_git = destination_path.join(".git");
+            if dot_git.is_file() || dot_git.is_symlink() {
+                fs::remove_file(&dot_git).context(&dot_git)?;
+            } else if dot_git.is_dir() {
+                fs::remove_dir_all(&dot_git).context(&dot_git)?;
+            }
+        }
         let should_colocate = if args.colocate {
             true
         } else if args.no_colocate {
@@ -166,14 +260,55 @@ pub async fn cmd_workspace_add(
     let repo_path = old_workspace_command.repo_path();
     // If we add per-workspace configuration, we'll need to reload settings for
     // the new workspace.
-    let (new_workspace, repo) = Workspace::init_workspace_with_existing_repo(
+    let first_commit = if args.adopt {
+        let old_wc_commit_id = repo
+            .view()
+            .get_wc_commit_id(old_workspace_command.workspace_name())
+            .ok_or_else(|| user_error("This workspace has no working-copy commit to adopt from"))?;
+        repo.store().get_commit_async(old_wc_commit_id).await?
+    } else {
+        repo.store().root_commit()
+    };
+
+    let (mut new_workspace, repo) = Workspace::init_workspace_with_existing_repo_at_commit(
         &destination_path,
         repo_path,
         repo,
         working_copy_factory,
         workspace_name.clone(),
+        &first_commit,
     )
     .await?;
+
+    if args.adopt {
+        // If adopting an existing .jj/working_copy, restore it.
+        if let Some(tmp_dir) = adopt_wc_dir {
+            let tmp = tmp_dir.path().join("working_copy");
+            fs::remove_file(tmp.join("working_copy.lock")).ok();
+            let wc_dir = destination_path.join(".jj/working_copy");
+            fs::remove_dir_all(&wc_dir).context(&wc_dir)?;
+            fs::rename(&tmp, &wc_dir).context(&wc_dir)?;
+            drop(tmp_dir);
+        }
+
+        let mut locked_ws = new_workspace
+            .start_working_copy_mutation()
+            .await
+            .map_err(|err| internal_error_with_message("Failed to lock working copy", err))?;
+        locked_ws
+            .locked_wc()
+            .rename_workspace(workspace_name.clone());
+        locked_ws
+            .locked_wc()
+            .reset(&first_commit)
+            .await
+            .map_err(|err| internal_error_with_message("Failed to reset working copy", err))?;
+        let op_id = locked_ws.locked_wc().old_operation_id().clone();
+        locked_ws
+            .finish(op_id)
+            .await
+            .map_err(|err| internal_error_with_message("Failed to save working copy state", err))?;
+    }
     writeln!(
         ui.status(),
         "Created workspace in \"{}\"",
