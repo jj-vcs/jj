@@ -85,6 +85,9 @@ fn test_absorb_simple() {
     let output = work_dir.run_jj(["absorb"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Could not absorb file1 at line 4: could be absorbed into multiple commits; use `--into` to pick one:
+      kkmpptxz 5810eb0f 1
+      zsuskuln dd109863 2
     Nothing changed.
     [EOF]
     ");
@@ -699,6 +702,233 @@ fn test_absorb_file_mode() {
 }
 
 #[test]
+fn test_absorb_ambiguous() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m1"]).success();
+    work_dir.write_file("file1", "1a\n1b\n");
+
+    work_dir.run_jj(["new", "-m2"]).success();
+    work_dir.write_file("file1", "1a\n1b\n2a\n2b\n");
+
+    // Line "X" is inserted between the lines of the two mutable commits, so it
+    // can be absorbed into either of them.
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "1a\n1b\nX\n2a\n2b\n");
+    let output = work_dir.run_jj(["absorb"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Could not absorb file1 at line 3: could be absorbed into multiple commits; use `--into` to pick one:
+      qpvuntsm e35bcaff 1
+      kkmpptxz 8105f646 2
+    Nothing changed.
+    [EOF]
+    ");
+
+    // The warning tells which commits could be the destination
+    let output = work_dir.run_jj(["absorb", "--into", "kkmpptxz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Absorbed changes into 1 revisions:
+      kkmpptxz f77486d7 2
+    Working copy  (@) now at: royxmykx eef2650e (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz f77486d7 2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @"
+    @  royxmykx eef2650e (empty) (no description set)
+    ○  kkmpptxz f77486d7 2
+    │  diff --git a/file1 b/file1
+    │  index 8c5268f893..337fbd2b52 100644
+    │  --- a/file1
+    │  +++ b/file1
+    │  @@ -1,2 +1,5 @@
+    │   1a
+    │   1b
+    │  +X
+    │  +2a
+    │  +2b
+    ○  qpvuntsm e35bcaff 1
+    │  diff --git a/file1 b/file1
+    ~  new file mode 100644
+       index 0000000000..8c5268f893
+       --- /dev/null
+       +++ b/file1
+       @@ -0,0 +1,2 @@
+       +1a
+       +1b
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_absorb_multiple_files() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m1"]).success();
+    work_dir.write_file("file1", "1a\n1b\n");
+    work_dir.write_file("file2", "2a\n2b\n");
+
+    work_dir.run_jj(["new", "-m2"]).success();
+    work_dir.write_file("file1", "1a\n1b\n1c\n");
+    work_dir.write_file("file2", "2a\n2b\n2c\n");
+
+    // A line is inserted between the lines of the two commits in both files.
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "1a\n1b\nX\n1c\n");
+    work_dir.write_file("file2", "2a\n2b\nY\n2c\n");
+    let output = work_dir.run_jj(["absorb"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Could not absorb file1 at line 3: could be absorbed into multiple commits; use `--into` to pick one:
+      qpvuntsm 06b4fd6f 1
+      kkmpptxz 7a68e6bf 2
+    Warning: Could not absorb file2 at line 3: could be absorbed into multiple commits; use `--into` to pick one:
+      qpvuntsm 06b4fd6f 1
+      kkmpptxz 7a68e6bf 2
+    Nothing changed.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_absorb_new_file() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m1"]).success();
+    work_dir.write_file("file1", "1a\n");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "1A\n");
+    work_dir.write_file("file2", "2a\n");
+
+    // A new file has no ancestor whose lines could be modified, so there's
+    // nothing to report.
+    let output = work_dir.run_jj(["absorb"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Absorbed changes into 1 revisions:
+      qpvuntsm 03b047ac 1
+    Rebased 1 descendant commits.
+    Working copy  (@) now at: kkmpptxz 0013b2d6 (no description set)
+    Parent commit (@-)      : qpvuntsm 03b047ac 1
+    Remaining changes:
+    A file2
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_absorb_spans_multiple_commits() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m1"]).success();
+    work_dir.write_file("file1", "1a\n2a\n");
+
+    work_dir.run_jj(["new", "-m2"]).success();
+    work_dir.write_file("file1", "1a\n2a\n1b\n2b\n");
+
+    // Modifying the second line of each commit at once can't be absorbed
+    // without splitting the change.
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "1a\n2A\n1B\n2b\n");
+    let output = work_dir.run_jj(["absorb"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Could not absorb file1 at lines 2-3: spans lines modified by multiple commits:
+      qpvuntsm 27e59e92 1
+      kkmpptxz 9e563724 2
+    Nothing changed.
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @"
+    @  zsuskuln 358417ce (no description set)
+    │  diff --git a/file1 b/file1
+    │  index 6dd9cac649..ab8e05e9c7 100644
+    │  --- a/file1
+    │  +++ b/file1
+    │  @@ -1,4 +1,4 @@
+    │   1a
+    │  -2a
+    │  -1b
+    │  +2A
+    │  +1B
+    │   2b
+    ○  kkmpptxz 9e563724 2
+    │  diff --git a/file1 b/file1
+    │  index adb8bf2c04..6dd9cac649 100644
+    │  --- a/file1
+    │  +++ b/file1
+    │  @@ -1,2 +1,4 @@
+    │   1a
+    │   2a
+    │  +1b
+    │  +2b
+    ○  qpvuntsm 27e59e92 1
+    │  diff --git a/file1 b/file1
+    ~  new file mode 100644
+       index 0000000000..adb8bf2c04
+       --- /dev/null
+       +++ b/file1
+       @@ -0,0 +1,2 @@
+       +1a
+       +2a
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_absorb_many_unabsorbed_hunks() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config("revset-aliases.'immutable_heads()' = 'present(main)'");
+
+    work_dir.run_jj(["describe", "-m1"]).success();
+    let immutable_text: String = (1..=12)
+        .flat_map(|n| [format!("1{n}\n"), format!("2{n}\n")])
+        .collect();
+    work_dir.write_file("file1", &immutable_text);
+
+    work_dir.run_jj(["new", "-m2"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "-r@-", "main"])
+        .success();
+    work_dir.write_file("file1", format!("{immutable_text}3\n"));
+
+    // Every changed line is surrounded by unchanged lines owned by the
+    // immutable commit, so there are 12 hunks which can't be absorbed.
+    work_dir.run_jj(["new"]).success();
+    let updated_text: String = (1..=12)
+        .flat_map(|n| [format!("X{n}\n"), format!("2{n}\n")])
+        .collect();
+    work_dir.write_file("file1", format!("{updated_text}3\n"));
+
+    let output = work_dir.run_jj(["absorb"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Could not absorb file1 at line 1: no destination commit could be determined
+    Warning: Could not absorb file1 at line 3: no destination commit could be determined
+    Warning: Could not absorb file1 at line 5: no destination commit could be determined
+    Warning: Could not absorb file1 at line 7: no destination commit could be determined
+    Warning: Could not absorb file1 at line 9: no destination commit could be determined
+    Warning: Could not absorb 7 other hunks
+    Nothing changed.
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_absorb_from_into() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -720,6 +950,7 @@ fn test_absorb_from_into() {
     Absorbed changes into 1 revisions:
       kkmpptxz cae507ef 2
     Rebased 1 descendant commits.
+    Warning: Could not absorb file1 at line 5: no destination commit could be determined
     Working copy  (@) now at: zsuskuln f02fd9ea (no description set)
     Parent commit (@-)      : kkmpptxz cae507ef 2
     Remaining changes:
@@ -896,6 +1127,7 @@ fn test_absorb_immutable() {
     Absorbed changes into 1 revisions:
       kkmpptxz e68cc3e2 2
     Rebased 1 descendant commits.
+    Warning: Could not absorb file1 at line 1: no destination commit could be determined
     Working copy  (@) now at: mzvwutvl 88443af7 (no description set)
     Parent commit (@-)      : kkmpptxz e68cc3e2 2
     Remaining changes:
@@ -1069,6 +1301,9 @@ fn test_absorb_interactive() -> TestResult {
     let output = work_dir.run_jj(["absorb", "-i"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Could not absorb file1 at lines 2-3: spans lines modified by multiple commits:
+      kkmpptxz 1553c5e8 1
+      zsuskuln 36fad385 2
     Nothing changed.
     [EOF]
     ");
