@@ -27,6 +27,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Git-format diffs support `--no-renames` and `diff.git.renames = false` to show
+  ordinary additions and deletions instead of copy and rename metadata.
+
 * Added the `TreeEntry.normal_value()` template method and the `TreeValue` type
   to access resolved tree values, formatted as their full object IDs, including
   Git submodule commit IDs.

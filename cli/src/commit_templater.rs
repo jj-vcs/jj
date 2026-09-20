@@ -2500,6 +2500,10 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                         options.context = context;
                     }
                     let materialize_options = materialize_options.clone();
+                    let mut diff = diff;
+                    if !options.renames {
+                        diff.copy_records = CopyRecords::default();
+                    }
                     diff.into_formatted(move |formatter, store, trees, tree_diff| {
                         diff_util::show_git_diff(
                             formatter,

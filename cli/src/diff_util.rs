@@ -137,6 +137,12 @@ pub struct DiffFormatArgs {
     #[arg(long)]
     pub git: bool,
 
+    /// Show copies and renames as additions and deletions in Git-format diffs
+    ///
+    /// Overrides `diff.git.renames`. This does not select the diff format.
+    #[arg(long)]
+    no_renames: bool,
+
     /// Show a word-level diff with changes indicated only by color
     #[arg(long)]
     pub color_words: bool,
@@ -516,7 +522,16 @@ impl<'a> DiffRenderer<'a> {
                     show_names(*formatter.labeled("name_only"), tree_diff, path_converter).await?;
                 }
                 DiffFormat::Git(options) => {
-                    let tree_diff = diff_stream();
+                    let empty_copy_records = CopyRecords::default();
+                    let copy_records = if options.renames {
+                        copy_records
+                    } else {
+                        &empty_copy_records
+                    };
+                    let tree_diff =
+                        trees
+                            .before
+                            .diff_stream_with_copies(trees.after, matcher, copy_records);
                     show_git_diff(
                         *formatter.labeled("git"),
                         store,
@@ -1663,6 +1678,8 @@ pub struct UnifiedDiffOptions {
     pub context: usize,
     /// Whether to show the 'a/' and 'b/' path prefixes.
     pub show_path_prefix: bool,
+    /// Whether to show copies and renames using Git metadata.
+    pub renames: bool,
     /// How lines are tokenized and compared.
     pub line_diff: LineDiffOptions,
 }
@@ -1672,11 +1689,15 @@ impl UnifiedDiffOptions {
         Ok(Self {
             context: settings.get("diff.git.context")?,
             show_path_prefix: settings.get("diff.git.show-path-prefix")?,
+            renames: settings.get("diff.git.renames")?,
             line_diff: LineDiffOptions::default(),
         })
     }
 
     fn merge_args(&mut self, args: &DiffFormatArgs) {
+        if args.no_renames {
+            self.renames = false;
+        }
         if let Some(context) = args.context {
             self.context = context;
         }

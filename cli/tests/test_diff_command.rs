@@ -559,6 +559,245 @@ fn test_diff_basic() {
 }
 
 #[test]
+fn test_diff_git_no_renames() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "1\n2\n3\n4\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "1\n5\n3\n");
+    work_dir.write_file("file3", "foo\n");
+    work_dir.write_file("file4", "1\n2\n3\n4\n");
+
+    let default = work_dir.run_jj(["diff", "--git"]).success();
+    assert!(default.stdout.raw().contains("rename from file1"));
+    assert!(default.stdout.raw().contains("copy from file2"));
+    let output = work_dir.run_jj(["diff", "--git", "--no-renames"]).success();
+    insta::assert_snapshot!(output, @"
+    diff --git a/file1 b/file1
+    deleted file mode 100644
+    index 257cc5642c..0000000000
+    --- a/file1
+    +++ /dev/null
+    @@ -1,1 +0,0 @@
+    -foo
+    diff --git a/file2 b/file2
+    index 94ebaf9001..1ffc51b472 100644
+    --- a/file2
+    +++ b/file2
+    @@ -1,4 +1,3 @@
+     1
+    -2
+    +5
+     3
+    -4
+    diff --git a/file3 b/file3
+    new file mode 100644
+    index 0000000000..257cc5642c
+    --- /dev/null
+    +++ b/file3
+    @@ -0,0 +1,1 @@
+    +foo
+    diff --git a/file4 b/file4
+    new file mode 100644
+    index 0000000000..94ebaf9001
+    --- /dev/null
+    +++ b/file4
+    @@ -0,0 +1,4 @@
+    +1
+    +2
+    +3
+    +4
+    [EOF]
+    ");
+
+    for args in [
+        vec!["diff", "--git", "--config=diff.git.renames=false"],
+        vec![
+            "diff",
+            "--git",
+            "--no-renames",
+            "--config=diff.git.renames=true",
+        ],
+        vec!["diff", "--tool=:git", "--no-renames"],
+        vec!["diff", "--no-renames", "--config=ui.diff-formatter=:git"],
+        vec!["show", "--git", "--no-renames", "-T", "\"\""],
+        vec![
+            "log",
+            "-r@",
+            "--no-graph",
+            "-p",
+            "--no-renames",
+            "-T",
+            "\"\"",
+            "--config=ui.diff-formatter=:git",
+        ],
+        vec![
+            "log",
+            "-r@",
+            "--no-graph",
+            "-T",
+            "diff.git()",
+            "--config=diff.git.renames=false",
+        ],
+    ] {
+        assert_eq!(work_dir.run_jj(args).success().stdout, output.stdout);
+    }
+
+    let summary = work_dir.run_jj(["diff", "--summary"]).success();
+    let mixed = work_dir
+        .run_jj(["diff", "--summary", "--git", "--no-renames"])
+        .success();
+    assert_eq!(
+        mixed.stdout.raw(),
+        format!("{}{}", summary.stdout.raw(), output.stdout.raw())
+    );
+    let template = work_dir
+        .run_jj([
+            "log",
+            "-r@",
+            "--no-graph",
+            "-T",
+            "diff.summary() ++ diff.git() ++ diff.summary()",
+            "--config=diff.git.renames=false",
+        ])
+        .success();
+    assert_eq!(
+        template.stdout.raw(),
+        format!(
+            "{}{}{}",
+            summary.stdout.raw(),
+            output.stdout.raw(),
+            summary.stdout.raw()
+        )
+    );
+    assert_eq!(
+        work_dir
+            .run_jj(["diff", "--summary", "--no-renames"])
+            .success()
+            .stdout,
+        summary.stdout
+    );
+
+    let source = work_dir
+        .run_jj(["diff", "--git", "--no-renames", "file1"])
+        .success();
+    insta::assert_snapshot!(source, @"
+    diff --git a/file1 b/file1
+    deleted file mode 100644
+    index 257cc5642c..0000000000
+    --- a/file1
+    +++ /dev/null
+    @@ -1,1 +0,0 @@
+    -foo
+    [EOF]
+    ");
+    let destination = work_dir
+        .run_jj(["diff", "--git", "--no-renames", "file3"])
+        .success();
+    insta::assert_snapshot!(destination, @"
+    diff --git a/file3 b/file3
+    new file mode 100644
+    index 0000000000..257cc5642c
+    --- /dev/null
+    +++ b/file3
+    @@ -0,0 +1,1 @@
+    +foo
+    [EOF]
+    ");
+
+    test_env.add_config("diff.git.renames = false");
+    assert_eq!(
+        work_dir.run_jj(["diff", "--git"]).success().stdout,
+        output.stdout
+    );
+    assert_eq!(
+        work_dir
+            .run_jj(["diff", "--git", "--config=diff.git.renames=true"])
+            .success()
+            .stdout,
+        default.stdout
+    );
+}
+
+#[test]
+fn test_diff_git_no_renames_edited_destinations() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("source", "one\ntwo\nthree\nfour\nfive\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("source");
+    work_dir.write_file("target1", "one\ntwo\nthree\nfour\nchanged\n");
+    work_dir.write_file("target2", "one\ntwo\nthree\nfour\nfive\n");
+    let default = work_dir.run_jj(["diff", "--git"]).success();
+    assert!(default.stdout.raw().contains("rename from source"));
+    let output = work_dir.run_jj(["diff", "--git", "--no-renames"]).success();
+    insta::assert_snapshot!(output, @"
+    diff --git a/source b/source
+    deleted file mode 100644
+    index b2f931a673..0000000000
+    --- a/source
+    +++ /dev/null
+    @@ -1,5 +0,0 @@
+    -one
+    -two
+    -three
+    -four
+    -five
+    diff --git a/target1 b/target1
+    new file mode 100644
+    index 0000000000..90541b5fad
+    --- /dev/null
+    +++ b/target1
+    @@ -0,0 +1,5 @@
+    +one
+    +two
+    +three
+    +four
+    +changed
+    diff --git a/target2 b/target2
+    new file mode 100644
+    index 0000000000..b2f931a673
+    --- /dev/null
+    +++ b/target2
+    @@ -0,0 +1,5 @@
+    +one
+    +two
+    +three
+    +four
+    +five
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_git_no_renames_binary_and_mode() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("source", b"binary\0content\n");
+    work_dir.run_jj(["file", "chmod", "x", "source"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("source");
+    work_dir.write_file("target", b"binary\0content\n");
+    let output = work_dir.run_jj(["diff", "--git", "--no-renames"]).success();
+    insta::assert_snapshot!(output, @"
+    diff --git a/source b/source
+    deleted file mode 100755
+    index 15742ac2e5..0000000000
+    Binary files a/source and /dev/null differ
+    diff --git a/target b/target
+    new file mode 100644
+    index 0000000000..15742ac2e5
+    Binary files /dev/null and b/target differ
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_diff_empty() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
