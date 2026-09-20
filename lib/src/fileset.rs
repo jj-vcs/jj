@@ -94,146 +94,147 @@ pub enum FilePattern {
     // - NameGlob or SuffixGlob: file name with glob?
 }
 
+/// Parses the given `input` string as pattern of the specified `kind`.
+fn parse_pattern_kind(
+    path_converter: &RepoPathUiConverter,
+    input: &str,
+    kind: &str,
+) -> Result<FilePattern, FilePatternParseError> {
+    // Naming convention:
+    // * path normalization
+    //   * cwd: cwd-relative path (default)
+    //   * root: workspace-relative path
+    // * where to anchor
+    //   * file: exact file path
+    //   * prefix: path prefix (files under directory recursively)
+    //   * files-in: files in directory non-recursively
+    //   * name: file name component (or suffix match?)
+    //   * substring: substring match?
+    // * string pattern syntax (+ case sensitivity?)
+    //   * path: literal path (default) (default anchor: prefix)
+    //   * glob: glob pattern (default anchor: file)
+    //   * regex?
+    match kind {
+        "cwd" => parse_cwd_prefix_path(path_converter, input),
+        "cwd-file" | "file" => parse_cwd_file_path(path_converter, input),
+        "cwd-glob" | "glob" => parse_cwd_file_glob(path_converter, input),
+        "cwd-glob-i" | "glob-i" => parse_cwd_file_glob_i(path_converter, input),
+        "cwd-prefix-glob" | "prefix-glob" => parse_cwd_prefix_glob(path_converter, input),
+        "cwd-prefix-glob-i" | "prefix-glob-i" => parse_cwd_prefix_glob_i(path_converter, input),
+        "root" => parse_root_prefix_path(input),
+        "root-file" => parse_root_file_path(input),
+        "root-glob" => parse_root_file_glob(input),
+        "root-glob-i" => parse_root_file_glob_i(input),
+        "root-prefix-glob" => parse_root_prefix_glob(input),
+        "root-prefix-glob-i" => parse_root_prefix_glob_i(input),
+        _ => Err(FilePatternParseError::InvalidKind(kind.to_owned())),
+    }
+}
+
+/// Parses pattern that matches cwd-relative file (or exact) path.
+fn parse_cwd_file_path(
+    path_converter: &RepoPathUiConverter,
+    input: impl AsRef<str>,
+) -> Result<FilePattern, FilePatternParseError> {
+    let path = path_converter.parse_file_path(input.as_ref())?;
+    Ok(FilePattern::FilePath(path))
+}
+
+/// Parses pattern that matches cwd-relative path prefix.
+fn parse_cwd_prefix_path(
+    path_converter: &RepoPathUiConverter,
+    input: impl AsRef<str>,
+) -> Result<FilePattern, FilePatternParseError> {
+    let path = path_converter.parse_file_path(input.as_ref())?;
+    Ok(FilePattern::PrefixPath(path))
+}
+
+/// Parses pattern that matches cwd-relative file path glob.
+fn parse_cwd_file_glob(
+    path_converter: &RepoPathUiConverter,
+    input: impl AsRef<str>,
+) -> Result<FilePattern, FilePatternParseError> {
+    let (dir, pattern) = split_glob_path(input.as_ref());
+    let dir = path_converter.parse_file_path(dir)?;
+    FilePattern::file_glob_at(dir, pattern, false)
+}
+
+/// Parses pattern that matches cwd-relative file path glob
+/// (case-insensitive).
+fn parse_cwd_file_glob_i(
+    path_converter: &RepoPathUiConverter,
+    input: impl AsRef<str>,
+) -> Result<FilePattern, FilePatternParseError> {
+    let (dir, pattern) = split_glob_path_i(input.as_ref());
+    let dir = path_converter.parse_file_path(dir)?;
+    FilePattern::file_glob_at(dir, pattern, true)
+}
+
+/// Parses pattern that matches cwd-relative path prefix by glob.
+fn parse_cwd_prefix_glob(
+    path_converter: &RepoPathUiConverter,
+    input: impl AsRef<str>,
+) -> Result<FilePattern, FilePatternParseError> {
+    let (dir, pattern) = split_glob_path(input.as_ref());
+    let dir = path_converter.parse_file_path(dir)?;
+    FilePattern::prefix_glob_at(dir, pattern, false)
+}
+
+/// Parses pattern that matches cwd-relative path prefix by glob
+/// (case-insensitive).
+fn parse_cwd_prefix_glob_i(
+    path_converter: &RepoPathUiConverter,
+    input: impl AsRef<str>,
+) -> Result<FilePattern, FilePatternParseError> {
+    let (dir, pattern) = split_glob_path_i(input.as_ref());
+    let dir = path_converter.parse_file_path(dir)?;
+    FilePattern::prefix_glob_at(dir, pattern, true)
+}
+
+/// Parses pattern that matches workspace-relative file (or exact) path.
+fn parse_root_file_path(input: impl AsRef<str>) -> Result<FilePattern, FilePatternParseError> {
+    // TODO: Let caller pass in converter for root-relative paths too
+    let path = RepoPathBuf::from_relative_path(input.as_ref())?;
+    Ok(FilePattern::FilePath(path))
+}
+
+/// Parses pattern that matches workspace-relative path prefix.
+fn parse_root_prefix_path(input: impl AsRef<str>) -> Result<FilePattern, FilePatternParseError> {
+    let path = RepoPathBuf::from_relative_path(input.as_ref())?;
+    Ok(FilePattern::PrefixPath(path))
+}
+
+/// Parses pattern that matches workspace-relative file path glob.
+fn parse_root_file_glob(input: impl AsRef<str>) -> Result<FilePattern, FilePatternParseError> {
+    let (dir, pattern) = split_glob_path(input.as_ref());
+    let dir = RepoPathBuf::from_relative_path(dir)?;
+    FilePattern::file_glob_at(dir, pattern, false)
+}
+
+/// Parses pattern that matches workspace-relative file path glob
+/// (case-insensitive).
+fn parse_root_file_glob_i(input: impl AsRef<str>) -> Result<FilePattern, FilePatternParseError> {
+    let (dir, pattern) = split_glob_path_i(input.as_ref());
+    let dir = RepoPathBuf::from_relative_path(dir)?;
+    FilePattern::file_glob_at(dir, pattern, true)
+}
+
+/// Parses pattern that matches workspace-relative path prefix by glob.
+fn parse_root_prefix_glob(input: impl AsRef<str>) -> Result<FilePattern, FilePatternParseError> {
+    let (dir, pattern) = split_glob_path(input.as_ref());
+    let dir = RepoPathBuf::from_relative_path(dir)?;
+    FilePattern::prefix_glob_at(dir, pattern, false)
+}
+
+/// Parses pattern that matches workspace-relative path prefix by glob
+/// (case-insensitive).
+fn parse_root_prefix_glob_i(input: impl AsRef<str>) -> Result<FilePattern, FilePatternParseError> {
+    let (dir, pattern) = split_glob_path_i(input.as_ref());
+    let dir = RepoPathBuf::from_relative_path(dir)?;
+    FilePattern::prefix_glob_at(dir, pattern, true)
+}
+
 impl FilePattern {
-    /// Parses the given `input` string as pattern of the specified `kind`.
-    pub fn from_str_kind(
-        path_converter: &RepoPathUiConverter,
-        input: &str,
-        kind: &str,
-    ) -> Result<Self, FilePatternParseError> {
-        // Naming convention:
-        // * path normalization
-        //   * cwd: cwd-relative path (default)
-        //   * root: workspace-relative path
-        // * where to anchor
-        //   * file: exact file path
-        //   * prefix: path prefix (files under directory recursively)
-        //   * files-in: files in directory non-recursively
-        //   * name: file name component (or suffix match?)
-        //   * substring: substring match?
-        // * string pattern syntax (+ case sensitivity?)
-        //   * path: literal path (default) (default anchor: prefix)
-        //   * glob: glob pattern (default anchor: file)
-        //   * regex?
-        match kind {
-            "cwd" => Self::cwd_prefix_path(path_converter, input),
-            "cwd-file" | "file" => Self::cwd_file_path(path_converter, input),
-            "cwd-glob" | "glob" => Self::cwd_file_glob(path_converter, input),
-            "cwd-glob-i" | "glob-i" => Self::cwd_file_glob_i(path_converter, input),
-            "cwd-prefix-glob" | "prefix-glob" => Self::cwd_prefix_glob(path_converter, input),
-            "cwd-prefix-glob-i" | "prefix-glob-i" => Self::cwd_prefix_glob_i(path_converter, input),
-            "root" => Self::root_prefix_path(input),
-            "root-file" => Self::root_file_path(input),
-            "root-glob" => Self::root_file_glob(input),
-            "root-glob-i" => Self::root_file_glob_i(input),
-            "root-prefix-glob" => Self::root_prefix_glob(input),
-            "root-prefix-glob-i" => Self::root_prefix_glob_i(input),
-            _ => Err(FilePatternParseError::InvalidKind(kind.to_owned())),
-        }
-    }
-
-    /// Pattern that matches cwd-relative file (or exact) path.
-    pub fn cwd_file_path(
-        path_converter: &RepoPathUiConverter,
-        input: impl AsRef<str>,
-    ) -> Result<Self, FilePatternParseError> {
-        let path = path_converter.parse_file_path(input.as_ref())?;
-        Ok(Self::FilePath(path))
-    }
-
-    /// Pattern that matches cwd-relative path prefix.
-    pub fn cwd_prefix_path(
-        path_converter: &RepoPathUiConverter,
-        input: impl AsRef<str>,
-    ) -> Result<Self, FilePatternParseError> {
-        let path = path_converter.parse_file_path(input.as_ref())?;
-        Ok(Self::PrefixPath(path))
-    }
-
-    /// Pattern that matches cwd-relative file path glob.
-    pub fn cwd_file_glob(
-        path_converter: &RepoPathUiConverter,
-        input: impl AsRef<str>,
-    ) -> Result<Self, FilePatternParseError> {
-        let (dir, pattern) = split_glob_path(input.as_ref());
-        let dir = path_converter.parse_file_path(dir)?;
-        Self::file_glob_at(dir, pattern, false)
-    }
-
-    /// Pattern that matches cwd-relative file path glob (case-insensitive).
-    pub fn cwd_file_glob_i(
-        path_converter: &RepoPathUiConverter,
-        input: impl AsRef<str>,
-    ) -> Result<Self, FilePatternParseError> {
-        let (dir, pattern) = split_glob_path_i(input.as_ref());
-        let dir = path_converter.parse_file_path(dir)?;
-        Self::file_glob_at(dir, pattern, true)
-    }
-
-    /// Pattern that matches cwd-relative path prefix by glob.
-    pub fn cwd_prefix_glob(
-        path_converter: &RepoPathUiConverter,
-        input: impl AsRef<str>,
-    ) -> Result<Self, FilePatternParseError> {
-        let (dir, pattern) = split_glob_path(input.as_ref());
-        let dir = path_converter.parse_file_path(dir)?;
-        Self::prefix_glob_at(dir, pattern, false)
-    }
-
-    /// Pattern that matches cwd-relative path prefix by glob
-    /// (case-insensitive).
-    pub fn cwd_prefix_glob_i(
-        path_converter: &RepoPathUiConverter,
-        input: impl AsRef<str>,
-    ) -> Result<Self, FilePatternParseError> {
-        let (dir, pattern) = split_glob_path_i(input.as_ref());
-        let dir = path_converter.parse_file_path(dir)?;
-        Self::prefix_glob_at(dir, pattern, true)
-    }
-
-    /// Pattern that matches workspace-relative file (or exact) path.
-    pub fn root_file_path(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
-        // TODO: Let caller pass in converter for root-relative paths too
-        let path = RepoPathBuf::from_relative_path(input.as_ref())?;
-        Ok(Self::FilePath(path))
-    }
-
-    /// Pattern that matches workspace-relative path prefix.
-    pub fn root_prefix_path(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
-        let path = RepoPathBuf::from_relative_path(input.as_ref())?;
-        Ok(Self::PrefixPath(path))
-    }
-
-    /// Pattern that matches workspace-relative file path glob.
-    pub fn root_file_glob(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
-        let (dir, pattern) = split_glob_path(input.as_ref());
-        let dir = RepoPathBuf::from_relative_path(dir)?;
-        Self::file_glob_at(dir, pattern, false)
-    }
-
-    /// Pattern that matches workspace-relative file path glob
-    /// (case-insensitive).
-    pub fn root_file_glob_i(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
-        let (dir, pattern) = split_glob_path_i(input.as_ref());
-        let dir = RepoPathBuf::from_relative_path(dir)?;
-        Self::file_glob_at(dir, pattern, true)
-    }
-
-    /// Pattern that matches workspace-relative path prefix by glob.
-    pub fn root_prefix_glob(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
-        let (dir, pattern) = split_glob_path(input.as_ref());
-        let dir = RepoPathBuf::from_relative_path(dir)?;
-        Self::prefix_glob_at(dir, pattern, false)
-    }
-
-    /// Pattern that matches workspace-relative path prefix by glob
-    /// (case-insensitive).
-    pub fn root_prefix_glob_i(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
-        let (dir, pattern) = split_glob_path_i(input.as_ref());
-        let dir = RepoPathBuf::from_relative_path(dir)?;
-        Self::prefix_glob_at(dir, pattern, true)
-    }
-
     fn file_glob_at(
         dir: RepoPathBuf,
         input: &str,
@@ -553,18 +554,18 @@ fn resolve_expression(
             |err| FilesetParseError::expression("Invalid file pattern", node.span).with_source(err);
         match &node.kind {
             ExpressionKind::Identifier(name) => {
-                let pattern = FilePattern::cwd_prefix_glob(path_converter, name)
-                    .map_err(wrap_pattern_error)?;
+                let pattern =
+                    parse_cwd_prefix_glob(path_converter, name).map_err(wrap_pattern_error)?;
                 Ok(FilesetExpression::pattern(pattern))
             }
             ExpressionKind::String(name) => {
-                let pattern = FilePattern::cwd_prefix_glob(path_converter, name)
-                    .map_err(wrap_pattern_error)?;
+                let pattern =
+                    parse_cwd_prefix_glob(path_converter, name).map_err(wrap_pattern_error)?;
                 Ok(FilesetExpression::pattern(pattern))
             }
             ExpressionKind::Pattern(pattern) => {
                 let value = fileset_parser::expect_string_literal("string", &pattern.value)?;
-                let pattern = FilePattern::from_str_kind(path_converter, value, pattern.name)
+                let pattern = parse_pattern_kind(path_converter, value, pattern.name)
                     .map_err(wrap_pattern_error)?;
                 Ok(FilesetExpression::pattern(pattern))
             }
