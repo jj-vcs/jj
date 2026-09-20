@@ -675,6 +675,14 @@ pub fn parse_symbol(text: &str) -> Result<String, RevsetParseError> {
     }
 }
 
+/// Constructs a string expression node from the given `content`.
+pub fn new_string_node(content: &str) -> ExpressionNode<'_> {
+    ExpressionNode {
+        kind: ExpressionKind::String(content.to_owned()),
+        span: pest::Span::new(content, 0, content.len()).expect("total span must be valid"),
+    }
+}
+
 pub type RevsetAliasesMap = AliasesMap<RevsetAliasParser, String>;
 
 #[derive(Clone, Debug, Default)]

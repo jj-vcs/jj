@@ -73,6 +73,7 @@ pub use crate::revset_parser::RevsetParseError;
 pub use crate::revset_parser::RevsetParseErrorKind;
 pub use crate::revset_parser::UnaryOp;
 pub use crate::revset_parser::expect_literal;
+pub use crate::revset_parser::new_string_node;
 pub use crate::revset_parser::parse_program;
 pub use crate::revset_parser::parse_symbol;
 use crate::store::Store;

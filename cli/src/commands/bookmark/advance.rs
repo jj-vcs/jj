@@ -15,13 +15,11 @@
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
-use jj_lib::dsl_util::ExpressionNode;
 use jj_lib::iter_util::fallible_any;
 use jj_lib::iter_util::fallible_find;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::revset;
-use jj_lib::revset::ExpressionKind;
 use jj_lib::revset::RevsetDiagnostics;
 
 use super::is_fast_forward;
@@ -124,14 +122,9 @@ pub async fn cmd_bookmark_advance(
                     .get_string("revsets.bookmark-advance-from")?;
                 let mut context = workspace_command.env().revset_parse_context();
                 let commit_hex = target_commit.id().hex();
-                context.local_variables.insert(
-                    "to",
-                    ExpressionNode {
-                        kind: ExpressionKind::String(commit_hex.clone()),
-                        span: pest::Span::new(commit_hex.as_str(), 0, commit_hex.len())
-                            .expect("programmatic span shouldn't fail"),
-                    },
-                );
+                context
+                    .local_variables
+                    .insert("to", revset::new_string_node(&commit_hex));
 
                 let mut diags = RevsetDiagnostics::default();
                 let expression = revset::parse(&mut diags, &from_revset_str, &context)?;
