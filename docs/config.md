@@ -1940,6 +1940,18 @@ reasons to restrict which bookmarks to track:
   to different (groups of) repositories. Read about how to do that in the
   section ["Conditional variables"](#conditional-variables).
 
+### Default revisions to push
+
+You can configure the default target revisions to push. By default, any tracking
+bookmarks and tags pointing to these revisions are pushed.
+
+The `remote` symbol expands to the name of the remote (e.g. `"origin"`).
+
+```toml
+[revsets]
+git-push = 'remote_bookmarks(remote=exact:remote)..@'
+```
+
 ### Automatic local bookmark creation on `jj git clone`
 
 When cloning a new Git repository, `jj` by default creates a local bookmark
