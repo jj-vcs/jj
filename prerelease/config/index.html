@@ -1375,6 +1375,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#disabling-aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disabling aliases
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3506,6 +3515,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#disabling-aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disabling aliases
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5041,6 +5059,27 @@ argument. Additional arguments are passed through. Here are some examples:</p>
 <p>Note: Shebangs (e.g. <code>#!/usr/bin/env</code>) aren't necessary since you're already
 explicitly passing your script into the right shell.</p>
 </blockquote>
+<h3 id="disabling-aliases">Disabling aliases<a class="headerlink" href="#disabling-aliases" title="Permanent link">&para;</a></h3>
+<p>Sometimes you may want to disable an alias, such as a built-in alias that you
+prefer not to use (for example, <code>jj des&lt;tab&gt;</code> may result in <code>jj desc&lt;cursor&gt;</code>
+instead of <code>jj describe &lt;cursor&gt;</code> because there are two possible completions,
+<code>desc</code> and <code>describe</code>, with the same prefix) or an alias defined in an earlier
+config that you want to disable in a later layer (such as in a repo config or
+in a <a href="#conditional-variables">conditional variables</a> scope). To do so, set
+<code>aliases.&lt;name&gt;.enabled</code> to <code>false</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[aliases]</span>
+<span class="n">desc</span><span class="p">.</span><span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+
+<span class="n">best-log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="err">,</span><span class="w">  </span><span class="c1"># WIP; don&#39;t enable yet</span>
+<span class="w">  </span><span class="n">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;The best `jj log`&quot;</span><span class="err">,</span>
+<span class="w">  </span><span class="n">definition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;log&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-r&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;the_perfect_revset()&quot;</span><span class="p">]</span>
+<span class="err">}</span>
+</code></pre></div>
+<p>Normal alias overriding rules apply, which means another configuration file may
+define the alias again later. Disabling aliases only applies to the <code>aliases</code>
+table; <code>template-aliases</code>, <code>revset-aliases</code>, and <code>fileset-aliases</code> cannot be
+disabled.</p>
 <h2 id="editor">Editor<a class="headerlink" href="#editor" title="Permanent link">&para;</a></h2>
 <p>The default editor is set via <code>ui.editor</code>, though there are several places to
 set it. The priority is as follows (environment variables are marked with
