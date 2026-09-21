@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::io;
 use std::io::Write;
 use std::path::Path;
@@ -58,6 +59,7 @@ pub struct ExternalMergeTool {
     /// Whether to execute the tool with a pair of directories or individual
     /// files when generating diffs.
     pub diff_invocation_mode: DiffToolMode,
+    pub edit_side: DiffEditSide,
     /// Whether to execute the tool in the temporary diff directory
     pub diff_do_chdir: bool,
     /// Arguments to pass to the program when editing diffs.
@@ -101,6 +103,24 @@ pub enum DiffToolMode {
     FileByFile,
 }
 
+#[derive(serde::Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum DiffEditSide {
+    /// Invoke the diff tool with `$left` as the editable tree
+    Left,
+    /// Invoke the diff tool with `$right` as the editable tree
+    Right,
+}
+
+impl fmt::Display for DiffEditSide {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Left => f.write_str("left"),
+            Self::Right => f.write_str("right"),
+        }
+    }
+}
+
 impl Default for ExternalMergeTool {
     fn default() -> Self {
         Self {
@@ -120,6 +140,7 @@ impl Default for ExternalMergeTool {
             conflict_marker_style: None,
             diff_do_chdir: true,
             diff_invocation_mode: DiffToolMode::Dir,
+            edit_side: DiffEditSide::Right,
         }
     }
 }
@@ -403,6 +424,7 @@ pub async fn edit_diff_external(
         trees,
         matcher,
         diff_type,
+        editor.edit_side,
         instructions,
         conflict_marker_style,
     )
@@ -440,7 +462,9 @@ pub async fn edit_diff_external(
         }
     }
 
-    diffedit_wc.snapshot_results(base_ignores).await
+    diffedit_wc
+        .snapshot_results(base_ignores, editor.edit_side)
+        .await
 }
 
 /// Generates textual diff by the specified `tool` and writes into `writer`.
@@ -456,7 +480,14 @@ pub async fn generate_diff(
     let conflict_marker_style = tool
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let diff_wc = check_out_trees(trees, matcher, DiffType::TwoWay, conflict_marker_style).await?;
+    let diff_wc = check_out_trees(
+        trees,
+        matcher,
+        DiffType::TwoWay,
+        DiffEditSide::Right,
+        conflict_marker_style,
+    )
+    .await?;
     diff_wc.set_left_readonly()?;
     diff_wc.set_right_readonly()?;
     let mut patterns = diff_wc.to_command_variables(true);
