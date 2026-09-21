@@ -30,6 +30,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   performed in another workspace. Use `--allow-cross-workspace` to undo/redo
   it anyway.
 
+* `jj workspace list`/`root` no longer omit unreachable paths. All recorded
+  paths are now shown, with warnings displayed in `jj workspace root`.
+
 ### Deprecations
 
 ### New features
