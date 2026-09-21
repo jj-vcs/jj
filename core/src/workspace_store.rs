@@ -36,6 +36,9 @@ pub trait WorkspaceStore: Send + Sync + Debug {
     fn name(&self) -> &str;
 
     /// Adds a workspace with the given name and path to the store.
+    ///
+    /// The `path` should be absolute and normalized in the same manner as the
+    /// repository path.
     fn add(&self, workspace_name: &WorkspaceName, path: &Path) -> Result<(), WorkspaceStoreError>;
 
     /// Forgets the workspaces with the given names.
@@ -48,7 +51,7 @@ pub trait WorkspaceStore: Send + Sync + Debug {
         new_name: &WorkspaceName,
     ) -> Result<(), WorkspaceStoreError>;
 
-    /// Gets the path of the workspace with the given name, if it exists.
+    /// Returns the absolute path of the specified workspace, if known.
     fn get_workspace_path(
         &self,
         workspace_name: &WorkspaceName,
