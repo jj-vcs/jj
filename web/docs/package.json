@@ -10,10 +10,10 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.41.6",
-    "js-yaml": "^4.3.1",
+    "@astrojs/starlight": "^0.42.0",
+    "js-yaml": "^5.4.2",
     "astro": "^7.1.6",
-    "marked": "^18.0.7",
+    "marked": "^18.0.13",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-gfm": "^3.1.0",
     "micromark-extension-gfm": "^3.0.0",
