@@ -92,8 +92,8 @@ Most commands accept revisions as options and paths as positional parameters.
 For example, the command to display the diff of a specific file in a specific
 revision is:
 
-```command
-$ jj diff -r REV file.txt
+```sh
+jj diff -r REV file.txt
 ```
 
 However, some commands cannot accept paths, so they allow omitting the `-r`
