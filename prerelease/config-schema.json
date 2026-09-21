@@ -732,6 +732,11 @@
                     "description": "Default set of revisions to fix when no explicit revset is given for jj fix",
                     "default": "reachable(@, mutable())"
                 },
+                "git-push": {
+                    "type": "string",
+                    "description": "Set of revisions for pushing bookmarks and tags (has access to the `remote` name)",
+                    "default": "remote_bookmarks(remote=exact:remote)..@"
+                },
                 "log": {
                     "type": "string",
                     "description": "Default set of revisions to show when no explicit revset is given for jj log and similar commands",

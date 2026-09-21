@@ -7734,6 +7734,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   which also accepts string patterns.</p>
 </li>
 <li>
+<p>The default target revisions for <code>jj git push</code> can now be configured via
+  <code>revsets.git-push</code>.</p>
+</li>
+<li>
 <p><code>jj run</code> now uses the sparse patterns from the workspace it's run from.
   Use the <code>--sparse-patterns</code> option to control this behavior (evaluated
   per each <code>jj run</code> invocation).</p>

@@ -1715,6 +1715,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#default-revisions-to-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default revisions to push
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#automatic-local-bookmark-creation-on-jj-git-clone" class="md-nav__link">
     <span class="md-ellipsis">
       Automatic local bookmark creation on jj git clone
@@ -3855,6 +3864,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#default-revisions-to-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default revisions to push
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#automatic-local-bookmark-creation-on-jj-git-clone" class="md-nav__link">
     <span class="md-ellipsis">
       Automatic local bookmark creation on jj git clone
@@ -5749,6 +5767,13 @@ same project.</p>
   section <a href="#conditional-variables">"Conditional variables"</a>.</p>
 </li>
 </ul>
+<h3 id="default-revisions-to-push">Default revisions to push<a class="headerlink" href="#default-revisions-to-push" title="Permanent link">&para;</a></h3>
+<p>You can configure the default target revisions to push. By default, any tracking
+bookmarks and tags pointing to these revisions are pushed.</p>
+<p>The <code>remote</code> symbol expands to the name of the remote (e.g. <code>"origin"</code>).</p>
+<div class="highlight"><pre><span></span><code><span class="k">[revsets]</span>
+<span class="n">git-push</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;remote_bookmarks(remote=exact:remote)..@&#39;</span>
+</code></pre></div>
 <h3 id="automatic-local-bookmark-creation-on-jj-git-clone">Automatic local bookmark creation on <code>jj git clone</code><a class="headerlink" href="#automatic-local-bookmark-creation-on-jj-git-clone" title="Permanent link">&para;</a></h3>
 <p>When cloning a new Git repository, <code>jj</code> by default creates a local bookmark
 tracking the default remote bookmark (such as <code>main</code> for <code>main@origin</code>.) If you

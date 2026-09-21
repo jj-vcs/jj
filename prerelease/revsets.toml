@@ -5,6 +5,7 @@
 arrange = "reachable(@, mutable())"
 converge = "mutable() & divergent()"
 fix = "reachable(@, mutable())"
+git-push = "remote_bookmarks(remote=exact:remote)..@"
 run = "reachable(@, mutable())"
 simplify-parents = "reachable(@, mutable())"
 # log revset is also used as the default short-prefixes. If it failed to
