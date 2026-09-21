@@ -4595,7 +4595,7 @@ Thanks to the people who made this release happen!
 * A default revset-alias function `trunk()` now exists. If you previously
   defined
   your own `trunk()` alias it will continue to overwrite the built-in one.
-  Check [revsets.toml](docs/revsets.toml)
+  Check [revsets.toml](https://github.com/jj-vcs/jj/blob/main/cli/src/config/revsets.toml)
   and [revsets.md](docs/revsets.md)
   to understand how the function can be adapted.
 
