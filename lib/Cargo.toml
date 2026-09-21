@@ -42,6 +42,7 @@ indexmap = { workspace = true }
 interim = { workspace = true }
 itertools = { workspace = true }
 jj-core = { workspace = true }
+libc = { workspace = true }
 maplit = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }

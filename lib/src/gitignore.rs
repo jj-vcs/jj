@@ -14,8 +14,9 @@
 
 #![expect(missing_docs)]
 
-use std::fs;
+use std::fs::OpenOptions;
 use std::io;
+use std::io::Read as _;
 use std::iter;
 use std::path::Path;
 use std::path::PathBuf;
@@ -28,8 +29,19 @@ use crate::repo_path::RepoPathBuf;
 
 #[derive(Debug, Error)]
 pub enum GitIgnoreError {
+    #[error("Failed to open ignore patterns file {path}")]
+    OpenFile { path: PathBuf, source: io::Error },
     #[error("Failed to read ignore patterns from file {path}")]
     ReadFile { path: PathBuf, source: io::Error },
+}
+
+/// Controls whether to follow symlinks when opening a `.gitignore`-style file.
+#[derive(Debug, Clone, Copy)]
+pub enum GitIgnoreFollowSymlinks {
+    /// Follow symlinks when opening the file, applicable to `$GIT_DIR/info/exclude` and `core.excludesFile`.
+    Follow,
+    /// Do not follow symlinks when opening the file, applicable to in-tree `.gitignore` files.
+    NoFollow,
 }
 
 /// Models the effective contents of multiple .gitignore files.
@@ -83,18 +95,55 @@ impl GitIgnoreFile {
         }))
     }
 
-    /// Concatenates new `.gitignore` file at the `prefix` directory.
+    /// Concatenates new `.gitignore`-style file at the `prefix` directory.
+    ///
+    /// The `follow_symlinks` argument controls whether to follow symlinks when opening the file.
+    ///
+    /// Git rules are (from `man gitignore`):
+    /// * do not follow symlinks for the in-tree `.gitignore`
+    /// * follow symlinks for `$GIT_DIR/info/exclude` and `core.excludesFile` config
     pub fn chain_with_file(
         self: &Arc<Self>,
         prefix: &RepoPath,
-        file: PathBuf,
+        file: &Path,
+        follow_symlinks: GitIgnoreFollowSymlinks,
     ) -> Result<Arc<Self>, GitIgnoreError> {
-        if file.is_file() {
-            let buf = fs::read(&file).map_err(|err| GitIgnoreError::ReadFile {
-                path: file.clone(),
-                source: err,
-            })?;
-            self.chain(prefix, &file, &buf)
+        let file_md = match follow_symlinks {
+            GitIgnoreFollowSymlinks::Follow => file.metadata(),
+            GitIgnoreFollowSymlinks::NoFollow => file.symlink_metadata(),
+        };
+
+        if file_md.is_ok_and(|md| md.is_file()) {
+            let mut open_opts = OpenOptions::new();
+            open_opts.read(true);
+            if matches!(follow_symlinks, GitIgnoreFollowSymlinks::NoFollow) {
+                // We want to open .gitignore without following symlinks to avoid TOCTOU attack.
+                // This logic mirrors the standard `git` behavior.
+                open_opts.disable_symlink_following();
+            }
+            let mut fd = open_opts
+                .open(file)
+                .map_err(|err| GitIgnoreError::OpenFile {
+                    path: file.to_path_buf(),
+                    source: err,
+                })?;
+            if matches!(follow_symlinks, GitIgnoreFollowSymlinks::NoFollow) {
+                // When following symlinks is disabled this provides an additional safety check on platforms
+                // that don't support nofollow flag.
+                if !fd.metadata().is_ok_and(|md| md.is_file()) {
+                    return Err(GitIgnoreError::OpenFile {
+                        path: file.to_path_buf(),
+                        source: io::Error::other("not a regular file"),
+                    });
+                }
+            }
+            let mut buf = vec![];
+            fd.read_to_end(&mut buf)
+                .map_err(|err| GitIgnoreError::ReadFile {
+                    path: file.to_path_buf(),
+                    source: err,
+                })?;
+            self.chain(prefix, file, &buf)
         } else {
             Ok(self.clone())
         }
@@ -138,6 +187,35 @@ impl GitIgnoreFile {
         }
 
         false
+    }
+}
+
+trait OpenOptionsExtNoFollow {
+    /// Disables following symlinks when opening a file.
+    ///
+    /// Applies platform specific flags, supported on Unix-like and Windows.
+    fn disable_symlink_following(&mut self) -> &mut Self;
+}
+
+impl OpenOptionsExtNoFollow for OpenOptions {
+    fn disable_symlink_following(&mut self) -> &mut Self {
+        #[cfg(target_family = "unix")]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+
+            self.custom_flags(libc::O_NOFOLLOW);
+        }
+
+        #[cfg(target_family = "windows")]
+        {
+            use std::os::windows::fs::OpenOptionsExt as _;
+
+            self.custom_flags(
+                windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT,
+            );
+        }
+
+        self
     }
 }
 

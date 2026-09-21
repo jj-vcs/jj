@@ -94,6 +94,7 @@ use crate::fsmonitor::WatchmanConfig;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::watchman;
 use crate::gitignore::GitIgnoreFile;
+use crate::gitignore::GitIgnoreFollowSymlinks;
 use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
 use crate::matchers::EverythingMatcher;
@@ -1581,7 +1582,11 @@ impl FileSnapshotter<'_> {
             file_states,
         } = directory_to_visit;
 
-        let git_ignore = git_ignore.chain_with_file(&dir, disk_dir.join(".gitignore"))?;
+        let git_ignore = git_ignore.chain_with_file(
+            &dir,
+            &disk_dir.join(".gitignore"),
+            GitIgnoreFollowSymlinks::NoFollow,
+        )?;
         let dir_entries: Vec<_> = disk_dir
             .read_dir()
             .and_then(|entries| entries.try_collect())
