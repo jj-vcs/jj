@@ -26,6 +26,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj split` now opens a single editor session to edit descriptions for the
   split commits.
 
+* `jj workspace list`/`root` no longer omit unreachable paths. All recorded
+  paths are now shown, with warnings displayed in `jj workspace root`.
+
 ### Deprecations
 
 ### New features

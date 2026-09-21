@@ -1805,10 +1805,7 @@ impl WorkspaceRef {
         // Workspaces created before jj 0.38.0 may not have a recorded path. List
         // templates should also keep rendering if a recorded path is stale or
         // unavailable. Use `jj workspace root --name` for strict path diagnostics.
-        let path = workspace_store
-            .get_workspace_path(self.name())?
-            .and_then(|path| dunce::canonicalize(path).ok());
-        Ok(path)
+        Ok(workspace_store.get_workspace_path(self.name())?)
     }
 }
 
