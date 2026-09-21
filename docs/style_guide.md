@@ -56,6 +56,33 @@ Also try not to put periods right after any printed IDs or symbols (such as
 commit IDs), since users may double click to copy the value, which may include
 the period.
 
+## Rust
+
+- Prefer Itertools `collect_vec()` and `try_collect()` over annotated
+  `.collect::<Vec<...>>()` calls.
+
+    ```rust
+    // CORRECT:
+
+    let commits = workspace_helper.parse_union_revsets(&revs)
+      .ids()
+      .collect_vec();
+
+    let fallible_commits = commits.iter().map(|c| store.get(c))
+      .try_collect()?;
+    ```
+
+    ```rust
+    // INCORRECT: The annotation is used
+
+    let commits: Vec<_> = workspace_helper.parse_union_revsets(&revs)
+      .ids()
+      .collect();
+
+    let fallible_commits = commits.iter().map(|c| store.get(c))
+      .collect::<Vec<_, CommandError>>()?;
+    ```
+
 ## Documentation comments
 
 ### General
@@ -100,30 +127,6 @@ important points are:
   complete sentences. But use your own judgment too; for example a sentence that
   says "Returns blah blah." would be fine.
 
-- Prefer Itertools `collect_vec()` and `try_collect()` over annotated
-  `.collect::<Vec<...>>()` calls.
-
-    ```rust
-    // CORRECT:
-
-    let commits = workspace_helper.parse_union_revsets(&revs)
-      .ids()
-      .collect_vec();
-
-    let fallible_commits = commits.iter().map(|c| store.get(c))
-      .try_collect()?;
-    ```
-
-    ```rust
-    // INCORRECT: The annotation is used
-
-    let commits: Vec<_> = workspace_helper.parse_union_revsets(&revs)
-      .ids()
-      .collect();
-
-    let fallible_commits = commits.iter().map(|c| store.get(c))
-      .collect::<Vec<_, CommandError>>()?;
-    ```
 [rust-lang/rfcs-1574]:
   https://github.com/rust-lang/rfcs/blob/master/text/1574-more-api-documentation-conventions.md
 
