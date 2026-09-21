@@ -146,9 +146,9 @@ mod tests {
         assert_eq!(index.num_commits(), 0);
 
         // Cannot find any commits
-        assert!(index.entry_by_id(&CommitId::from_hex("000000")).is_none());
-        assert!(index.entry_by_id(&CommitId::from_hex("aaa111")).is_none());
-        assert!(index.entry_by_id(&CommitId::from_hex("ffffff")).is_none());
+        assert!(index.entry_by_id(&CommitId::from_hex("000000")).is_err());
+        assert!(index.entry_by_id(&CommitId::from_hex("aaa111")).is_err());
+        assert!(index.entry_by_id(&CommitId::from_hex("ffffff")).is_err());
         Ok(())
     }
 
@@ -178,9 +178,18 @@ mod tests {
         assert_eq!(index.num_commits(), 1);
 
         // Can find only the root commit
-        assert_eq!(index.commit_id_to_pos(&id_0), Some(GlobalCommitPosition(0)));
-        assert_eq!(index.commit_id_to_pos(&CommitId::from_hex("aaaaaa")), None);
-        assert_eq!(index.commit_id_to_pos(&CommitId::from_hex("ffffff")), None);
+        assert_eq!(
+            index.try_commit_id_to_pos(&id_0),
+            Some(GlobalCommitPosition(0))
+        );
+        assert_eq!(
+            index.try_commit_id_to_pos(&CommitId::from_hex("aaaaaa")),
+            None
+        );
+        assert_eq!(
+            index.try_commit_id_to_pos(&CommitId::from_hex("ffffff")),
+            None
+        );
         // Check properties of root entry
         let entry = index.entry_by_id(&id_0).unwrap();
         assert_eq!(entry.position(), GlobalCommitPosition(0));

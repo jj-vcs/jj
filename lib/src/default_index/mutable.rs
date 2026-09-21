@@ -538,7 +538,9 @@ impl DefaultMutableIndex {
             let other_commits = other.as_composite().commits();
             for self_pos in (start_commit_pos.0..self.num_commits()).map(GlobalCommitPosition) {
                 let entry = self.0.commits().entry_by_pos(self_pos);
-                let other_pos = other_commits.commit_id_to_pos(&entry.commit_id()).unwrap();
+                let other_pos = other_commits
+                    .commit_id_to_pos(&entry.commit_id())
+                    .expect("other commits should be merged above");
                 let Some(paths) = other.changed_paths().changed_paths(other_pos) else {
                     break; // no more indexed paths in other index
                 };
@@ -628,7 +630,7 @@ impl MutableIndex for DefaultMutableIndex {
         &self,
         heads: &mut dyn Iterator<Item = &CommitId>,
     ) -> IndexResult<Box<dyn ChangeIdIndex + '_>> {
-        Ok(Box::new(ChangeIdIndexImpl::new(self, heads)))
+        Ok(Box::new(ChangeIdIndexImpl::new(self, heads)?))
     }
 
     async fn add_commit(&mut self, commit: &Commit) -> IndexResult<()> {
