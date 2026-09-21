@@ -329,13 +329,13 @@ impl ReadonlyRepo {
         self.index.as_ref()
     }
 
-    fn change_id_index(&self) -> &dyn ChangeIdIndex {
+    fn change_id_index(&self) -> IndexResult<&dyn ChangeIdIndex> {
         self.change_id_index
-            .get_or_init(|| {
+            .get_or_try_init(|| {
                 self.readonly_index()
                     .change_id_index(&mut self.view().heads().iter())
             })
-            .as_ref()
+            .map(AsRef::as_ref)
     }
 
     pub fn op_heads_store(&self) -> &Arc<dyn OpHeadsStore> {
@@ -395,14 +395,14 @@ impl Repo for ReadonlyRepo {
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>> {
-        self.change_id_index().resolve_prefix(prefix).await
+        self.change_id_index()?.resolve_prefix(prefix).await
     }
 
     async fn shortest_unique_change_id_prefix_len(
         &self,
         target_id: &ChangeId,
     ) -> IndexResult<usize> {
-        self.change_id_index()
+        self.change_id_index()?
             .shortest_unique_prefix_len(target_id)
             .await
     }
@@ -2234,7 +2234,9 @@ impl Repo for MutableRepo {
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>> {
-        let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
+        let change_id_index = self
+            .index
+            .change_id_index(&mut self.view().heads().iter())?;
         change_id_index.resolve_prefix(prefix).await
     }
 
@@ -2242,7 +2244,9 @@ impl Repo for MutableRepo {
         &self,
         target_id: &ChangeId,
     ) -> IndexResult<usize> {
-        let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
+        let change_id_index = self
+            .index
+            .change_id_index(&mut self.view().heads().iter())?;
         change_id_index.shortest_unique_prefix_len(target_id).await
     }
 }
