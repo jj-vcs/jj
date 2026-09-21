@@ -1,5 +1,7 @@
+# Please sort these by tool name.
+
 [merge-tools.diffedit3]
-program="diffedit3"
+program = "diffedit3"
 # 17376 is a verified random number, as in https://xkcd.com/221/ :). I am trying
 # to avoid 8000 or 8080 in case those, more commonly used, port numbers are used
 # for something else.
@@ -11,7 +13,7 @@ edit-args = ["$left", "$right", "$output", "--port", "17376-17380", "--port", "0
 diff-args = ["$left", "$right", "--port", "17376-17380", "--port", "0"]
 
 [merge-tools.diffedit3-ssh]
-program="diffedit3"
+program = "diffedit3"
 # See comments for `diffedit3` above.
 #
 # Unlike `diffedit3`, `diffedit3-ssh` does NOT use a random port as a fallback
@@ -33,7 +35,7 @@ edit-args = ["$left", "$right"]
 merge-args = ["$left", "$base", "$right", "-o", "$output", "--auto-merge"]
 
 [merge-tools.meld-3]
-program="meld"
+program = "meld"
 diff-args = ["$left", "$right"]  # Same as the default value
 # If using this as a template, note that `$output` is repeated twice below
 edit-args = ["$left", "$output", "$right", "-o", "$output"]
@@ -86,8 +88,8 @@ conflict-marker-style = "git"
 # convenient, but is also more confusing and brittle (all files get deleted).
 # TODO: We could consider a "file-by-file-keep-files" invocation mode to make it
 # work better.
-diff-args=["--diff", "$left", "$right", "--wait"]
-diff-invocation-mode="file-by-file"
+diff-args = ["--diff", "$left", "$right", "--wait"]
+diff-invocation-mode = "file-by-file"
 # `code --diff` does not support dir-diff
 edit-args = []
 
@@ -98,6 +100,6 @@ merge-args = ["--wait", "--merge", "$left", "$right", "$base", "$output"]
 # See notes for vscode above
 merge-tool-edits-conflict-markers = true
 conflict-marker-style = "git"
-diff-args=["--diff", "$left", "$right", "--wait"]
+diff-args = ["--diff", "$left", "$right", "--wait"]
 diff-invocation-mode="file-by-file"
 edit-args = []
