@@ -56,6 +56,27 @@ Also try not to put periods right after any printed IDs or symbols (such as
 commit IDs), since users may double click to copy the value, which may include
 the period.
 
+### Plural forms
+
+Do not special-case singular vs. plural forms in messages with a "number
+object(s)" format; always use the plural form, regardless of the number being
+used:
+
+```rust
+// CORRECT:
+writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
+// INCORRECT:
+writeln!(ui.status(), "Rebased {num_rebased} descendant commit(s).")?;
+writeln!(
+  ui.status(),
+  "Rebased {num_rebased} descendant commit{}.",
+  if num_rebased == 1 { "" } else { "s" }
+)?;
+```
+
+If a message is only referring to a single specific object without any numbers
+involved, use the singular form.
+
 ## Rust
 
 - Prefer Itertools `collect_vec()` and `try_collect()` over annotated
