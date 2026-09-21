@@ -86,14 +86,14 @@ pub async fn cmd_workspace_remove(
 
     let mut workspaces_to_remove = Vec::new();
     for ws in &remove_ws {
-        let rel_path = workspace_store.get_workspace_path(ws)?.ok_or_else(|| {
+        let ws_path = workspace_store.get_workspace_path(ws)?.ok_or_else(|| {
             user_error(format!(
                 "Cannot remove unreachable workspace '{}'",
                 ws.as_symbol()
             ))
             .hinted(USE_WORKSPACE_FORGET_HINT)
         })?;
-        let abs_path = dunce::canonicalize(repo_path.join(rel_path)).map_err(|err| {
+        let ws_path = dunce::canonicalize(&ws_path).map_err(|err| {
             user_error_with_message(
                 format!("Cannot access workspace '{}' directory", ws.as_symbol()),
                 err,
@@ -104,7 +104,7 @@ pub async fn cmd_workspace_remove(
         // so removing that directory would destroy the repository. Don't
         // suggest `jj workspace forget` here: forgetting the main workspace
         // isn't a useful thing to do either.
-        if repo_path.starts_with(&abs_path) {
+        if repo_path.starts_with(&ws_path) {
             return Err(user_error(format!(
                 "Cannot remove workspace '{}' because it contains the repository",
                 ws.as_symbol()
@@ -112,7 +112,7 @@ pub async fn cmd_workspace_remove(
         }
         // The recorded path may since have been replaced by a workspace of an
         // unrelated repository, which we must not remove.
-        let ws_workspace = command.load_workspace_at(&abs_path, workspace_command.settings())?;
+        let ws_workspace = command.load_workspace_at(&ws_path, workspace_command.settings())?;
         if ws_workspace.repo_path() != repo_path {
             return Err(user_error(format!(
                 "Cannot remove workspace '{}' because it belongs to another repository",
@@ -120,7 +120,7 @@ pub async fn cmd_workspace_remove(
             ))
             .hinted(USE_WORKSPACE_FORGET_HINT));
         }
-        workspaces_to_remove.push((abs_path, ws_workspace));
+        workspaces_to_remove.push((ws_path, ws_workspace));
     }
 
     // Snapshot each workspace before its directory goes away, so that tracked

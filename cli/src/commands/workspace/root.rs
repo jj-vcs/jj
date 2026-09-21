@@ -58,13 +58,9 @@ pub async fn cmd_workspace_root(
                         ws_name.as_symbol()
                     ))
                 })?;
-            let full_path = workspace_command.repo_path().join(path);
-            dunce::canonicalize(&full_path).map_err(|err| {
+            dunce::canonicalize(&path).map_err(|err| {
                 user_error_with_message(
-                    format!(
-                        "Cannot resolve absolute workspace path: {}",
-                        full_path.display()
-                    ),
+                    format!("Cannot resolve absolute workspace path: {}", path.display()),
                     err,
                 )
             })?

@@ -2166,7 +2166,7 @@ fn test_workspaces_root_unavailable() -> TestResult {
     let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
     insta::assert_snapshot!(output.normalize_backslash().strip_stderr_last_line(), @"
     ------- stderr -------
-    Error: Cannot resolve absolute workspace path: $TEST_ENV/main/.jj/repo/../../../secondary
+    Error: Cannot resolve absolute workspace path: $TEST_ENV/secondary
     [EOF]
     [exit status: 1]
     ");
