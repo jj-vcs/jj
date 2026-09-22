@@ -737,7 +737,8 @@ fn remove_old_file(disk_path: &Path) -> Result<bool, CheckoutError> {
     match fs::remove_file(disk_path) {
         Ok(()) => Ok(true),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(false),
-        // TODO: Use io::ErrorKind::IsADirectory if it gets stabilized
+        // Not checking io::ErrorKind::IsADirectory because unlink() of a
+        // directory fails with EPERM on macOS (as allowed by POSIX.)
         Err(_) if disk_path.symlink_metadata().is_ok_and(|m| m.is_dir()) => Ok(false),
         Err(err) => Err(CheckoutError::Other {
             message: format!("Failed to remove file {}", disk_path.display()),
