@@ -1,4 +1,6 @@
-# Revset Evaluation
+---
+title: "Revset Evaluation"
+---
 
 Whenever a revset is evaluated, it must pass through several stages. These
 stages gradually transform the revset to a lower level representation that can

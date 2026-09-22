@@ -1,4 +1,6 @@
-# Paying employers and their contributing employees
+---
+title: "Paying employers and their contributing employees"
+---
 
 This is the list of companies paying for contributions to Jujutsu. For each
 company, all employees who have contributed are listed, whether it's part of
@@ -6,7 +8,7 @@ their job to contribute or not.
 
 The purpose of this list is to make it easy to spot conflicts of interest, such
 as when an employee approves changes from another employee of the same company.
-See [contribution docs](contributing.md#code-reviews) for details on this policy.
+See [contribution docs](contributing.mdx#code-reviews) for details on this policy.
 
 ## East River Source Control
 

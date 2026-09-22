@@ -1,22 +1,100 @@
 #!/bin/sh
-# Set up a virtual environment with the required tools, build, and deploy the docs.
+# Build and deploy one version of the Starlight documentation.
 #
-# Run from the root directory of the project as
-# .github/scripts/docs-build-deploy prerelease main
-# All arguments after the first are passed to `mike deploy`, run
-# `uv run -- mike deploy --help` for options. Note that `mike deploy`
-# creates a commit directly on the `gh-pages` branch.
-set -ev
+# Run from the root directory of the project as:
+#   .github/scripts/docs-build-deploy prerelease --push
+#   .github/scripts/docs-build-deploy v1.33.1 latest --update-aliases --push
+set -eu
 
-# Affects the generation of `sitemap.xml.gz` by `mkdocs`. See
-# https://github.com/jimporter/mike/issues/103 and
-# https://reproducible-builds.org/docs/source-date-epoch/
-export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct docs/ mkdocs.yml)
-# TODO: `--alias-type symlink` is the
-# default, and may be nicer in some ways. However,
-# this requires deploying to GH Pages via a "custom GitHub Action", as in
-# https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site#publishing-with-a-custom-github-actions-workflow.
-# Otherwise, you get an error:
-# > Site contained a symlink that should be dereferenced: /main.
-# > For more information, see https://docs.github.com/github/working-with-github-pages/troubleshooting-jekyll-build-errors-for-github-pages-sites#config-file-error.
-uv run -- mike deploy --alias-type copy "$@"
+if [ "$#" -lt 1 ]; then
+  echo "usage: $0 <version> [alias ...] [--push] [--update-aliases]" >&2
+  exit 2
+fi
+
+version=$1
+shift
+aliases=
+push=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --push)
+      push=true
+      ;;
+    --update-aliases)
+      ;;
+    --*)
+      echo "unknown option: $arg" >&2
+      exit 2
+      ;;
+    *)
+      aliases="${aliases}${aliases:+ }$arg"
+      ;;
+  esac
+done
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+npm ci --prefix web/docs
+npm run --prefix web/docs build -- --base "/$version/"
+cp -R web/docs/dist "$tmpdir/site"
+
+git checkout gh-pages
+
+rm -rf "$version"
+cp -R "$tmpdir/site" "$version"
+
+for alias in $aliases; do
+  rm -rf "$alias"
+  cp -R "$tmpdir/site" "$alias"
+done
+
+node - "$version" "$aliases" <<'NODE'
+const fs = require('node:fs');
+const version = process.argv[2];
+const aliases = process.argv[3] ? process.argv[3].split(' ').filter(Boolean) : [];
+const versionsPath = 'versions.json';
+
+let versions = [];
+if (fs.existsSync(versionsPath)) {
+  versions = JSON.parse(fs.readFileSync(versionsPath, 'utf8'));
+}
+
+for (const entry of versions) {
+  entry.aliases = (entry.aliases || []).filter((alias) => !aliases.includes(alias));
+}
+
+versions = versions.filter((entry) => entry.version !== version);
+const entry = { version, title: version, aliases };
+if (version === 'prerelease') {
+  versions.unshift(entry);
+} else {
+  const prereleaseIndex = versions.findIndex((item) => item.version === 'prerelease');
+  versions.splice(prereleaseIndex === -1 ? 0 : prereleaseIndex + 1, 0, entry);
+}
+
+fs.writeFileSync(versionsPath, `${JSON.stringify(versions, null, 2)}\n`);
+fs.writeFileSync('.nojekyll', '');
+
+if (aliases.includes('latest')) {
+  fs.writeFileSync(
+    'index.html',
+    '<!doctype html>\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0; url=latest/">\n<link rel="canonical" href="latest/">\n<title>Redirecting to latest documentation</title>\n'
+  );
+}
+NODE
+
+git add "$version" versions.json .nojekyll
+for alias in $aliases; do
+  git add "$alias"
+done
+if echo " $aliases " | grep -q ' latest '; then
+  git add index.html
+fi
+
+git commit -m "Deploy Starlight docs for $version" || echo "No changes to commit"
+
+if [ "$push" = true ]; then
+  git push origin gh-pages
+fi

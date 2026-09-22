@@ -1,25 +1,22 @@
 ---
-// Determine the base URL - no base path for docs.jj-vcs.dev
-const siteBase = '/';
 ---
 
-<div class="version-switcher" id="version-switcher-container" style="display: none;">
-  <label for="version-select" class="sl-hidden">Select documentation version</label>
-  <select id="version-select" class="version-select">
+<div class="version-switcher" data-version-switcher style="display: none;">
+  <label class="sl-hidden">Select documentation version</label>
+  <select class="version-select" data-version-select>
     <option>Loading versions...</option>
   </select>
 </div>
 
-<script define:vars={{ siteBase }}>
+<script>
     // Fetch versions client-side and populate the dropdown
-    async function loadVersions() {
-      const container = document.getElementById('version-switcher-container');
-      const select = document.getElementById('version-select');
+    async function loadVersions(container) {
+      const select = container.querySelector('[data-version-select]');
 
       if (!container || !select) return;
 
       try {
-        const response = await fetch(`${siteBase}versions.json`);
+        const response = await fetch('/versions.json');
         if (!response.ok) {
           // No versions.json available (e.g., in development)
           return;
@@ -71,18 +68,22 @@ const siteBase = '/';
           const currentPath = window.location.pathname;
           const versionRegex = /^\/[^\/]+/;
           const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
-          window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
+          window.location.href = `/${selectedVersion}/${pagePath}`;
         });
       } catch (error) {
         console.debug('Could not load versions.json:', error);
       }
     }
 
+    function loadAllVersionSwitchers() {
+      document.querySelectorAll('[data-version-switcher]').forEach(loadVersions);
+    }
+
     // Load versions when DOM is ready
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', loadVersions);
+      document.addEventListener('DOMContentLoaded', loadAllVersionSwitchers);
     } else {
-      loadVersions();
+      loadAllVersionSwitchers();
     }
   </script>
 

@@ -1,4 +1,8 @@
-# Installation and setup
+---
+title: "Installation and setup"
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 ## Installation
 
@@ -20,10 +24,12 @@ cargo binstall --strategies crate-meta-data jj-cli
 Without the `--strategies` option, you may get equivalent binaries that should
 be compiled from the same source code.
 
-!!! note
+:::note
 
-    If you'd like to install a prerelease version, you'll need to use one of the
-    options below.
+If you'd like to install a prerelease version, you'll need to use one of the
+options below.
+
+:::
 
 ### Linux
 
@@ -250,35 +256,43 @@ Dynamic completions are not the default/only option since the underlying engine
 default once the engine is stabilized. Please let us know if you encounter any
 issues with dynamic completions.
 
-!!! info "Which completion script should I use?"
+:::note[Which completion script should I use?]
 
-    Generally, dynamic completions provide a much better completion experience.
-    Although the underlying engine is deemed unstable, there have not been many
-    issues in practice. Dynamic completions are the preferred option for many
-    contributors and users.
+Generally, dynamic completions provide a much better completion experience.
+Although the underlying engine is deemed unstable, there have not been many
+issues in practice. Dynamic completions are the preferred option for many
+contributors and users.
 
-    We recommend using the dynamic completion script, and falling back to the
-    standard completion script if there are any issues.
+We recommend using the dynamic completion script, and falling back to the
+standard completion script if there are any issues.
 
-<!-- The content tabs formatting below is optimized for the website and not for GitHub. -->
+:::
+
+{/* The content tabs formatting below is optimized for the website and not for GitHub. */}
 
 ### Bash
 
-=== "Standard"
+<Tabs>
+  <TabItem label="Standard">
 
     ```shell
     source <(jj util completion bash)
     ```
 
-=== "Dynamic"
+  </TabItem>
+  <TabItem label="Dynamic">
 
     ```shell
     source <(COMPLETE=bash jj)
     ```
 
+  </TabItem>
+</Tabs>
+
 ### Zsh
 
-=== "Standard"
+<Tabs>
+  <TabItem label="Standard">
 
     ```shell
     autoload -U compinit
@@ -286,48 +300,65 @@ issues with dynamic completions.
     source <(jj util completion zsh)
     ```
 
-=== "Dynamic"
+  </TabItem>
+  <TabItem label="Dynamic">
 
     ```shell
     source <(COMPLETE=zsh jj)
     ```
 
+  </TabItem>
+</Tabs>
+
 ### Fish
 
-=== "Standard"
+<Tabs>
+  <TabItem label="Standard">
 
     ```shell
     jj util completion fish | source
     ```
 
-=== "Dynamic"
+  </TabItem>
+  <TabItem label="Dynamic">
 
-    !!! note
+    :::note
 
-        No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
+    No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
+
+    :::
 
     ```shell
     COMPLETE=fish jj | source
     ```
 
+  </TabItem>
+</Tabs>
+
 ### Nushell
 
-=== "Standard"
+<Tabs>
+  <TabItem label="Standard">
 
     ```nu
     jj util completion nushell | save -f completions-jj.nu
     use completions-jj.nu *  # Or `source completions-jj.nu`
     ```
 
+  </TabItem>
+</Tabs>
+
 ### Powershell
 
-=== "Standard"
+<Tabs>
+  <TabItem label="Standard">
 
     ```powershell
     jj util completion power-shell | Out-String | Invoke-Expression
     ```
 
-=== "Dynamic"
+  </TabItem>
+  <TabItem label="Dynamic">
 
     ```powershell
     $env:COMPLETE = "powershell"
@@ -335,14 +366,19 @@ issues with dynamic completions.
     Remove-Item Env:\COMPLETE
     ```
 
+  </TabItem>
+</Tabs>
+
 Insert the above into your `$PROFILE` file
 (usually `$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`).
 
-!!! note
+:::note
 
-    Note that to execute scripts in PowerShell on Windows, including `$PROFILE`,
-    the [execution policy][ExecutionPolicies] needs to be set to `RemoteSigned`
-    at minimum.
+Note that to execute scripts in PowerShell on Windows, including `$PROFILE`,
+the [execution policy][ExecutionPolicies] needs to be set to `RemoteSigned`
+at minimum.
+
+:::
 
 [cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
 [clap]: https://github.com/clap-rs/clap/issues/3166
