@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::assert_matches;
 use std::collections::HashMap;
 use std::error;
 use std::mem;
@@ -424,10 +425,7 @@ pub struct LambdaNode<'i> {
 }
 
 fn parse_identifier_or_literal(pair: Pair<Rule>) -> ExpressionKind {
-    assert!(matches!(
-        pair.as_rule(),
-        Rule::identifier | Rule::pattern_identifier
-    ));
+    assert_matches!(pair.as_rule(), Rule::identifier | Rule::pattern_identifier);
     match pair.as_str() {
         "false" => ExpressionKind::Boolean(false),
         "true" => ExpressionKind::Boolean(true),
@@ -829,8 +827,6 @@ pub fn lookup_method<'a, V>(
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches;
-
     use jj_lib::dsl_util::KeywordArgument;
     use testutils::TestResult;
 

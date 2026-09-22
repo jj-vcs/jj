@@ -138,6 +138,8 @@ fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, bool, Option<String>)
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use indoc::indoc;
     use pretty_assertions::assert_eq;
 
@@ -260,7 +262,7 @@ mod tests {
             foo: 2
         "#};
         let res = parse_trailers(trailers);
-        assert!(matches!(res, Err(TrailerParseError::BlankLine)));
+        assert_matches!(res, Err(TrailerParseError::BlankLine));
     }
 
     #[test]
@@ -270,10 +272,7 @@ mod tests {
             foo: 1
         "#};
         let res = parse_trailers(trailers);
-        assert!(matches!(
-            res,
-            Err(TrailerParseError::NonTrailerLine { line: _ })
-        ));
+        assert_matches!(res, Err(TrailerParseError::NonTrailerLine { line: _ }));
     }
 
     #[test]

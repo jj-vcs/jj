@@ -4708,7 +4708,7 @@ fn test_fetch_no_such_remote() -> TestResult {
     let mut tx = test_data.repo.start_transaction();
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
     let result = fetch_all_with(&mut fetcher, "invalid-remote".as_ref());
-    assert!(matches!(result, Err(GitFetchError::NoSuchRemote(_))));
+    assert_matches!(result, Err(GitFetchError::NoSuchRemote(_)));
     Ok(())
 }
 
@@ -6238,7 +6238,7 @@ fn test_push_updates_no_such_remote() -> TestResult {
         &mut NullCallback,
         &GitPushOptions::default(),
     );
-    assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
+    assert_matches!(result, Err(GitPushError::NoSuchRemote(_)));
     Ok(())
 }
 
@@ -6260,7 +6260,7 @@ fn test_push_updates_invalid_remote() -> TestResult {
         &mut NullCallback,
         &GitPushOptions::default(),
     );
-    assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
+    assert_matches!(result, Err(GitPushError::NoSuchRemote(_)));
     Ok(())
 }
 
