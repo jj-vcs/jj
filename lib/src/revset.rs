@@ -3746,6 +3746,7 @@ mod tests {
         let path_converter = RepoPathUiConverter::Fs {
             cwd: PathBuf::from("/"),
             base: PathBuf::from("/"),
+            repo_path: PathBuf::from("/.jj/repo"),
         };
         let workspace_ctx = RevsetWorkspaceContext {
             path_converter: &path_converter,

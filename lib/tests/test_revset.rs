@@ -1105,6 +1105,7 @@ fn resolve_commit_ids_in_workspace(
     let path_converter = RepoPathUiConverter::Fs {
         cwd: cwd.unwrap_or_else(|| workspace.workspace_root()).to_owned(),
         base: workspace.workspace_root().to_owned(),
+        repo_path: workspace.repo_path().to_owned(),
     };
     let workspace_ctx = RevsetWorkspaceContext {
         path_converter: &path_converter,
