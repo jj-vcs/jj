@@ -31,7 +31,6 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::LazyLock;
 use std::time::SystemTime;
 
 use bstr::ByteVec as _;
@@ -1038,12 +1037,10 @@ impl WorkspaceCommandEnvironment {
 
     /// Parsing context for fileset expressions loaded from config files.
     pub(crate) fn fileset_parse_context_for_config(&self) -> FilesetParseContext<'_> {
-        // TODO: bump MSRV to 1.91.0 to leverage const PathBuf::new()
-        static ROOT_PATH_CONVERTER: LazyLock<RepoPathUiConverter> =
-            LazyLock::new(|| RepoPathUiConverter::Fs {
-                cwd: PathBuf::new(),
-                base: PathBuf::new(),
-            });
+        static ROOT_PATH_CONVERTER: RepoPathUiConverter = RepoPathUiConverter::Fs {
+            cwd: PathBuf::new(),
+            base: PathBuf::new(),
+        };
         FilesetParseContext {
             aliases_map: &self.fileset_aliases_map,
             path_converter: &ROOT_PATH_CONVERTER,
