@@ -1,7 +1,3 @@
-include = [
-  "config.toml",
-]
-
 [profile.dev]
 debug = "none"
 incremental = false
