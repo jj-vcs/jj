@@ -1623,12 +1623,11 @@ fn clamp_signed_bytes_index(s: &[u8], i: isize) -> usize {
 /// Negative index counts from the end. If the index isn't at a char boundary,
 /// it will be rounded towards 0 (left or right depending on the sign.)
 fn string_index_to_char_boundary(s: &str, i: isize) -> usize {
-    // TODO: use floor/ceil_char_boundary() if get stabilized
     let p = clamp_signed_bytes_index(s.as_bytes(), i);
     if i < 0 {
-        (p..=s.len()).find(|&p| s.is_char_boundary(p)).unwrap()
+        s.ceil_char_boundary(p)
     } else {
-        (0..=p).rev().find(|&p| s.is_char_boundary(p)).unwrap()
+        s.floor_char_boundary(p)
     }
 }
 
