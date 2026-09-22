@@ -44,12 +44,7 @@ tools.rust = "{{vars.rust_version}}"
 run = "cargo build"
 
 [tasks."build:docs"]
-description = "Build documentation into rendered-docs/ for offline use"
-tools.uv = "{{vars.uv_version}}"
-run = "uv run mkdocs build"
-
-[tasks."build:web"]
-description = "Build the new astro-based documentation"
+description = "Build documentation into web/dist/ for offline use"
 tools.node = "{{vars.node_version}}"
 run = "npm install && npm run build"
 dir = "web"
@@ -129,11 +124,6 @@ run = "cargo insta test --accept --workspace --test-runner nextest --"
 
 [tasks."serve:docs"]
 description = "Preview documentation with live reloading"
-tools.uv = "{{vars.uv_version}}"
-run = "uv run mkdocs serve"
-
-[tasks."serve:web"]
-description = "Preview the new astro-based documentation with live reloading"
 tools.node = "{{vars.node_version}}"
 run = "npm install && npm run dev"
 dir = "web"
