@@ -3,7 +3,7 @@
 
 [project]
 name = "jj-docs"
-description = "Sets up MkDocs and related Python tools"
+description = "Sets up Python development tools"
 requires-python = ">=3.9"
 version = "0.1.0"
 dependencies = []
@@ -11,32 +11,11 @@ dependencies = []
 [dependency-groups]
 # These can be updated with `uv add --dev`.
 dev = [
-    "mkdocs<1.7,>=1.6",
-    # Pin mkdocs-material to the exact version b/c it sometimes breaks thing
-    "mkdocs-material==9.6.23",
-    # Versioning of documentation
-    "mike<3,>=2.1.3",
-    # (Py)Markdown extensions
-    "mdx-truly-sane-lists<2.0,>=1.3",
-    "mdx-breakless-lists<2.0.0,>=1.0.1",
-    # Allows setting up redirects when renaming docs files
-    "mkdocs-redirects<2.0.0,>=1.2.1",
-    # Used for the CLI reference
-    "mkdocs-include-markdown-plugin<8.0.0,>=7.1.4",
-    # Used to render Markdown tables from YAML files
-    "mkdocs-table-reader-plugin>=3.1.0",
-    # Unrelated to docs
     "codespell[toml]>=2.4.0",
 ]
 
 [tool.uv]
 package = false
-# Pygments 2.20.0 caused https://github.com/jj-vcs/jj/issues/9230
-# For example, the `github` docs ended up having literal "```shell" in them,
-# see the exact breakage in
-# https://github.com/jj-vcs/jj/commit/8a13bde3bb9555ba1d25ace3d3ecff71ef5e0f76#diff-b50ce796f4ee4de132496e90aa1f463d50f2454bbd41796013e52b06ed1da691R1943-R1947
-# TODO: Consider fixing this if our planned transition to starlight docs doesn't work out for some reason.
-constraint-dependencies = ["pygments<2.20"]
 
 [tool.codespell]
 # codespell must be run **from the repo root** for these settings
