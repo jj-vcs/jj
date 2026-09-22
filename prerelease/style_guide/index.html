@@ -1463,6 +1463,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Logging messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#plural-forms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Plural forms
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rust" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rust
+    </span>
+  </a>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1537,6 +1561,15 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#toml" class="md-nav__link">
+    <span class="md-ellipsis">
+      TOML
+    </span>
+  </a>
   
 </li>
       
@@ -2027,6 +2060,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Logging messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#plural-forms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Plural forms
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rust" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rust
+    </span>
+  </a>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2104,6 +2161,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#toml" class="md-nav__link">
+    <span class="md-ellipsis">
+      TOML
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2169,6 +2235,45 @@ interpolated values at the end, or need to print some templated value:</p>
 <p>Also try not to put periods right after any printed IDs or symbols (such as
 commit IDs), since users may double click to copy the value, which may include
 the period.</p>
+<h3 id="plural-forms">Plural forms<a class="headerlink" href="#plural-forms" title="Permanent link">&para;</a></h3>
+<p>Do not special-case singular vs. plural forms in messages with a "number
+object(s)" format; always use the plural form, regardless of the number being
+used:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// CORRECT:</span>
+<span class="fm">writeln!</span><span class="p">(</span><span class="n">ui</span><span class="p">.</span><span class="n">status</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;Rebased {num_rebased} descendant commits.&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="c1">// INCORRECT:</span>
+<span class="fm">writeln!</span><span class="p">(</span><span class="n">ui</span><span class="p">.</span><span class="n">status</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;Rebased {num_rebased} descendant commit(s).&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="fm">writeln!</span><span class="p">(</span>
+<span class="w">  </span><span class="n">ui</span><span class="p">.</span><span class="n">status</span><span class="p">(),</span>
+<span class="w">  </span><span class="s">&quot;Rebased {num_rebased} descendant commit{}.&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="n">num_rebased</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s">&quot;s&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</code></pre></div>
+<p>If a message is only referring to a single specific object without any numbers
+involved, use the singular form.</p>
+<h2 id="rust">Rust<a class="headerlink" href="#rust" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Prefer Itertools <code>collect_vec()</code> and <code>try_collect()</code> over annotated
+  <code>.collect::&lt;Vec&lt;...&gt;&gt;()</code> calls.<div class="highlight"><pre><span></span><code><span class="c1">// CORRECT:</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">workspace_helper</span><span class="p">.</span><span class="n">parse_union_revsets</span><span class="p">(</span><span class="o">&amp;</span><span class="n">revs</span><span class="p">)</span>
+<span class="w">  </span><span class="p">.</span><span class="n">ids</span><span class="p">()</span>
+<span class="w">  </span><span class="p">.</span><span class="n">collect_vec</span><span class="p">();</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">fallible_commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">commits</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">store</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+<span class="w">  </span><span class="p">.</span><span class="n">try_collect</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1">// INCORRECT: The annotation is used</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">commits</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">workspace_helper</span><span class="p">.</span><span class="n">parse_union_revsets</span><span class="p">(</span><span class="o">&amp;</span><span class="n">revs</span><span class="p">)</span>
+<span class="w">  </span><span class="p">.</span><span class="n">ids</span><span class="p">()</span>
+<span class="w">  </span><span class="p">.</span><span class="n">collect</span><span class="p">();</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">fallible_commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">commits</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">store</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+<span class="w">  </span><span class="p">.</span><span class="n">collect</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="n">CommandError</span><span class="o">&gt;&gt;</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</code></pre></div>
+</li>
+</ul>
 <h2 id="documentation-comments">Documentation comments<a class="headerlink" href="#documentation-comments" title="Permanent link">&para;</a></h2>
 <h3 id="general">General<a class="headerlink" href="#general" title="Permanent link">&para;</a></h3>
 <p>In general, try to follow <a href="https://github.com/rust-lang/rfcs/blob/master/text/1574-more-api-documentation-conventions.md"><code>rust-lang/rfcs</code> 1574</a>. The
@@ -2215,28 +2320,6 @@ important points are:</p>
 <p>The rest of the comment after the first line should generally be written in
   complete sentences. But use your own judgment too; for example a sentence that
   says "Returns blah blah." would be fine.</p>
-</li>
-<li>
-<p>Prefer Itertools <code>collect_vec()</code> and <code>try_collect()</code> over annotated
-  <code>.collect::&lt;Vec&lt;...&gt;&gt;()</code> calls.</p>
-<div class="highlight"><pre><span></span><code><span class="c1">// CORRECT:</span>
-
-<span class="kd">let</span><span class="w"> </span><span class="n">commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">workspace_helper</span><span class="p">.</span><span class="n">parse_union_revsets</span><span class="p">(</span><span class="o">&amp;</span><span class="n">revs</span><span class="p">)</span>
-<span class="w">  </span><span class="p">.</span><span class="n">ids</span><span class="p">()</span>
-<span class="w">  </span><span class="p">.</span><span class="n">collect_vec</span><span class="p">();</span>
-
-<span class="kd">let</span><span class="w"> </span><span class="n">fallible_commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">commits</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">store</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
-<span class="w">  </span><span class="p">.</span><span class="n">try_collect</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><span class="c1">// INCORRECT: The annotation is used</span>
-
-<span class="kd">let</span><span class="w"> </span><span class="n">commits</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">workspace_helper</span><span class="p">.</span><span class="n">parse_union_revsets</span><span class="p">(</span><span class="o">&amp;</span><span class="n">revs</span><span class="p">)</span>
-<span class="w">  </span><span class="p">.</span><span class="n">ids</span><span class="p">()</span>
-<span class="w">  </span><span class="p">.</span><span class="n">collect</span><span class="p">();</span>
-
-<span class="kd">let</span><span class="w"> </span><span class="n">fallible_commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">commits</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">store</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
-<span class="w">  </span><span class="p">.</span><span class="n">collect</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="n">CommandError</span><span class="o">&gt;&gt;</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
-</code></pre></div>
 </li>
 </ul>
 <h3 id="subcommand-comments">Subcommand comments<a class="headerlink" href="#subcommand-comments" title="Permanent link">&para;</a></h3>
@@ -2507,6 +2590,46 @@ json(value: Serialize) -&gt; String: The `value` in JSON format.
 <p>For type methods in the templating language, try to document every method,
   even if obvious. This will give you the chance to mention any edge cases,
   default behaviors, or differences from other methods.</p>
+</li>
+</ul>
+<h2 id="toml">TOML<a class="headerlink" href="#toml" title="Permanent link">&para;</a></h2>
+<p>Try to wrap lines and comments to 80 columns. We don't have a formatter yet.</p>
+<p>For TOML that gets compiled into the binary (in <code>cli/src/config</code>):</p>
+<ul>
+<li>
+<p>For <code>[revsets]</code> and <code>[templates]</code>, prefer to delegate to a function alias
+  (named <code>builtin_...</code>) if the definition is a little longer or more complex.
+  This allows users to reference the existing default in their own aliases; this
+  is not possible with the values from the <code>[revsets]</code> or <code>[templates]</code> tables
+  directly.</p>
+</li>
+<li>
+<p>For <code>[revset-aliases]</code>, do not define any non-function aliases, since they may
+  conflict with user symbols such as bookmarks or tags. Historically we have not
+  added many default revset aliases, so there isn't much else to say.</p>
+</li>
+<li>
+<p>For <code>[template-aliases]</code>, all non-function aliases (that are not 'constants')
+  must be prefixed with <code>builtin_</code>, and they should preferably have a
+  corresponding function overload that the non-function alias calls with <code>self</code>.
+  Non-function aliases are provided for CLI convenience since they don't require
+  shell quoting, so only add one if it makes sense to (for example, if it is a
+  complete value for a <code>--template</code> flag).</p>
+</li>
+<li>
+<p>For <code>[template-aliases]</code>, prefer to name functions with the prefix <code>format_</code>.</p>
+</li>
+<li>
+<p>For <code>[colors]</code>, prefer to define colors for labels rather than for the color
+  or style. That is, do not add a <code>colors.red = "red"</code> entry, since this makes
+  it harder for users to customize a specific label in a specific output.
+  Instead, make sure labels reflect their context or purpose, such as <code>prefix</code>,
+  <code>author</code>, <code>conflict</code>, etc.</p>
+</li>
+<li>
+<p>For <code>[colors]</code>, avoid the <code>"bright yellow"</code> color as a default; it is
+  difficult to read on xterm's default theme. See
+  <a href="https://github.com/jj-vcs/jj/issues/528">#528</a>.</p>
 </li>
 </ul>
 
