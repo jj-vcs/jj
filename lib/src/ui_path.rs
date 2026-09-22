@@ -170,7 +170,7 @@ pub fn parse_fs_path(
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
+    use std::assert_matches;
 
     use super::*;
     use crate::tests::new_temp_dir;

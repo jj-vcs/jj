@@ -499,7 +499,7 @@ fn signature_from_proto(proto: crate::protos::simple_store::commit::Signature) -
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
+    use std::assert_matches;
 
     use super::*;
     use crate::merge::Merge;

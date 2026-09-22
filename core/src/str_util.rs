@@ -587,7 +587,8 @@ impl Debug for StringMatcher {
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
+    use std::assert_matches;
+
     use itertools::Itertools as _;
     use maplit::btreemap;
 

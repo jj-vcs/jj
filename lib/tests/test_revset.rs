@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::assert_matches;
 use std::collections::HashMap;
 use std::iter;
 use std::path::Path;
 use std::sync::Arc;
 
-use assert_matches::assert_matches;
 use chrono::DateTime;
 use futures::StreamExt as _;
 use itertools::Itertools as _;

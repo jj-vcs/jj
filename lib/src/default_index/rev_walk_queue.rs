@@ -111,7 +111,7 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
+    use std::assert_matches;
 
     use super::*;
 

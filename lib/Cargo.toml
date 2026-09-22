@@ -71,7 +71,6 @@ rustix = { workspace = true }
 windows-sys = { workspace = true }
 
 [dev-dependencies]
-assert_matches = { workspace = true }
 eyre = { workspace = true }
 indoc = { workspace = true }
 insta = { workspace = true }

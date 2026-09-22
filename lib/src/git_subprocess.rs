@@ -979,9 +979,9 @@ fn trim_sideband_line(line: &[u8]) -> (&[u8], Option<GitSidebandLineTerminator>)
 
 #[cfg(test)]
 mod test {
+    use std::assert_matches;
     use std::process::ExitStatus;
 
-    use assert_matches::assert_matches;
     use bstr::BString;
     use indoc::formatdoc;
     use indoc::indoc;

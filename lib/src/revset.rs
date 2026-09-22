@@ -3627,9 +3627,8 @@ pub fn format_remote_symbol(name: &str, remote: &str) -> String {
     expect(clippy::cloned_ref_to_slice_refs, reason = "makes tests more readable")
 )]
 mod tests {
+    use std::assert_matches;
     use std::path::PathBuf;
-
-    use assert_matches::assert_matches;
 
     use super::*;
     use crate::tests::TestResult;

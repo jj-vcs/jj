@@ -456,7 +456,8 @@ fn migrate_layer(
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
+    use std::assert_matches;
+
     use indoc::indoc;
 
     use super::*;

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::assert_matches;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -27,7 +28,6 @@ use std::sync::Barrier;
 use std::sync::mpsc;
 use std::thread;
 
-use assert_matches::assert_matches;
 use gix::remote::Direction;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;

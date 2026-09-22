@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use assert_matches::assert_matches;
+use std::assert_matches;
+
 use futures::StreamExt as _;
 use indoc::indoc;
 use jj_lib::backend::BackendError;

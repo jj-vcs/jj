@@ -250,7 +250,8 @@ fn to_infallible_iter<T>(
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
+    use std::assert_matches;
+
     use maplit::hashmap;
     use maplit::hashset;
 

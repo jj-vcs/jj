@@ -404,7 +404,7 @@ fn parse_human_byte_size(v: &str) -> Result<u64, &'static str> {
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
+    use std::assert_matches;
 
     use super::*;
 

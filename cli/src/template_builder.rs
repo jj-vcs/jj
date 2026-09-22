@@ -3092,9 +3092,9 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::path::Component;
 
-    use assert_matches::assert_matches;
     use jj_lib::backend::MillisSinceEpoch;
     use jj_lib::config::StackedConfig;
 

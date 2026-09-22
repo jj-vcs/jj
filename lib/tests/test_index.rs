@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::assert_matches;
 use std::fs;
 use std::sync::Arc;
 
-use assert_matches::assert_matches;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;

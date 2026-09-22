@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::assert_matches;
 use std::path::Path;
 use std::path::PathBuf;
 
-use assert_matches::assert_matches;
 use jj_lib::config::StackedConfig;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::ref_name::WorkspaceName;

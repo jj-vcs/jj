@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::assert_matches;
 use std::cmp::max;
 use std::thread;
 
-use assert_matches::assert_matches;
 use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::repo::Repo as _;
 use jj_lib::working_copy::CheckoutError;

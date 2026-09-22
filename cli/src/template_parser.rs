@@ -829,7 +829,8 @@ pub fn lookup_method<'a, V>(
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
+    use std::assert_matches;
+
     use jj_lib::dsl_util::KeywordArgument;
     use testutils::TestResult;
 

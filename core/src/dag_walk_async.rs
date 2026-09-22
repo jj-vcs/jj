@@ -602,9 +602,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::pin::pin;
 
-    use assert_matches::assert_matches;
     use futures::StreamExt as _;
     use futures::TryStreamExt as _;
     use maplit::hashmap;

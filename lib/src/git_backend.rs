@@ -1666,7 +1666,8 @@ recover.
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
+    use std::assert_matches;
+
     use gix::date::parse::TimeBuf;
     use gix::objs::CommitRef;
     use indoc::indoc;

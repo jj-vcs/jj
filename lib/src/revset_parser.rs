@@ -833,9 +833,8 @@ fn attach_aliases_err(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::collections::HashMap;
-
-    use assert_matches::assert_matches;
 
     use super::*;
     use crate::dsl_util::KeywordArgument;

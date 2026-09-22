@@ -914,7 +914,8 @@ static DEFAULT_CONFIG_LAYERS: LazyLock<[Arc<ConfigLayer>; 1]> = LazyLock::new(||
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
+    use std::assert_matches;
+
     use indoc::indoc;
     use pretty_assertions::assert_eq;
 

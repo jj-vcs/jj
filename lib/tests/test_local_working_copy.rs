@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::assert_matches;
 use std::convert::Infallible;
 use std::fs::File;
 use std::io;
@@ -24,7 +25,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use assert_matches::assert_matches;
 use bstr::BString;
 use futures::AsyncReadExt as _;
 use gix::odb::pack::FindExt as _;
