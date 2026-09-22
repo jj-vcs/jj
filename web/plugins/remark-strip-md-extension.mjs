@@ -19,7 +19,7 @@ export default function remarkStripMdExtension() {
   return (tree, file) => {
     // Get the file's path relative to the content directory
     const filePath = file.history[0];
-    const contentDocsMatch = filePath.match(/src\/content\/docs\/(.+)$/);
+    const contentDocsMatch = filePath.match(/\/docs\/(.+)$/);
     const relativePath = contentDocsMatch[1];
     const currentDir = path.dirname(relativePath);
 

@@ -60,10 +60,10 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
-        working-directory: web/docs
+        working-directory: web
         run: npm ci
       - name: Build Starlight docs
-        working-directory: web/docs
+        working-directory: web
         run: npm run build -- --base /starlight/
       - name: Deploy to gh-pages/starlight
         run: |
@@ -71,7 +71,7 @@ jobs:
           git config user.email 'jj-docs[bot]@users.noreply.github.io'
           git checkout gh-pages
           rm -rf starlight
-          mv web/docs/dist starlight
+          mv web/dist starlight
           git add starlight
           git commit -m "Deploy Starlight docs to /starlight" || echo "No changes to commit"
           git push origin gh-pages

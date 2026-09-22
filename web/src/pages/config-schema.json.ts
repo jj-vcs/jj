@@ -1,4 +1,4 @@
-import schema from "../../../../cli/src/config-schema.json" with {
+import schema from "../../../cli/src/config-schema.json" with {
   type: "json",
 };
 

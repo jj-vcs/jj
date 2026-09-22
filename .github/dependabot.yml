@@ -41,7 +41,7 @@ updates:
       - "*"
 # Docs website
 - package-ecosystem: "npm"
-  directory: "/web/docs"
+  directory: "/web"
   schedule:
     interval: "weekly"
   cooldown:

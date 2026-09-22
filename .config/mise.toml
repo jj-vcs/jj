@@ -52,7 +52,7 @@ run = "uv run mkdocs build"
 description = "Build the new astro-based documentation"
 tools.node = "{{vars.node_version}}"
 run = "npm install && npm run build"
-dir = "web/docs"
+dir = "web"
 
 [tasks."build:release"]
 description = "Build jj in release mode"
@@ -136,7 +136,7 @@ run = "uv run mkdocs serve"
 description = "Preview the new astro-based documentation with live reloading"
 tools.node = "{{vars.node_version}}"
 run = "npm install && npm run dev"
-dir = "web/docs"
+dir = "web"
 
 
 [tasks."clippy:watch"]

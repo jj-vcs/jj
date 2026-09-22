@@ -6,4 +6,4 @@ title: Changelog
      This file only exposes it to the website.
 -->
 
-::include{file="../../../../../CHANGELOG.md" start="# Changelog"}
+::include{file="../CHANGELOG.md" start="# Changelog"}
