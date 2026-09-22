@@ -128,10 +128,12 @@ $ jj git push
 Notably, the above workflow creates a new commit for you. The same can be
 achieved without creating a new commit.
 
-!!! warning
+!!! note
 
-    We strongly suggest to `jj new` after the example below, as all further edits
-    still get amended to the previous commit.
+    If the working copy commit becomes immutable (for example, after
+    `jj git push`), Jujutsu automatically creates a new working-copy commit on
+    top. If you need to make further edits before pushing, run `jj new` to
+    avoid amending them to the previous commit.
 
 ```shell
 $ # Create a new commit on top of the `your-feature` bookmark from above.
