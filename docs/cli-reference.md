@@ -16,4 +16,4 @@ Run `jj help <COMMAND>` for more authoritative documentation.
 If you see a significant difference, feel free to file a bug, or a PR to note the difference here.
 :::
 
-::include{file="../../../../../cli/tests/cli-reference@.md.snap" start="<!-- BEGIN MARKDOWN-->"}
+::include{file="../cli/tests/cli-reference@.md.snap" start="<!-- BEGIN MARKDOWN-->"}

@@ -154,4 +154,18 @@ export default defineConfig({
 			],
 		}),
 	],
+	vite: {
+		resolve: {
+			// The markdown content files live in `docs/` which is outside the vite
+			// project root `web/`. Import statements in `docs/` will therefore not
+			// resolve dependencies in `web/node_modules/`. This is specifically
+			// relevant for `*.mdx` files, which use import statements and JSX syntax
+			// to use components that don't map onto some markdown syntax, for example
+			// the `<Tabs>` component. This `dedupe` option has a different purpose,
+			// but can still be used to fix the problem. It forces dependency
+			// resolution to start from the project root. see:
+			// https://vite.dev/config/shared-options?utm_source=openai#resolve-dedupe
+			dedupe: ['@astrojs/starlight'],
+		},
+	},
 });
