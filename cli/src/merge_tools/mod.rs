@@ -812,6 +812,7 @@ mod tests {
             let path_converter = RepoPathUiConverter::Fs {
                 cwd: "".into(),
                 base: "".into(),
+                repo_path: "".into(),
             };
             MergeEditor::with_name(name, &settings, path_converter, ConflictMarkerStyle::Diff)
                 .map(|editor| editor.tool)
@@ -873,6 +874,7 @@ mod tests {
             let path_converter = RepoPathUiConverter::Fs {
                 cwd: "".into(),
                 base: "".into(),
+                repo_path: "".into(),
             };
             MergeEditor::from_settings(&ui, &settings, path_converter, ConflictMarkerStyle::Diff)
                 .map(|editor| editor.tool)

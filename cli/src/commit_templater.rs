@@ -46,7 +46,6 @@ use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyRecords;
-use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::fileset;
@@ -220,7 +219,11 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
     }
 
     fn current_dir(&self) -> &Path {
-        let RepoPathUiConverter::Fs { cwd, base: _ } = self.path_converter;
+        let RepoPathUiConverter::Fs {
+            cwd,
+            base: _,
+            repo_path: _,
+        } = self.path_converter;
         cwd
     }
 
@@ -1804,10 +1807,11 @@ impl WorkspaceRef {
         workspace_store: &dyn WorkspaceStore,
         path_converter: &RepoPathUiConverter,
     ) -> Result<Option<PathBuf>, TemplatePropertyError> {
-        let RepoPathUiConverter::Fs { cwd: _, base } = path_converter;
-        // TODO: Stop reconstructing the workspace loader here
-        let workspace_loader = default_workspace_loader_factory().create(base)?;
-        let repo_path = workspace_loader.repo_path().to_owned();
+        let RepoPathUiConverter::Fs {
+            cwd: _,
+            base: _,
+            repo_path,
+        } = path_converter;
         // Workspaces created before jj 0.38.0 may not have a recorded path. List
         // templates should also keep rendering if a recorded path is stale or
         // unavailable. Use `jj workspace root --name` for strict path diagnostics.
@@ -2115,7 +2119,11 @@ fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, R
             // `RepoPathUiConverter` because absolute paths only make sense for
             // filesystem paths. Other cases should fail here.
             let out_property = self_property.and_then(move |path| match path_converter {
-                RepoPathUiConverter::Fs { cwd: _, base } => Ok(path.to_fs_path(base)?),
+                RepoPathUiConverter::Fs {
+                    cwd: _,
+                    base,
+                    repo_path: _,
+                } => Ok(path.to_fs_path(base)?),
             });
             Ok(out_property.into_dyn_wrapped())
         },
@@ -3142,6 +3150,7 @@ mod tests {
             let path_converter = RepoPathUiConverter::Fs {
                 cwd: test_workspace.workspace.workspace_root().to_owned(),
                 base: test_workspace.workspace.workspace_root().to_owned(),
+                repo_path: test_workspace.workspace.repo_path().to_owned(),
             };
             let revset_extensions = Arc::new(RevsetExtensions::new());
             let id_prefix_context = IdPrefixContext::new(revset_extensions.clone());
@@ -3158,10 +3167,11 @@ mod tests {
             }
         }
 
-        fn set_base_and_cwd(&mut self, base: PathBuf, cwd: impl AsRef<Path>) {
+        fn set_base_and_cwd(&mut self, base: PathBuf, cwd: impl AsRef<Path>, repo_path: PathBuf) {
             self.path_converter = RepoPathUiConverter::Fs {
                 cwd: base.join(cwd),
                 base,
+                repo_path,
             };
         }
 
@@ -3323,7 +3333,11 @@ mod tests {
         let mut env = CommitTemplateTestEnv::init();
         let mut base = PathBuf::from(Component::RootDir.as_os_str());
         base.extend(["path", "to", "repo"]);
-        env.set_base_and_cwd(base, "dir");
+        env.set_base_and_cwd(
+            base,
+            "dir",
+            env.test_workspace.workspace.repo_path().to_owned(),
+        );
 
         // slash-separated by default
         insta::assert_snapshot!(

@@ -669,6 +669,7 @@ mod tests {
             path_converter: &RepoPathUiConverter::Fs {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
+                repo_path: PathBuf::from("/ws/.jj/repo"),
             },
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
@@ -736,6 +737,7 @@ mod tests {
                 // meta character in cwd path shouldn't be expanded
                 cwd: PathBuf::from("/ws/cur*"),
                 base: PathBuf::from("/ws"),
+                repo_path: PathBuf::from("/ws/.jj/repo"),
             },
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
@@ -947,6 +949,7 @@ mod tests {
             path_converter: &RepoPathUiConverter::Fs {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
+                repo_path: PathBuf::from("/ws/.jj/repo"),
             },
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
@@ -1068,6 +1071,7 @@ mod tests {
                 // meta character in cwd path shouldn't be expanded
                 cwd: PathBuf::from("/ws/cur*"),
                 base: PathBuf::from("/ws"),
+                repo_path: PathBuf::from("/ws/.jj/repo"),
             },
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
@@ -1165,6 +1169,7 @@ mod tests {
             path_converter: &RepoPathUiConverter::Fs {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
+                repo_path: PathBuf::from("/ws/.jj/repo"),
             },
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
@@ -1197,6 +1202,7 @@ mod tests {
             path_converter: &RepoPathUiConverter::Fs {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
+                repo_path: PathBuf::from("/ws/.jj/repo"),
             },
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
