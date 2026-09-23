@@ -1139,15 +1139,20 @@ fn show_color_words_context_lines(
     let (right_after, mut right_before, num_right_skipped) = extract(true);
     line_number = show(formatter, [&left_after, &right_after], line_number)?;
     if num_left_skipped > 0 || num_right_skipped > 0 {
-        // Show the last symbol line as context for the skipped range.
+        // Show the last symbol line as context for the skipped range, but omit
+        // it if a new symbol line immediately follows.
         let symbol_line = language.and_then(|lang| {
             let mut lines = contexts
                 .iter()
                 .flat_map(|contents| contents.after.split_inclusive(|b| *b == b'\n'))
                 .fuse();
             lines.by_ref().take(num_after).for_each(drop);
-            lines.by_ref().rev().take(num_before).for_each(drop);
-            lines.rfind(|line| source_symbol_from_line(lang, line).is_some())
+            let next_line = lines.by_ref().rev().take(num_before).last();
+            next_line
+                .and_then(|line| source_symbol_from_line(lang, line))
+                .is_none()
+                .then(|| lines.rfind(|line| source_symbol_from_line(lang, line).is_some()))
+                .flatten()
         });
         if let Some(line) = symbol_line {
             write!(formatter, "    ...    ")?;

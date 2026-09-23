@@ -91,7 +91,7 @@ fn test_diff_source_symbol_in_header() {
     let output = work_dir.run_jj(["diff", "--color-words", "--context=2"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     Modified regular file src/lib.rs:
-        ...    fn unchanged() {
+        ...
        5    5: pub async fn changed(value: i32) -> i32 {
        6    6:     // blah blah
        7     :     value + 1
@@ -99,6 +99,21 @@ fn test_diff_source_symbol_in_header() {
        8    8: }
        9    9: 
         ...
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "--color-words", "--context=3"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    Modified regular file src/lib.rs:
+        ...    fn unchanged() {
+       4    4: 
+       5    5: pub async fn changed(value: i32) -> i32 {
+       6    6:     // blah blah
+       7     :     value + 1
+            7:     value + 2
+       8    8: }
+       9    9: 
+      10   10: fn unchanged2() {
+      11   11: }
     [EOF]
     ");
 
