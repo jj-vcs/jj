@@ -2296,10 +2296,12 @@ $<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>pu
 </code></pre></div>
 <p>Notably, the above workflow creates a new commit for you. The same can be
 achieved without creating a new commit.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>We strongly suggest to <code>jj new</code> after the example below, as all further edits
-still get amended to the previous commit.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the working copy commit becomes immutable (for example, after
+<code>jj git push</code>), Jujutsu automatically creates a new working-copy commit on
+top. If you need to make further edits before pushing, run <code>jj new</code> to
+avoid amending them to the previous commit.</p>
 </div>
 <div class="highlight"><pre><span></span><code>$<span class="w"> </span><span class="c1"># Create a new commit on top of the `your-feature` bookmark from above.</span>
 $<span class="w"> </span>jj<span class="w"> </span>new<span class="w"> </span>your-feature
