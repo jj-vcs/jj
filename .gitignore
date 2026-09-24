@@ -14,7 +14,7 @@ result
 # Per user mise config
 mise.local.toml
 
-# mkdocs
+# uv / python tooling
 /.venv
 /.python-version
 

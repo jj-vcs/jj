@@ -1,4 +1,6 @@
-# Remote/`@git` tracking branches
+---
+title: Remote/@git tracking branches
+---
 
 This is a plan to implement more Git-like remote tracking branch UX.
 

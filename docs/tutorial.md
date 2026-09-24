@@ -1,4 +1,6 @@
-# Tutorial
+---
+title: Tutorial
+---
 
 > **Hint:** This tutorial covers the basics accurately, but since it was
 > written Jujutsu has gained many new features. For a tutorial covering a wider

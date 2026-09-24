@@ -1,4 +1,6 @@
-# Revsets
+---
+title: Revsets
+---
 
 Jujutsu supports a functional language for selecting a set of revisions.
 Expressions in this language are called "revsets" (the idea comes from
@@ -119,127 +121,133 @@ below for concrete illustrations.
 <!-- The following format will be understood by the web site generator, and will
  generate a folded section that can be unfolded at will. -->
 
-??? examples
+<details>
+<summary>Examples</summary>
 
-    Given this history:
-    ```
-    D
-    |\
-    B C
-    |/
-    A
-    |
-    root()
-    ```
+Given this history:
+```
+D
+|\
+B C
+|/
+A
+|
+root()
+```
 
-    **Operator** `x-`
+**Operator** `x-`
 
-    * `D-` ⇒ `{C,B}`
-    * `B-` ⇒ `{A}`
-    * `A-` ⇒ `{root()}`
-    * `root()-` ⇒ `{}` (empty set)
-    * `none()-` ⇒ `{}` (empty set)
-    * `(D|A)-` ⇒ `{C,B,root()}`
-    * `(C|B)-` ⇒ `{A}`
+* `D-` ⇒ `{C,B}`
+* `B-` ⇒ `{A}`
+* `A-` ⇒ `{root()}`
+* `root()-` ⇒ `{}` (empty set)
+* `none()-` ⇒ `{}` (empty set)
+* `(D|A)-` ⇒ `{C,B,root()}`
+* `(C|B)-` ⇒ `{A}`
 
-    **Operator** `x+`
+**Operator** `x+`
 
-    * `D+` ⇒ `{}` (empty set)
-    * `B+` ⇒ `{D}`
-    * `A+` ⇒ `{B,C}`
-    * `root()+` ⇒ `{A}`
-    * `none()+` ⇒ `{}` (empty set)
-    * `(C|B)+` ⇒ `{D}`
-    * `(B|root())+` ⇒ `{D,A}`
+* `D+` ⇒ `{}` (empty set)
+* `B+` ⇒ `{D}`
+* `A+` ⇒ `{B,C}`
+* `root()+` ⇒ `{A}`
+* `none()+` ⇒ `{}` (empty set)
+* `(C|B)+` ⇒ `{D}`
+* `(B|root())+` ⇒ `{D,A}`
 
-    **Operator** `x::`
+**Operator** `x::`
 
-    * `D::` ⇒ `{D}`
-    * `B::` ⇒ `{D,B}`
-    * `A::` ⇒ `{D,C,B,A}`
-    * `root()::` ⇒ `{D,C,B,A,root()}`
-    * `none()::` ⇒ `{}` (empty set)
-    * `(C|B)::` ⇒ `{D,C,B}`
+* `D::` ⇒ `{D}`
+* `B::` ⇒ `{D,B}`
+* `A::` ⇒ `{D,C,B,A}`
+* `root()::` ⇒ `{D,C,B,A,root()}`
+* `none()::` ⇒ `{}` (empty set)
+* `(C|B)::` ⇒ `{D,C,B}`
 
-    **Operator** `x..`
+**Operator** `x..`
 
-    * `D..` ⇒ `{}` (empty set)
-    * `B..` ⇒ `{D,C}` (note that, unlike `B::`, this includes `C`)
-    * `A..` ⇒ `{D,C,B}`
-    * `root()..` ⇒ `{D,C,B,A}`
-    * `none()..` ⇒ `{D,C,B,A,root()}`
-    * `(C|B)..` ⇒ `{D}`
+* `D..` ⇒ `{}` (empty set)
+* `B..` ⇒ `{D,C}` (note that, unlike `B::`, this includes `C`)
+* `A..` ⇒ `{D,C,B}`
+* `root()..` ⇒ `{D,C,B,A}`
+* `none()..` ⇒ `{D,C,B,A,root()}`
+* `(C|B)..` ⇒ `{D}`
 
-    **Operator** `::x`
+**Operator** `::x`
 
-    * `::D` ⇒ `{D,C,B,A,root()}`
-    * `::B` ⇒ `{B,A,root()}`
-    * `::A` ⇒ `{A,root()}`
-    * `::root()` ⇒ `{root()}`
-    * `::none()` ⇒ `{}` (empty set)
-    * `::(C|B)` ⇒ `{C,B,A,root()}`
+* `::D` ⇒ `{D,C,B,A,root()}`
+* `::B` ⇒ `{B,A,root()}`
+* `::A` ⇒ `{A,root()}`
+* `::root()` ⇒ `{root()}`
+* `::none()` ⇒ `{}` (empty set)
+* `::(C|B)` ⇒ `{C,B,A,root()}`
 
-    **Operator** `..x`
+**Operator** `..x`
 
-    * `..D` ⇒ `{D,C,B,A}`
-    * `..B` ⇒ `{B,A}`
-    * `..A` ⇒ `{A}`
-    * `..root()` ⇒ `{}` (empty set)
-    * `..none()` ⇒ `{}` (empty set)
-    * `..(C|B)` ⇒ `{C,B,A}`
+* `..D` ⇒ `{D,C,B,A}`
+* `..B` ⇒ `{B,A}`
+* `..A` ⇒ `{A}`
+* `..root()` ⇒ `{}` (empty set)
+* `..none()` ⇒ `{}` (empty set)
+* `..(C|B)` ⇒ `{C,B,A}`
 
-    **Operator** `x::y`
+**Operator** `x::y`
 
-    * `D::D` ⇒ `{D}`
-    * `B::D` ⇒ `{D,B}` (note that, unlike `B..D`, this includes `B` and excludes `C`)
-    * `B::C` ⇒ `{}` (empty set) (note that, unlike `B..C`, this excludes `C`)
-    * `A::D` ⇒ `{D,C,B,A}`
-    * `root()::D` ⇒ `{D,C,B,A,root()}`
-    * `none()::D` ⇒ `{}` (empty set)
-    * `D::B` ⇒ `{}` (empty set)
-    * `(C|B)::(C|B)` ⇒ `{C,B}`
+* `D::D` ⇒ `{D}`
+* `B::D` ⇒ `{D,B}` (note that, unlike `B..D`, this includes `B` and excludes `C`)
+* `B::C` ⇒ `{}` (empty set) (note that, unlike `B..C`, this excludes `C`)
+* `A::D` ⇒ `{D,C,B,A}`
+* `root()::D` ⇒ `{D,C,B,A,root()}`
+* `none()::D` ⇒ `{}` (empty set)
+* `D::B` ⇒ `{}` (empty set)
+* `(C|B)::(C|B)` ⇒ `{C,B}`
 
-    **Operator** `x..y`
+**Operator** `x..y`
 
-    * `D..D` ⇒ `{}` (empty set)
-    * `B..D` ⇒ `{D,C}` (note that, unlike `B::D`, this includes `C` and excludes `B`)
-    * `B..C` ⇒ `{C}` (note that, unlike `B::C`, this includes `C`)
-    * `A..D` ⇒ `{D,C,B}`
-    * `root()..D` ⇒ `{D,C,B,A}`
-    * `none()..D` ⇒ `{D,C,B,A,root()}`
-    * `D..B` ⇒ `{}` (empty set)
-    * `(C|B)..(C|B)` ⇒ `{}` (empty set)
+* `D..D` ⇒ `{}` (empty set)
+* `B..D` ⇒ `{D,C}` (note that, unlike `B::D`, this includes `C` and excludes `B`)
+* `B..C` ⇒ `{C}` (note that, unlike `B::C`, this includes `C`)
+* `A..D` ⇒ `{D,C,B}`
+* `root()..D` ⇒ `{D,C,B,A}`
+* `none()..D` ⇒ `{D,C,B,A,root()}`
+* `D..B` ⇒ `{}` (empty set)
+* `(C|B)..(C|B)` ⇒ `{}` (empty set)
 
-    **Non-distributivity of `..` over union (left side)**
+**Non-distributivity of `..` over union (left side)**
 
-    Using the same graph, observe that `(C|B)..` ⇒ `{D}`, but:
-    * `C..` ⇒ `{D,B}`
-    * `B..` ⇒ `{D,C}`
-    * `C.. | B..` ⇒ `{D,C,B}`
-    * `C.. & B..` ⇒ `{D}`
+Using the same graph, observe that `(C|B)..` ⇒ `{D}`, but:
+* `C..` ⇒ `{D,B}`
+* `B..` ⇒ `{D,C}`
+* `C.. | B..` ⇒ `{D,C,B}`
+* `C.. & B..` ⇒ `{D}`
 
-    So `(C|B)..` ≠ `C.. | B..`, but `(C|B).. = C.. & B..`. The `..` operator
-    converts union to intersection on its left side.
+So `(C|B)..` ≠ `C.. | B..`, but `(C|B).. = C.. & B..`. The `..` operator
+converts union to intersection on its left side.
+
+</details>
 
 ## Functions
 
 You can also specify revisions by using functions. Some functions take other
 revsets (expressions) as arguments.
 
-??? note "Function argument syntax"
+<details>
+<summary>Function argument syntax</summary>
 
-    In this documentation, optional arguments are indicated with square
-    brackets like `[arg]`. Some arguments also have an optional label which can
-    be used to specify that argument without specifying all previous arguments.
+In this documentation, optional arguments are indicated with square
+brackets like `[arg]`. Some arguments also have an optional label which can
+be used to specify that argument without specifying all previous arguments.
 
-    For instance, `remote_bookmarks([name_pattern], [[remote=]remote_pattern])`
-    indicates that all of the following usages are valid:
+For instance, `remote_bookmarks([name_pattern], [[remote=]remote_pattern])`
+indicates that all of the following usages are valid:
 
-    * `remote_bookmarks()`
-    * `remote_bookmarks("main")`
-    * `remote_bookmarks("main", "origin")`
-    * `remote_bookmarks("main", remote="origin")`
-    * `remote_bookmarks(remote="origin")`
+* `remote_bookmarks()`
+* `remote_bookmarks("main")`
+* `remote_bookmarks("main", "origin")`
+* `remote_bookmarks("main", remote="origin")`
+* `remote_bookmarks(remote="origin")`
+
+</details>
 
 * `parents(x, [depth])`: `parents(x)` is the same as `x-`.
   `parents(x, depth)` returns the parents of `x` at the given `depth`. For
@@ -474,64 +482,67 @@ revsets (expressions) as arguments.
 
 [operation]: glossary.md#operation
 
-??? examples
+<details>
+<summary>Examples</summary>
 
-    Given this history:
-    ```
-    E
-    | D
-    |/|
-    B C
-    |/
-    A
-    |
-    root()
-    ```
+Given this history:
+```
+E
+| D
+|/|
+B C
+|/
+A
+|
+root()
+```
 
-    **function** `reachable()`
+**function** `reachable()`
 
-    `reachable(srcs, domain)` finds all commits reachable from `srcs` by
-    following parent or child edges, but limited to commits within `domain`.
+`reachable(srcs, domain)` finds all commits reachable from `srcs` by
+following parent or child edges, but limited to commits within `domain`.
 
-    * `reachable(E, A..)` ⇒ `{E,D,C,B}` — All commits after A are reachable
-    * `reachable(E, B..)` ⇒ `{E}` — E is isolated: its only edge (to B) leaves the domain
-    * `reachable(C, B..)` ⇒ `{D,C}` — C and D are connected; the C→A edge leaves the domain
-    * `reachable(D, B..)` ⇒ `{D,C}` — Same result: D reaches C, but D→B leaves the domain
-    * `reachable(A, A..)` ⇒ `{}` (empty set) — A is not in domain `A..`, so it's ignored
+* `reachable(E, A..)` ⇒ `{E,D,C,B}` — All commits after A are reachable
+* `reachable(E, B..)` ⇒ `{E}` — E is isolated: its only edge (to B) leaves the domain
+* `reachable(C, B..)` ⇒ `{D,C}` — C and D are connected; the C→A edge leaves the domain
+* `reachable(D, B..)` ⇒ `{D,C}` — Same result: D reaches C, but D→B leaves the domain
+* `reachable(A, A..)` ⇒ `{}` (empty set) — A is not in domain `A..`, so it's ignored
 
-    **function** `connected()`
+**function** `connected()`
 
-    * `connected(E|A)` ⇒ `{E,B,A}`
-    * `connected(D|A)` ⇒ `{D,C,B,A}`
-    * `connected(A)` ⇒ `{A}`
+* `connected(E|A)` ⇒ `{E,B,A}`
+* `connected(D|A)` ⇒ `{D,C,B,A}`
+* `connected(A)` ⇒ `{A}`
 
-    **function** `heads()`
+**function** `heads()`
 
-    * `heads(E|D)` ⇒ `{E,D}`
-    * `heads(E|C)` ⇒ `{E,C}`
-    * `heads(E|B)` ⇒ `{E}`
-    * `heads(E|A)` ⇒ `{E}`
-    * `heads(A)` ⇒ `{A}`
+* `heads(E|D)` ⇒ `{E,D}`
+* `heads(E|C)` ⇒ `{E,C}`
+* `heads(E|B)` ⇒ `{E}`
+* `heads(E|A)` ⇒ `{E}`
+* `heads(A)` ⇒ `{A}`
 
-    **function** `roots()`
+**function** `roots()`
 
-    * `roots(E|D)` ⇒ `{E,D}`
-    * `roots(E|C)` ⇒ `{E,C}`
-    * `roots(E|B)` ⇒ `{B}`
-    * `roots(E|A)` ⇒ `{A}`
-    * `roots(A)` ⇒ `{A}`
+* `roots(E|D)` ⇒ `{E,D}`
+* `roots(E|C)` ⇒ `{E,C}`
+* `roots(E|B)` ⇒ `{B}`
+* `roots(E|A)` ⇒ `{A}`
+* `roots(A)` ⇒ `{A}`
 
-    **function** `fork_point()`
+**function** `fork_point()`
 
-    * `fork_point(E|D)` ⇒ `{B}`
-    * `fork_point(E|C)` ⇒ `{A}`
-    * `fork_point(E|B)` ⇒ `{B}`
-    * `fork_point(E|A)` ⇒ `{A}`
-    * `fork_point(D|C)` ⇒ `{C}`
-    * `fork_point(D|B)` ⇒ `{B}`
-    * `fork_point(B|C)` ⇒ `{A}`
-    * `fork_point(A)` ⇒ `{A}`
-    * `fork_point(none())` ⇒ `{}`
+* `fork_point(E|D)` ⇒ `{B}`
+* `fork_point(E|C)` ⇒ `{A}`
+* `fork_point(E|B)` ⇒ `{B}`
+* `fork_point(E|A)` ⇒ `{A}`
+* `fork_point(D|C)` ⇒ `{C}`
+* `fork_point(D|B)` ⇒ `{B}`
+* `fork_point(B|C)` ⇒ `{A}`
+* `fork_point(A)` ⇒ `{A}`
+* `fork_point(none())` ⇒ `{}`
+
+</details>
 
 ## String patterns
 

@@ -1,4 +1,6 @@
-# Using Jujutsu with Gerrit Code Review
+---
+title: Using Jujutsu with Gerrit Code Review
+---
 
 JJ and Gerrit share the same mental model, which makes Gerrit feel like a
 natural collaboration tool for JJ. JJ tracks a "change identity" across

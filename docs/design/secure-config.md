@@ -1,4 +1,6 @@
-# Secure JJ config
+---
+title: Secure JJ config
+---
 
 Author: [Matt Stark](mailto:msta@google.com)
 

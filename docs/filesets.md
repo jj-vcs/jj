@@ -1,4 +1,6 @@
-# Filesets
+---
+title: Filesets
+---
 
 Jujutsu supports a functional language for selecting a set of files.
 Expressions in this language are called "filesets" (the idea comes from

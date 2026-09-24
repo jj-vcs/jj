@@ -1,4 +1,6 @@
-# Working on Windows
+---
+title: Working on Windows
+---
 
 Jujutsu works the same on all platforms, but there are some caveats that Windows
 users should be aware of.
@@ -12,12 +14,12 @@ Git's [`core.autocrlf`][git-autocrlf][^1], but does not currently honor
 keep the `working-copy.eol-conversion` setting and the `core.autocrlf` Git
 config in sync[^1].
 
-!!! note
-
-    If you created a colocated workspace and forgot to keep these two settings
-    in sync, resulting in a dirty working copy with only EOL diffs, you can set
-    the `working-copy.eol-conversion` setting correctly and run `jj abandon` to
-    fix it.
+:::note
+If you created a colocated workspace and forgot to keep these two settings
+in sync, resulting in a dirty working copy with only EOL diffs, you can set
+the `working-copy.eol-conversion` setting correctly and run `jj abandon` to
+fix it.
+:::
 
 Regardless of this setting, the line endings conversion is skipped on binary
 files based on a [heuristic](config.md#binary-file-detection). This behavior is

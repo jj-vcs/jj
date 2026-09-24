@@ -1,4 +1,6 @@
-# Git submodule storage
+---
+title: Git submodule storage
+---
 
 ## Objective
 

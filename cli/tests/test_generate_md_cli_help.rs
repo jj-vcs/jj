@@ -39,7 +39,7 @@ fn test_generate_markdown_docs_in_docs_dir() {
         prepend_module_to_snapshot => false,
         omit_expression => true,
         description => "AUTO-GENERATED FILE, DO NOT EDIT. This cli reference is generated \
-                        by a test as an `insta` snapshot. MkDocs includes this snapshot \
+                        by a test as an `insta` snapshot. Astro includes this snapshot \
                         from docs/cli-reference.md.",
     },
     { assert_snapshot!("cli-reference", markdown_help) });

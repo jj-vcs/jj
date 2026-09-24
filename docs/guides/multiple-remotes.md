@@ -1,4 +1,6 @@
-# Multiple remotes
+---
+title: Multiple remotes
+---
 
 When using multiple [remote repositories], how you configure them in Jujutsu
 depends on your workflow and the role each remote plays.

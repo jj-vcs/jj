@@ -1,11 +1,12 @@
 # docs.jj-vcs.dev
 
-[![Built with
-Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
+This application powers <https://docs.jj-vcs.dev>, [built with
+Starlight](https://starlight.astro.build).
 
-This application powers https://docs.jj-vcs.dev.
+The content lives in `../docs/`, this directory contains all the rest necessary
+to build the website.
 
-## 🧞 Commands
+## Commands
 
 All commands are run from this directory:
 
@@ -18,6 +19,8 @@ All commands are run from this directory:
 | `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
 | `npm run astro -- --help` | Get help using the Astro CLI                     |
 
-## 👀 Want to learn more?
+## Further information
 
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+- [Starlight documentation](https://starlight.astro.build/)
+- [Astro documentation](https://docs.astro.build)
+- [Astro Discord server](https://astro.build/chat)

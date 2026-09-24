@@ -1,4 +1,6 @@
-# Jujutsu for Git experts
+---
+title: Jujutsu for Git experts
+---
 
 People who are proficient with Git often ask what benefit there is to using
 Jujutsu. This page explains the practical advantages for Git experts, with
