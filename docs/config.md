@@ -1080,10 +1080,12 @@ l.definition = ["log", "-r", "(main..@):: | (main..@)-"]
 l.doc = "Log pending changes"
 ```
 
-This alias syntax can only run a single jj command. However, you may want to
-execute multiple jj commands with a single alias, or run arbitrary scripts that
-complement your version control workflow. This can be done, but be aware of the
-danger:
+### Alias arbitrary commands
+
+The alias syntax above can only run a single jj command. However, you may want
+to execute multiple jj commands with a single alias, or run arbitrary scripts
+that complement your version control workflow. This can be done, but be aware of
+the danger:
 
 !!! warning
 
