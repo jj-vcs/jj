@@ -18,6 +18,7 @@ use std::hash::Hash;
 use std::io;
 
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use indexmap::IndexMap;
 use indoc::indoc;
 use itertools::Itertools as _;
@@ -40,6 +41,7 @@ use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::SameChange;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetExpression;
 use jj_lib::tree_merge::MergeOptions;
 
 use crate::cli_util::CommandHelper;
@@ -127,15 +129,24 @@ pub(crate) async fn cmd_converge(
     let mut workspace_command = command.workspace_helper(ui).await?;
     let settings = workspace_command.settings();
 
-    let search_space = {
+    let (default_revset_text, search_space) = {
         if args.revisions.is_empty() {
             let revset_string = settings.get_string("revsets.converge")?;
-            workspace_command.parse_revset(ui, &RevisionArg::from(revset_string))?
+            (
+                Some(revset_string.clone()),
+                workspace_command
+                    .parse_revset(ui, &RevisionArg::from(revset_string))?
+                    .resolve()?,
+            )
         } else {
-            workspace_command.parse_union_revsets(ui, &args.revisions)?
+            (
+                None,
+                workspace_command
+                    .parse_union_revsets(ui, &args.revisions)?
+                    .resolve()?,
+            )
         }
-    }
-    .resolve()?;
+    };
 
     workspace_command
         .check_rewritable_expr(&search_space)
@@ -146,14 +157,42 @@ pub(crate) async fn cmd_converge(
     let tx = workspace_command.start_transaction();
 
     // Find all divergent changes and choose one to converge.
-    let divergent_changes = find_divergent_changes(tx.base_repo(), search_space).await?;
+    let divergent_changes = find_divergent_changes(tx.base_repo(), search_space.clone()).await?;
     if divergent_changes.is_empty() {
-        if args.revisions.is_empty() {
-            writeln!(ui.status(), "No divergent changes found.")?;
+        // There were no revisions divergent with *each other* in the given
+        // search space. However, maybe there's general divergence in the repo,
+        // which would be useful to see in a hint.
+        if let Some(revset_text) = default_revset_text {
+            writeln!(
+                ui.status(),
+                "No revisions were found to be divergent with each other in revsets.converge: \
+                 {revset_text}"
+            )?;
         } else {
             writeln!(
                 ui.status(),
-                "No divergence found among the specified revisions."
+                "No revisions were found to be divergent with each other among the specified \
+                 revisions."
+            )?;
+        }
+        if let Some((_, some_divergent_change_id)) = RevsetExpression::divergent()
+            .intersection(&search_space)
+            .evaluate(tx.base_repo().as_ref())?
+            .commit_change_ids()
+            .try_next()
+            .await?
+        {
+            writeln!(
+                ui.hint_default(),
+                "Try again by selecting all revisions to converge for some divergent change ID, \
+                 such as: jj converge -r 'change_id({})'",
+                short_change_hash(&some_divergent_change_id)
+            )?;
+        } else {
+            writeln!(
+                ui.hint_default(),
+                "Multiple revisions in the search space must have the same change ID to be \
+                 considered divergent."
             )?;
         }
         return Ok(());

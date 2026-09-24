@@ -48,7 +48,8 @@ fn test_converge_no_divergence() {
     let output = work_dir.run_jj(["converge"]).success();
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    No divergent changes found.
+    No revisions were found to be divergent with each other in revsets.converge: mutable() & divergent()
+    Hint: Multiple revisions in the search space must have the same change ID to be considered divergent.
     [EOF]
     ");
 }
@@ -449,7 +450,8 @@ fn test_converge_two_divergent_changes() {
     let output = work_dir.run_jj(["converge"]).success();
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    No divergent changes found.
+    No revisions were found to be divergent with each other in revsets.converge: mutable() & divergent()
+    Hint: Multiple revisions in the search space must have the same change ID to be considered divergent.
     [EOF]
     ");
 }
@@ -498,7 +500,8 @@ fn test_converge_simple_with_revisions_arg() {
     let output = work_dir.run_jj(["converge", "-r", "a::d"]).success();
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    No divergence found among the specified revisions.
+    No revisions were found to be divergent with each other among the specified revisions.
+    Hint: Try again by selecting all revisions to converge for some divergent change ID, such as: jj converge -r 'change_id(zsuskulnrvyr)'
     [EOF]
     ");
 
@@ -626,7 +629,8 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     let output = work_dir.run_jj(["converge", "-r", "a::d"]).success();
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    No divergence found among the specified revisions.
+    No revisions were found to be divergent with each other among the specified revisions.
+    Hint: Try again by selecting all revisions to converge for some divergent change ID, such as: jj converge -r 'change_id(zsuskulnrvyr)'
     [EOF]
     ");
 
@@ -673,7 +677,8 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
         .success();
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    No divergence found among the specified revisions.
+    No revisions were found to be divergent with each other among the specified revisions.
+    Hint: Try again by selecting all revisions to converge for some divergent change ID, such as: jj converge -r 'change_id(kmkuslswpqwq)'
     [EOF]
     ");
 
