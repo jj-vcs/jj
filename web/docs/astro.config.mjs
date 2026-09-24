@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import mermaid from 'astro-mermaid';
 import remarkDirective from 'remark-directive';
 import remarkGfm from 'remark-gfm';
 import remarkIncludeMarkdown from './plugins/remark-include-markdown.mjs';
@@ -22,6 +23,7 @@ export default defineConfig({
 		],
 	},
 	integrations: [
+		mermaid(),
 		starlight({
 			plugins: [starlightStripMdExtension()],
 			title: 'Jujutsu docs',
