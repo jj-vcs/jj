@@ -145,7 +145,8 @@ already was deemed not to be a fit for the project.
 Since many ideas have come up before, but they haven't been implemented because
 they might be deceptively nuanced, or there may be strong opinions around them,
 bringing it up to the community first helps discover past discussions, so your
-design can be informed by them.
+design can be informed by them. See [Project Decisions](project-decisions.md) in
+case the project has made a previous decision about your idea.
 
 Once you have vetted your idea with the community, please write a
 [Design Doc](design_docs.md) which requires an architecture review from
