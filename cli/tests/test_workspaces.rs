@@ -2221,6 +2221,176 @@ fn test_workspaces_rename_nothing_changed() {
 }
 
 #[test]
+fn test_workspaces_move() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir.write_file("untracked", "contents");
+    main_dir.create_dir("../nested");
+
+    insta::assert_snapshot!(main_dir.run_jj(["workspace", "move", "second", "../secondary"]), @r#"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    "#);
+
+    let output = main_dir.run_jj(["workspace", "move", "second", "../nested/moved"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Moved workspace 'second' to "../nested/moved".
+    [EOF]
+    "#);
+
+    assert!(!secondary_dir.root().exists());
+    let moved_dir = test_env.work_dir("nested/moved");
+    assert_eq!(moved_dir.read_file("untracked"), "contents");
+    insta::assert_snapshot!(main_dir.run_jj(["workspace", "list"]).normalize_backslash(), @r#"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    second: ../nested/moved uuqppmxq 94f41578 (empty) (no description set)
+    [EOF]
+    "#);
+    moved_dir.run_jj(["status"]).success();
+}
+
+#[test]
+#[cfg(not(windows))]
+fn test_workspaces_move_current_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+
+    let output = secondary_dir.run_jj(["workspace", "move", "second", "../moved"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Moved workspace 'second' to "../moved".
+    [EOF]
+    "#);
+
+    assert!(!secondary_dir.root().exists());
+    test_env.work_dir("moved").run_jj(["status"]).success();
+}
+
+#[test]
+fn test_workspaces_move_rejects_invalid_destination() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    main_dir.create_dir("../existing");
+
+    let output = main_dir.run_jj(["workspace", "move", "secondary", "../existing"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Destination path already exists
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    let output = main_dir.run_jj(["workspace", "move", "default", "../moved-main"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Cannot move workspace 'default' because it contains the repository
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    let output = main_dir.run_jj([
+        "--ignore-working-copy",
+        "workspace",
+        "move",
+        "secondary",
+        "../renamed",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: This command must be able to update the working copy.
+    Hint: Don't use --ignore-working-copy.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(test_env.env_root().join("secondary").is_dir());
+    assert!(!test_env.env_root().join("renamed").exists());
+
+    let output = main_dir.run_jj(["--at-op=@-", "workspace", "move", "secondary", "../renamed"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: This command must be able to update the working copy.
+    Hint: Don't use --at-op.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(test_env.env_root().join("secondary").is_dir());
+    assert!(!test_env.env_root().join("renamed").exists());
+}
+
+#[test]
+#[cfg(unix)]
+fn test_workspaces_move_rejects_dangling_symlink_destination() {
+    use std::os::unix::fs::symlink;
+
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    symlink("missing", test_env.env_root().join("destination")).unwrap();
+
+    let output = main_dir.run_jj(["workspace", "move", "secondary", "../destination"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Destination path already exists
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(test_env.env_root().join("secondary").is_dir());
+    assert!(test_env.env_root().join("destination").is_symlink());
+}
+
+#[test]
+fn test_workspaces_move_colocated() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../old-alpha"])
+        .success();
+    main_dir.create_dir("../nested");
+
+    main_dir
+        .run_jj(["workspace", "move", "second", "../nested/new-beta"])
+        .success();
+
+    assert!(!test_env.env_root().join("old-alpha").exists());
+    let moved_dir = test_env.work_dir("nested/new-beta");
+    moved_dir.run_jj(["status"]).success();
+    let moved_repo = git::open(moved_dir.root());
+    git::status(&moved_repo);
+    let main_repo = git::open(main_dir.root());
+    assert_eq!(git_worktree_ids(&main_repo), ["old-alpha"]);
+    insta::assert_snapshot!(main_dir.run_jj(["workspace", "list"]).normalize_backslash(), @r#"
+    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    second: ../nested/new-beta pmmvwywv 058f604d (empty) (no description set)
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_workspaces_rename_new_workspace_name_already_used() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
