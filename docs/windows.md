@@ -46,6 +46,7 @@ tooling you use, especially IDEs, preserve LF line endings.
 [^1]: This poses the question of whether we should support reading the
       `core.autocrlf` setting in colocated workspaces. See details at the
       [issue][read-git-config-issue].
+
 [git-autocrlf]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf
 [read-git-config-issue]: https://github.com/jj-vcs/jj/issues/4048
 
