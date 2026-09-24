@@ -76,14 +76,12 @@ jobs:
       env:
         RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
     - name: Upload release archive
-      uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
+      shell: bash
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ${{ env.ASSET }}
-        asset_name: ${{ env.ASSET }}
-        asset_content_type: application/octet-stream
+        TAG: ${{ github.event.release.tag_name }}
+        ASSET: ${{ env.ASSET }}
+      run: gh release upload "$TAG" "$ASSET"
 
   docs-release-archive:
     runs-on: ubuntu-24.04
@@ -116,14 +114,11 @@ jobs:
           MKDOCS_OFFLINE: true
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
       - name: Upload release archive
-        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ${{ env.ASSET }}
-          asset_name: ${{ env.ASSET }}
-          asset_content_type: application/octet-stream
+          TAG: ${{ github.event.release.tag_name }}
+          ASSET: ${{ env.ASSET }}
+        run: gh release upload "$TAG" "$ASSET"
 
   docs-deploy-website-latest-release:
     runs-on: ubuntu-24.04
