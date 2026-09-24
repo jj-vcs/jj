@@ -61,7 +61,7 @@ revisions)" is shown to indicate that `musnqzvt` descends from `tylynnzk`, but
 the nodes connecting them are not in the revset.
 
 To view the elided revisions, change the [revset expression](revsets.md) so it
-includes the connecting revisions.  The `connected()` revset function does
+includes the connecting revisions. The `connected()` revset function does
 exactly this:
 
 ```sh
@@ -197,7 +197,8 @@ example, if you have a linear chain of revisions `A` through `C` and want to
 move `C` before `B`, use `jj rebase -r C -B B`. See `jj help rebase` for more
 examples.
 
-There is a [tracking issue][reordering] you can check for updates.
+For more complicated cases, try `jj arrange`. It is still under development,
+and will gain more features over time.
 
 To squash or split commits, use `jj squash` and `jj split`.
 
@@ -218,11 +219,11 @@ can create a `.gitignore` file in that directory containing only `*`. This will
 ignore everything in the directory including the `.gitignore` file itself.
 
 If `$EDITOR` integration is important, something like `scratchpad.*` may be more
-helpful, as you can keep the filename extension intact (it
-matches `scratchpad.md`, `scratchpad.rs` and more). Another option is to add a
-directory to the global `.gitignore` which then stores all your temporary files
-and notes. For example, you could add `scratch/` to `~/.git/ignore` and then
-store arbitrary files in `<your-git-repo>/scratch/`.
+helpful, as you can keep the filename extension intact (it matches
+`scratchpad.md`, `scratchpad.rs` and more). Another option is to add a directory
+which would store all your temporary files and notes to your configured global
+gitignore file. For example, you could add `scratch/` to it and then store
+arbitrary files in `<your-git-repo>/scratch/`.
 
 You can find more details on `gitignore` files [here][gitignore].
 
@@ -243,7 +244,7 @@ Suppose you have a commit "Add new feature":
 $ jj log
 @  xxxxxxxx me@example.com 2024-08-21 11:13:21 ef612875
 │  Add new feature
-◉  yyyyyyyy me@example.com 2024-08-21 11:13:09 main b624cf12
+◆  yyyyyyyy me@example.com 2024-08-21 11:13:09 main b624cf12
 │  Existing work
 ~
 ```
@@ -272,11 +273,11 @@ Added 0 files, modified 1 files, removed 0 files
 $ jj log
 @    vvvvvvvv me@example.com 2024-08-22 08:57:40 ac4d9fbe
 ├─╮  (empty) (no description set)
-│ ◉  wwwwwwww me@example.com 2024-08-22 08:57:40 2106921e
+│ ○  wwwwwwww me@example.com 2024-08-22 08:57:40 2106921e
 │ │  private: my credentials
-◉ │  xxxxxxxx me@example.com 2024-08-21 11:13:21 ef612875
+○ │  xxxxxxxx me@example.com 2024-08-21 11:13:21 ef612875
 ├─╯  Add new feature
-◉  yyyyyyyy me@example.com 2024-08-21 11:13:09 main b624cf12
+◆  yyyyyyyy me@example.com 2024-08-21 11:13:09 main b624cf12
 │  Existing work
 ~
 ```
@@ -308,7 +309,7 @@ To avoid pushing change _wwwwwwww_ by mistake, use the configuration
 [git.private-commits](config.md#set-of-private-commits):
 
 ```shell
-jj config set --user git.private-commits "'''description(glob:'private:*')'''"
+jj config set --user git.private-commits "'''description('private:*')'''"
 ```
 
 ### I accidentally changed files in the wrong commit, how do I move the recent changes into another commit?
@@ -354,18 +355,20 @@ $ jj evolog
 @  lnvvtrzo jjfan@example.org 2025-02-28 21:01:10 31a347e0
 │  featureA
 │  -- operation 3cb7392c092c snapshot working copy
-○  lnvvtrzo hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
+○  lnvvtrzo/1 jjfan@example.org 2025-02-28 21:00:51 b8004ab8 (hidden)
 │  featureA
 │  -- operation 1280bfaec893 snapshot working copy
-○  lnvvtrzo hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
+○  lnvvtrzo/2 jjfan@example.org 2025-02-28 20:50:05 e4d831d (hidden)
    (no description set)
    -- operation 0418a5aa94b5 snapshot working copy
 ```
 
 Since commit `b800` is hidden, it is considered obsolete and `jj log` (without
-arguments) will not show it, nor can it be accessed by its change ID `lnvvtrzo`.
-However, most `jj` operations work normally on such commits if you refer to them
-by their commit ID.
+arguments) will not show it. However, most `jj` operations work normally on
+such commits if you refer to them by their commit ID. Hidden commits can also
+be referred to by their change ID, but they require a
+[change offset][glossary_change_offset] to distinguish them (e.g. `b800` can
+also be referred to as `lnv/1`, as shown in the evolog).
 
 To find out which of these versions is the last time before we started working
 on feature B (the point where we should have created a new change, but failed to
@@ -385,7 +388,7 @@ $ jj evolog --patch --git  # We use `--git` to make diffs clear without colors
 │  @@ -1,1 +1,2 @@
 │   Done with feature A
 │  +Working on feature B
-○  lnvvtrzo hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
+○  lnvvtrzo/1 jjfan@example.org 2025-02-28 21:00:51 b8004ab8 (hidden)
 │  featureA
 │  -- operation 1280bfaec893 snapshot working copy
 │  diff --git a/file b/file
@@ -395,7 +398,7 @@ $ jj evolog --patch --git  # We use `--git` to make diffs clear without colors
 │  @@ -1,1 +1,1 @@
 │  -Working on feature A
 │  +Done with feature A
-○  lnvvtrzo hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
+○  lnvvtrzo/2 jjfan@example.org 2025-02-28 20:50:05 e4d831d (hidden)
    (no description set)
    -- operation 0418a5aa94b5 snapshot working copy
    diff --git a/file b/file
@@ -431,22 +434,25 @@ First, we create a new empty child commit on top of `b80`:
 ```console
 $ jj new b80 -m "featureB"
 Working copy  (@) now at: pvnrkl 47171aa (empty) featureB
-Parent commit (@-)      : lnvvtr?? b8004ab featureA
+Parent commit (@-)      : lnvvtr/1 b8004ab (divergent) featureA
 ```
 
-Notice the change ID has "??" appended to it. This indicates that change ID
-`lnvvtr` is now [divergent][glossary_divergence]: There are two visible commits
-with the same change ID (commit `b8004ab` and `31a347e0`). This is okay and will
-be resolved in the next steps.
+There are now two visible commits with change ID `lnvvtr` (commit `b8004ab`
+and `31a347e0`), so we call these [divergent][glossary_divergence]. Similarly
+to hidden commits, divergent commits also require a
+[change offset][glossary_change_offset] when using the change ID to refer to
+them, so you can see that `b8004ab` is still shown as `lnvvtr/1` in the output.
+This temporary divergence is okay and will be resolved in the next steps.
 
 [glossary_divergence]: glossary.md#divergent-change
+[glossary_change_offset]: glossary.md#change-offset
 
 Next, restore the contents of `31a347e0` into the working copy:
 
 ```console
 $ jj restore --from 31a347e0
 Working copy  (@) now at: pvnrkl 468104c featureB
-Parent commit (@-)      : lnvvtr?? b8004ea featureA
+Parent commit (@-)      : lnvvtr/1 b8004ea (divergent) featureA
 $ cat file
 Done with feature A
 Working on feature B
@@ -549,7 +555,7 @@ with something like `jj desc -m "Revert the merge of D into B`. Now, commit `@`
 undoes the merge of `D` into  `B`. If necessary, you can now rebase it
 elsewhere, e.g. `jj rebase -r @ -o main`.
 
-### How do I deal with divergent changes ('??' after the [change ID])?
+### How do I deal with divergent changes?
 
 See: [Handling divergent commits](guides/divergence.md).
 
@@ -596,6 +602,22 @@ export default defineConfig({
 Note: There was a [request](https://github.com/vitejs/vite/issues/20036) to include `.jj`
 in the default ignore list, but manual configuration remains the recommended approach.
 
+### How can I manually trigger (e.g., periodic) snapshots?
+
+Most `jj` commands will automatically snapshot the working copy at the start of
+the command if needed. However, if you'd like to manually trigger a snapshot for
+whatever reason, such as for scripting, prompt info, or periodic snapshots in
+parallel with something like a
+[`watch` command](#can-i-monitor-how-jj-log-evolves), you can run
+`jj util snapshot`. By default this command will print whether a snapshot was
+taken, which you can silence with the global `--quiet` flag. This command is
+likely most useful for scripting rather than for running on the command line by
+a human.
+
+If you want to see the ID of the current operation after this command, it would
+be simpler to run `jj operation log --limit 1` directly, since that command also
+takes a snapshot if needed.
+
 ### I want to write a tool which integrates with Jujutsu. Should I use the library or parse the CLI?
 
 There are some trade-offs and there is no definitive answer yet.
@@ -635,5 +657,3 @@ revsets. This seemed unlikely to be accepted by the Git project.
 [revsets]: revsets.md
 
 [templates]: templates.md
-
-[reordering]: https://github.com/jj-vcs/jj/issues/1531

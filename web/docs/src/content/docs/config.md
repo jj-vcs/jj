@@ -9,40 +9,48 @@ These are the config settings available to jj/Jujutsu.
 `jj` loads several types of config settings:
 
 - The built-in settings. These cannot be edited. They can be viewed in the
-  `cli/src/config/` directory in `jj`'s source repo.
+  [`cli/src/config/`] directory in `jj`'s source repo.
 
 - The user settings. These can be edited with `jj config edit --user`. User
-settings are located in [the user config files], which can be found with `jj
-config path --user`.
+  settings are located in [the user config files], which can be found with
+  `jj config path --user`.
 
-- The repo settings. These can be edited with `jj config edit --repo` and are
-located in `.jj/repo/config.toml`.
+- The repo settings. These can be edited with `jj config edit --repo`, or found
+  with `jj config path --repo`. For security reasons, they are not located
+  inside the repo.
 
-- The workspace settings. These can be edited with `jj config edit --workspace`
-and are located in `.jj/workspace-config.toml` in the workspace root.
+- The workspace settings. These can be edited with `jj config edit --workspace`,
+  or found with `jj config path --workspace`. For security reasons, they are not
+  located inside the workspace.
 
-- Settings [specified in the command-line](#specifying-config-on-the-command-line).
+- Settings [specified on the command-line].
 
 These are listed in the order they are loaded; the settings from earlier items
 in the list are overridden by the settings from later items if they disagree.
 Every type of config except for the built-in settings is optional.
 
+Individual config files can also be targeted with
+`jj config {edit,set,unset} --file <PATH>`.
+
 You can enable JSON Schema validation in your editor by adding a `#:schema`
-reference at the top of your TOML config files. See [JSON Schema
-Support] for details.
+reference at the top of your TOML config files. See [JSON Schema Support] for
+details.
 
 See the [TOML site] and the [syntax guide] for a detailed description of the
 syntax. We cover some of the basics below.
 
-[the user config files]: #user-config-files
-[TOML site]: https://toml.io/en/
-[syntax guide]: https://toml.io/en/v1.0.0
-[JSON Schema Support]: #json-schema-support
-
 The first thing to remember is that the value of a setting (the part to the
 right of the `=` sign) should be surrounded in quotes if it's a string.
 
+[`cli/src/config/`]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/
+[JSON Schema Support]: #json-schema-support
+[specified on the command-line]: #specifying-config-on-the-command-line
+[syntax guide]: https://toml.io/en/latest
+[the user config files]: #user-config-files
+[TOML site]: https://toml.io/en/
+
 ### Dotted style and headings
+
 In TOML, anything under a heading can be dotted instead. For example,
 `user.name = "YOUR NAME"` is equivalent to:
 
@@ -66,13 +74,58 @@ colors."commit_id prefix".bold = true
 "commit_id prefix" = { bold = true }
 ```
 
-The docs below refer to keys in text using dotted notation, but example
-blocks will use heading notation to be unambiguous. If you are confident with TOML
-then use whichever suits you in your config. If you mix dotted keys and headings,
+The docs below refer to keys in text using dotted notation, but example blocks
+will use heading notation to be unambiguous. If you are confident with TOML then
+use whichever suits you in your config. If you mix dotted keys and headings,
 **you must put the dotted keys before the first heading**.
 
-That's probably enough TOML to keep you out of trouble but the [syntax guide] is
-very short if you ever need to check.
+### Escapes in strings
+
+There are two (or four) types of [strings in TOML]: basic and literal, with
+multi-line versions of each. Basic strings use double quotes (`"`) and support
+escape sequences, such as `"\n"`, `"\""`, `"\\"`, etc. Literal strings use
+single quotes (`'`) and do not support escape sequences. Using 3 double quotes
+or 3 single quotes to wrap a string makes it multi-line, and then you can use an
+unescaped double quote or single quote respectively without ending the string.
+
+A string in your config may be interpreted twice, first by the TOML parser and
+then by a Jujutsu parser. To avoid putting strings in your config that the TOML
+parser processes before it gets to the Jujutsu parser, you may want to use
+literal strings or literal multi-line strings in your `config.toml` files. For
+example:
+
+```toml
+[template-aliases]
+# basic_template = "'hello' ++ \"\n\""
+literal_template = '"hello" ++ "\n"'
+```
+
+`basic_template` is actually equivalent to this string:
+
+```
+'hello' ++ "
+"
+```
+
+because the TOML parser interprets the `\n` character as part of the string.
+This causes the Jujutsu parser to receive a different string than what you
+literally see in the TOML file, which may result in seemingly confusing parse
+error messages (such as referencing a line that you think shouldn't exist).
+
+On the other hand, `literal_template` is equivalent to:
+
+```
+"hello" ++ "\n"
+```
+
+because the TOML parser does not escape anything in the literal string.
+
+The same rules of basic and literal strings apply to custom Jujutsu languages:
+double quotes (`"`) allow escapes whereas single quotes (`'`) do not. So
+`template-aliases.my_template = "'hello\\n'"` would probably not be what you
+want.
+
+[strings in TOML]: https://toml.io/en/latest#string
 
 ## User settings
 
@@ -185,11 +238,18 @@ default-command = ["log", "--reversed"]
 ### Default description
 
 The editor content of a commit description can be populated by the
-`draft_commit_description` template.
+`draft_commit_description` template. `self` is a [`Commit`
+object](templates.md#commit-type).
 
 ```toml
 [templates]
-draft_commit_description = 'builtin_draft_commit_description_with_diff'
+draft_commit_description = '''
+concat(
+  builtin_draft_commit_description,
+  "\nJJ: ignore-rest\n",
+  diff.git(),
+)
+'''
 ```
 
 You can override only the `default_commit_description` value if you like, e.g.:
@@ -215,15 +275,43 @@ original commit.
 [templates]
 duplicate_description = '''
 concat(
-  description,
-  "\n(cherry picked from commit ",
+  description.trim_end(),
+  "\n\n(cherry picked from commit ",
   commit_id,
-  ")"
+  ")\n"
 )
 '''
 ```
 
-### Bookmark/tag listing order
+Note that `description` usually ends with a `\n` if it is not blank. Use
+`.trim_end()` to remove the `\n`.
+
+### New commit description
+
+When `jj new` creates a commit without an explicit `-m` message, it evaluates
+the `new_description` template to populate the description. By default, this
+template is empty.
+
+You can customize this to automatically generate descriptions for new commits.
+For example, to auto-generate merge commit messages:
+
+```toml
+[templates]
+new_description = '''
+if(parents.len() > 1,
+  "Merge " ++ parents.skip(1).map(|p| try(
+    p.bookmarks().first().name(),
+    p.change_id().shortest(8)
+  )).join(", ") ++ " into " ++ try(
+    parents.first().bookmarks().first().name(),
+    parents.first().change_id().shortest(8)
+  ) ++ "\n",
+  ""
+)
+'''
+```
+
+### Bookmark / tag listing order
 
 By default, `jj bookmark list` and `jj tag list` display bookmarks and tags
 sorted alphabetically by name. You can customize this sorting behavior by
@@ -235,14 +323,43 @@ bookmark-list-sort-keys = ["name"]
 tag-list-sort-keys = ["name"]
 ```
 
-The configuration works identically to using the `--sort` option for
-`jj bookmark list`. The following sort keys are supported: `name`, `author-name`,
-`author-email`, `author-date`, `committer-name`, `committer-email`,
-`committer-date`. Suffix the key with `-` to sort in descending order. Multiple
-keys can be supplied here, the first key is the most significant.
+The configuration works identically to using the `--sort` option. The following
+sort keys are supported: `name`, `author-name`, `author-email`, `author-date`,
+`committer-name`, `committer-email`, `committer-date`. Suffix the key with `-`
+to sort in descending order. Multiple keys can be supplied here, the first key
+is the most significant.
 
-When the `--sort` option is used with `jj bookmark list`, the configuration
-is ignored.
+When the `--sort` option is used, the configuration is ignored.
+
+### Bookmark advance default targets
+
+The `jj bookmark advance` command moves bookmarks forward in the graph. The
+default values for what bookmarks to advance and where to advance them to are:
+
+```toml
+[revsets]
+bookmark-advance-from = 'heads(::to & bookmarks())'  # The closest bookmarks
+bookmark-advance-to = '@'  # To the current working copy
+```
+
+The default `from` is likely to be a good fit for almost everyone. The `from`
+revset has access to `to`, allowing it to find bookmarks relative to the
+destination revision.
+
+The default `to` is largely up to your preference and workflow. One simple
+alternative which fits squash-heavy workflows is `@-`, while a more involved
+and versatile alternative that advances to the closest "pushable" revision is:
+
+```toml
+[revsets]
+bookmark-advance-to = 'closest_pushable(@)'
+
+[revset-aliases]
+# Closest revision that is mutable, described and either non-empty or a merge
+'closest_pushable(to)' = '''
+  heads(::to & mutable() & ~description(exact:"") & (~empty() | merges()))
+'''
+```
 
 ### Commit trailers
 
@@ -298,6 +415,17 @@ contents.
 "diff context" = { dim = true }
 ```
 
+Colors and styles can be configured differently for each diff format:
+
+```toml
+[colors]
+# Dim unchanged parts of changed lines in color-words diffs
+"diff color_words removed" = { dim = true }
+"diff color_words added" = { dim = true }
+"diff color_words removed token" = { dim = false }
+"diff color_words added token" = { dim = false }
+```
+
 ### Diff format
 
 ```toml
@@ -310,10 +438,13 @@ diff-formatter = ":git"
 
 #### Color-words diff options
 
-In color-words diffs, changed words are displayed inline by default. Because
-it's difficult to read a diff line with many removed/added words, there's a
-threshold to switch to traditional separate-line format. You can also change
-the default number of lines of context shown.
+In color-words diffs, changed words are displayed inline by default when color
+is enabled. When the formatter cannot emit color, changed words are always shown
+on separate lines because inline changes would not be distinguishable.
+
+Because it's difficult to read a diff line with many removed/added words, there's
+a threshold to switch to traditional separate-line format in colorized output.
+You can also change the default number of lines of context shown.
 
 * `max-inline-alternation`: Maximum number of removed/added word alternation to
   inline. For example, `<added> ... <added>` sequence has 1 alternation, so the
@@ -350,10 +481,28 @@ In git diffs you can change the default number of lines of context shown.
 
 * `context`: Number of lines of context to show in the diff. The default is `3`.
 
+* `show-path-prefix`: Whether to show the `a/` and `b/` path prefixes in
+  `diff --git` output. The default is `true`.
+
 ```toml
 [diff.git]
 context = 3
+show-path-prefix = true
 ```
+
+#### Diff stat options
+
+When using a subcommand that displays the diff stat menu like `jj show --stat`,
+the bar portion that renders as `++--` can be limited to a maximum width in
+characters.
+
+```toml
+[diff.stat]
+max-bar-width = 10
+```
+
+By default without this option set, the bar width is unbounded and will use the
+remaining available space, with a minimum of 30% of the total width.
 
 ### Generating diffs by external command
 
@@ -390,7 +539,7 @@ diff-args = ["--color=always", "$left", "$right"]
   not work for viewing diffs.
 
 By default `jj` will invoke external tools with a directory containing the left
-and right sides.  The `diff-invocation-mode` config can change this to file by file
+and right sides. The `diff-invocation-mode` config can change this to file by file
 invocations as follows:
 
 ```toml
@@ -432,9 +581,9 @@ page](conflicts.md#conflict-markers).
 
 You can configure the set of immutable commits via
 `revset-aliases."immutable_heads()"`. The default set of immutable heads is
-`builtin_immutable_heads()`, which in turn is defined as
-`present(trunk()) | tags() | untracked_remote_bookmarks()`. For example, to
-also consider the `release@origin` bookmark immutable:
+`builtin_immutable_heads()`, which in turn is defined as `trunk() | tags() |
+untracked_remote_bookmarks() | untracked_remote_tags()`. For example, to also
+consider the `release@origin` bookmark immutable:
 
 ```toml
 [revset-aliases]
@@ -485,12 +634,7 @@ needing the original behavior.
 You can configure the template used when no `-T` is specified.
 
 - `templates.config_list` for `jj config list`
-
-```toml
-[templates]
-# Use builtin config list template
-config_list = "builtin_config_list"
-```
+- `templates.workspace_list` for `jj workspace list`
 
 If you want to see the config variable origin (type and path) when you do `jj config list`
 you can add this to your config:
@@ -512,8 +656,32 @@ You can configure the revisions `jj log` would show when neither `-r` nor any pa
 log = "main@origin.."
 ```
 
-The default value for `revsets.log` is
-`'present(@) | ancestors(immutable_heads().., 2) | present(trunk())'`.
+The default value for `revsets.log` is `builtin_log()`, which is defined as
+`'present(@) | ancestors(immutable_heads().., 2) | trunk()'`. You can use
+`builtin_log()` as a starting point for your own custom log revset.
+
+:::caution
+When `revsets.short-prefixes` is not specified, it defaults to the value of `revsets.log`. This
+affects how change and commit id references are resolved when multiple commits share a common
+prefix. Changing `revsets.log` without also setting `revsets.short-prefixes` might increase the
+length of prefixes needed on the command-line, especially in large repositories.
+:::
+
+### Default revisions for operation diffs
+
+You can configure the set of revisions that are considered "interesting" when
+showing the difference between two operations (e.g. in `jj op show`,
+`jj op diff`, or `jj op log -p`). Revisions that are not in this set are
+elided into a summary count.
+
+```toml
+[revsets]
+# Only show mutable revisions and the trunk
+op-diff-changes-in = "mutable() | trunk()"
+```
+
+The default value for `revsets.op-diff-changes-in` is
+`'mutable() | immutable_heads()'`.
 
 ### Prioritize Revsets in the Log over @
 
@@ -726,6 +894,10 @@ Which pager to use can be customized by setting `ui.pager`. When choosing a
 pager, ensure that it either supports color codes or that you disable color (see
 [Colorizing output](#colorizing-output)).
 
+The `JJ_PAGER` environment variable overrides `ui.pager`, and is useful for
+tool-specific environments that should not affect other programs. The generic
+`PAGER` environment variable is ignored.
+
 Examples:
 
 ```shell
@@ -846,6 +1018,27 @@ You can define aliases for commands, including their arguments. For example:
 l = ["log", "-r", "(main..@):: | (main..@)-"]
 ```
 
+### Alias descriptions
+
+Alias descriptions can be surfaced in shell completions by defining the alias
+as a table with `.doc` and `.definition` properties. For example:
+
+```toml
+[aliases]
+l = {
+    definition = ["log", "-r", "(main..@):: | (main..@)-"],
+    doc = "Log pending changes"
+}
+```
+
+You can also use the dotted key syntax:
+
+```toml
+[aliases]
+l.definition = ["log", "-r", "(main..@):: | (main..@)-"]
+l.doc = "Log pending changes"
+```
+
 This alias syntax can only run a single jj command. However, you may want to
 execute multiple jj commands with a single alias, or run arbitrary scripts that
 complement your version control workflow. This can be done, but be aware of the
@@ -882,6 +1075,32 @@ echo "args: $@"
 
 > Note: Shebangs (e.g. `#!/usr/bin/env`) aren't necessary since you're already
 > explicitly passing your script into the right shell.
+
+### Disabling aliases
+
+Sometimes you may want to disable an alias, such as a built-in alias that you
+prefer not to use (for example, `jj des<tab>` may result in `jj desc<cursor>`
+instead of `jj describe <cursor>` because there are two possible completions,
+`desc` and `describe`, with the same prefix) or an alias defined in an earlier
+config that you want to disable in a later layer (such as in a repo config or
+in a [conditional variables](#conditional-variables) scope). To do so, set
+`aliases.<name>.enabled` to `false`:
+
+```toml
+[aliases]
+desc.enabled = false
+
+best-log = {
+  enabled = false,  # WIP; don't enable yet
+  doc = "The best `jj log`",
+  definition = ["log", "-r", "the_perfect_revset()"]
+}
+```
+
+Normal alias overriding rules apply, which means another configuration file may
+define the alias again later. Disabling aliases only applies to the `aliases`
+table; `template-aliases`, `revset-aliases`, and `fileset-aliases` cannot be
+disabled.
 
 ## Editor
 
@@ -925,7 +1144,7 @@ Obviously, you would only set one line, don't copy them all in!
 ## Editing diffs
 
 The `ui.diff-editor` setting affects the default tool used for editing diffs
-(e.g.  `jj split`, `jj squash -i`). If it is not set, the special value
+(e.g. `jj split`, `jj squash -i`). If it is not set, the special value
 `:builtin` is used. It launches a built-in TUI tool (known as [scm-diff-editor])
 to edit the diff in your terminal.
 
@@ -957,12 +1176,25 @@ edit-args = ["--newtab", "$left", "$right"]
 
 `jj` makes the following substitutions:
 
-- `$left` and `$right` are replaced with the paths to the left and right
-  directories to diff respectively.
+- `$left` is a directory containing the original contents before any changes.
+
+- `$right` is the directory containing the changed contents.
+  Edits are read back from here, so this is where tools should make changes.
 
 - If no `edit-args` are specified, `["$left", "$right"]` are set by default.
 
 - If `edit-args = []`, `jj` will refuse to use this tool for diff editing. This is a way to explicitly state that a certain tool (e.g. `mergiraf`) does not work for diff editing.
+
+Like diff viewing, diff editors are invoked with a directory containing the left
+and right sides by default. The `edit-invocation-mode` config controls this
+independently of `diff-invocation-mode`, so you can, for example, keep
+directory-based diff viewing but launch the diff editor once per changed file:
+
+```toml
+[merge-tools.my-tool]
+diff-invocation-mode = "dir"
+edit-invocation-mode = "file-by-file"
+```
 
 Finally, `ui.diff-editor` can be a list that specifies a command and its arguments.
 
@@ -1210,25 +1442,44 @@ The file is only rewritten if the subprocess produces a successful exit code.
 
 ### Configuration
 
-Tools are defined in a table where the keys are arbitrary identifiers and
-the values have the following properties:
- - `command`: The arguments used to run the tool. The first argument is the
-   path to an executable file. Arguments can contain these variables that will
-   be replaced:
-   - `$root` will be replaced with the workspace root path (the directory
-     containing the .jj directory).
-   - `$path` will be replaced with the repo-relative path of the file being
-     fixed. It is useful to provide the path to tools that include the path
-     in error messages, or behave differently based on the directory or file
-     name.
- - `patterns`: List of filesets (see: `jj help -k filesets`), determining
-   which files the tool will affect based on their path. If this list is
-   empty, no files will be affected by the tool. If there are multiple
-   patterns, the tool is applied only once to each file in the union of the
-   patterns.
- - `enabled`: Enables or disables the tool. If omitted, the tool is enabled.
-   This is useful for defining disabled tools in user configuration that can
-   be enabled in individual repositories with one config setting.
+Tools are defined in a table where the keys are arbitrary identifiers and the
+values have the following properties:
+
+- `command`: The arguments used to run the tool. The first argument is the path
+  to an executable file. Arguments can contain these variables that will be
+  replaced:
+  - `$root` will be replaced with the workspace root path (the directory
+    containing the .jj directory).
+  - `$path` will be replaced with the repo-relative path of the file being
+    fixed. It is useful to provide the path to tools that include the path in
+    error messages, or behave differently based on the directory or file name.
+- `patterns`: List of filesets (see: `jj help -k filesets`), determining which
+  files the tool will affect based on their path. If this list is empty, no
+  files will be affected by the tool. If there are multiple patterns, the tool
+  is applied only once to each file in the union of the patterns.
+- `enabled`: Enables or disables the tool. If omitted, the tool is enabled. This
+  is useful for defining disabled tools in user configuration that can be
+  enabled in individual repositories with one config setting.
+- `line-range-args`: Optional array of template strings specifying how to pass a
+  line range to the tool. It may include the variables `$first` and `$last`,
+  which will be replaced with the 1-based line numbers of the first and last
+  lines inside the modified range, respectively. A range containing a single
+  line will have equal values for `$first` and `$last`. Empty ranges
+  representing deletions will be skipped because they cannot be represented this
+  way. If the tool does not support formatting specific line ranges, this
+  setting should be omitted, and the tool will always process the entire file.
+  - Example: `line-range-args = ["--lines=$first:$last"]`
+  - Example: `line-range-args = ["--line-start=$first", "--line-end=$last"]`
+- `run-tool-if-zero-line-ranges`: Whether to run the tool invocation for this
+  tool on files that had zero line ranges to format in the revision being fixed.
+  Defaults to `false`, meaning the tool is skipped for these files. This default
+  behavior serves two main purposes:
+  - Avoiding unnecessary executions of tools when no line ranges are modified.
+  - Preventing tools configured with `line-range-args` from making overly broad
+    changes (formatting the whole file) when no line ranges are available.
+
+  Setting this to `true` is useful if the tool should run regardless of diffs
+  (e.g., to sort imports, or run with `--include-unchanged-files`).
 
 `jj fix` provides the file content anonymously on standard input, but the name
 of the file being formatted may be important for include sorting or other output
@@ -1258,6 +1509,39 @@ to keep the file sorted alphabetically and remove any duplicate words.
 [fix.tools.sort-word-list]
 command = ["sort", "-u"]
 patterns = ["word_list.txt"]
+```
+
+### Enforce code formatting on modified lines
+
+You can configure `jj fix` to run a formatter only on the modified lines of a
+file, rather than formatting the entire file. This is particularly useful for
+avoiding unrelated formatting changes in untouched parts of a file.
+
+To enable this, specify the `line-range-args` configuration to match the line
+range argument format expected by your tool. The formatter will be invoked with
+these arguments repeated for each modified line range (e.g. `--lines=10-20
+--lines=30-40`).
+
+Additionally, you can use `run-tool-if-zero-line-ranges` to control the
+behavior when a diff results in zero line ranges (which can happen when lines
+are only deleted or with `--include-unchanged-files`). If `false` (the default),
+`jj` will skip the tool entirely for that file. If `true`, `jj` will run the tool
+even when there are zero line ranges calculated. This is useful for tools that
+perform file-wide operations, such as import sorting.
+
+Note that you can use the `--all-lines` CLI flag for `jj fix` to ignore these
+line ranges and format the entire modified file instead.
+
+Example of `clang-format` with line ranges:
+
+```toml
+[fix.tools.clang-format]
+command = ["/usr/bin/clang-format", "--assume-filename=$path"]
+patterns = ["glob:'**/*.cc'",
+            "glob:'**/*.h'"]
+enabled = true
+line-range-args = ["--lines=$first:$last"]
+run-tool-if-zero-line-ranges = false
 ```
 
 ### Tools stored inside the workspace
@@ -1316,6 +1600,29 @@ Then to use the tool in a specific repository, set the `enabled` config:
 
 ```shell
 $ jj config set --repo fix.tools.rustfmt.enabled true
+```
+
+## `run`: Running commands across revisions {: #run }
+
+The `jj run` command executes a command against each revision in a set,
+checking out each one into an isolated working copy, running the command, and
+amending the revision with any resulting changes.
+
+### `run.jobs`: Default parallelism {: #run.jobs }
+
+By default `jj run` processes one revision at a time. You can increase
+parallelism with the `run.jobs` setting:
+
+```toml
+[run]
+jobs = 8
+```
+
+The value must be a positive integer. The `--jobs` / `-j` CLI flag overrides
+this setting for a single invocation:
+
+```shell
+jj run -j 4 -- cargo fmt
 ```
 
 ## Commit Signing
@@ -1497,6 +1804,23 @@ default. Set `git.colocate` to `false` to disable it.
 See [Colocated Jujutsu/Git workspaces](git-compatibility.md#colocated-jujutsugit-repos)
 for more information.
 
+### Default object hash format
+
+Traditionally, Git used the SHA-1 hash function to compute the identifiers for
+[objects]. Because SHA-1 is not considered cryptographically secure anymore, Git
+is in the [process of transitioning][transition] to a stronger hash function,
+namely SHA-256.
+
+Currently, the object hash function can only be set when initializing a new Git
+repository. The setting `git.object-hash` controls the default choice for that
+purpose. It can take the values `sha1` (default) and `sha256`.
+
+Note that at the moment there is no interopability between the formats, and not
+all code forges support SHA-256 repositories yet.
+
+[objects]: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
+[transition]: https://git-scm.com/docs/hash-function-transition
+
 ### Default remotes for `jj git fetch` and `jj git push`
 
 By default, if a single remote exists it is used for `jj git fetch` and `jj git
@@ -1526,11 +1850,27 @@ push to a different remote:
 
 ```sh
 jj config set --repo git.push "github"
+jj config set --repo git.push "regex:'^(remote|upstream)'"
+jj config set --repo git.push '["remote*", "upstream*"]'
 ```
 
-Note that unlike `git.fetch`, `git.push` can currently only be a single remote.
-This is not a hard limitation, and could be changed in the future if there is
-demand.
+### Default bookmarks and tags to fetch
+
+You can configure which bookmarks and tags to fetch by default per remote, using
+the `remotes.<name>.fetch-bookmarks`/`fetch-tags` config. The value is a [string
+pattern](./revsets.md#string-patterns) that matches the names of the bookmarks
+and tags to fetch. If `remotes.<name>.fetch-bookmarks` is not configured, the
+default fetch refspecs for the remotes are read from the Git configuration.
+
+The glob pattern supports only `*` (other wildcard characters like `?` are *not*
+supported). You can combine patterns with logical operators to specify multiple
+bookmarks and tags, but only union and negative intersection are supported.
+
+```toml
+[remotes.origin]
+fetch-bookmarks = "~gh-pages"
+fetch-tags = "v*"
+```
 
 ### Automatic tracking of bookmarks
 
@@ -1602,6 +1942,18 @@ reasons to restrict which bookmarks to track:
   to different (groups of) repositories. Read about how to do that in the
   section ["Conditional variables"](#conditional-variables).
 
+### Default revisions to push
+
+You can configure the default target revisions to push. By default, any tracking
+bookmarks and tags pointing to these revisions are pushed.
+
+The `remote` symbol expands to the name of the remote (e.g. `"origin"`).
+
+```toml
+[revsets]
+git-push = 'remote_bookmarks(remote=exact:remote)..@'
+```
+
 ### Automatic local bookmark creation on `jj git clone`
 
 When cloning a new Git repository, `jj` by default creates a local bookmark
@@ -1630,6 +1982,17 @@ abandon-unreachable-commits = false
 ```
 
 [reachable]: https://git-scm.com/docs/gitglossary/#Documentation/gitglossary.txt-aiddefreachableareachable
+
+### Replicating evolution history for fetched or imported Git commits
+
+By default, when `jj` imports commits from Git, it attempts to reconstruct their
+evolution history using change IDs. If you are importing a large number of
+commits, you can temporarily disable this behavior to improve performance:
+
+```toml
+[git]
+record-synthetic-predecessors = false
+```
 
 ### Generated bookmark names on push
 
@@ -1675,6 +2038,47 @@ you can:
 executable-path = "/path/to/git"
 ```
 
+## Gerrit settings
+
+### Default remote
+
+To configure the default remote that `jj gerrit upload` will push to, set
+`gerrit.default-remote`. This can be overridden with the `--remote` option.
+
+```toml
+[gerrit]
+default-remote = "gerrit"
+```
+
+### Default remote branch
+
+To configure the default branch that `jj gerrit upload` will push to, set
+`gerrit.default-remote-branch`. This can be overridden with the
+`--remote-branch` option.
+
+```toml
+[gerrit]
+default-remote-branch = "main"
+```
+
+### `Link` trailer
+
+Since version 3.3.1 Gerrit supports an alternative to the `Change-Id` trailer,
+using a [`Link` trailer][Gerrit Link trailer] in the format of
+`<review-url>/id/I<change-id>`. To have `jj gerrit upload` automatically add a
+`Link` trailer instead of a `Change-Id` trailer, set `gerrit.review-url` to the
+URL preview you'd like to use.
+
+```toml
+[gerrit]
+review-url = "https://review.gerrithub.io/your/project"
+```
+
+Note that if a `Change-Id` or `Link` trailer already exists in a change, then
+`jj gerrit upload` will not add any trailer.
+
+[Gerrit Link trailer]: https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html
+
 ## Merge settings
 
 ### Granularity of hunks
@@ -1695,7 +2099,9 @@ hunk-level = "line"
 
 `jj` by default resolves conflicts if all sides made the same change. This
 matches what Git and Mercurial do (in the 3-way case at least), but not what
-Darcs does. It also means that repeated 3-way merging of multiple trees may give
+Darcs does. See the technical docs on the
+[same-change rule](technical/conflicts.md#same-change-rule) for background and
+trade-offs. It also means that repeated 3-way merging of multiple trees may give
 different results depending on the order of merging. To turn it off, set
 `same-change = "keep"`.
 
@@ -1705,6 +2111,19 @@ different results depending on the order of merging. To turn it off, set
 ```toml
 [merge]
 same-change = "accept"
+```
+
+## Converge settings
+
+The `jj converge` command attempts to resolve divergence by replacing two or
+more divergent commits with a single commit. The command accepts a
+`--revisions REVSET` argument, and looks for divergence within the commits that
+match that revset. The `--revisions` argument is optional. By default
+`jj converge` uses the `revsets.converge` revset:
+
+```toml
+[revsets]
+converge = "mutable() & divergent()"
 ```
 
 ## Filesystem monitor
@@ -1725,6 +2144,16 @@ executable on your system](https://facebook.github.io/watchman/docs/install).
 You can configure `jj` to use watchman triggers to automatically create
 snapshots on filesystem changes by setting
 `fsmonitor.watchman.register-snapshot-trigger = true`.
+
+A full configuration for watchman can look like this:
+
+```toml
+[fsmonitor]
+backend = "watchman"
+
+[fsmonitor.watchman]
+register-snapshot-trigger = true
+```
 
 You can check whether Watchman is enabled and whether it is installed correctly
 using `jj debug watchman status`.
@@ -1794,36 +2223,40 @@ documentation](working-copy.md#stale-working-copy).
 
 ## Working copy settings
 
-### EOL conversion settings
+### EOL conversion setting
 
-This settings serves the same purpose as the [`core.autocrlf`][git-autocrlf] git
+This setting serves the same purpose as the [`core.autocrlf`][git-autocrlf] Git
 config.
 
-The line endings conversion won't be applied to files detected as binary files
-via a heuristics[^1] regardless of the settings. This is similar to git.
+Regardless of this setting, the line endings conversion is skipped on binary
+files based on a [heuristic](#binary-file-detection). This is similar to Git.
 
 ```toml
 [working-copy]
-# No EOL conversion. Similar to core.autocrlf = false.
+# No EOL conversion. Similar to `core.autocrlf = false`.
 eol-conversion = "none"
-# Apply CRLF to LF EOL conversion when we check files in the backend store from
-# the local file system but not apply EOL conversion when we check out the code
-# from the backend store to the local file system. Similar to core.autocrlf =
-# input.
+# Apply CRLF-to-LF EOL conversion when we check files in to the backend store
+# from the local file system, but do not apply LF-to-CRLF EOL conversion when we
+# check out the code from the backend store to the local file system. Similar to
+# `core.autocrlf = input`.
 eol-conversion = "input"
-# Setting this to "input-output" if you want to have CRLF line endings in your
-# working directory and the repository has LF line endings. Similar to
-# core.autocrlf = true.
+# Apply EOL conversion on both file check-in to and file check-out from the
+# backend store, so you have CRLF line endings in your working directory while
+# the repository has LF line endings. Similar to `core.autocrlf = true`.
 eol-conversion = "input-output"
 ```
 
 [git-autocrlf]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf
+
+#### Binary file detection
+
+To detect if a file is binary, Jujutsu currently checks if there is a NULL byte
+in the file, which is different from the algorithm of
+[`gitoxide`][gitoxide-is-binary] or [`Git`][git-is-binary]. Jujutsu doesn't plan
+to align the binary detection logic with Git.
+
 [gitoxide-is-binary]: https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100
 [git-is-binary]: https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103
-[^1]: To detect if a file is binary, Jujutsu currently checks if there is NULL
-      byte in the file which is different from the algorithm of
-      [`gitoxide`][gitoxide-is-binary] or [`git`][git-is-binary]. Jujutsu
-      doesn't plan to align the binary detection logic with git.
 
 ### Respect or ignore executable bit permission changes
 
@@ -1888,32 +2321,45 @@ and `<PLATFORM_SPECIFIC>` represents the platform-specific configuration
 directory shown in the table below. The platform-specific location is
 recommended for better integration with platform services.
 
-The files in the `conf.d` directory are loaded in lexicographic order. This allows
-configs to be split across multiple files and combines well
-with [Conditional Variables](#conditional-variables).
+The files in the `conf.d` directory are loaded in lexicographic order. This
+allows configs to be split across multiple files and combines well with
+[Conditional Variables](#conditional-variables). Modifying user configuration
+with `jj config {edit,set,unset} --user` targets the primary user config file
+(or the first loaded file in `conf.d/`). Individual files in `conf.d/` can be
+targeted with `--file <PATH>`.
 
 | Platform        | Location of `<PLATFORM_SPECIFIC>` dir | Example config file location                              |
 | :-------------- | :------------------------------------ | :-------------------------------------------------------- |
 | Linux and macOS | `$XDG_CONFIG_HOME` or `$HOME/.config` | `/home/alice/.config/jj/config.toml`                      |
 | Windows         | `{FOLDERID_RoamingAppData}`           | `C:\Users\Alice\AppData\Roaming\jj\config.toml`           |
 
-The location of the `jj` user config files/directories can also be overridden with the
-`JJ_CONFIG` environment variable. If it is not empty, it will be used instead
-of any configuration files in the default locations. If it is a path to a TOML
-file, then that file will be loaded instead. If it is a path to a directory,
-then all the TOML files in that directory will be loaded in lexicographic order
-and merged. Multiple paths can be specified by separating them with a
-platform-specific path separator (`:` on Unix-like systems, `;` on Windows).
+The location of the `jj` user config files/directories can also be overridden
+with the `JJ_CONFIG` environment variable. If the environment variable is set
+(even to an empty string), it will be used instead of any configuration files in
+the default locations. It can be a path to a TOML file or a directory of TOML
+files, which will be loaded in lexicographic order and merged. Multiple paths
+can be specified by separating them with a platform-specific path separator (`:`
+on Unix-like systems, `;` on Windows). Note that this variable only affects
+user-level and system-level config files; repo and workspace configs are
+unaffected and will continue to be loaded from their respective locations.
+(There is no environment variable to disable repo or workspace configs.)
 
-For example, the following could be used to run `jj` without loading any user configs:
+For example, the following could be used to run `jj` without loading any user or
+system configs:
 
 ```bash
-JJ_CONFIG= jj log       # Ignores any settings specified in the config file.
+# Ignores any settings specified in `{PLATFORM,/etc}/jj/{config.toml,conf.d/*.toml}`,
+# but still loads repo and workspace configs.
+JJ_CONFIG= jj log
 ```
+
+There are also the `--config-file <PATH>` and `--config <NAME=VALUE>`
+[global options](#specifying-config-on-the-command-line) which work with any
+`jj` command.
 
 ### System config files
 
-On unix-like platforms, system-wide `jj` configurations are by default loaded in
+On Unix-like platforms, system-wide `jj` configurations are by default loaded in
 the following precedence order (with later configs overriding earlier ones).
 
 - `/etc/jj/config.toml`
@@ -1921,6 +2367,9 @@ the following precedence order (with later configs overriding earlier ones).
 
 These configs can be overridden by [the user config files], and will be disabled
 in favor of the `JJ_CONFIG` environment variable if it is set.
+
+Existing system config files loaded by `jj` can be edited using
+`jj config {edit,set,unset} --file <PATH>`.
 
 ### JSON Schema Support
 
@@ -1968,12 +2417,12 @@ config files or environment variables. For example,
 jj --config ui.color=always --config ui.diff-editor=meld split
 ```
 
-Config value should be specified as a TOML expression. If string value isn't
-enclosed by any TOML constructs (such as array notation), quotes can be omitted.
-Here is an example with more advanced TOML constructs:
+The config value should be specified as a TOML expression. If it is a string
+value and isn't enclosed by any TOML constructs (such as array notation), quotes
+can be omitted. Here is an example with more advanced TOML constructs:
 
 ```shell
-# Single quotes and the '\' are interpreted by the shell and assume a Unix shell
+# Single quotes and the '\' are interpreted by the shell (assuming a POSIX shell)
 # Double quotes are passed to jj and are parsed as TOML syntax
 jj log --config \
   'template-aliases."format_timestamp(timestamp)"="""timestamp.format("%Y-%m-%d %H:%M %:::z")"""'
@@ -2052,6 +2501,15 @@ work = "heads(::@ ~ description(''))::"
 wip = ["log", "-r", "work"]
 ```
 
+You can modify specific configuration files such as those in
+`conf.d/` directly using the `--file` option (the file will be created if it
+doesn't already exist):
+
+```shell
+jj config set --file ~/.config/jj/conf.d/work.toml user.email "YOUR_WORK_EMAIL@workplace.com"
+jj config edit --file ~/.config/jj/conf.d/work.toml
+```
+
 #### Available condition keys
 
 * `--when.repositories`: List of paths to match the repository path prefix.
@@ -2078,7 +2536,7 @@ wip = ["log", "-r", "work"]
 
   ```toml
   --when.hostnames = ["work-laptop"]               # matches only "work-laptop"
-  --when.hostnames = ["home-desktop", "laptop"]    # matches "home-desktop" OR "laptop"
+  --when.hostnames = ["home-desktop", "laptop"]    # matches "home-desktop" *OR* "laptop"
   ```
 
 * `--when.commands`: List of subcommands to match.
@@ -2088,7 +2546,7 @@ wip = ["log", "-r", "work"]
   ```toml
   --when.commands = ["file"]        # matches `jj file show`, `jj file list`, etc
   --when.commands = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
-  --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
+  --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (*OR* subcommand of either)
   ```
 
 * `--when.platforms`: List of platforms to match.
@@ -2100,21 +2558,17 @@ wip = ["log", "-r", "work"]
 
   ```toml
   --when.platforms = ["windows"]            # matches only Windows
-  --when.platforms = ["linux", "freebsd"]   # matches Linux or and FreeBSD, but not macOS
+  --when.platforms = ["linux", "freebsd"]   # matches Linux *OR* FreeBSD, but *NOT* macOS
   --when.platforms = ["unix"]               # matches anything in the Unix family (Linux, FreeBSD, macOS, etc.)
   ```
 
-* `--when.environments`: List of environment variable conditions, any of
-  which must match.
-
-  Each entry is either `"NAME=VALUE"` (matches if the variable is set to
-  that exact value) or `"NAME"` (matches if the variable is set, regardless
-  of its value).
+* `--when.environments`: List of environment variable conditions in
+  `"NAME=VALUE"` format (check if the variable has the value), or `NAME` to
+  check if the variable is set.
 
   ```toml
   --when.environments = ["CI=true"]                     # matches when CI is set to "true"
-  --when.environments = ["CI=true", "CI=1"]             # matches when CI is "true" or "1"
-  --when.environments = ["CI=true", "GITHUB_ACTIONS=1"] # matches when EITHER condition holds
-  --when.environments = ["CI"]                          # matches when CI is set (any value)
-  --when.environments = ["CI", "GITHUB_ACTIONS"]        # matches when EITHER variable is set
+  --when.environments = ["CI"]                          # matches when CI is set to anything
+  --when.environments = ["CI=true", "CI=1"]             # matches when CI is "true" *OR* "1"
+  --when.environments = ["CI=true", "GITHUB_ACTIONS=1"] # matches when *EITHER* condition holds
   ```

@@ -153,8 +153,8 @@ has and at which operation it was most recently updated.
 
 ### Workspace
 
-The `Workspace` type represents the combination of a repo and a working copy (
-like Git's 'worktree' concept).
+The `Workspace` type represents the combination of a repo and a working copy
+(like Git's *worktree* concept).
 
 The repo view at the current operation determines the desired working-copy
 commit in each workspace. The `WorkingCopy` determines what is actually in the
@@ -176,18 +176,23 @@ remotes.
 A user-provided revset expression string goes through a few different stages to
 be evaluated:
 
-1. Parse the expression into a `RevsetExpression`, which is close to an AST
+1. Parse the expression into a `RevsetExpression`, which is close to an AST.
+   Aliases are also expanded during this stage.
 2. Resolve symbols and functions like `tags()` into specific commits. After
    this stage, the expression is still a `RevsetExpression`, but it won't have
    any `CommitRef` variants in it.
-3. Resolve visibility. This stage resolves `visible_heads()` and `all()` and
+3. Optimize the expression so that it can be evaluated more efficiently.
+4. Resolve visibility. This stage resolves `visible_heads()` and `all()` and
    produces a `ResolvedExpression`.
-4. Evaluate the `ResolvedExpression` into a `Revset`.
+5. Evaluate the `ResolvedExpression` into a `Revset`.
 
 This evaluation step is performed by `Index::evaluate_revset()`, allowing
 the `Revset` implementation to leverage the specifics of a custom index
-implementation. The first three steps are independent of the index
+implementation. The first four steps are independent of the index
 implementation.
+
+For more details, see the [revset evaluation](revset-evaluation.md)
+documentation.
 
 ### StackedTable
 

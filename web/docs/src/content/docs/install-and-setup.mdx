@@ -115,6 +115,16 @@ emerge -av dev-vcs/jj
 zypper install jujutsu
 ```
 
+#### Fedora Linux
+
+`jujutsu` has an unofficial [COPR
+repo](https://copr.fedorainfracloud.org/coprs/aldantanneo/jj-vcs) for Fedora:
+
+```shell
+sudo dnf copr enable aldantanneo/jj-vcs
+sudo dnf install jj-cli
+```
+
 ### Mac
 
 #### From Source
@@ -188,6 +198,29 @@ via scoop:
 # To install the latest release via scoop
 scoop install main/jj
 ```
+
+### FreeBSD
+
+`devel/jujutsu` is [available](https://www.freshports.org/devel/jujutsu) in the ports.
+
+Install pre-built pkg:
+
+```shell
+# To install the latest release via pkg
+pkg install jujutsu
+```
+
+Install from building the port:
+
+```shell
+# To install the latest release via ports
+cd /usr/ports/devel/jujutsu/ && make install clean
+```
+
+## Runtime Requirements
+
+You will need git 2.42.0 or above. On older systems (e.g. Debian 11, Ubuntu
+22.04) you will need to [upgrade Git](https://git-scm.com/install/).
 
 ## Initial configuration
 
@@ -267,10 +300,6 @@ standard completion script if there are any issues.
 
 ### Fish
 
-:::note
-No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
-:::
-
 <Tabs>
   <TabItem label="Standard">
     ```shell
@@ -278,6 +307,10 @@ No configuration is required with fish >= 4.0.2 which loads dynamic completions 
     ```
   </TabItem>
   <TabItem label="Dynamic">
+    :::note
+    No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
+    :::
+
     ```shell
     COMPLETE=fish jj | source
     ```
@@ -286,16 +319,14 @@ No configuration is required with fish >= 4.0.2 which loads dynamic completions 
 
 ### Nushell
 
-```nu
-jj util completion nushell | save -f completions-jj.nu
-use completions-jj.nu *  # Or `source completions-jj.nu`
-```
-
-### Xonsh
-
-```shell
-source-bash $(jj util completion)
-```
+<Tabs>
+  <TabItem label="Standard">
+    ```nu
+    jj util completion nushell | save -f completions-jj.nu
+    use completions-jj.nu *  # Or `source completions-jj.nu`
+    ```
+  </TabItem>
+</Tabs>
 
 ### Powershell
 

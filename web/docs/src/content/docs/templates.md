@@ -28,23 +28,40 @@ type](#operation-type) are available as keywords. For example,
 
 ## Operators
 
-The following operators are supported.
+The following operators are supported. `x` and `y` below can be any expression.
 
-* `x.f()`: Method call.
-* `-x`: Negate integer value.
-* `!x`: Logical not.
-* `x * y`, `x / y`, `x % y`: Multiplication/division/remainder. Operands must
-  be `Integer`s.
-* `x + y`, `x - y`: Addition/subtraction. Operands must be `Integer`s.
-* `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal/greater than/
-  lesser than or equal/lesser than. Operands must be `Integer`s.
-* `x == y`, `x != y`: Equal/not equal. Operands must be either `Boolean`,
-  `Integer`, or `String`.
-* `x && y`: Logical and, short-circuiting.
-* `x || y`: Logical or, short-circuiting.
-* `x ++ y`: Concatenate `x` and `y` templates.
+Operators are listed in order of binding power from strongest to weakest, e.g.
+`x ++ y * z` is interpreted as `x ++ (y * z)` since `*` has stronger binding
+power than `++`. Infix operators of the same binding power are parsed from left
+to right, e.g. `x * y / z` is interpreted as `(x * y) / z`.
 
-(listed in order of binding strengths)
+As seen above, parentheses can be used to control evaluation order, e.g. `(x +
+y) * z`.
+
+1. * `x.f()`: Method call.
+   * `f(x)`: Function call.
+
+2. * `-x`: Negate integer value.
+   * `!x`: Logical not.
+
+3. * `p:x`: String pattern or pattern alias named `p`.
+
+4. * `x * y`, `x / y`, `x % y`: Multiplication / division / remainder. Operands must
+     be `Integer`s.
+
+5. * `x + y`, `x - y`: Addition / subtraction. Operands must be `Integer`s.
+
+6. * `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal / greater than /
+     lesser than or equal / lesser than. Operands must be `Integer`s.
+
+7. * `x == y`, `x != y`: Equal / not equal. Operands must be either `Boolean`,
+     `ByteString`, `Integer`, or `String`.
+
+8. * `x && y`: Logical and, short-circuiting.
+
+9. * `x || y`: Logical or, short-circuiting.
+
+10. * `x ++ y`: Concatenate `x` and `y` templates.
 
 ## Global functions
 
@@ -77,16 +94,36 @@ The following functions are defined.
 * `label(label: Stringify, content: Template) -> Template`: Apply a custom
   [color label](#color-labels) to the content. The `label` is evaluated as a
   space-separated string.
+* `hyperlink(url: Stringify, text: Template, [fallback: Template]) -> Template`:
+  Render `text` as a hyperlink to `url` using [OSC 8 escape sequences](https://github.com/Alhadis/OSC8-Adoption)
+  when outputting with color enabled. Otherwise, renders `fallback` instead,
+  which defaults to `text`. Use `--color=always` to force hyperlinks when piping
+  output to a terminal emulator that supports OSC 8.
 * `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
   sequences in `content` (i.e., bypasses sanitization) and strips labels.
   Note: This function is intended for escape sequences and as such, its output
   is expected to be invisible / of no display width. Outputting content with
   nonzero display width may break wrapping, indentation etc.
+* `replace(pattern: StringPattern, content: Template, replacement: |RegexCaptures| -> Template) -> Template`:
+  Replace every match of `pattern` in `content` by formatting the `replacement`
+  lambda for each match.
+
+  This is similar to [`String.replace()`](#string-type), but operates on
+  `Template` content and preserves formatting of the parts of `content` that are
+  not replaced. The replacement itself is newly formatted template content.
+
+  The lambda argument is a [`RegexCaptures`](#regexcaptures-type) value for the
+  current match. Use `.get(index)` to access capture groups by index, `.name(name)`
+  to access named capture groups, and `.len()` to get the number of captures
+  including capture group 0 for the full match.
 * `stringify(content: Stringify) -> String`: Format `content` to string. This
   effectively removes color labels.
 * `json(value: Serialize) -> String`: Serialize `value` in JSON format.
-* `if(condition: Boolean, then: Template, [else: Template]) -> Template`:
-  Conditionally evaluate `then`/`else` template content.
+* `if(condition: Boolean, then: Any, [else: Any]) -> Any`:
+  Conditionally evaluates to `then` / `else` content.
+* `try(expr: Any, fallback: Any...) -> Any`: Evaluates each expression in order
+  and returns the first successful result. Suppresses preceding runtime errors,
+  but lets parsing errors (such as type errors) pass through.
 * `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
   content.
 * `concat(content: Template...) -> Template`:
@@ -97,16 +134,11 @@ The following functions are defined.
   `separator` between **non-empty** `content`s.
 * `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
   Surround **non-empty** content with texts such as parentheses.
-* `config(name: Stringify) -> ConfigValue`: Look up configuration value by `name`.
+* `config(name: Stringify) -> Option<ConfigValue>`: Look up configuration
+   value by `name`.
 * `git_web_url([remote: String]) -> String`: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
   empty string on failure. SSH host alias resolution is currently unsupported.
-
-## Built-in Aliases
-
-* `hyperlink(url, text)`: Creates a clickable hyperlink using [OSC8 escape sequences](https://github.com/Alhadis/OSC8-Adoption).
-  The `text` will be displayed and clickable, linking to the given `url` in
-  terminals that support OSC8 hyperlinks.
 
 ## Types
 
@@ -117,11 +149,26 @@ _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 The following methods are defined.
 
 * `.commit() -> Commit`: Commit responsible for changing the relevant line.
-* `.content() -> Template`: Line content including newline character.
+* `.content() -> ByteString`: Line content including newline character.
 * `.line_number() -> Integer`: 1-based line number.
 * `.original_line_number() -> Integer`: 1-based line number in the original commit.
 * `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
   references the same commit.
+
+### `Any` type
+
+_Conversion: `Boolean`: no, `Serialize`: maybe, `Template`: maybe_
+
+All types can be implicitly converted to `Any`. No methods are defined.
+
+### `AnyList` type
+
+_Conversion: `Boolean`: no, `Serialize`: maybe, `Template`: maybe_
+
+The following methods are defined.
+
+* `.join(separator: Template) -> Template`: Concatenate elements with
+  the given `separator`.
 
 ### `Boolean` type
 
@@ -129,13 +176,80 @@ _Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
 No methods are defined. Can be constructed with `false` or `true` literal.
 
+### `ByteString` type
+
+_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
+
+A byte string, whose encoding is considered ASCII-compatible (e.g. UTF-8), but
+isn't guaranteed. This can be implicitly converted to `Boolean`. The following
+methods are defined.
+
+* `.len() -> Integer`: Length in bytes.
+* `.contains(needle: ByteStringify) -> Boolean`: Whether the string contains the
+  provided stringifiable value as a substring.
+* `.match(needle: StringPattern) -> ByteString`: Extract the first matching part
+  of the string for the given pattern.
+
+  An empty string is returned if there is no match.
+* `.starts_with(needle: ByteStringify) -> Boolean`: Whether `needle` is a
+  prefix of the string.
+* `.ends_with(needle: ByteStringify) -> Boolean`: Whether `needle` is a suffix
+  of the string.
+* `.remove_prefix(needle: ByteStringify) -> ByteString`: Remove the passed
+  prefix, if present.
+* `.remove_suffix(needle: ByteStringify) -> ByteString`: Remove the passed
+  suffix, if present.
+* `.trim() -> ByteString`: Remove leading and trailing ASCII whitespace.
+* `.trim_start() -> ByteString`: Remove leading ASCII whitespace.
+* `.trim_end() -> ByteString`: Remove trailing ASCII whitespace.
+* `.substr(start: Integer, [end: Integer]) -> ByteString`: Extract substring.
+  Indices are 0-based and `end` is exclusive. Negative values count from the end
+  of the string, with `-1` being the last byte. If `end` is not given, returns
+  from `start` to the end of the string.
+* `.first_line() -> ByteString`
+* `.lines() -> List<ByteString>`: Split into lines excluding newline characters.
+* `.split(separator: StringPattern, [limit: Integer]) -> List<ByteString>`:
+  Split into substrings by the given `separator` pattern. If `limit` is
+  specified, it determines the maximum number of elements in the result, with
+  the remainder of the string returned as the final element. A `limit` of 0
+  returns an empty list.
+* `.replace(pattern: StringPattern, replacement: ByteStringify, [limit:
+  Integer]) -> ByteString`: Replace occurrences of the given `pattern` with the
+  `replacement` string.
+
+  By default, all occurrences are replaced. If `limit` is specified, at most
+  that many occurrences are replaced.
+
+  Supports capture groups in patterns using `$0` (entire match), `$1`, `$2` etc.
+* `.upper() -> ByteString`: Map each ASCII character to upper case.
+* `.lower() -> ByteString`: Map each ASCII character to lower case.
+
+### `ByteStringify` type
+
+An expression that can be converted to a `ByteString`.
+
+A `String` can be converted to a `ByteString` losslessly. Any types that can be
+converted to `Template` can also be `ByteStringify`. Unlike `Template`, color
+labels are stripped.
+
+### `ChangeId` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
+The following methods are defined.
+
+* `.normal_hex() -> String`: Normal hex representation (0-9a-f) instead of the
+  canonical "reversed" (z-k) representation.
+* `.short([len: Integer]) -> String`
+* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+
 ### `Commit` type
 
 _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
-* `.description() -> String`
+* `.description() -> String`: Usually ends with a trailing `\n`, if non-blank.
 * `.trailers() -> List<Trailer>`: The trailers at the end of the commit
   description that are formatted as `<key>: <value>`. These are returned in the
   same order as they appear in the description, and there may be multiple
@@ -168,15 +282,14 @@ This type cannot be printed. The following methods are defined.
 * `.remote_tags() -> List<CommitRef>`: All remote tags pointing to the commit.
 * `.divergent() -> Boolean`: True if the commit's change ID corresponds to multiple
   visible commits.
+* `.hidden() -> Boolean`: True if the commit is not visible (a.k.a. abandoned).
 * `.change_offset() -> Option<Integer>`: The [change offset](glossary.md#change-offset)
   of this commit. May not be available for some commits.
-* `.hidden() -> Boolean`: True if the commit is not visible (a.k.a. abandoned).
 * `.immutable() -> Boolean`: True if the commit is included in [the set of
   immutable commits](config.md#set-of-immutable-commits).
 * `.contained_in(revset: StringLiteral) -> Boolean`: True if the commit is included in
   [the provided revset](revsets.md).
 * `.conflict() -> Boolean`: True if the commit contains merge conflicts.
-* `.conflicted_files() -> List<TreeEntry>`: Conflicted files in this commit.
 * `.empty() -> Boolean`: True if the commit modifies no files.
 * `.diff([files: StringLiteral]) -> TreeDiff`: Changes from the parents within [the
   `files` expression](filesets.md). All files are compared by default, but it is
@@ -184,6 +297,7 @@ This type cannot be printed. The following methods are defined.
 * `.files([files: StringLiteral]) -> List<TreeEntry>`: Files that exist in this commit,
   matching [the `files` expression](filesets.md). Use `.diff().files()` to list
   changed files.
+* `.conflicted_files() -> List<TreeEntry>`: Conflicted files in this commit.
 * `.root() -> Boolean`: True if the commit is the root commit.
 
 ### `CommitEvolutionEntry` type
@@ -195,17 +309,10 @@ This type cannot be printed. The following methods are defined.
 * `.commit() -> Commit`: New commit.
 * `.operation() -> Operation`: Operation where the commit was created or
   rewritten.
-
-### `ChangeId` type
-
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
-
-The following methods are defined.
-
-* `.normal_hex() -> String`: Normal hex representation (0-9a-f) instead of the
-  canonical "reversed" (z-k) representation.
-* `.short([len: Integer]) -> String`
-* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+* `.predecessors() -> List<Commit>`: Predecessor commits of this entry.
+* `.inter_diff([files: StringLiteral]) -> TreeDiff`: Changes between this commit and its
+  predecessor version(s), rebased onto the parents of this commit to avoid unrelated
+  changes (similar to `jj evolog -p`).
 
 ### `CommitId` type
 
@@ -284,6 +391,22 @@ if(commit.signature(), "commit has a signature", "commit is unsigned")
 ```
 :::
 
+### `DiffStatEntry` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+
+This type holds the diff stats per file. The following methods are defined.
+
+* `.bytes_delta() -> Integer`: The difference in size of the file, in bytes.
+* `.lines_added() -> Integer`: Number of lines added.
+* `.lines_removed() -> Integer`: Number of lines deleted.
+* `.path() -> RepoPath`: Path to the entry. If the entry is a copy / rename, this
+  points to the target (or right) entry.
+* `.display_diff_path() -> String`: Format path for display, taking into account copy / rename information.
+* `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`, `"copied"`, or `"renamed"`.
+* `.status_char() -> String`: One of `"M"` (modified), `"A"` (added), `"D"` (removed),
+  `"C"` (copied), or `"R"` (renamed).
+
 ### `DiffStats` type
 
 _Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
@@ -294,21 +417,6 @@ are defined.
 * `.files() -> List<DiffStatEntry>`: Per-file stats for changed files.
 * `.total_added() -> Integer`: Total number of insertions.
 * `.total_removed() -> Integer`: Total number of deletions.
-
-### `DiffStatEntry` type
-
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
-
-This type holds the diff stats per file. The following methods are defined.
-
-* `.bytes_delta() -> Integer`: The difference in size of the file, in bytes.
-* `.lines_added() -> Integer`: Number of lines added.
-* `.lines_removed() -> Integer`: Number of lines deleted.
-* `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
-  points to the target (or right) entry.
-* `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`, `"copied"`, or `"renamed"`.
-* `.status_char() -> String`: One of `"M"` (modified), `"A"` (added), `"D"` (removed),
-  `"C"` (copied), or `"R"` (renamed).
 
 ### `Email` type
 
@@ -324,6 +432,20 @@ The following methods are defined.
   username.
 * `.domain() -> String`: the part of the email after the first `@` or the empty
   string.
+
+### `FsPath` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
+A filesystem path. Paths can contain bytes that are not valid UTF-8. Rendering
+and path formatting methods preserve those bytes. Serialization with `json()`
+follows Rust's `Path` serialization, which can reject non-UTF-8 paths.
+
+The following methods are defined.
+
+* `.absolute() -> FsPath`: Return an absolute filesystem path.
+* `.relative() -> FsPath`: Return the path relative to the current working
+  directory.
 
 ### `Integer` type
 
@@ -343,12 +465,20 @@ defined.
   the given `separator`.
 * `.filter(|item| expression) -> List`: Filter list elements by predicate
   `expression`. Example: `description.lines().filter(|s| s.contains("#"))`
-* `.map(|item| expression) -> ListTemplate`: Apply template `expression`
+* `.map(|item| expression) -> AnyList`: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
 * `.any(|item| expression) -> Boolean`: Returns true if any element satisfies
   the predicate `expression`. Example: `parents.any(|c| c.description().contains("fix"))`
 * `.all(|item| expression) -> Boolean`: Returns true if all elements satisfy
   the predicate `expression`. Example: `parents.all(|c| c.mine())`
+* `.first() -> T`: Returns the first element. Errors if the list is empty.
+* `.last() -> T`: Returns the last element. Errors if the list is empty.
+* `.get(index: Integer) -> T`: Returns the element at `index` (0-based). Errors
+  if the index is out of bounds.
+* `.reverse() -> List`: Returns the list in reverse order.
+* `.skip(count: Integer) -> List`: Skips the first `count` elements and
+  returns the rest.
+* `.take(count: Integer) -> List`: Returns only the first `count` elements.
 
 ### `List<Trailer>` type
 
@@ -356,15 +486,6 @@ The following methods are defined. See also the `List` type.
 
 * `.contains_key(key: Stringify) -> Boolean`: True if the commit description
   contains at least one trailer with the key `key`.
-
-### `ListTemplate` type
-
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
-
-The following methods are defined.
-
-* `.join(separator: Template) -> Template`: Concatenate elements with
-  the given `separator`.
 
 ### `Operation` type
 
@@ -375,10 +496,13 @@ This type cannot be printed. The following methods are defined.
 * `.current_operation() -> Boolean`
 * `.description() -> String`
 * `.id() -> OperationId`
-* `.tags() -> String`
+* `.attributes() -> String`
 * `.time() -> TimestampRange`
 * `.user() -> String`
 * `.snapshot() -> Boolean`: True if the operation is a snapshot operation.
+* `.workspace_name() -> String`: The name of the workspace the operation was
+  created from. An empty string if the operation wasn't created from a
+  workspace.
 * `.root() -> Boolean`: True if the operation is the root operation.
 * `.parents() -> List<Operation>`
 
@@ -409,6 +533,22 @@ _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 and escaping if necessary. Unlike strings, this cannot be implicitly converted
 to `Boolean`.
 
+### `RegexCaptures` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+
+This type is passed to the replacement lambda of the global
+[`replace()`](#global-functions) function.
+
+The following methods are defined.
+
+* `.len() -> Integer`: Number of capture groups, including capture group 0 for
+  the full match.
+* `.get(index: Integer) -> ByteString`: Returns the capture group at `index`.
+  Capture group 0 is the full match. Errors if the index is out of bounds.
+* `.name(name: Stringify) -> ByteString`: Returns the named capture group
+  `name`. Errors if there is no such named capture group.
+
 ### `RepoPath` type
 
 _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
@@ -416,8 +556,7 @@ _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 A slash-separated path relative to the repository root. The following methods
 are defined.
 
-* `.absolute() -> String`: Format as absolute path using platform-native
-  separator.
+* `.absolute() -> FsPath`: Absolute filesystem path.
 * `.display() -> String`: Format path for display. The formatted path uses
   platform-native separator, and is relative to the current working directory.
 * `.parent() -> Option<RepoPath>`: Parent directory path.
@@ -470,8 +609,8 @@ This type cannot be printed. The following methods are defined.
 
 _Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
-A string can be implicitly converted to `Boolean`. The following methods are
-defined.
+A UTF-8-encoded string. This can be implicitly converted to `Boolean`. The
+following methods are defined.
 
 * `.len() -> Integer`: Length in UTF-8 bytes.
 * `.contains(needle: Stringify) -> Boolean`: Whether the string contains the
@@ -480,21 +619,6 @@ defined.
   the first matching part of the string for the given pattern.
 
   An empty string is returned if there is no match.
-* `.replace(pattern: StringPattern, replacement: Stringify, [limit: Integer]) -> String`:
-  Replace occurrences of the given `pattern` with the `replacement` string.
-
-  By default, all occurrences are replaced. If `limit` is specified, at most
-  that many occurrences are replaced.
-
-  Supports capture groups in patterns using `$0` (entire match), `$1`, `$2` etc.
-* `.first_line() -> String`
-* `.lines() -> List<String>`: Split into lines excluding newline characters.
-* `.split(separator: StringPattern, [limit: Integer]) -> List<String>`: Split into
-  substrings by the given `separator` pattern. If `limit` is specified, it
-  determines the maximum number of elements in the result, with the remainder
-  of the string returned as the final element. A `limit` of 0 returns an empty list.
-* `.upper() -> String`
-* `.lower() -> String`
 * `.starts_with(needle: Stringify) -> Boolean`
 * `.ends_with(needle: Stringify) -> Boolean`
 * `.remove_prefix(needle: Stringify) -> String`: Removes the passed prefix, if
@@ -505,16 +629,40 @@ defined.
 * `.trim_start() -> String`: Removes leading whitespace
 * `.trim_end() -> String`: Removes trailing whitespace
 * `.substr(start: Integer, [end: Integer]) -> String`: Extract substring. The
-  `start`/`end` indices should be specified in units of UTF-8 bytes. Indices are
+  `start` / `end` indices should be specified in units of UTF-8 bytes. Indices are
   0-based and `end` is exclusive. Negative values count from the end of the
   string, with `-1` being the last byte. If the `start` index is in the middle
   of a UTF-8 codepoint, the codepoint is fully part of the result. If the `end`
   index is in the middle of a UTF-8 codepoint, the codepoint is not part of the
   result. If `end` is not given, returns from `start` to the end of the string.
+* `.first_line() -> String`
+* `.lines() -> List<String>`: Split into lines excluding newline characters.
+* `.split(separator: StringPattern, [limit: Integer]) -> List<String>`: Split
+  into substrings by the given `separator` pattern. If `limit` is specified, it
+  determines the maximum number of elements in the result, with the remainder of
+  the string returned as the final element. A `limit` of 0 returns an empty
+  list.
+* `.replace(pattern: StringPattern, replacement: Stringify, [limit: Integer]) ->
+  String`: Replace occurrences of the given `pattern` with the `replacement`
+  string.
+
+  By default, all occurrences are replaced. If `limit` is specified, at most
+  that many occurrences are replaced.
+
+  Supports capture groups in patterns using `$0` (entire match), `$1`, `$2` etc.
+* `.upper() -> String`
+* `.lower() -> String`
 * `.escape_json() -> String`: Serializes the string in JSON format. This
   function is useful for making machine-readable templates. For example, you
   can use it in a template like `'{ "foo": ' ++ foo.escape_json() ++ ' }'` to
   return a JSON/JSONL.
+
+### `Stringify` type
+
+An expression that can be converted to a `String`.
+
+Any types that can be converted to `Template` can also be `Stringify`. Unlike
+`Template`, color labels are stripped. Invalid UTF-8 sequences are rejected.
 
 ### `StringLiteral` type
 
@@ -544,13 +692,6 @@ String literals have their own type so that the value can be validated at parse
 time. For example, `contained_in(revset)` requires a literal so the revset can
 be parsed and checked before the template is evaluated.
 
-### `Stringify` type
-
-An expression that can be converted to a `String`.
-
-Any types that can be converted to `Template` can also be `Stringify`. Unlike
-`Template`, color labels are stripped.
-
 ### `StringPattern` type
 
 _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
@@ -579,7 +720,7 @@ _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 The following methods are defined.
 
 * `.ago() -> String`: Format as relative timestamp.
-* `.format(format: StringLiteral) -> String`: Format with [the specified strftime-like
+* `.format(format: Stringify) -> String`: Format with [the specified strftime-like
   format string](https://docs.rs/chrono/latest/chrono/format/strftime/).
 * `.utc() -> Timestamp`: Convert timestamp into UTC timezone.
 * `.local() -> Timestamp`: Convert timestamp into local timezone.
@@ -589,6 +730,9 @@ The following methods are defined.
 * `.before(date: StringLiteral) -> Boolean`: True if the timestamp is before, but
   not including, the given date. Supported date formats are the same as the
   revset [Date pattern type].
+* `.since(start: Timestamp) -> TimestampRange`: The TimestampRange between `start` and
+  `self`. It may be used in conjunction with `TimestampRange::duration` to obtain
+  a human-friendly duration between two `Timestamp`s.
 
 [Date pattern type]: revsets.md#date-patterns
 
@@ -621,7 +765,10 @@ This type cannot be printed. The following methods are defined.
 * `.color_words([context: Integer]) -> Template`: Format as a word-level diff
   with changes indicated only by color.
 * `.git([context: Integer]) -> Template`: Format as a Git diff.
-* `.stat([width: Integer]) -> DiffStats`: Calculate stats of changed lines.
+* `.stat([width: Integer], [max_bar_width: Integer]) -> DiffStats`: Calculate
+  stats of changed lines. `width` sets the entire width of the diff stat
+  including paths, and `max_bar_width` limits the maximum character length of
+  the `++--` bar.
 * `.summary() -> Template`: Format as a list of status code and path pairs.
 
 ### `TreeDiffEntry` type
@@ -630,10 +777,13 @@ _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
-* `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
+* `.path() -> RepoPath`: Path to the entry. If the entry is a copy / rename, this
   points to the target (or right) entry.
+* `.display_diff_path() -> String`: Format path for display, taking into account copy / rename information.
 * `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`,
   `"copied"`, or `"renamed"`.
+* `.status_char() -> String`: Single-character status indicator: `"M"` for modified,
+  `"A"` for added, `"D"` for removed, `"C"` for copied, or `"R"` for renamed.
 * `.source() -> TreeEntry`: The source (or left) entry.
 * `.target() -> TreeEntry`: The target (or right) entry.
 
@@ -644,10 +794,23 @@ _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 This type cannot be printed. The following methods are defined.
 
 * `.path() -> RepoPath`: Path to the entry.
+* `.normal_value() -> Option<TreeValue>`: The resolved value of the entry, or none
+  if the entry is absent or conflicted. Here, "normal" means resolved, not just a
+  regular file: symlinks, trees, and Git submodules are also included.
 * `.conflict() -> Boolean`: True if the entry is a merge conflict.
+* `.conflict_side_count() -> Integer`: Number of sides in the merge conflict (1 if not
+  conflicted, 2 or more for multi-way merges).
 * `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
   `"git-submodule"`, or `"conflict"`.
 * `.executable() -> Boolean`: True if the entry is an executable file.
+
+### `TreeValue` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+
+A file, symlink, tree, or Git submodule value. Its default formatting is
+its full hexadecimal object ID. For a Git submodule, this is the recorded commit
+ID. No methods are defined.
 
 ### `WorkspaceRef` type
 
@@ -657,6 +820,12 @@ The following methods are defined.
 
 * `.name() -> RefSymbol`: Returns the workspace name as a symbol.
 * `.target() -> Commit`: Returns the working-copy commit of this workspace.
+* `.root() -> Option<FsPath>`: Returns the workspace root path, if the root path
+  is recorded and can be resolved.
+
+  This is optional because workspaces created before jj 0.38.0 did not record
+  workspace root paths, and a recorded path can also become stale if the
+  workspace directory is moved or deleted.
 
 ## Color labels
 
@@ -673,11 +842,15 @@ jj op log -T 'self.id().short()'
 
 The exact names of such labels are often straightforward, but are not currently
 documented. You can discover the actual label names used with the
-`--color=debug` option, e.g.
+`--color=debug` option:
 
 ```sh
 jj op log -T 'self.id().short()' --color=debug
 ```
+
+This can be useful if you are trying to figure out whether or not a label is
+present or which labels you should define or override colors for to get the
+output that you want.
 
 Additionally, you can **manually** insert arbitrary labels using the
 `label(label, content)` function. For example,
@@ -694,21 +867,34 @@ nested invocations of `label()`.
 You are free to use custom label names as well. This will only have a visible
 effect if you also [customize their colors][config-colors] explicitly.
 
+To see all the default colors and what customizations apply from your own
+config, run:
+
+```sh
+jj config list --include-defaults --include-overridden colors
+```
+
+The default colors can be found in [`colors.toml`], and the default explicitly
+added labels (such as `mutable` or `divergent`) can be found in
+[`templates.toml`]. Labels that appear in `colors.toml` but that are not
+explicitly present in `templates.toml` will have been automatically added by
+`jj` (such as `author` or `change_id`).
+
 [config-colors]: config.md#custom-colors-and-styles
+[`colors.toml`]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/colors.toml
+[`templates.toml`]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml
 
 ## Configuration
 
 The default templates and aliases() are defined in the `[templates]` and
 `[template-aliases]` sections of the config respectively. The exact definitions
-can be seen in the [`cli/src/config/templates.toml`][1] file in jj's source
-tree.
-
-[1]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml
+can be seen in the [`templates.toml`] file.
 
 <!--- TODO: Find a way to embed the default config files in the docs -->
 
-New keywords and functions can be defined as aliases, by using any
-combination of the predefined keywords/functions and other aliases.
+New keywords, functions, and `<name>:<value>` patterns can be defined as
+aliases, by using any combination of the predefined keywords/functions and other
+aliases.
 
 Alias functions can be overloaded by the number of parameters. However, builtin
 functions will be shadowed by name, and can't co-exist with aliases.
@@ -717,6 +903,7 @@ For example:
 
 ```toml
 [template-aliases]
+sh = "commit_id.short()"
 'commit_change_ids' = '''
 concat(
   format_field("Commit ID", commit_id),
@@ -724,24 +911,55 @@ concat(
 )
 '''
 'format_field(key, value)' = 'key ++ ": " ++ value ++ "\n"'
+'json:x' = 'json(x) ++ "\n"'
+```
+
+### Alias descriptions
+
+Alias descriptions can be surfaced in shell completions by defining the alias
+as a table with `.doc` and `.definition` properties. For example:
+
+```toml
+[template-aliases]
+sh = { definition = 'commit_id.short()', doc = 'Short commit ID' }
+```
+
+You can also use the dotted key syntax:
+
+```toml
+[template-aliases]
+sh.definition = 'commit_id.short()'
+sh.doc = 'Short commit ID'
 ```
 
 ## Examples
 
+Print the object IDs on both sides of a diff:
+
+```sh
+jj diff -T 'path ++ " " ++ self.source().normal_value() ++ " -> " ++ self.target().normal_value() ++ "\n"'
+```
+
 Get short commit IDs of the working-copy parents:
 
 ```sh
-jj log --no-graph -r @ -T 'parents.map(|c| c.commit_id().short()).join(",")'
+jj log -G -r @ -T 'parents.map(|c| c.commit_id().short()).join(",")'
 ```
 
 Show machine-readable list of full commit and change IDs:
 
 ```sh
-jj log --no-graph -T 'commit_id ++ " " ++ change_id ++ "\n"'
+jj log -G -T 'commit_id ++ " " ++ change_id ++ "\n"'
 ```
 
 Print the description of the current commit, defaulting to `(no description set)`:
 
 ```sh
-jj log -r @ --no-graph -T 'coalesce(description, "(no description set)\n")'
+jj log -G -r @ -T 'coalesce(description, "(no description set)\n")'
+```
+
+For each revision, print the name of its first bookmark or change ID:
+
+```sh
+jj log -T 'try(bookmarks.first().name(), change_id.shortest(8)) ++ "\n"'
 ```

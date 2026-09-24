@@ -20,20 +20,24 @@ jj diff --from 'heads(tags())' --to main CHANGELOG.md
 ```
 
 Make sure to add a corresponding reference link at the bottom of the
-CHANGELOG for the new version's tag. It should be the github url comparing
+CHANGELOG for the new version's tag. It should be the GitHub URL comparing
 the previous version tag with the new version tag
-(e.g. `https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0`).
+(e.g. `https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0`). Also update the
+`[unreleased]` link accordingly, comparing the newest version against `HEAD`.
 
 Producing the list of contributors is a bit annoying. The current suggestion is
 to run something like this:
 
 ```shell
-root=$(jj log --no-graph -r 'heads(tags(glob:"v*.*.*") & ::trunk())' -T commit_id)
+root=$(jj log -G -r 'heads(tags(glob:"v*.*.*") & ::trunk())' -T commit_id)
 filter='
-   map(.commits[] | select(.author.login | endswith("[bot]") | not))
-   | unique_by(.author.login)
-   | map("* \(.commit.author.name) (@\(.author.login))")
-   | .[]
+map(.commits[] | select(.author.login | (. != null and endswith("[bot]") | not)))
+  | unique_by(if .author.login != null then .author.login else .author.email end)
+  | map(if .author.login != null
+        then "* \(.commit.author.name) (@\(.author.login))"
+        else "* \(.commit.author.name)"
+        end)
+  | .[]
 '
 gh api "/repos/jj-vcs/jj/compare/$root...main" --paginate | jq -sr "$filter" | sort -f
 ```
@@ -43,7 +47,7 @@ gh api "/repos/jj-vcs/jj/compare/$root...main" --paginate | jq -sr "$filter" | s
 Alternatively, the list can be produced locally:
 
 ```shell
-jj log --no-graph -r 'heads(tags())..main' -T '"* " ++ author ++ "\n"' | sort -fu
+jj log -G -r 'heads(tags())..main' -T '"* " ++ author ++ "\n"' | sort -fu
 ```
 
 Then try to find the right GitHub username for each person and copy their name
@@ -78,13 +82,11 @@ jj new v0.<number>.0
 Publish each crate:
 
 ```shell
-(cd lib/proc-macros && cargo publish)
-(cd lib && cargo publish)
-(cd cli && cargo publish)
+cargo publish --workspace
 ```
 
 [^1]: We recommend publishing from a new clone because `cargo publish` will
       archive ignored files if they match the patterns in `[include]`
       ([example](https://github.com/jj-vcs/jj/blob/b95628c398c6c3d11f41bdf53d0aef11f92ee96d/lib/Cargo.toml#L15-L22)),
-      so it's a security risk to run it an existing clone where you may have
+      so it's a security risk to run it in an existing clone where you may have
       left sensitive content in an ignored file.

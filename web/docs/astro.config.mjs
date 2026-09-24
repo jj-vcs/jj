@@ -81,6 +81,7 @@ export default defineConfig({
 				{
 					label: 'Guides',
 					items: [
+						{ label: 'CLI options for specifying revisions', slug: 'guides/cli-revision-options' },
 						{ label: 'Divergent changes', slug: 'guides/divergence' },
 						{ label: 'Multiple remotes', slug: 'guides/multiple-remotes' },
 					],
@@ -115,6 +116,7 @@ export default defineConfig({
 						{ label: 'Architecture', slug: 'technical/architecture' },
 						{ label: 'Concurrency', slug: 'technical/concurrency' },
 						{ label: 'Conflicts', slug: 'technical/conflicts' },
+						{ label: 'Revset evaluation', slug: 'technical/revset-evaluation' },
 					],
 					collapsed: true,
 				},
@@ -142,6 +144,8 @@ export default defineConfig({
 						{ label: 'Tracking branches', slug: 'design/tracking-branches' },
 						{ label: 'Copy tracking and tracing', slug: 'design/copy-tracking' },
 						{ label: 'Secure config', slug: 'design/secure-config' },
+						{ label: 'Managed config', slug: 'design/managed-config' },
+						{ label: 'JJ converge (aka resolve-divergence)', slug: 'design/jj-converge-command' },
 					],
 					collapsed: true,
 				},
