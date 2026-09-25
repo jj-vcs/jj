@@ -40,18 +40,64 @@ use crate::ui::Ui;
 ///
 /// When none of the `--onto`, `--insert-after`, or `--insert-before` arguments
 /// are provided, commits will be duplicated onto their existing parents or onto
-/// other newly duplicated commits.
+/// other newly duplicated commits. For example, `jj duplicate B`:
 ///
-/// When any of the `--onto`, `--insert-after`, or `--insert-before` arguments
-/// are provided, the roots of the specified commits will be duplicated onto the
-/// destination indicated by the arguments. Other specified commits will be
-/// duplicated onto these newly duplicated commits. If the `--insert-after` or
-/// `--insert-before` arguments are provided, the new children indicated by the
-/// arguments will be rebased onto the heads of the specified commits.
+/// ```text
+/// C            C
+/// |            |
+/// B    =>      B   B'
+/// |            |  /
+/// A            A
+/// ```
+///
+/// With `--onto/-o`, the roots of the duplicated set are placed on the
+/// destination, and existing descendants of the destination are not affected.
+/// This is the closest equivalent to `git cherry-pick`. For example,
+/// `jj duplicate B --onto C`:
+///
+/// ```text
+/// D            D   B'
+/// |            |  /
+/// C   B   =>   C   B
+///  \ /          \ /
+///   A            A
+/// ```
+///
+/// With `--insert-after/-A`, the roots of the duplicated set are placed on the
+/// destination, and the destination's existing descendants are rebased onto the
+/// heads of the duplicates. For example, `jj duplicate B --insert-after C`:
+///
+/// ```text
+/// D            D'
+/// |            |
+/// C   B   =>   B'
+///  \ /         |
+///   A          C   B
+///               \ /
+///                A
+/// ```
+///
+/// With `--insert-before/-B`, the roots of the duplicated set are placed on the
+/// target's parents, and the target and its descendants are rebased onto the
+/// heads of the duplicates. For example, `jj duplicate B --insert-before C`:
+///
+/// ```text
+/// D            D'
+/// |            |
+/// C   B   =>   C'
+///  \ /         |
+///   A          B'  B
+///               \ /
+///                A
+/// ```
+///
+/// When duplicating multiple commits, dependencies among the selected commits
+/// are preserved in the duplicated subgraph.
 ///
 /// By default, the duplicated commits retain the descriptions of the originals.
 /// This can be customized with the `templates.duplicate_description` setting.
 #[derive(clap::Args, Clone, Debug)]
+#[command(verbatim_doc_comment)]
 pub(crate) struct DuplicateArgs {
     /// The revision(s) to duplicate (default: @) [aliases: -r]
     #[arg(value_name = "REVSETS")]
