@@ -75,6 +75,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   disable them. This can be used to disable built-in aliases or disable aliases
   in later layers (such as repo config files).
 
+* Added `fix.tools.<name>.ignore-empty-output` (default `false`) to allow a tool
+  to be ignored if its stdout is completely empty. This is to handle tools which
+  output nothing if no changes are needed instead of passing stdin through.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
