@@ -19,6 +19,12 @@ again. In other words, the Google CLA is not scoped to a specific project. If
 you sign the Google CLA, it applies to other Google open-source projects as
 well (including future projects).
 
+### Use of AI tools
+
+AI assistance is welcome. You are responsible for checking what you submit and
+respecting the time of the people who review it. See our [AI contribution
+policy](ai-policy.md) for expectations and examples.
+
 ### Commit guidelines
 
 Unlike many GitHub projects (but like many VCS projects), we care more about the
