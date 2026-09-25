@@ -21,7 +21,7 @@
     "rehype-slug": "^6.0.0",
     "remark-directive": "^4.0.0",
     "remark-gfm": "^4.0.1",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "unist-util-visit": "^5.0.0"
   }
 }
