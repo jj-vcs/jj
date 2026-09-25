@@ -308,6 +308,10 @@ async fn run_mergetool_external_single_file(
         Merge::normal(new_file_id)
     };
 
+    if new_file_ids == file.unsimplified_ids {
+        return Err(ConflictResolveError::EmptyOrUnchanged);
+    }
+
     // If the exit status indicated there should be conflict markers but there
     // weren't any, it's likely that the tool generated invalid conflict markers, so
     // we need to inform the user. If we didn't treat this as an error, the user
