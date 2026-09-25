@@ -58,7 +58,6 @@ use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Merge;
 use crate::object_id::HexPrefix;
-use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
 use crate::repo_path::RepoPath;
 use crate::revset::DiffMatchSide;
@@ -243,7 +242,7 @@ impl<'a, I: AsCompositeIndex> PositionsAccumulator<'a, I> {
     /// Checks whether the commit is in the revset.
     fn contains(&self, commit_id: &CommitId) -> Result<bool, RevsetEvaluationError> {
         let index = self.index.as_composite();
-        let Some(position) = index.commits().commit_id_to_pos(commit_id) else {
+        let Some(position) = index.commits().try_commit_id_to_pos(commit_id) else {
             return Ok(false);
         };
 
@@ -1135,7 +1134,7 @@ impl EvaluationContext<'_> {
                 let composite = self.index.as_composite().commits();
                 let mut reachable_set = AncestorsBitSet::with_capacity(composite.num_commits());
                 for id in visible_heads {
-                    reachable_set.add_head(composite.commit_id_to_pos(id).unwrap());
+                    reachable_set.add_head(composite.commit_id_to_pos(id)?);
                 }
                 let reachable_set = Rc::new(RefCell::new(reachable_set));
                 Ok(box_pure_predicate_fn(
@@ -1187,21 +1186,7 @@ impl EvaluationContext<'_> {
     ) -> Result<EagerRevset, RevsetEvaluationError> {
         let mut positions: Vec<_> = commit_ids
             .iter()
-            .map(|id| {
-                // Invalid commit IDs should be rejected by the revset frontend,
-                // but there are a few edge cases that break the precondition.
-                // For example, in jj <= 0.22, the root commit doesn't exist in
-                // the root operation.
-                self.index.commits().commit_id_to_pos(id).ok_or_else(|| {
-                    RevsetEvaluationError::Other(
-                        format!(
-                            "Commit ID {} not found in index (index or view might be corrupted)",
-                            id.hex()
-                        )
-                        .into(),
-                    )
-                })
-            })
+            .map(|id| self.index.commits().commit_id_to_pos(id))
             .try_collect()?;
         positions.sort_unstable_by_key(|&pos| Reverse(pos));
         positions.dedup();

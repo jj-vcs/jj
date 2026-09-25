@@ -690,9 +690,9 @@ impl DefaultReadonlyIndex {
     }
 
     /// Looks up generation of the specified commit.
-    pub fn generation_number(&self, commit_id: &CommitId) -> Option<u32> {
+    pub fn generation_number(&self, commit_id: &CommitId) -> IndexResult<u32> {
         let entry = self.0.commits().entry_by_id(commit_id)?;
-        Some(entry.generation_number())
+        Ok(entry.generation_number())
     }
 
     #[doc(hidden)] // for tests
@@ -787,8 +787,8 @@ impl ReadonlyIndex for DefaultReadonlyIndex {
     fn change_id_index(
         &self,
         heads: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Box<dyn ChangeIdIndex> {
-        Box::new(ChangeIdIndexImpl::new(self.clone(), heads))
+    ) -> IndexResult<Box<dyn ChangeIdIndex>> {
+        Ok(Box::new(ChangeIdIndexImpl::new(self.clone(), heads)?))
     }
 
     fn start_modification(&self) -> Box<dyn MutableIndex> {

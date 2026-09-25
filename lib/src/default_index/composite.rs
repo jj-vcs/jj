@@ -26,6 +26,7 @@ use async_trait::async_trait;
 use itertools::Itertools as _;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
+use thiserror::Error;
 
 use super::bit_set::AncestorsBitSet;
 use super::bit_set::PositionsBitSet;
@@ -44,6 +45,7 @@ use crate::backend::CommitId;
 use crate::hex_util;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
+use crate::index::IndexError;
 use crate::index::IndexResult;
 use crate::index::ResolvedChangeState;
 use crate::index::ResolvedChangeTargets;
@@ -56,6 +58,27 @@ use crate::revset::ResolvedExpression;
 use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
 use crate::store::Store;
+
+// Invalid commit IDs should be rejected by the revset frontend, but there
+// are a few edge cases that break the precondition:
+// - in jj <= 0.22, the root commit doesn't exist in the root operation.
+// - at_operation(sibling_op, ...) can bring unindexed commits, which may later
+//   be evaluated against an unmerged index.
+#[derive(Debug, Error)]
+#[error("Commit ID {0} not found in index (index or view might be corrupted)")]
+pub(super) struct CommitIdNotFound(pub CommitId);
+
+impl From<CommitIdNotFound> for IndexError {
+    fn from(err: CommitIdNotFound) -> Self {
+        Self::Other(err.into())
+    }
+}
+
+impl From<CommitIdNotFound> for RevsetEvaluationError {
+    fn from(err: CommitIdNotFound) -> Self {
+        Self::Other(err.into())
+    }
+}
 
 id_type!(pub(super) CommitIndexSegmentId { hex() });
 
@@ -155,7 +178,7 @@ impl CompositeCommitIndex {
     }
 
     pub fn has_id(&self, commit_id: &CommitId) -> bool {
-        self.commit_id_to_pos(commit_id).is_some()
+        self.try_commit_id_to_pos(commit_id).is_some()
     }
 
     pub fn entry_by_pos(&self, pos: GlobalCommitPosition) -> CommitIndexEntry<'_> {
@@ -168,15 +191,28 @@ impl CompositeCommitIndex {
             .unwrap()
     }
 
-    pub fn entry_by_id(&self, commit_id: &CommitId) -> Option<CommitIndexEntry<'_>> {
-        self.ancestor_index_segments().find_map(|segment| {
-            let local_pos = segment.commit_id_to_pos(commit_id)?;
-            let pos = GlobalCommitPosition(local_pos.0 + segment.num_parent_commits());
-            Some(CommitIndexEntry::new(segment, pos, local_pos))
-        })
+    pub fn entry_by_id(
+        &self,
+        commit_id: &CommitId,
+    ) -> Result<CommitIndexEntry<'_>, CommitIdNotFound> {
+        self.ancestor_index_segments()
+            .find_map(|segment| {
+                let local_pos = segment.commit_id_to_pos(commit_id)?;
+                let pos = GlobalCommitPosition(local_pos.0 + segment.num_parent_commits());
+                Some(CommitIndexEntry::new(segment, pos, local_pos))
+            })
+            .ok_or_else(|| CommitIdNotFound(commit_id.clone()))
     }
 
-    pub fn commit_id_to_pos(&self, commit_id: &CommitId) -> Option<GlobalCommitPosition> {
+    pub fn commit_id_to_pos(
+        &self,
+        commit_id: &CommitId,
+    ) -> Result<GlobalCommitPosition, CommitIdNotFound> {
+        self.try_commit_id_to_pos(commit_id)
+            .ok_or_else(|| CommitIdNotFound(commit_id.clone()))
+    }
+
+    pub fn try_commit_id_to_pos(&self, commit_id: &CommitId) -> Option<GlobalCommitPosition> {
         self.ancestor_index_segments().find_map(|segment| {
             let LocalCommitPosition(local_pos) = segment.commit_id_to_pos(commit_id)?;
             let pos = GlobalCommitPosition(local_pos + segment.num_parent_commits());
@@ -315,10 +351,14 @@ impl CompositeCommitIndex {
         ResolvedChangeTargets { targets }
     }
 
-    pub fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
-        let ancestor_pos = self.commit_id_to_pos(ancestor_id).unwrap();
-        let descendant_pos = self.commit_id_to_pos(descendant_id).unwrap();
-        self.is_ancestor_pos(ancestor_pos, descendant_pos)
+    pub fn is_ancestor(
+        &self,
+        ancestor_id: &CommitId,
+        descendant_id: &CommitId,
+    ) -> Result<bool, CommitIdNotFound> {
+        let ancestor_pos = self.commit_id_to_pos(ancestor_id)?;
+        let descendant_pos = self.commit_id_to_pos(descendant_id)?;
+        Ok(self.is_ancestor_pos(ancestor_pos, descendant_pos))
     }
 
     pub(super) fn is_ancestor_pos(
@@ -347,19 +387,24 @@ impl CompositeCommitIndex {
         false
     }
 
-    pub fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId> {
+    pub fn common_ancestors(
+        &self,
+        set1: &[CommitId],
+        set2: &[CommitId],
+    ) -> Result<Vec<CommitId>, CommitIdNotFound> {
         let pos1 = set1
             .iter()
-            .map(|id| self.commit_id_to_pos(id).unwrap())
-            .collect_vec();
+            .map(|id| self.commit_id_to_pos(id))
+            .try_collect()?;
         let pos2 = set2
             .iter()
-            .map(|id| self.commit_id_to_pos(id).unwrap())
-            .collect_vec();
-        self.common_ancestors_pos(pos1, pos2)
+            .map(|id| self.commit_id_to_pos(id))
+            .try_collect()?;
+        Ok(self
+            .common_ancestors_pos(pos1, pos2)
             .iter()
             .map(|pos| self.entry_by_pos(*pos).commit_id())
-            .collect()
+            .collect())
     }
 
     /// Computes the greatest common ancestors.
@@ -418,17 +463,18 @@ impl CompositeCommitIndex {
     pub fn heads<'a>(
         &self,
         candidate_ids: impl IntoIterator<Item = &'a CommitId>,
-    ) -> Vec<CommitId> {
-        let mut candidate_positions = candidate_ids
+    ) -> Result<Vec<CommitId>, CommitIdNotFound> {
+        let mut candidate_positions: Vec<_> = candidate_ids
             .into_iter()
-            .map(|id| self.commit_id_to_pos(id).unwrap())
-            .collect_vec();
+            .map(|id| self.commit_id_to_pos(id))
+            .try_collect()?;
         candidate_positions.sort_unstable_by_key(|&pos| Reverse(pos));
         candidate_positions.dedup();
-        self.heads_pos(candidate_positions)
+        Ok(self
+            .heads_pos(candidate_positions)
             .iter()
             .map(|pos| self.entry_by_pos(*pos).commit_id())
-            .collect()
+            .collect())
     }
 
     /// Returns the subset of positions in `candidate_positions` which refer to
@@ -625,7 +671,7 @@ impl Index for CompositeIndex {
         ancestor_id: &CommitId,
         descendant_id: &CommitId,
     ) -> IndexResult<bool> {
-        Ok(self.commits().is_ancestor(ancestor_id, descendant_id))
+        Ok(self.commits().is_ancestor(ancestor_id, descendant_id)?)
     }
 
     async fn common_ancestors(
@@ -633,7 +679,7 @@ impl Index for CompositeIndex {
         set1: &[CommitId],
         set2: &[CommitId],
     ) -> IndexResult<Vec<CommitId>> {
-        Ok(self.commits().common_ancestors(set1, set2))
+        Ok(self.commits().common_ancestors(set1, set2)?)
     }
 
     fn all_heads_for_gc(&self) -> IndexResult<Box<dyn Iterator<Item = CommitId> + '_>> {
@@ -644,7 +690,7 @@ impl Index for CompositeIndex {
         &self,
         candidate_ids: &mut (dyn Iterator<Item = &CommitId> + Send),
     ) -> IndexResult<Vec<CommitId>> {
-        Ok(self.commits().heads(candidate_ids))
+        Ok(self.commits().heads(candidate_ids)?)
     }
 
     async fn changed_paths_in_commit(
@@ -653,7 +699,7 @@ impl Index for CompositeIndex {
     ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {
         let Some(paths) = self
             .commits()
-            .commit_id_to_pos(commit_id)
+            .try_commit_id_to_pos(commit_id)
             .and_then(|pos| self.changed_paths().changed_paths(pos))
         else {
             return Ok(None);
@@ -677,16 +723,19 @@ pub(super) struct ChangeIdIndexImpl<I> {
 }
 
 impl<I: AsCompositeIndex> ChangeIdIndexImpl<I> {
-    pub fn new(index: I, heads: &mut dyn Iterator<Item = &CommitId>) -> Self {
+    pub fn new(
+        index: I,
+        heads: &mut dyn Iterator<Item = &CommitId>,
+    ) -> Result<Self, CommitIdNotFound> {
         let composite = index.as_composite().commits();
         let mut reachable_set = AncestorsBitSet::with_capacity(composite.num_commits());
         for id in heads {
-            reachable_set.add_head(composite.commit_id_to_pos(id).unwrap());
+            reachable_set.add_head(composite.commit_id_to_pos(id)?);
         }
-        Self {
+        Ok(Self {
             index,
             reachable_set: Mutex::new(reachable_set),
-        }
+        })
     }
 }
 

@@ -1170,6 +1170,7 @@ fn test_change_id_index() {
         tx.repo()
             .mutable_index()
             .change_id_index(&mut commits.iter().map(|commit| commit.id()))
+            .unwrap()
     };
     let change_id_index = index_for_heads(&[&commit_1, &commit_2, &commit_3, &commit_4, &commit_5]);
     let prefix_len = |commit: &Commit| {
