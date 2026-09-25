@@ -87,11 +87,11 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      nkmrtpmo 90d12316 Revert "Revert "a""
+      nkmrtpmo daeff575 Reapply "a"
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  90d123162199 Revert "Revert "a""
+    ○  daeff575375b Reapply "a"
     │
     │  This reverts commit 64910788f8a5d322739e1e38ef35f7d06ea4b38d.
     ○  64910788f8a5 Revert "a"
