@@ -4161,6 +4161,152 @@ fn parse_early_args(
     Ok((args, config_layers))
 }
 
+/// Bash completer identical to the one from `clap_complete`, except that the
+/// generated registration script wraps the completion function to work
+/// around bash splitting the completed word at `COMP_WORDBREAKS` characters.
+///
+/// Bash splits the word being completed at these characters (`@`, `:`, `=`,
+/// ...), so jj would otherwise be asked to complete fragments like `@`
+/// instead of the whole `main@origin`, `main::`, or `name=<value>`
+/// argument. The wrapper rejoins the split words before invoking the
+/// completer and rebases the returned candidates on the part of the word
+/// that bash will actually replace. Like git-completion.bash, but unlike
+/// editing `COMP_WORDBREAKS` (or disabling `hostcomplete`), this has no
+/// effect on the rest of the shell session: `COMP_WORDBREAKS` is shared with
+/// every other completion script, and the words are already split by the time
+/// the completion function runs.
+struct BashCompletion;
+
+impl clap_complete::env::EnvCompleter for BashCompletion {
+    fn name(&self) -> &'static str {
+        clap_complete::env::Bash.name()
+    }
+
+    fn is(&self, shell: &str) -> bool {
+        clap_complete::env::Bash.is(shell)
+    }
+
+    fn write_registration(
+        &self,
+        var: &str,
+        name: &str,
+        bin: &str,
+        completer: &str,
+        buf: &mut dyn io::Write,
+    ) -> io::Result<()> {
+        let mut script = Vec::new();
+        clap_complete::env::Bash.write_registration(var, name, bin, completer, &mut script)?;
+        let script = String::from_utf8(script)
+            .map_err(|_| io::Error::other("clap_complete script should be UTF-8"))?;
+        let escaped_name = name.replace('-', "_");
+        // Route the completion through a wrapper that undoes bash's word
+        // splitting before calling the function generated above.
+        let inner = format!("_clap_complete_{escaped_name}");
+        let wrapper = format!("_clap_complete_{escaped_name}_reassembled");
+        writeln!(
+            buf,
+            r#"# Bash splits the completed word at COMP_WORDBREAKS characters (the "@" in
+# "main@origin", the ":" in "main::", ...), which would reach the completion
+# as separate words otherwise. Rejoin them here and rebase the returned
+# candidates on the part of the word that bash will actually replace. Like
+# git-completion.bash, but unlike editing COMP_WORDBREAKS, this leaves the
+# rest of the shell session untouched.
+{wrapper}() {{
+    local line=$COMP_LINE
+    local -a words=()
+    local cword=0
+    local j=0 i
+    for i in "${{!COMP_WORDS[@]}}"; do
+        if ((i > 0)) && [[ -n $line && $line == [[:space:]]* ]]; then
+            j=$((j + 1))
+        fi
+        words[j]=${{words[j]-}}${{COMP_WORDS[i]}}
+        line=${{line#*"${{COMP_WORDS[i]}}"}}
+        # Skip a closing quote so that quoted words are not glued to the
+        # following word in bash versions that strip quotes from COMP_WORDS.
+        # Words that mix quotes with unquoted text around word break
+        # characters may still be reassembled incorrectly.
+        line=${{line#[\'\"]}}
+        if ((i == COMP_CWORD)); then
+            cword=$j
+        fi
+    done
+
+    local cur=$2
+    local word=${{words[cword]}}
+    if [[ -n $cur && $word != *"$cur" ]]; then
+        # The cursor is in the middle of a word; leave the word as bash
+        # split it and let the completion handle just the typed part.
+        {inner} "$1" "$cur"
+        return
+    fi
+
+    # Bash replaces only the part of the word after the last COMP_WORDBREAKS
+    # character (bash's $2), or inserts at the cursor when $2 is empty, so
+    # the typed part of the word has to be stripped from the candidates
+    # below. Candidates that strip to the empty string are for words that
+    # are already fully typed.
+    local keep=$word
+    if [[ -n $cur ]]; then
+        keep=${{word%"$cur"}}
+    fi
+
+    local -a saved_words=("${{COMP_WORDS[@]}}")
+    local saved_cword=$COMP_CWORD
+    COMP_WORDS=("${{words[@]}}")
+    COMP_CWORD=$cword
+    {inner} "${{words[0]}}" "$word"
+    COMP_WORDS=("${{saved_words[@]}}")
+    COMP_CWORD=$saved_cword
+
+    local -a adjusted=()
+    local candidate
+    if [[ ${{#COMPREPLY[@]}} -gt 0 ]]; then
+        for candidate in "${{COMPREPLY[@]}}"; do
+            if [[ -n $keep && $candidate == "$keep"* ]]; then
+                candidate=${{candidate#"$keep"}}
+            fi
+            # Drop candidates that are already fully typed, so that bash
+            # doesn't replace the typed part of the word with them.
+            if [[ -n $candidate ]]; then
+                adjusted+=("$candidate")
+            fi
+        done
+    fi
+    COMPREPLY=()
+    if [[ ${{#adjusted[@]}} -gt 0 ]]; then
+        COMPREPLY=("${{adjusted[@]}}")
+    fi
+}}
+"#
+        )?;
+        writeln!(
+            buf,
+            "{script}",
+            script = script.replace(&format!("-F {inner}"), &format!("-F {wrapper}"))
+        )
+    }
+
+    fn write_complete(
+        &self,
+        cmd: &mut Command,
+        args: Vec<OsString>,
+        current_dir: Option<&Path>,
+        buf: &mut dyn io::Write,
+    ) -> io::Result<()> {
+        clap_complete::env::Bash.write_complete(cmd, args, current_dir, buf)
+    }
+}
+
+// Same set as clap_complete's built-in shells, but with Bash wrapped.
+const COMPLETION_SHELLS: &[&dyn clap_complete::env::EnvCompleter] = &[
+    &BashCompletion,
+    &clap_complete::env::Elvish,
+    &clap_complete::env::Fish,
+    &clap_complete::env::Powershell,
+    &clap_complete::env::Zsh,
+];
+
 fn handle_shell_completion(
     ui: &Ui,
     app: &Command,
@@ -4230,6 +4376,7 @@ fn handle_shell_completion(
         // for completing aliases
         app.allow_external_subcommands(true)
     })
+    .shells(clap_complete::env::Shells(COMPLETION_SHELLS))
     .try_complete(args.iter(), Some(cwd))?;
     assert!(
         ran_completion,
