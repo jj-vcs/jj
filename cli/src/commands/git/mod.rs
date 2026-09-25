@@ -19,6 +19,7 @@ mod fetch;
 mod import;
 mod init;
 mod push;
+mod r#ref;
 mod remote;
 mod root;
 
@@ -28,14 +29,12 @@ use clap::Subcommand;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
-use jj_lib::git;
-use jj_lib::git::UnexpectedGitBackendError;
 use jj_lib::ref_name::RemoteName;
-use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::RemoteRefSymbolBuf;
 use jj_lib::revset;
-use jj_lib::store::Store;
+use r#ref::RefCommand;
+use r#ref::cmd_git_ref;
 
 use self::clone::GitCloneArgs;
 use self::clone::cmd_git_clone;
@@ -85,6 +84,8 @@ pub enum GitCommand {
     Init(GitInitArgs),
     Push(GitPushArgs),
     #[command(subcommand)]
+    Ref(RefCommand),
+    #[command(subcommand)]
     Remote(RemoteCommand),
     Root(GitRootArgs),
 }
@@ -102,6 +103,7 @@ pub async fn cmd_git(
         GitCommand::Import(args) => cmd_git_import(ui, command, args).await,
         GitCommand::Init(args) => cmd_git_init(ui, command, args).await,
         GitCommand::Push(args) => cmd_git_push(ui, command, args).await,
+        GitCommand::Ref(args) => cmd_git_ref(ui, command, args).await,
         GitCommand::Remote(args) => cmd_git_remote(ui, command, args).await,
         GitCommand::Root(args) => cmd_git_root(ui, command, args).await,
     }
@@ -120,14 +122,6 @@ pub fn maybe_add_gitignore(workspace_command: &WorkspaceCommandHelper) -> Result
     } else {
         Ok(())
     }
-}
-
-fn get_single_remote(store: &Store) -> Result<Option<RemoteNameBuf>, UnexpectedGitBackendError> {
-    let mut names = git::get_all_remote_names(store)?;
-    Ok(match names.len() {
-        1 => names.pop(),
-        _ => None,
-    })
 }
 
 const TRUNK_CONFIG_NAME: [&str; 2] = ["revset-aliases", "trunk()"];
