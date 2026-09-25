@@ -2762,6 +2762,7 @@ dependencies = [
  "rustix",
  "rustversion",
  "serde",
+ "serde_bser",
  "smallvec",
  "strsim",
  "tempfile",
