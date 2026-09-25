@@ -33,7 +33,6 @@ clru = { workspace = true }
 digest = { workspace = true }
 dunce = { workspace = true }
 either = { workspace = true }
-etcetera = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
 gix-ignore = { workspace = true }
@@ -42,6 +41,7 @@ indexmap = { workspace = true }
 interim = { workspace = true }
 itertools = { workspace = true }
 jj-core = { workspace = true }
+jj-fs-util = { workspace = true }
 maplit = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }
@@ -63,9 +63,6 @@ tokio = { workspace = true, optional = true }
 toml_edit = { workspace = true }
 tracing = { workspace = true }
 watchman_client = { workspace = true, optional = true }
-
-[target.'cfg(unix)'.dependencies]
-rustix = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true }

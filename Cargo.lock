@@ -2686,7 +2686,6 @@ dependencies = [
  "criterion",
  "digest 0.11.3",
  "either",
- "etcetera",
  "eyre",
  "futures 0.3.34",
  "globset",
@@ -2699,15 +2698,12 @@ dependencies = [
  "pollster",
  "ref-cast",
  "regex",
- "same-file",
  "sapling-renderdag",
  "serde",
  "smallvec",
- "tempfile",
  "test-case",
  "thiserror 2.0.20",
  "tracing",
- "winreg",
 ]
 
 [[package]]
@@ -2717,6 +2713,28 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.5",
+]
+
+[[package]]
+name = "jj-fs-util"
+version = "0.45.1"
+dependencies = [
+ "blake2",
+ "etcetera",
+ "eyre",
+ "futures 0.3.34",
+ "itertools 0.15.0",
+ "jj-core",
+ "num_cpus",
+ "pollster",
+ "rand 0.10.2",
+ "rustix",
+ "same-file",
+ "tempfile",
+ "test-case",
+ "thiserror 2.0.20",
+ "tracing",
+ "winreg",
 ]
 
 [[package]]
@@ -2731,7 +2749,6 @@ dependencies = [
  "digest 0.11.3",
  "dunce",
  "either",
- "etcetera",
  "eyre",
  "futures 0.3.34",
  "gix",
@@ -2743,6 +2760,7 @@ dependencies = [
  "interim",
  "itertools 0.15.0",
  "jj-core",
+ "jj-fs-util",
  "maplit",
  "memchr",
  "nix 0.31.3",
@@ -2759,7 +2777,6 @@ dependencies = [
  "rayon",
  "ref-cast",
  "regex",
- "rustix",
  "rustversion",
  "serde",
  "smallvec",
