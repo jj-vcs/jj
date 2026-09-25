@@ -75,6 +75,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   disable them. This can be used to disable built-in aliases or disable aliases
   in later layers (such as repo config files).
 
+* `jj fix` now reports which commit(s) a failing fix tool ran on, instead of
+  only the file path. [#7863](https://github.com/jj-vcs/jj/issues/7863)
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
