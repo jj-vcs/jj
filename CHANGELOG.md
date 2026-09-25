@@ -75,6 +75,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   disable them. This can be used to disable built-in aliases or disable aliases
   in later layers (such as repo config files).
 
+* `jj workspace add` now has `--adopt` for instantaneous clones of repos when
+  used with a CoW filesystem. For example, by taking a snapshot with
+  `btrfs subvolume snapshot . ../workspace`, removing `../workspace/.jj`, and
+  adopting it with `jj workspace add --adopt ../workspace`.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,

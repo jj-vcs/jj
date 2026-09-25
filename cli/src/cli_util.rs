@@ -2288,6 +2288,19 @@ to the current parents may contain changes from multiple commits.
         self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
     }
 
+    async fn reset_working_copy(
+        &mut self,
+        ui: &Ui,
+        new_commit: &Commit,
+    ) -> Result<(), CommandError> {
+        assert!(self.may_update_working_copy);
+        self.workspace
+            .reset(self.user_repo.repo.op_id().clone(), new_commit)
+            .await
+            .map_err(|err| internal_error_with_message("Failed to reset working copy", err))?;
+        self.print_updated_working_copy_stats(ui, None, new_commit, &CheckoutStats::default())
+    }
+
     fn print_updated_working_copy_stats(
         &self,
         ui: &Ui,
@@ -2341,9 +2354,21 @@ to the current parents may contain changes from multiple commits.
     async fn finish_transaction(
         &mut self,
         ui: &Ui,
+        tx: Transaction,
+        description: impl Into<String>,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<(), CommandError> {
+        self.finish_transaction_impl(ui, tx, description, git_import_export_lock, false)
+            .await
+    }
+
+    async fn finish_transaction_impl(
+        &mut self,
+        ui: &Ui,
         mut tx: Transaction,
         description: impl Into<String>,
         git_import_export_lock: &GitImportExportLock,
+        reset_working_copy: bool,
     ) -> Result<(), CommandError> {
         let old_repo = tx.base_repo().clone();
 
@@ -2415,8 +2440,12 @@ to the current parents may contain changes from multiple commits.
         // don't leave the working copy in a stale state.
         if self.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
-                self.update_working_copy(ui, maybe_old_wc_commit.as_ref(), new_commit)
-                    .await?;
+                if reset_working_copy {
+                    self.reset_working_copy(ui, new_commit).await?;
+                } else {
+                    self.update_working_copy(ui, maybe_old_wc_commit.as_ref(), new_commit)
+                        .await?;
+                }
             } else {
                 // It seems the workspace was deleted, so we shouldn't try to
                 // update it.
@@ -2841,6 +2870,23 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
+        self.finish_internal(ui, description, false).await
+    }
+
+    pub async fn finish_with_reset(
+        self,
+        ui: &Ui,
+        description: impl Into<String>,
+    ) -> Result<(), CommandError> {
+        self.finish_internal(ui, description, true).await
+    }
+
+    async fn finish_internal(
+        self,
+        ui: &Ui,
+        description: impl Into<String>,
+        reset_working_copy: bool,
+    ) -> Result<(), CommandError> {
         let Self { helper, mut tx, .. } = self;
         if !tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
@@ -2854,7 +2900,13 @@ impl WorkspaceCommandTransaction<'_> {
         // Git HEAD export happens atomically with the transaction commit.
         let git_import_export_lock = helper.lock_git_import_export()?;
         helper
-            .finish_transaction(ui, tx, description, &git_import_export_lock)
+            .finish_transaction_impl(
+                ui,
+                tx,
+                description,
+                &git_import_export_lock,
+                reset_working_copy,
+            )
             .await
     }
 
