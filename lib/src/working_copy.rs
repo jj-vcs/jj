@@ -27,6 +27,7 @@ use thiserror::Error;
 use tracing::instrument;
 
 use crate::backend::BackendError;
+use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
@@ -105,6 +106,14 @@ pub trait WorkingCopyFactory {
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 }
 
+/// Annotations and metadata associated with a working-copy checkout.
+#[derive(Debug, Clone, Default)]
+pub struct WorkspaceAnnotations<'a> {
+    /// The working-copy commit ID associated with this checkout, if one was
+    /// created or updated.
+    pub commit_id: Option<&'a CommitId>,
+}
+
 /// A working copy that's being modified.
 #[async_trait]
 pub trait LockedWorkingCopy: Any + Send {
@@ -128,6 +137,16 @@ pub trait LockedWorkingCopy: Any + Send {
 
     /// Update to another commit without touching the files in the working copy.
     async fn reset(&mut self, commit: &Commit) -> Result<(), ResetError>;
+
+    /// Notify the locked working copy of updated workspace annotations.
+    async fn set_workspace_annotations(
+        &mut self,
+        _annotations: WorkspaceAnnotations<'_>,
+    ) -> Result<(), ResetError> {
+        // Default no-op for backends that don't track annotations in their checkout
+        // state.
+        Ok(())
+    }
 
     /// Update to another commit without touching the files in the working copy,
     /// without assuming that the previous tree exists.
