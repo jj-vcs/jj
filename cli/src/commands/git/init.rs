@@ -23,9 +23,9 @@ use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::GitImportOptions;
-use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::git::parse_git_ref;
+use jj_lib::op_store::RemoteRefKind;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
@@ -334,7 +334,7 @@ pub fn maybe_set_repository_level_trunk_alias(
             // really make sense if "origin" were to be set as the default if we
             // know "upstream" exists.
             if let Some(reference_name) = reference.target().try_name()
-                && let Some((GitRefKind::Bookmark, symbol)) =
+                && let Some((RemoteRefKind::Bookmark, symbol)) =
                     str::from_utf8(reference_name.as_bstr())
                         .ok()
                         .and_then(|name| parse_git_ref(name.as_ref()))

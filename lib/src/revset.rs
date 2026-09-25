@@ -55,6 +55,7 @@ use crate::object_id::PrefixResolution;
 use crate::op_store::LocalRemoteRefTarget;
 use crate::op_store::OperationId;
 use crate::op_store::RefTarget;
+use crate::op_store::RemoteRefKind;
 use crate::op_store::RemoteRefState;
 use crate::op_walk;
 use crate::ref_name::RefName;
@@ -2737,13 +2738,27 @@ fn resolve_remote_symbol(
     repo: &dyn Repo,
     symbol: RemoteRefSymbol<'_>,
 ) -> Result<CommitId, RevsetResolutionError> {
-    let remote_ref = repo.view().get_remote_tag(symbol);
-    if let Some(id) = to_resolved_ref("remote_tag", symbol, &remote_ref.target)? {
-        return Ok(id);
-    }
-    let remote_ref = repo.view().get_remote_bookmark(symbol);
-    if let Some(id) = to_resolved_ref("remote_bookmark", symbol, &remote_ref.target)? {
-        return Ok(id);
+    if let Some(name) = symbol.name.as_str().strip_prefix('/') {
+        let other_symbol = RemoteRefSymbol {
+            name: RefName::new(name),
+            remote: symbol.remote,
+        };
+        let remote_ref = repo
+            .view()
+            .get_remote_ref(RemoteRefKind::Other, other_symbol);
+        if let Some(id) = to_resolved_ref("remote_ref", symbol, &remote_ref.target)? {
+            return Ok(id);
+        }
+    } else {
+        for (kind, kind_name) in [
+            (RemoteRefKind::Tag, "remote_tag"),
+            (RemoteRefKind::Bookmark, "remote_bookmark"),
+        ] {
+            let remote_ref = repo.view().get_remote_ref(kind, symbol);
+            if let Some(id) = to_resolved_ref(kind_name, symbol, &remote_ref.target)? {
+                return Ok(id);
+            }
+        }
     }
     Err(make_no_such_symbol_error(repo, symbol.to_string()))
 }
@@ -2790,7 +2805,13 @@ fn make_no_such_symbol_error(repo: &dyn Repo, name: String) -> RevsetResolutionE
     let include_synced_remotes = name.contains('@');
     let tag_names = all_formatted_ref_symbols(repo.view().tags(), include_synced_remotes);
     let bookmark_names = all_formatted_ref_symbols(repo.view().bookmarks(), include_synced_remotes);
-    let mut candidates = collect_similar(&name, itertools::chain(tag_names, bookmark_names));
+    let other_ref_names = repo.view().all_remote_other_refs().map(|(sym, _)| {
+        format_remote_symbol(&format!("/{}", sym.name.as_str()), sym.remote.as_str())
+    });
+    let mut candidates = collect_similar(
+        &name,
+        itertools::chain!(tag_names, bookmark_names, other_ref_names),
+    );
     candidates.dedup(); // tags and bookmarks may have duplicate symbols
     RevsetResolutionError::NoSuchRevision { name, candidates }
 }

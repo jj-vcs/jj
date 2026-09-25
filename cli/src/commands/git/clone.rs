@@ -246,7 +246,11 @@ pub async fn cmd_git_clone(
         };
         let mut workspace_command =
             configure_remote(ui, command, workspace_command, remote_name, &source).await?;
-        let ref_expr = GitFetchRefExpression { bookmark, tag };
+        let ref_expr = GitFetchRefExpression {
+            bookmark,
+            tag,
+            other_ref: StringExpression::none(),
+        };
         let default_branch = fetch_new_remote(
             ui,
             &mut workspace_command,

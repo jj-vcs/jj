@@ -606,7 +606,14 @@ jj currently does not support partial clones. To use jj with this repository, tr
             match &err {
                 GitRefExpansionError::Expression(_) => user_error(err)
                     .hinted("Specify patterns in `(positive | ...) & ~(negative | ...)` form."),
-                GitRefExpansionError::InvalidBranchPattern(_) => user_error(err),
+                GitRefExpansionError::InvalidBranchPattern(_)
+                | GitRefExpansionError::InvalidRefSlashPattern(_) => user_error(err),
+                GitRefExpansionError::InvalidRefBranchPattern(_) => {
+                    user_error(err).hinted("Specify branches with --branch.")
+                }
+                GitRefExpansionError::InvalidRefTagPattern(_) => {
+                    user_error(err).hinted("Specify tags with --tag.")
+                }
             }
         }
     }

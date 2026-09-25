@@ -79,6 +79,7 @@ use crate::op_store::OpStoreResult;
 use crate::op_store::OperationId;
 use crate::op_store::RefTarget;
 use crate::op_store::RemoteRef;
+use crate::op_store::RemoteRefKind;
 use crate::op_store::RemoteRefState;
 use crate::op_store::RootOperationData;
 use crate::op_walk;
@@ -1891,25 +1892,35 @@ impl MutableRepo {
         Ok(())
     }
 
+    async fn merge_remote_ref(
+        &mut self,
+        kind: RemoteRefKind,
+        symbol: RemoteRefSymbol<'_>,
+        base_ref: &RemoteRef,
+        other_ref: &RemoteRef,
+    ) -> IndexResult<()> {
+        let index = self.index.as_index();
+        let self_ref = self.view.get_remote_ref(kind, symbol);
+        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref).await?;
+        self.view.set_remote_ref(kind, symbol, new_ref);
+        Ok(())
+    }
+
+    pub fn set_remote_ref(
+        &mut self,
+        kind: RemoteRefKind,
+        symbol: RemoteRefSymbol<'_>,
+        remote_ref: RemoteRef,
+    ) {
+        self.view.set_remote_ref(kind, symbol, remote_ref)
+    }
+
     pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> &RemoteRef {
         self.view.get_remote_bookmark(symbol)
     }
 
     pub fn set_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
         self.view.set_remote_bookmark(symbol, remote_ref);
-    }
-
-    async fn merge_remote_bookmark(
-        &mut self,
-        symbol: RemoteRefSymbol<'_>,
-        base_ref: &RemoteRef,
-        other_ref: &RemoteRef,
-    ) -> IndexResult<()> {
-        let index = self.index.as_index();
-        let self_ref = self.view.get_remote_bookmark(symbol);
-        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref).await?;
-        self.view.set_remote_bookmark(symbol, new_ref);
-        Ok(())
     }
 
     /// Merges the specified remote bookmark in to local bookmark, and starts
@@ -1970,19 +1981,6 @@ impl MutableRepo {
 
     pub fn set_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
         self.view.set_remote_tag(symbol, remote_ref);
-    }
-
-    async fn merge_remote_tag(
-        &mut self,
-        symbol: RemoteRefSymbol<'_>,
-        base_ref: &RemoteRef,
-        other_ref: &RemoteRef,
-    ) -> IndexResult<()> {
-        let index = self.index.as_index();
-        let self_ref = self.view.get_remote_tag(symbol);
-        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref).await?;
-        self.view.set_remote_tag(symbol, new_ref);
-        Ok(())
     }
 
     /// Merges the specified remote tag in to local tag, and starts tracking it.
@@ -2107,17 +2105,13 @@ impl MutableRepo {
             self.merge_git_ref(name, base_target, other_target).await?;
         }
 
-        let changed_remote_bookmarks =
-            diff_named_remote_refs(base.all_remote_bookmarks(), other.all_remote_bookmarks());
-        for (symbol, (base_ref, other_ref)) in changed_remote_bookmarks {
-            self.merge_remote_bookmark(symbol, base_ref, other_ref)
-                .await?;
-        }
-
-        let changed_remote_tags =
-            diff_named_remote_refs(base.all_remote_tags(), other.all_remote_tags());
-        for (symbol, (base_ref, other_ref)) in changed_remote_tags {
-            self.merge_remote_tag(symbol, base_ref, other_ref).await?;
+        for kind in RemoteRefKind::ALL_VARIANTS {
+            let changed =
+                diff_named_remote_refs(base.all_remote_refs(kind), other.all_remote_refs(kind));
+            for (symbol, (base_ref, other_ref)) in changed {
+                self.merge_remote_ref(kind, symbol, base_ref, other_ref)
+                    .await?;
+            }
         }
 
         let changed_git_heads = diff_named_ref_targets(base.all_git_heads(), other.all_git_heads());

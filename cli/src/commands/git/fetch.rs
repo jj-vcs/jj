@@ -103,6 +103,10 @@ pub struct GitFetchArgs {
     #[arg(long = "tag", short, group = "specific", value_name = "TAG")]
     tags: Option<Vec<String>>,
 
+    /// Fetch remote refs (can be repeated)
+    #[arg(long = "ref", short, group = "specific", value_name = "REF")]
+    refs: Option<Vec<String>>,
+
     /// Fetch only tracked bookmarks and tags
     ///
     /// This fetches only bookmarks and tags that are already tracked from the
@@ -174,12 +178,16 @@ pub async fn cmd_git_fetch(
     let mut tx = workspace_command.start_transaction();
     let remote_settings = tx.settings().remote_settings()?;
 
-    let is_specific = args.branches.is_some() || args.tags.is_some();
+    let is_specific = args.branches.is_some() || args.tags.is_some() || args.refs.is_some();
     let common_bookmark_expr = match &args.branches {
         Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
         None => is_specific.then(StringExpression::none),
     };
     let common_tag_expr = match &args.tags {
+        Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
+        None => is_specific.then(StringExpression::none),
+    };
+    let common_other_ref_expr = match &args.refs {
         Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
         None => is_specific.then(StringExpression::none),
     };
@@ -202,7 +210,12 @@ pub async fn cmd_git_fetch(
                     .map(|(name, _)| StringExpression::exact(name))
                     .collect(),
             );
-            let ref_expr = GitFetchRefExpression { bookmark, tag };
+            let other_ref = StringExpression::none();
+            let ref_expr = GitFetchRefExpression {
+                bookmark,
+                tag,
+                other_ref,
+            };
             let expanded = expand_fetch_refspecs(remote, ref_expr)?;
             expansions.push((remote, expanded));
         }
@@ -225,7 +238,16 @@ pub async fn cmd_git_fetch(
             } else {
                 StringExpression::all()
             };
-            let ref_expr = GitFetchRefExpression { bookmark, tag };
+            let other_ref = if let Some(expr) = &common_other_ref_expr {
+                expr.clone()
+            } else {
+                StringExpression::none()
+            };
+            let ref_expr = GitFetchRefExpression {
+                bookmark,
+                tag,
+                other_ref,
+            };
             let expanded = expand_fetch_refspecs(remote, ref_expr)?;
             expansions.push((remote, expanded));
         }
