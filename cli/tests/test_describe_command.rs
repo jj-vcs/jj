@@ -1123,6 +1123,138 @@ fn test_add_trailer_committer() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_describe_append() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // 1. Append to a commit with NO description (empty)
+    // On empty description, it should just set the description to the new message,
+    // without any leading newlines.
+    let output = work_dir.run_jj(["describe", "-m", "first paragraph", "--append"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm bd50ba9d (empty) first paragraph
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @"
+    first paragraph
+    [EOF]
+    ");
+
+    // 2. Append to a commit with an existing description
+    // It should add a paragraph break (double newline) before the new message.
+    let output = work_dir.run_jj(["describe", "-m", "second paragraph", "--append"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm 32543b3a (empty) first paragraph
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @"
+    first paragraph
+
+    second paragraph
+    [EOF]
+    ");
+
+    // 3. Append with multiple -m arguments
+    // The multiple -m arguments are joined with paragraph breaks,
+    // and then appended to the existing description with a paragraph break.
+    let output = work_dir.run_jj([
+        "describe",
+        "-m",
+        "third paragraph",
+        "-m",
+        "fourth paragraph",
+        "--append",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm e8e24cef (empty) first paragraph
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @"
+    first paragraph
+
+    second paragraph
+
+    third paragraph
+
+    fourth paragraph
+    [EOF]
+    ");
+
+    // 4. Append with stdin
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["describe", "--stdin", "--append"])
+            .write_stdin("fifth paragraph\nsixth paragraph")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm d21a0c8a (empty) first paragraph
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @"
+    first paragraph
+
+    second paragraph
+
+    third paragraph
+
+    fourth paragraph
+
+    fifth paragraph
+    sixth paragraph
+    [EOF]
+    ");
+
+    // 5. Editor mode with --append
+    // Running `jj describe --append` without `-m` or `--stdin` should open the
+    // editor with the current description, effectively ignoring `--append`
+    // because the user can manually edit it in the editor.
+    std::fs::write(&edit_script, "dump editor0")?;
+    let output = work_dir.run_jj(["describe", "--append"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @r#"
+    first paragraph
+
+    second paragraph
+
+    third paragraph
+
+    fourth paragraph
+
+    fifth paragraph
+    sixth paragraph
+
+    JJ: Change ID: qpvuntsm
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    Ok(())
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description"#;
