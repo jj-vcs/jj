@@ -30,6 +30,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj git init --bare` creates a bare repo with no initial workspace. The
+  `.jj/` directory is created at the destination with no working copy. Use
+  `jj workspace add <name>` to add workspaces afterward.
+
+* `jj workspace add`, `jj workspace list`, `jj log`, and `jj status` now work
+  from a bare repo root. Running other commands from a bare root prints a clear
+  error with a hint to `cd` into a workspace.
+
+* Added the `Workspace::init_bare_with_backend` and `Workspace::init_bare_git`
+  library functions for creating bare repos programmatically.
+
 * Added the `TreeEntry.normal_value()` template method and the `TreeValue` type
   to access resolved tree values, formatted as their full object IDs, including
   Git submodule commit IDs.

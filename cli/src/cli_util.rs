@@ -445,6 +445,31 @@ impl CommandHelper {
             .map_err(Clone::clone)
     }
 
+    /// Returns true if cwd is a bare repo root (has `.jj/bare` marker).
+    pub fn is_bare_repo(&self) -> bool {
+        self.data
+            .cwd
+            .join(".jj")
+            .join(jj_lib::workspace::BARE_MARKER)
+            .exists()
+    }
+
+    /// Loads a `RepoLoader` directly from a bare repo root.
+    ///
+    /// Returns an error if cwd is not a bare repo root.
+    pub fn load_bare_repo(&self) -> Result<jj_lib::repo::RepoLoader, CommandError> {
+        let repo_path = self.data.cwd.join(".jj").join("repo");
+        if !repo_path.is_dir() {
+            return Err(user_error("No bare repo found in current directory"));
+        }
+        jj_lib::repo::RepoLoader::init_from_file_system(
+            &self.data.settings,
+            &repo_path,
+            &self.data.store_factories,
+        )
+        .map_err(|err| map_workspace_load_error(err.into(), None))
+    }
+
     fn new_workspace_loader_at(
         &self,
         workspace_root: &Path,
@@ -2913,6 +2938,15 @@ jj git init",
             } else {
                 user_error(message)
             }
+        }
+        WorkspaceLoadError::BareRepoHere(wc_path) => {
+            let short_wc_path = user_wc_path.map_or(wc_path.as_ref(), Path::new);
+            user_error(format!(
+                r#""{}" is a bare repo root with no workspace"#,
+                short_wc_path.display()
+            ))
+            .hinted("Run commands from inside a workspace directory (e.g. cd main/).")
+            .hinted("To add a workspace, run: jj workspace add <name>")
         }
         WorkspaceLoadError::RepoDoesNotExist(repo_dir) => user_error(format!(
             "The repository directory at {} is missing. Was it moved?",
