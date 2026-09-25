@@ -29,7 +29,7 @@ const siteBase = '/';
         if (!versions || versions.length === 0) return;
 
         // Determine current version from URL path
-        const pathMatch = window.location.pathname.match(/^\/([^\/]+)/);
+        const pathMatch = window.location.pathname.slice(siteBase.length - 1).match(/^\/([^\/]+)/);
         let currentVersion = 'unknown';
 
         if (pathMatch) {
@@ -68,7 +68,7 @@ const siteBase = '/';
         // Add change handler
         select.addEventListener('change', (e) => {
           const selectedVersion = e.target.value;
-          const currentPath = window.location.pathname;
+          const currentPath = window.location.pathname.slice(siteBase.length - 1);
           const versionRegex = /^\/[^\/]+/;
           const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
           window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
