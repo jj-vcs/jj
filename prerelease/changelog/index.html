@@ -7778,6 +7778,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   in a broken state after undo.
   <a href="https://github.com/jj-vcs/jj/issues/9991">#9991</a></p>
 </li>
+<li>
+<p><code>at_operation()</code> can now be used with operations that are not ancestors of
+  the current operation (e.g. sibling operations created by concurrent
+  commands). Previously, evaluating such expressions failed if they resolved
+  to commits missing from the current operation's index.</p>
+</li>
 </ul>
 <h2 id="0451-2026-09-03"><a href="https://github.com/jj-vcs/jj/compare/v0.45.0...v0.45.1">0.45.1</a> - 2026-09-03<a class="headerlink" href="#0451-2026-09-03" title="Permanent link">&para;</a></h2>
 <p>This release fixes an error that prevented the new jj-core crate from being
