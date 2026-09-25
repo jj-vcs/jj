@@ -572,6 +572,24 @@
                 }
             }
         },
+        "hooks": {
+            "type": "object",
+            "description": "Repository-scoped hook trust state, written by `jj hook enable`/`jj hook disable` in the repository's local, secure config. Not meant to be edited by hand; see `jj hook` and the \"Hooks\" section of `jj help -k config`.",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Whether repository-scoped hooks under .jj-hooks/ are enabled for this repository",
+                    "default": false
+                },
+                "trusted-hashes": {
+                    "type": "object",
+                    "description": "File name (under .jj-hooks/) to the hex-encoded content hash last approved by `jj hook enable`",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "remotes": {
             "type": "object",
             "description": "Settings related to specific remotes",

@@ -37,8 +37,17 @@ a comparison with Git, including how workflows are different, see the
   if you notice any difference compared to `git`.
 * **.gitattributes: No.** There's [#53](https://github.com/jj-vcs/jj/issues/53)
   about adding support for at least the `eol` attribute.
-* **Hooks: No.** There's [#405](https://github.com/jj-vcs/jj/issues/405)
-  specifically for providing the checks from <https://pre-commit.com>.
+* **Hooks: Partial, distinct mechanism.** Jujutsu has its own hook mechanism
+  (see [`config.md`'s "Hooks" section](config.md#hooks) and `jj hook
+  --help`), not compatible with Git's `.git/hooks/`: different locations
+  (`$config_dir/jj/hooks/` and `<workspace root>/.jj-hooks/`, rather than
+  `.git/hooks/`), a different invocation contract (`JJ_HOOK`/`JJ_REPO_ROOT`
+  plus a JSON payload on stdin, rather than positional arguments and
+  newline-separated ref updates), and currently only two hook kinds,
+  `git-pre-push`/`git-post-push` around `jj git push`. There's no
+  equivalent yet to Git's `pre-commit`/`commit-msg` hooks or to the checks
+  from <https://pre-commit.com>; see
+  [#405](https://github.com/jj-vcs/jj/issues/405).
 * **Merge commits: Yes.** Octopus merges (i.e. with more than 2 parents) are
   also supported.
 * **Detached HEAD: Yes.** Jujutsu supports anonymous branches, so this is a
