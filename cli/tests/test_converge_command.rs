@@ -48,7 +48,8 @@ fn test_converge_no_divergence() {
     let output = work_dir.run_jj(["converge"]).success();
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    No divergent changes found.
+    No divergent changes found in revsets.converge: mutable() & divergent()
+    Hint: Multiple revisions in the search space must have the same change ID to be considered divergent.
     [EOF]
     ");
 }
@@ -449,7 +450,8 @@ fn test_converge_two_divergent_changes() {
     let output = work_dir.run_jj(["converge"]).success();
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    No divergent changes found.
+    No divergent changes found in revsets.converge: mutable() & divergent()
+    Hint: Multiple revisions in the search space must have the same change ID to be considered divergent.
     [EOF]
     ");
 }
@@ -498,7 +500,8 @@ fn test_converge_simple_with_revisions_arg() {
     let output = work_dir.run_jj(["converge", "-r", "a::d"]).success();
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    No divergence found among the specified revisions.
+    No divergent changes found among the specified revisions.
+    Hint: Multiple revisions in the search space must have the same change ID to be considered divergent.
     [EOF]
     ");
 
@@ -626,7 +629,8 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     let output = work_dir.run_jj(["converge", "-r", "a::d"]).success();
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    No divergence found among the specified revisions.
+    No divergent changes found among the specified revisions.
+    Hint: Multiple revisions in the search space must have the same change ID to be considered divergent.
     [EOF]
     ");
 
@@ -673,7 +677,8 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
         .success();
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    No divergence found among the specified revisions.
+    No divergent changes found among the specified revisions.
+    Hint: Multiple revisions in the search space must have the same change ID to be considered divergent.
     [EOF]
     ");
 

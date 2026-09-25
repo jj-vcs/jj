@@ -126,15 +126,24 @@ pub(crate) async fn cmd_converge(
     let mut workspace_command = command.workspace_helper(ui).await?;
     let settings = workspace_command.settings();
 
-    let search_space = {
+    let (default_revset_text, search_space) = {
         if args.revisions.is_empty() {
             let revset_string = settings.get_string("revsets.converge")?;
-            workspace_command.parse_revset(ui, &RevisionArg::from(revset_string))?
+            (
+                Some(revset_string.clone()),
+                workspace_command
+                    .parse_revset(ui, &RevisionArg::from(revset_string))?
+                    .resolve()?,
+            )
         } else {
-            workspace_command.parse_union_revsets(ui, &args.revisions)?
+            (
+                None,
+                workspace_command
+                    .parse_union_revsets(ui, &args.revisions)?
+                    .resolve()?,
+            )
         }
-    }
-    .resolve()?;
+    };
 
     workspace_command
         .check_rewritable_expr(&search_space)
@@ -147,14 +156,22 @@ pub(crate) async fn cmd_converge(
     // Find all divergent changes and choose one to converge.
     let divergent_changes = find_divergent_changes(tx.base_repo(), search_space).await?;
     if divergent_changes.is_empty() {
-        if args.revisions.is_empty() {
-            writeln!(ui.status(), "No divergent changes found.")?;
+        if let Some(revset_text) = default_revset_text {
+            writeln!(
+                ui.status(),
+                "No divergent changes found in revsets.converge: {revset_text}"
+            )?;
         } else {
             writeln!(
                 ui.status(),
-                "No divergence found among the specified revisions."
+                "No divergent changes found among the specified revisions."
             )?;
         }
+        writeln!(
+            ui.hint_default(),
+            "Multiple revisions in the search space must have the same change ID to be considered \
+             divergent."
+        )?;
         return Ok(());
     }
     report_divergent_changes(ui, &divergent_changes, &tx.commit_summary_template())?;
