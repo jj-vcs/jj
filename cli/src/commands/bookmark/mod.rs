@@ -238,9 +238,13 @@ fn warn_unmatched_remotes(ui: &Ui, view: &View, name_expr: &StringExpression) ->
     if names.peek().is_none() {
         return Ok(());
     }
+    let remotes_display_string = names.map(|name| name.as_symbol()).join(", ");
     writeln!(
         ui.warning_default(),
-        "No matching remotes for names: {}",
-        names.map(|name| name.as_symbol()).join(", ")
+        "No matching remotes for names: {remotes_display_string}"
+    )?;
+    writeln!(
+        ui.hint_default(),
+        "To add the missing remote, run `jj git remote add {remotes_display_string} <origin>`"
     )
 }
