@@ -1061,14 +1061,24 @@ argument. Additional arguments are passed through. Here are some examples:
 my-script = ["util", "exec", "--", "my-jj-script"]
 #                            ^^^^
 # This makes sure that flags are passed to your script instead of parsed by jj.
-my-inline-script = ["util", "exec", "--", "bash", "-c", """
+my-inline-script = ["util", "exec", "--", "bash", "-c", '''
 set -euo pipefail
 echo "Look Ma, everything in one file!"
 echo "args: $@"
-""", ""]
+
+[[ -n "${JJ_WORKSPACE_ROOT:-}" ]] && \
+    jj() { command jj -R"$JJ_WORKSPACE_ROOT" "$@"; }
+#                     ^^^^^^^^^^^^^^^^^^^^^^
+# If JJ_WORKSPACE_ROOT is available, then the above function adds -R to later
+# jj commands here. This allows a script to be written similarly to an
+# interactive session. However, indirect uses of jj are unaffected by this
+# function, such as when a command goes on itself to use jj.
+''', ""]
 #    ^^
 # This last empty string will become "$0" in bash, so your actual arguments
 # are all included in "$@" and start at "$1" as expected.
+#
+# Triple single quotes for the script avoids needing to escape backslashes.
 ```
 
 > Note: Shebangs (e.g. `#!/usr/bin/env`) aren't necessary since you're already
