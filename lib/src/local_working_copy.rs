@@ -1590,6 +1590,23 @@ impl FileSnapshotter<'_> {
                 message: format!("Failed to read directory {}", disk_dir.display()),
                 err: err.into(),
             })?;
+
+        if !dir.is_root() {
+            // If a submodule was added in commit C, and a user decides to run
+            // `jj new <something before C>` from after C, then the submodule
+            // files stick around but it is no longer seen as a submodule.
+            // We need to ensure that it is not tracked as if it was added to
+            // the main repo.
+            // See https://github.com/jj-vcs/jj/issues/4349.
+            // To solve this, we ignore all nested repos entirely.
+            for dentry in &dir_entries {
+                let filename = dentry.file_name();
+                if RESERVED_DIR_NAMES.iter().any(|&str| str == filename) {
+                    return Ok(());
+                }
+            }
+        }
+
         let (dirs, files) = dir_entries
             .into_par_iter()
             // Don't split into too many small jobs. For a small directory,
@@ -1646,19 +1663,6 @@ impl FileSnapshotter<'_> {
 
         if file_type.is_dir() {
             let file_states = file_states.prefixed_at(dir, name);
-            // If a submodule was added in commit C, and a user decides to run
-            // `jj new <something before C>` from after C, then the submodule
-            // files stick around but it is no longer seen as a submodule.
-            // We need to ensure that it is not tracked as if it was added to
-            // the main repo.
-            // See https://github.com/jj-vcs/jj/issues/4349.
-            // To solve this, we ignore all nested repos entirely.
-            let disk_dir = entry.path();
-            for &name in RESERVED_DIR_NAMES {
-                if disk_dir.join(name).symlink_metadata().is_ok() {
-                    return Ok(None);
-                }
-            }
 
             if git_ignore.matches_dir(&path)
                 && self.force_tracking_matcher.visit(&path).is_nothing()
@@ -1674,7 +1678,7 @@ impl FileSnapshotter<'_> {
             } else if !self.matcher.visit(&path).is_nothing() {
                 let directory_to_visit = DirectoryToVisit {
                     dir: path,
-                    disk_dir,
+                    disk_dir: entry.path(),
                     git_ignore: git_ignore.clone(),
                     file_states,
                 };
