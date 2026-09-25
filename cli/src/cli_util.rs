@@ -4014,6 +4014,13 @@ fn load_aliases<'config>(
         {
             continue;
         }
+        if alias.split(' ').any(|word| word.starts_with('-')) {
+            writeln!(
+                ui.warning_default(),
+                "Failed to load `aliases.{alias}`: Alias name contains an option-like word"
+            )?;
+            continue;
+        }
         let definition: Result<Vec<String>, _> = match config.get(["aliases", alias]) {
             Ok(definition) => Ok(definition),
             Err(original_error) => match config.get(["aliases", alias, "definition"]) {
@@ -4063,7 +4070,6 @@ fn resolve_aliases(
     mut string_args: Vec<String>,
 ) -> Result<Vec<String>, CommandError> {
     let mut recursion_check_stack: Vec<(&str, Range<usize>)> = Vec::new();
-
     loop {
         let app_clone = app.clone().allow_external_subcommands(true);
         let matches = app_clone.try_get_matches_from(&string_args).ok();
@@ -4071,25 +4077,43 @@ fn resolve_aliases(
             // No more alias commands, or hit unknown option
             return Ok(string_args);
         };
-        let alias_name = command_name.to_string();
+        if app.find_subcommand(command_name).is_some() {
+            return Ok(string_args);
+        }
         let alias_args = submatches
             .get_many::<OsString>("")
             .unwrap_or_default()
             .map(|arg| arg.to_str().unwrap().to_string())
             .collect_vec();
-        let Some((&alias_name, alias_definition)) = defined_aliases.get_key_value(&*alias_name)
-        else {
-            // Not a real command and not an alias, so return what we've
-            // resolved so far.
+        let Some(mut matched) = defined_aliases.get_key_value(command_name) else {
+            // Not a real command and not an alias, so return what we've resolved so far
             return Ok(string_args);
         };
+        // Extend only through defined prefixes, keeping the longest match.
+        // Starting with the exact token preserves whole quoted alias names.
+        let mut name = command_name.to_owned();
+        let mut consumed = 0;
+        for arg in &alias_args {
+            if arg.starts_with('-') {
+                break;
+            }
+            name.push(' ');
+            name.push_str(arg);
+            let Some(next) = defined_aliases.get_key_value(name.as_str()) else {
+                break;
+            };
+            matched = next;
+            consumed += 1;
+        }
+        let (&alias_name, alias_definition) = matched;
         let alias_position = string_args.len() - 1 - alias_args.len();
+        let alias_end = alias_position + 1 + consumed;
 
         // recursion check
         while let Some((_, check_range)) = recursion_check_stack.last() {
-            if check_range.contains(&alias_position) {
-                // The tracked chain of alias expansions produced the current
-                // alias. Check for recursion.
+            if check_range.start <= alias_position && alias_end <= check_range.end {
+                // The tracked chain produced the entire alias name. A name
+                // that also consumes caller-supplied words can still terminate.
                 if recursion_check_stack.iter().any(|&(a, _)| a == alias_name) {
                     return Err(user_error(format!(
                         "Recursive alias definition involving `{alias_name}`"
@@ -4097,15 +4121,11 @@ fn resolve_aliases(
                 }
                 break;
             }
-            // Last tracked alias did not produce the currently expanding alias.
-            // Remove it from stack and fixup the range of the next one.
-            let check_range = check_range.clone();
             recursion_check_stack.pop();
-            if let Some((_, next_range)) = recursion_check_stack.last_mut() {
-                // Increase next range by the length of the current one, minus
-                // one to account for the removed alias name.
-                next_range.end += check_range.end - check_range.start - 1;
-            }
+        }
+        // Keep the retained ranges in the coordinates of the expanded arguments.
+        for (_, check_range) in &mut recursion_check_stack {
+            check_range.end = check_range.end - (1 + consumed) + alias_definition.len();
         }
         recursion_check_stack.push((
             alias_name,
@@ -4114,8 +4134,8 @@ fn resolve_aliases(
 
         assert!(string_args.ends_with(&alias_args));
         string_args.truncate(alias_position);
-        string_args.extend(alias_definition.clone());
-        string_args.extend_from_slice(&alias_args);
+        string_args.extend(alias_definition.iter().cloned());
+        string_args.extend_from_slice(&alias_args[consumed..]);
     }
 }
 
@@ -4849,6 +4869,69 @@ mod tests {
     use clap::CommandFactory as _;
 
     use super::*;
+
+    #[test]
+    fn test_aliases_require_defined_prefixes() {
+        let app = Command::new("jj").subcommand(Command::new("version"));
+        let cases: &[(&str, &[&str], &[&str])] = &[
+            (
+                r#"aliases."ws ls" = ["version"]"#,
+                &["jj", "ws", "ls"],
+                &["jj", "ws", "ls"],
+            ),
+            (
+                r#"aliases."ws ls" = ["version"]"#,
+                &["jj", "ws ls"],
+                &["jj", "version"],
+            ),
+            (
+                "[aliases]\nws = []\n\"ws ls\" = ['version']",
+                &["jj", "ws", "ls"],
+                &["jj", "version"],
+            ),
+            (
+                "[aliases]\nws = { enabled = false }\n\"ws ls\" = ['version']",
+                &["jj", "ws", "ls"],
+                &["jj", "ws", "ls"],
+            ),
+            (
+                "[aliases]\nws = { enabled = false }\n\"ws ls\" = ['version']",
+                &["jj", "ws ls"],
+                &["jj", "version"],
+            ),
+            (
+                "[aliases]\na = ['version']\n\"a b c\" = ['version']",
+                &["jj", "a", "b", "c"],
+                &["jj", "version", "b", "c"],
+            ),
+            (
+                "[aliases]\na = []\n\"a b\" = []\n\"a b c\" = ['version']",
+                &["jj", "a", "b", "c"],
+                &["jj", "version"],
+            ),
+        ];
+        for &(config, args, expected) in cases {
+            let mut stack = StackedConfig::empty();
+            stack.add_layer(ConfigLayer::parse(ConfigSource::User, config).unwrap());
+            let aliases = load_aliases(&Ui::null(), &stack, &app).unwrap();
+            let args = args.iter().map(|arg| (*arg).to_owned()).collect();
+            let actual = resolve_aliases(&app, &aliases, args).unwrap();
+            assert_eq!(actual, expected, "config: {config}");
+        }
+    }
+
+    #[test]
+    fn test_aliases_reject_option_like_names() {
+        let app = Command::new("jj").subcommand(Command::new("version"));
+        for name in ["foo --bar", "foo -b", "foo --", "foo bar --baz"] {
+            let mut config = StackedConfig::empty();
+            let data = format!("[aliases]\nfoo = ['version']\n'{name}' = ['version']");
+            config.add_layer(ConfigLayer::parse(ConfigSource::User, &data).unwrap());
+            let aliases = load_aliases(&Ui::null(), &config, &app).unwrap();
+            assert!(!aliases.contains_key(name));
+            assert!(aliases.contains_key("foo"));
+        }
+    }
 
     #[derive(clap::Parser, Clone, Debug)]
     pub struct TestArgs {
