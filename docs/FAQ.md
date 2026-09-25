@@ -5,7 +5,8 @@
 If you're familiar with Git, you might expect the current bookmark to move forward
 when you commit. However, Jujutsu does not have a concept of a "current bookmark".
 
-To move bookmarks, use `jj bookmark move`.
+To move bookmarks, use `jj bookmark move`. You may also use `jj bookmark advance` as of v0.39 
+to move the closest bookmark of an ancestor commit to your currently checked out commit.
 
 ### I made a commit and `jj git push --all` says "Nothing changed" instead of pushing it. What do I do?
 
