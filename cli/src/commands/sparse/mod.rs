@@ -60,7 +60,7 @@ pub(crate) async fn cmd_sparse(
     }
 }
 
-async fn update_sparse_patterns_with(
+pub(crate) async fn update_sparse_patterns_with(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     f: impl FnOnce(&mut Ui, &[RepoPathBuf]) -> Result<Vec<RepoPathBuf>, CommandError>,
