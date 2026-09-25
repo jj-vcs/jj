@@ -13,6 +13,11 @@ These are the config settings available to jj/Jujutsu.
   settings are located in [the user config files], which can be found with
   `jj config path --user`.
 
+- The managed settings. These can be edited with `jj config edit --managed`,
+  or found with `jj config path --managed`. They are stored in version control
+  at `$REPO/.config/jj/config.toml` within the repository. See
+  [Managed Configuration](#managed-configuration) for details.
+
 - The repo settings. These can be edited with `jj config edit --repo`, or found
   with `jj config path --repo`. For security reasons, they are not located
   inside the repo.
@@ -2296,6 +2301,37 @@ Note that if you modify a file's executable bit before changing this setting
 from `"ignore"` or  `"auto"` to `"respect"`, `jj` may not update the stored
 executable bit until you modify the file's contents or update its modification
 time, e.g. with `touch`.
+
+## Managed Configuration
+
+Managed configuration is stored within the repository itself, at
+`.config/jj/config.toml`. This allows repository owners to provide recommended
+or enforced settings for all users of the repository.
+
+Note: Unlike user configuration, managed configuration only loads
+`$REPO/.config/jj/config.toml`; splitting configuration across
+`.config/jj/conf.d/*.toml` is not supported.
+
+Since loading configuration from a potentially untrusted source has security
+implications, `jj` uses a trust level system for managed configs. You can set
+the trust level for the current repository using the `jj config managed`
+command (jj will also prompt you):
+
+```shell
+# To ignore the managed config entirely:
+jj config managed --ignore
+
+# To review changes since the last managed config that was reviewed:
+jj config managed --review
+
+# To load the managed config automatically:
+jj config managed --trust
+```
+
+Note: When set to `--trust`, `jj` will automatically load any future updates to
+`.config/jj/config.toml` (including changes fetched from remote branches or
+unsubmitted pull requests) without prompting. If you collaborate with untrusted
+contributors or review unverified PRs, `--review` is recommended instead.
 
 ## Ways to specify `jj` config: details
 
