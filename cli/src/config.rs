@@ -2159,4 +2159,64 @@ mod tests {
             rng: Arc::new(Mutex::new(ChaCha20Rng::seed_from_u64(0))),
         }
     }
+
+    #[test]
+    fn test_interpolate_variables() {
+        let patterns = hashmap! {
+            "left" => "LEFT",
+            "right" => "RIGHT",
+            "left_right" => "$left $right",
+        };
+
+        assert_eq!(
+            interpolate_variables(
+                &["$left", "$1", "$right", "$2"].map(ToOwned::to_owned),
+                &patterns
+            ),
+            ["LEFT", "$1", "RIGHT", "$2"],
+        );
+
+        // Option-like
+        assert_eq!(
+            interpolate_variables(&["-o$left$right".to_owned()], &patterns),
+            ["-oLEFTRIGHT"],
+        );
+
+        // Sexp-like
+        assert_eq!(
+            interpolate_variables(&["($unknown $left $right)".to_owned()], &patterns),
+            ["($unknown LEFT RIGHT)"],
+        );
+
+        // Not a word "$left"
+        assert_eq!(
+            interpolate_variables(&["$lefty".to_owned()], &patterns),
+            ["$lefty"],
+        );
+
+        // Patterns in pattern: not expanded recursively
+        assert_eq!(
+            interpolate_variables(&["$left_right".to_owned()], &patterns),
+            ["$left $right"],
+        );
+    }
+
+    #[test]
+    fn test_find_all_variables() {
+        assert_eq!(
+            find_all_variables(
+                &[
+                    "$left",
+                    "$right",
+                    "--two=$1 and $2",
+                    "--can-be-part-of-string=$output",
+                    "$NOT_CAPITALS",
+                    "--can-repeat=$right"
+                ]
+                .map(ToOwned::to_owned),
+            )
+            .collect_vec(),
+            ["left", "right", "1", "2", "output", "right"],
+        );
+    }
 }
