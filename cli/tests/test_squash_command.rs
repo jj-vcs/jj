@@ -1670,6 +1670,136 @@ fn test_squash_description_editor_avoids_unc() -> TestResult {
 }
 
 #[test]
+fn test_squash_use_combined_message() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["describe", "@-", "-m", "destination"])
+        .success();
+    work_dir.run_jj(["describe", "-m", "source"]).success();
+    work_dir
+        .run_jj([
+            "squash",
+            "--use-combined-message",
+            "--config",
+            "ui.editor=42",
+        ])
+        .success();
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    destination
+
+    source
+    [EOF]
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn test_squash_use_combined_message_moves_trailers_to_end() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj([
+            "describe",
+            "@-",
+            "-m",
+            "destination\r\n\r\nSigned-off-by: A\r\n",
+        ])
+        .success();
+    work_dir
+        .run_jj(["describe", "-m", "source\n\nReviewed-by: B"])
+        .success();
+    std::fs::write(edit_script, "fail")?;
+
+    work_dir
+        .run_jj([
+            "squash",
+            "--use-combined-message",
+            "--config",
+            r#"templates.commit_trailers='"Signed-off-by: A\nCC: C"'"#,
+        ])
+        .success();
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    destination
+
+    source
+
+    Signed-off-by: A
+    Reviewed-by: B
+    CC: C
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
+fn test_squash_use_combined_message_when_inserting_destination() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["describe", "-m", "source one"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file2", "b\n");
+    work_dir.run_jj(["describe", "-m", "source two"]).success();
+    std::fs::write(edit_script, "fail")?;
+
+    work_dir
+        .run_jj([
+            "squash",
+            "--from",
+            "@-",
+            "--from",
+            "@",
+            "--insert-after",
+            "root()",
+            "--use-combined-message",
+        ])
+        .success();
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    source one
+
+    source two
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
+fn test_squash_use_combined_message_keeps_empty_description_empty() {
+    let mut test_env = TestEnvironment::default();
+    test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file2", "b\n");
+
+    work_dir
+        .run_jj([
+            "squash",
+            "--use-combined-message",
+            "--config",
+            r#"templates.commit_trailers='"CC: C"'"#,
+        ])
+        .success();
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
+}
+
+#[test]
 fn test_squash_empty() {
     let mut test_env = TestEnvironment::default();
     test_env.set_up_fake_editor();
@@ -1762,6 +1892,21 @@ fn test_squash_option_exclusion() {
     ]), @"
     ------- stderr -------
     error: the argument '--message <MESSAGE>' cannot be used with '--use-destination-message'
+
+    Usage: jj squash --message <MESSAGE> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj([
+        "squash",
+        "--message=123",
+        "--use-combined-message",
+    ]), @"
+    ------- stderr -------
+    error: the argument '--message <MESSAGE>' cannot be used with '--use-combined-message'
 
     Usage: jj squash --message <MESSAGE> [FILESETS]...
 

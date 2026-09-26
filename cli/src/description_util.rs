@@ -345,7 +345,7 @@ pub fn try_combine_messages(sources: &[Commit], destination: &Commit) -> Option<
 ///
 /// This includes empty descriptions too, so the user doesn't have to wonder why
 /// they only see 2 descriptions when they combined 3 commits.
-pub async fn combine_messages_for_editing(
+pub async fn combine_edit_message(
     ui: &Ui,
     tx: &WorkspaceCommandTransaction<'_>,
     sources: &[Commit],
@@ -386,6 +386,83 @@ pub async fn combine_messages_for_editing(
     }
 
     Ok(combined)
+}
+
+/// Combines commit descriptions without requiring an editor.
+///
+/// Description bodies are kept in destination-then-source order. Recognized
+/// trailers are removed from each description and collected in a single final
+/// paragraph, because trailers are only recognized at the end of a commit
+/// message. Trailer text is preserved verbatim, including order, continuation
+/// lines, and duplicates. Callers can then use [`add_trailers()`] to append any
+/// configured trailers according to the normal commit-trailer rules.
+pub fn combine_messages(sources: &[Commit], destination: Option<&Commit>) -> String {
+    let descriptions = destination
+        .into_iter()
+        .chain(sources)
+        .map(Commit::description);
+    combine_description_texts(descriptions)
+}
+
+fn combine_description_texts<'a>(descriptions: impl IntoIterator<Item = &'a str>) -> String {
+    let mut bodies = Vec::new();
+    let mut trailer_paragraphs = Vec::new();
+    for description in descriptions {
+        let (body, trailers) = split_description(description);
+        if !body.is_empty() {
+            bodies.push(body);
+        }
+        if let Some(trailers) = trailers {
+            trailer_paragraphs.push(trailers);
+        }
+    }
+
+    let bodies = bodies.join("\n\n");
+    let trailers = trailer_paragraphs.join("\n");
+    let combined = [bodies, trailers]
+        .into_iter()
+        .filter(|part| !part.is_empty())
+        .join("\n\n");
+    text_util::complete_newline(combined)
+}
+
+/// Separates the message body from a recognized final trailer paragraph.
+///
+/// `parse_description_trailers()` owns the rules for deciding whether the
+/// final paragraph is actually trailers. If it rejects the paragraph, the
+/// complete description remains body text. Once accepted, the original text
+/// is returned instead of reconstructed from parsed trailers so formatting and
+/// Git-generated lines are not lost.
+fn split_description(description: &str) -> (&str, Option<&str>) {
+    let description = description.trim_end();
+    let trailers = parse_description_trailers(description);
+    if trailers.is_empty() {
+        (description, None)
+    } else {
+        if let Some((index, separator_len)) = find_last_paragraph_separator(description) {
+            let body = description[..index].trim_end();
+            let trailer_paragraph = &description[index + separator_len..];
+            (body, Some(trailer_paragraph))
+        } else {
+            ("", Some(description.trim_start_matches(['\r', '\n'])))
+        }
+    }
+}
+
+/// Finds the last empty line separating two paragraphs.
+///
+/// Commit descriptions can contain either LF or CRLF line endings. Returning
+/// the separator length lets the caller retain the surrounding text without
+/// normalizing it before trailer recognition.
+fn find_last_paragraph_separator(description: &str) -> Option<(usize, usize)> {
+    ["\n\n", "\r\n\r\n"]
+        .into_iter()
+        .filter_map(|separator| {
+            description
+                .rfind(separator)
+                .map(|index| (index, separator.len()))
+        })
+        .max_by_key(|(index, _)| *index)
 }
 
 /// Create a description from a list of paragraphs.
@@ -493,8 +570,66 @@ mod tests {
     use indoc::indoc;
     use maplit::hashmap;
 
+    use super::combine_description_texts;
     use super::parse_bulk_edit_message;
     use crate::description_util::ParseBulkEditMessageError;
+
+    #[test]
+    fn test_combine_description_texts() {
+        let descriptions = ["destination\n", "source one\n\nDetails\n", "source two\n"];
+        let combined = combine_description_texts(descriptions);
+        assert_eq!(
+            combined,
+            "destination\n\nsource one\n\nDetails\n\nsource two\n"
+        );
+    }
+
+    #[test]
+    fn test_combine_description_texts_moves_trailers_to_end_verbatim() {
+        let combined = combine_description_texts([
+            indoc! {"
+                destination
+
+                Signed-off-by: Alice
+                Reviewed-by: Bob
+            "},
+            indoc! {"
+                source
+
+                Co-authored-by: Carol
+                 continuation line
+                Signed-off-by: Alice
+            "},
+        ]);
+        assert_eq!(
+            combined,
+            indoc! {"
+                destination
+
+                source
+
+                Signed-off-by: Alice
+                Reviewed-by: Bob
+                Co-authored-by: Carol
+                 continuation line
+                Signed-off-by: Alice
+            "}
+        );
+    }
+
+    #[test]
+    fn test_combine_description_texts_keeps_non_trailer_paragraphs_in_body() {
+        let combined =
+            combine_description_texts(["destination\n\nNot-a-trailer: value\nmore text"]);
+        assert_eq!(combined, "destination\n\nNot-a-trailer: value\nmore text\n");
+    }
+
+    #[test]
+    fn test_combine_description_texts_with_crlf_trailers() {
+        let descriptions = ["destination\r\n\r\nSigned-off-by: Alice\r\n", "source\n"];
+        let combined = combine_description_texts(descriptions);
+        assert_eq!(combined, "destination\n\nsource\n\nSigned-off-by: Alice\n");
+    }
 
     #[test]
     fn test_parse_complete_bulk_edit_message() {
