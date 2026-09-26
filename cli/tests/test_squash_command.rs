@@ -19,6 +19,7 @@ use testutils::TestResult;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::fake_editor_path;
 
 #[test]
 fn test_squash() {
@@ -1316,6 +1317,11 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
 fn test_squash_description() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
+    // Set up editor with explicit "$path" and "$line" arguments
+    test_env.add_config(format!(
+        "ui.editor = {}\n",
+        toml_edit::Value::from_iter([&fake_editor_path(), "$path", "$line"])
+    ));
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
@@ -1367,7 +1373,10 @@ fn test_squash_description() -> TestResult {
     work_dir.run_jj(["op", "restore", &setup_opid2]).success();
     work_dir.run_jj(["describe", "-m", "source"]).success();
     let setup_opid3 = work_dir.current_operation_id();
-    std::fs::write(&edit_script, "dump editor0")?;
+    std::fs::write(
+        &edit_script,
+        ["dump editor0", "expect-arg 0\n3", "expect-no-arg 1"].join("\0"),
+    )?;
     work_dir.run_jj(["squash"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     destination

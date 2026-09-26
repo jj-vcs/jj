@@ -19,6 +19,7 @@ use super::ConfigTargetArgs;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::print_error_sources;
+use crate::description_util::LineNumber;
 use crate::ui::Ui;
 
 /// Start an editor on a jj config file.
@@ -48,7 +49,7 @@ pub async fn cmd_config_edit(
     // 2. The user restores previous one
     writeln!(ui.status(), "Editing file: {}", file.path().display())?;
     loop {
-        editor.edit_file(file.path())?;
+        editor.edit_file(file.path(), LineNumber::MIN)?;
 
         // Trying to load back config. If error, prompt to continue editing
         if let Err(e) = ConfigLayer::load_from_file(file.layer().source, file.path().to_path_buf())

@@ -80,6 +80,14 @@ fn main() {
                     exit(1)
                 }
             }
+            ["expect-no-arg", index] => {
+                let index = index.parse::<usize>().unwrap();
+                if let Some(actual) = args.other_args.get(index) {
+                    eprintln!("fake-editor: Unexpected argument at index {index}.\n");
+                    eprintln!("EXPECTED: none\nRECEIVED: <{actual}>");
+                    exit(1);
+                }
+            }
             ["write"] => {
                 fs::write(&args.file, payload).unwrap_or_else(|_| {
                     panic!("Failed to write file {}", args.file.to_str().unwrap())

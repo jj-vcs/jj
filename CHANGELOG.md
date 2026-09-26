@@ -75,6 +75,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   disable them. This can be used to disable built-in aliases or disable aliases
   in later layers (such as repo config files).
 
+* `ui.editor` now supports `$path` and `$line` substitution variables. Example:
+  `ui.editor = ["emacs", "+$line", "$path"]`
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,

@@ -24,6 +24,7 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error_with_message;
+use crate::description_util::LineNumber;
 use crate::description_util::TextEditor;
 use crate::ui::Ui;
 
@@ -66,7 +67,7 @@ fn edit_sparse(
     }
 
     let content = editor
-        .edit_str(content, Some(".jjsparse"))
+        .edit_str(content, Some(".jjsparse"), LineNumber::MIN)
         .map_err(|err| err.with_name("sparse patterns"))?;
 
     content

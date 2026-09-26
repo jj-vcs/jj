@@ -1,6 +1,6 @@
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fs::File;
-use std::io;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
@@ -79,7 +79,7 @@ impl DiffWorkingCopies {
         &self,
         repo_path: &RepoPath,
         relative: bool,
-    ) -> HashMap<&'static str, String> {
+    ) -> HashMap<&'static str, OsString> {
         let fs_path = |base: &Path, relative: bool| {
             let base = if relative {
                 base.strip_prefix(self.temp_dir())
@@ -91,8 +91,6 @@ impl DiffWorkingCopies {
                 .to_fs_path(base)
                 .expect("path should have been checked out to disk")
                 .into_os_string()
-                .into_string()
-                .expect("temp_dir should be valid utf-8")
         };
         let mut result = maplit::hashmap! {
             "left" => fs_path(self.left.working_copy_path(), relative),
@@ -107,19 +105,9 @@ impl DiffWorkingCopies {
         result
     }
 
-    pub fn to_command_variables(&self, relative: bool) -> HashMap<&'static str, String> {
+    pub fn to_command_variables(&self, relative: bool) -> HashMap<&'static str, OsString> {
         self.to_command_variables_for_file(RepoPath::root(), relative)
     }
-}
-
-pub(crate) fn new_utf8_temp_dir(prefix: &str) -> io::Result<TempDir> {
-    let temp_dir = tempfile::Builder::new().prefix(prefix).tempdir()?;
-    if temp_dir.path().to_str().is_none() {
-        // Not using .display() as we know the path contains unprintable character
-        let message = format!("path {:?} is not valid UTF-8", temp_dir.path());
-        return Err(io::Error::new(io::ErrorKind::InvalidData, message));
-    }
-    Ok(temp_dir)
 }
 
 pub(crate) fn set_readonly_recursively(path: &Path) -> Result<(), std::io::Error> {
@@ -165,7 +153,10 @@ pub(crate) async fn check_out_trees(
         .collect()
         .await;
 
-    let temp_dir = new_utf8_temp_dir("jj-diff-").map_err(DiffCheckoutError::SetUpDir)?;
+    let temp_dir = tempfile::Builder::new()
+        .prefix("jj-diff-")
+        .tempdir()
+        .map_err(DiffCheckoutError::SetUpDir)?;
     let temp_path = temp_dir.path();
 
     // Checkout a tree into our temp directory with the given prefix.

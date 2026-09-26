@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::io;
 use std::io::Write;
 use std::path::Path;
@@ -36,7 +37,6 @@ use super::MergeToolPartialResolutionError;
 use super::diff_working_copies::DiffEditWorkingCopies;
 use super::diff_working_copies::DiffType;
 use super::diff_working_copies::check_out_trees;
-use super::diff_working_copies::new_utf8_temp_dir;
 use super::diff_working_copies::set_readonly_recursively;
 use crate::config::CommandNameAndArgs;
 use crate::config::find_all_variables;
@@ -227,7 +227,10 @@ async fn run_mergetool_external_single_file(
         "output" => initial_output_content.as_slice(),
     };
 
-    let temp_dir = new_utf8_temp_dir("jj-resolve-").map_err(ExternalToolError::SetUpDir)?;
+    let temp_dir = tempfile::Builder::new()
+        .prefix("jj-resolve-")
+        .tempdir()
+        .map_err(ExternalToolError::SetUpDir)?;
     let suffix = if let Some(filename) = repo_path.components().next_back() {
         let name = filename
             .to_fs_name()
@@ -238,7 +241,7 @@ async fn run_mergetool_external_single_file(
         // resolving the root path ever makes sense.
         "".to_owned()
     };
-    let mut variables: HashMap<&str, _> = files
+    let mut variables: HashMap<&str, OsString> = files
         .iter()
         .map(|(role, contents)| -> Result<_, ConflictResolveError> {
             let path = temp_dir.path().join(format!("{role}{suffix}"));
@@ -247,16 +250,11 @@ async fn run_mergetool_external_single_file(
                 // TODO: Should actually ignore the error here, or have a warning.
                 set_readonly_recursively(&path).map_err(ExternalToolError::SetUpDir)?;
             }
-            Ok((
-                *role,
-                path.into_os_string()
-                    .into_string()
-                    .expect("temp_dir should be valid utf-8"),
-            ))
+            Ok((*role, path.into()))
         })
         .try_collect()?;
-    variables.insert("marker_length", conflict_marker_len.to_string());
-    variables.insert("path", repo_path.as_internal_file_string().to_string());
+    variables.insert("marker_length", conflict_marker_len.to_string().into());
+    variables.insert("path", repo_path.as_internal_file_string().into());
 
     let mut cmd = Command::new(&editor.program);
     cmd.args(interpolate_variables(&editor.merge_args, &variables));
@@ -408,7 +406,7 @@ pub async fn edit_diff_external(
     )
     .await?;
 
-    let invoke = |patterns: &HashMap<&str, String>| -> Result<(), DiffEditError> {
+    let invoke = |patterns: &HashMap<&str, OsString>| -> Result<(), DiffEditError> {
         let mut cmd = Command::new(&editor.program);
         cmd.args(interpolate_variables(&editor.edit_args, patterns));
         tracing::info!(?cmd, "Invoking the external diff editor:");
@@ -460,7 +458,7 @@ pub async fn generate_diff(
     diff_wc.set_left_readonly()?;
     diff_wc.set_right_readonly()?;
     let mut patterns = diff_wc.to_command_variables(true);
-    patterns.insert("width", width.to_string());
+    patterns.insert("width", width.to_string().into());
     invoke_external_diff(ui, writer, tool, diff_wc.temp_dir(), &patterns)
 }
 
@@ -470,7 +468,7 @@ pub fn invoke_external_diff(
     writer: &mut dyn Write,
     tool: &ExternalMergeTool,
     diff_dir: &Path,
-    patterns: &HashMap<&str, String>,
+    patterns: &HashMap<&str, OsString>,
 ) -> Result<(), DiffGenerateError> {
     // TODO: Somehow propagate --color to the external command?
     let mut cmd = Command::new(&tool.program);
@@ -478,20 +476,8 @@ pub fn invoke_external_diff(
     if !tool.diff_do_chdir {
         let absolute_left_path = Path::new(diff_dir).join(&patterns["left"]);
         let absolute_right_path = Path::new(diff_dir).join(&patterns["right"]);
-        patterns.insert(
-            "left",
-            absolute_left_path
-                .into_os_string()
-                .into_string()
-                .expect("temp_dir should be valid utf-8"),
-        );
-        patterns.insert(
-            "right",
-            absolute_right_path
-                .into_os_string()
-                .into_string()
-                .expect("temp_dir should be valid utf-8"),
-        );
+        patterns.insert("left", absolute_left_path.into());
+        patterns.insert("right", absolute_right_path.into());
     } else {
         cmd.current_dir(diff_dir);
     }
@@ -524,69 +510,4 @@ pub fn invoke_external_diff(
     }
     copy_result.map_err(ExternalToolError::Io)?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_interpolate_variables() {
-        let patterns = maplit::hashmap! {
-            "left" => "LEFT",
-            "right" => "RIGHT",
-            "left_right" => "$left $right",
-        };
-
-        assert_eq!(
-            interpolate_variables(
-                &["$left", "$1", "$right", "$2"].map(ToOwned::to_owned),
-                &patterns
-            ),
-            ["LEFT", "$1", "RIGHT", "$2"],
-        );
-
-        // Option-like
-        assert_eq!(
-            interpolate_variables(&["-o$left$right".to_owned()], &patterns),
-            ["-oLEFTRIGHT"],
-        );
-
-        // Sexp-like
-        assert_eq!(
-            interpolate_variables(&["($unknown $left $right)".to_owned()], &patterns),
-            ["($unknown LEFT RIGHT)"],
-        );
-
-        // Not a word "$left"
-        assert_eq!(
-            interpolate_variables(&["$lefty".to_owned()], &patterns),
-            ["$lefty"],
-        );
-
-        // Patterns in pattern: not expanded recursively
-        assert_eq!(
-            interpolate_variables(&["$left_right".to_owned()], &patterns),
-            ["$left $right"],
-        );
-    }
-
-    #[test]
-    fn test_find_all_variables() {
-        assert_eq!(
-            find_all_variables(
-                &[
-                    "$left",
-                    "$right",
-                    "--two=$1 and $2",
-                    "--can-be-part-of-string=$output",
-                    "$NOT_CAPITALS",
-                    "--can-repeat=$right"
-                ]
-                .map(ToOwned::to_owned),
-            )
-            .collect_vec(),
-            ["left", "right", "1", "2", "output", "right"],
-        );
-    }
 }

@@ -17,6 +17,8 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::env;
 use std::env::split_paths;
+use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
@@ -43,7 +45,6 @@ use jj_lib::secure_config::LoadedSecureConfig;
 use jj_lib::secure_config::SecureConfig;
 use rand::SeedableRng as _;
 use rand_chacha::ChaCha20Rng;
-use regex::Captures;
 use regex::Regex;
 use serde::Serialize as _;
 use tracing::instrument;
@@ -1111,7 +1112,7 @@ impl CommandNameAndArgs {
 
     /// Returns process builder configured with this after interpolating
     /// variables into the arguments.
-    pub fn to_command_with_variables<V: AsRef<str>>(
+    pub fn to_command_with_variables<V: AsRef<OsStr>>(
         &self,
         variables: &HashMap<&str, V>,
     ) -> Command {
@@ -1205,35 +1206,40 @@ where
 }
 
 // Not interested in $UPPER_CASE_VARIABLES
-static VARIABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
+static VARIABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$[a-z0-9_]+\b").unwrap());
 
-pub fn interpolate_variables<V: AsRef<str>>(
-    args: &[String],
+pub fn interpolate_variables<A: AsRef<str>, V: AsRef<OsStr>>(
+    args: &[A],
     variables: &HashMap<&str, V>,
-) -> Vec<String> {
+) -> Vec<OsString> {
     args.iter()
-        .map(|arg| interpolate_variables_single(arg, variables))
+        .map(|arg| interpolate_variables_single(arg.as_ref(), variables))
         .collect()
 }
 
-fn interpolate_variables_single<V: AsRef<str>>(arg: &str, variables: &HashMap<&str, V>) -> String {
-    VARIABLE_REGEX
-        .replace_all(arg, |caps: &Captures| {
-            let name = &caps[1];
-            if let Some(subst) = variables.get(name) {
-                subst.as_ref().to_owned()
-            } else {
-                caps[0].to_owned()
-            }
-        })
-        .into_owned()
+fn interpolate_variables_single<V: AsRef<OsStr>>(
+    arg: &str,
+    variables: &HashMap<&str, V>,
+) -> OsString {
+    let mut buf = OsString::new();
+    let mut end = 0;
+    for m in VARIABLE_REGEX.find_iter(arg) {
+        let name = &m.as_str()[1..];
+        if let Some(subst) = variables.get(name) {
+            buf.push(&arg[end..m.start()]);
+            buf.push(subst);
+            end = m.end();
+        }
+    }
+    buf.push(&arg[end..]);
+    buf
 }
 
 /// Return all variable names found in the args, without the dollar sign
-pub fn find_all_variables(args: &[String]) -> impl Iterator<Item = &str> {
+pub fn find_all_variables<A: AsRef<str>>(args: &[A]) -> impl Iterator<Item = &str> {
     let regex = &*VARIABLE_REGEX;
     args.iter()
-        .flat_map(|arg| regex.find_iter(arg))
+        .flat_map(|arg| regex.find_iter(arg.as_ref()))
         .map(|single_match| {
             let s = single_match.as_str();
             &s[1..]
@@ -2158,5 +2164,56 @@ mod tests {
             environment: HashMap::new(),
             rng: Arc::new(Mutex::new(ChaCha20Rng::seed_from_u64(0))),
         }
+    }
+
+    #[test]
+    fn test_interpolate_variables() {
+        let patterns = hashmap! {
+            "left" => "LEFT",
+            "right" => "RIGHT",
+            "left_right" => "$left $right",
+        };
+
+        assert_eq!(
+            interpolate_variables(&["$left", "$1", "$right", "$2"], &patterns),
+            ["LEFT", "$1", "RIGHT", "$2"],
+        );
+
+        // Option-like
+        assert_eq!(
+            interpolate_variables(&["-o$left$right"], &patterns),
+            ["-oLEFTRIGHT"],
+        );
+
+        // Sexp-like
+        assert_eq!(
+            interpolate_variables(&["($unknown $left $right)"], &patterns),
+            ["($unknown LEFT RIGHT)"],
+        );
+
+        // Not a word "$left"
+        assert_eq!(interpolate_variables(&["$lefty"], &patterns), ["$lefty"]);
+
+        // Patterns in pattern: not expanded recursively
+        assert_eq!(
+            interpolate_variables(&["$left_right"], &patterns),
+            ["$left $right"],
+        );
+    }
+
+    #[test]
+    fn test_find_all_variables() {
+        assert_eq!(
+            find_all_variables(&[
+                "$left",
+                "$right",
+                "--two=$1 and $2",
+                "--can-be-part-of-string=$output",
+                "$NOT_CAPITALS",
+                "--can-repeat=$right"
+            ],)
+            .collect_vec(),
+            ["left", "right", "1", "2", "output", "right"],
+        );
     }
 }
