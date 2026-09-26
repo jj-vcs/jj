@@ -257,22 +257,6 @@ impl<T> Merge<T> {
         }
     }
 
-    /// Create a `Merge` from a `removes` and `adds`, padding with `None` to
-    /// make sure that there is exactly one more `adds` than `removes`.
-    pub fn from_legacy_form(
-        removes: impl IntoIterator<Item = T>,
-        adds: impl IntoIterator<Item = T>,
-    ) -> Merge<Option<T>> {
-        let removes = removes.into_iter();
-        let mut adds = adds.into_iter().fuse();
-        let mut values = smallvec_inline![adds.next()];
-        for diff in removes.zip_longest(adds) {
-            let (remove, add) = diff.map_any(Some, Some).or_default();
-            values.extend([remove, add]);
-        }
-        Merge { values }
-    }
-
     /// The removed values, also called negative terms.
     pub fn removes(&self) -> impl ExactSizeIterator<Item = &T> {
         self.values[1..].iter().step_by(2)
@@ -635,6 +619,22 @@ impl<T> Merge<Option<T>> {
         Self::resolved(Some(value))
     }
 
+    /// Create a `Merge` from a `removes` and `adds`, padding with `None` to
+    /// make sure that there is exactly one more `adds` than `removes`.
+    pub fn from_legacy_form(
+        removes: impl IntoIterator<Item = T>,
+        adds: impl IntoIterator<Item = T>,
+    ) -> Self {
+        let removes = removes.into_iter();
+        let mut adds = adds.into_iter().fuse();
+        let mut values = smallvec_inline![adds.next()];
+        for diff in removes.zip_longest(adds) {
+            let (remove, add) = diff.map_any(Some, Some).or_default();
+            values.extend([remove, add]);
+        }
+        Self { values }
+    }
+
     /// Whether this represents a resolved value of `None`.
     pub fn is_absent(&self) -> bool {
         matches!(self.as_resolved(), Some(None))
@@ -648,6 +648,16 @@ impl<T> Merge<Option<T>> {
     /// Returns the value if this is present and non-conflicting.
     pub fn as_normal(&self) -> Option<&T> {
         self.as_resolved()?.as_ref()
+    }
+
+    /// The removed values, excluding `None` terms.
+    pub fn present_removes(&self) -> impl Iterator<Item = &T> {
+        self.removes().flatten()
+    }
+
+    /// The added values, excluding `None` terms.
+    pub fn present_adds(&self) -> impl Iterator<Item = &T> {
+        self.adds().flatten()
     }
 
     /// Creates lists of `removes` and `adds` from a `Merge` by dropping
