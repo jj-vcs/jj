@@ -79,12 +79,12 @@ pub async fn cmd_workspace_forget(
     #[cfg(feature = "git")]
     let workspace_paths = {
         let workspace_store = workspace_command.repo().loader().workspace_store();
-        let repo_path = workspace_command.repo_path();
         forget_ws
             .iter()
             .filter_map(|ws| {
-                let rel_path = workspace_store.get_workspace_path(ws).ok().flatten()?;
-                dunce::canonicalize(repo_path.join(rel_path)).ok()
+                let path = workspace_store.get_workspace_path(ws).ok().flatten()?;
+                // Omit unreachable paths
+                dunce::canonicalize(&path).ok()
             })
             .collect_vec()
     };

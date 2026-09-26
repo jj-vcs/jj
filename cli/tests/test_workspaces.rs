@@ -2037,22 +2037,22 @@ fn test_list_workspaces_template_root_unavailable() {
     let output = main_dir.run_jj(["workspace", "list", "-T", template]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     default: $TEST_ENV/main
-    second: 
+    second: $TEST_ENV/secondary
     [EOF]
     ");
 
     let template = r#"name ++ ": " ++ if(root, root.relative()) ++ "\n""#;
     let output = main_dir.run_jj(["workspace", "list", "-T", template]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     default: .
-    second: 
+    second: ../secondary
     [EOF]
     ");
 
     let output = main_dir.run_jj(["workspace", "list"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     default: . qpvuntsm e8849ae1 (empty) (no description set)
-    second: uuqppmxq 94f41578 (empty) (no description set)
+    second: ../secondary uuqppmxq 94f41578 (empty) (no description set)
     [EOF]
     ");
 }
@@ -2165,10 +2165,11 @@ fn test_workspaces_root_unavailable() -> TestResult {
 
     let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
     insta::assert_snapshot!(output.normalize_backslash().strip_stderr_last_line(), @"
-    ------- stderr -------
-    Error: Cannot resolve absolute workspace path: $TEST_ENV/main/.jj/repo/../../../secondary
+    $TEST_ENV/secondary
     [EOF]
-    [exit status: 1]
+    ------- stderr -------
+    Warning: Cannot access workspace path: $TEST_ENV/secondary
+    [EOF]
     ");
     Ok(())
 }
