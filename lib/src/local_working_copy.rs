@@ -1343,6 +1343,7 @@ impl TreeState {
                 tree_state: self,
                 current_tree: &self.tree,
                 matcher: &matcher,
+                sparse_matcher: sparse_matcher.as_ref(),
                 start_tracking_matcher,
                 force_tracking_matcher,
                 // Move tx sides so they'll be dropped at the end of the scope.
@@ -1532,6 +1533,7 @@ struct FileSnapshotter<'a> {
     tree_state: &'a TreeState,
     current_tree: &'a MergedTree,
     matcher: &'a dyn Matcher,
+    sparse_matcher: &'a dyn Matcher,
     start_tracking_matcher: &'a dyn Matcher,
     force_tracking_matcher: &'a dyn Matcher,
     tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
@@ -1578,11 +1580,18 @@ impl FileSnapshotter<'_> {
         let DirectoryToVisit {
             dir,
             disk_dir,
-            git_ignore,
+            mut git_ignore,
             file_states,
         } = directory_to_visit;
 
-        let git_ignore = git_ignore.chain_with_file(&dir, disk_dir.join(".gitignore"))?;
+        let git_ignore_file_name = RepoPathComponent::new(".gitignore").expect("static string");
+        if let Some(git_ignore_contents) = self
+            .read_gitignore(&disk_dir, &dir, git_ignore_file_name)
+            .block_on()?
+        {
+            let git_ignore_disk_path = disk_dir.join(git_ignore_file_name.as_internal_str());
+            git_ignore = git_ignore.chain(&dir, &git_ignore_disk_path, &git_ignore_contents)?;
+        }
         let dir_entries: Vec<_> = disk_dir
             .read_dir()
             .and_then(|entries| entries.try_collect())
@@ -1609,6 +1618,93 @@ impl FileSnapshotter<'_> {
         let present_entries = PresentDirEntries { dirs, files };
         self.emit_deleted_files(&dir, file_states, &present_entries);
         Ok(())
+    }
+
+    /// Loads the ignore file named `file_name` and returns its contents if it
+    /// exists, supports sparse working copies.
+    ///
+    /// * `disk_dir` is the directory on disk containing the ignore file
+    /// * `repo_dir` is the corresponding repo directory used to acquire the
+    ///   fallback ignore file if it is excluded by the sparse patterns.
+    /// * `file_name` is the name of the ignore file (e.g. `.gitignore`)
+    ///
+    /// If the file isn't materialized on disk because it is excluded by the sparse
+    /// patterns, it is read from the repository directory instead to make sure
+    /// that ignored files are not tracked.
+    ///
+    /// Function also applies special handling for symlinks, `.gitignore` files are only
+    /// processed if they are regular files, symlinks and other filesystem entities are
+    /// explicitly ignored.
+    async fn read_gitignore(
+        &self,
+        disk_dir: &Path,
+        repo_dir: &RepoPath,
+        file_name: &RepoPathComponent,
+    ) -> Result<Option<Vec<u8>>, SnapshotError> {
+        let ignore_disk_path = disk_dir.join(file_name.as_internal_str());
+        match ignore_disk_path.symlink_metadata() {
+            Ok(symlink_metadata) => {
+                // TODO: If the path is excluded by the sparse patterns, the potential on-disk .gitignore file
+                // in that dir will never be snapshotted. Should we prefer the tree version in that case?
+                // Currently we match Git, which prefers on-disk content.
+                return symlink_metadata
+                    .is_file()
+                    .then(|| {
+                        fs::read(&ignore_disk_path).map_err(|err| SnapshotError::Other {
+                            message: format!(
+                                "Failed to read ignore patterns from file {}",
+                                ignore_disk_path.display()
+                            ),
+                            err: Box::new(err),
+                        })
+                    })
+                    .transpose();
+            }
+            Err(err) if err.kind() == io::ErrorKind::NotFound => {
+                // File doesn't exist, try to read from the repo dir.
+            }
+            Err(err) => {
+                return Err(SnapshotError::Other {
+                    message: format!(
+                        "Error accessing ignore patterns file {}",
+                        ignore_disk_path.display()
+                    ),
+                    err: Box::new(err),
+                });
+            }
+        }
+
+        let ignore_fallback_repo_path = repo_dir.join(file_name);
+        if self.sparse_matcher.matches(&ignore_fallback_repo_path) {
+            // The file should have been materialized, so its absence means it was deleted from the working copy.
+            return Ok(None);
+        }
+
+        let tree_values = self
+            .current_tree
+            .path_value(&ignore_fallback_repo_path)
+            .await?;
+        let file_id = match tree_values.as_normal() {
+            Some(TreeValue::File { id, .. }) => id,
+            None
+            | Some(TreeValue::Symlink(_) | TreeValue::GitSubmodule(_) | TreeValue::Tree(_)) => {
+                return Ok(None);
+            }
+        };
+        let mut buf = vec![];
+        let mut reader = self
+            .store()
+            .read_file(&ignore_fallback_repo_path, file_id)
+            .await?;
+        reader
+            .read_to_end(&mut buf)
+            .await
+            .map_err(|err| BackendError::ReadFile {
+                path: ignore_fallback_repo_path,
+                id: file_id.clone(),
+                source: err.into(),
+            })?;
+        Ok(Some(buf))
     }
 
     async fn process_dir_entry<'scope>(

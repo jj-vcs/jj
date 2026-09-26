@@ -14,6 +14,8 @@
 
 use std::io::Write as _;
 
+use jj_lib::file_util::check_symlink_support;
+use jj_lib::file_util::symlink_file;
 use testutils::TestResult;
 use testutils::git;
 
@@ -96,6 +98,65 @@ fn test_gitignores_relative_excludes_file_path() -> TestResult {
     let output = test_env.run_jj_in(".", ["-Rrepo", "diff", "-s"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     A repo/not-ignored
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
+fn test_gitignores_symlinked_ignore_files() -> TestResult {
+    if !check_symlink_support()? {
+        eprintln!("Skipping test because symlink isn't supported");
+        return Ok(());
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    git::init(work_dir.root());
+    work_dir.run_jj(["git", "init", "--colocate"]).success();
+
+    // Point core.excludesFile at a symlink to a file that ignores file1. Git
+    // follows symlinks here, so file1 should be ignored.
+    let mut file = std::fs::OpenOptions::new()
+        .append(true)
+        .open(work_dir.root().join(".git").join("config"))?;
+    file.write_all(b"[core]\nexcludesFile=~/my-ignores\n")?;
+    drop(file);
+    let ignores_target_path = test_env.home_dir().join("my-ignores-target");
+    std::fs::write(&ignores_target_path, "file1\n")?;
+    symlink_file(ignores_target_path, test_env.home_dir().join("my-ignores"))?;
+
+    // Make .git/info/exclude a symlink to a file that ignores file2. Git
+    // follows symlinks here too, so file2 should be ignored.
+    let exclude_path = work_dir.root().join(".git").join("info").join("exclude");
+    let exclude_target_path = test_env.env_root().join("exclude-target");
+    std::fs::write(&exclude_target_path, "file2\n")?;
+    std::fs::remove_file(&exclude_path)?;
+    symlink_file(exclude_target_path, &exclude_path)?;
+
+    // Make the in-tree .gitignore a symlink to a file that would ignore file3,
+    // and add a dangling symlink in a subdirectory. Git does not follow
+    // symlinks for in-tree .gitignore, so file3 should *not* be ignored.
+    work_dir.write_file("gitignore-target", "file3\n");
+    symlink_file("gitignore-target", work_dir.root().join(".gitignore"))?;
+    let sub_dir = work_dir.create_dir("sub");
+    symlink_file("non-existent", sub_dir.root().join(".gitignore"))?;
+
+    work_dir.write_file("file1", "contents");
+    work_dir.write_file("file2", "contents");
+    work_dir.write_file("file3", "contents");
+    sub_dir.write_file("file4", "contents");
+
+    // file1/file2 are ignored via the followed symlinks, file3 is not because
+    // the in-tree .gitignore symlink isn't followed. The dangling symlink is
+    // skipped without an error.
+    let output = work_dir.run_jj(["diff", "-s"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    A .gitignore
+    A file3
+    A gitignore-target
+    A sub/.gitignore
+    A sub/file4
     [EOF]
     ");
     Ok(())
