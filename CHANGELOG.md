@@ -34,7 +34,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to access resolved tree values, formatted as their full object IDs, including
   Git submodule commit IDs.
 
-* Git-format diff hunk headers now include nearby source symbols for many common
+* Diff hunk headers now include nearby source symbols for many common
   programming and markup languages.
 
 * `jj workspace add` supports `--colocate`/`--no-colocate` flags to control

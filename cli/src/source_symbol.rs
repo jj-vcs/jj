@@ -290,7 +290,7 @@ fn is_c_style_comment_line(line: &[u8]) -> bool {
     line.starts_with(b"/*") || line.starts_with(b"//")
 }
 
-fn is_comment_line(line: &[u8], language: SourceLanguage) -> bool {
+fn is_comment_line(language: SourceLanguage, line: &[u8]) -> bool {
     match language {
         SourceLanguage::CLike
         | SourceLanguage::CLikeOrObjC
@@ -321,25 +321,31 @@ fn is_comment_line(line: &[u8], language: SourceLanguage) -> bool {
     }
 }
 
+/// Extracts a symbol from the given line if any.
+pub(crate) fn source_symbol_from_line(language: SourceLanguage, line: &[u8]) -> Option<&[u8]> {
+    let line = strip_line_ending(line);
+    let trimmed_line = trim_line(line);
+    let line_to_match = match language {
+        // Keep leading whitespace so the C-like matcher excludes indented
+        // calls/control flow inside a function. This heuristic intentionally
+        // also excludes indented C++ class methods and namespace members.
+        SourceLanguage::CLike | SourceLanguage::CLikeOrObjC => line,
+        _ => trimmed_line,
+    };
+    (!is_comment_line(language, trimmed_line) && language.is_source_symbol(line_to_match))
+        .then_some(trimmed_line)
+}
+
 fn source_symbols(
-    content: &BStr,
     language: SourceLanguage,
+    content: &BStr,
 ) -> impl Iterator<Item = (usize, &[u8])> {
     content
         .split_inclusive(|byte| *byte == b'\n')
         .enumerate()
         .filter_map(move |(line_number, line)| {
-            let line = strip_line_ending(line);
-            let trimmed_line = trim_line(line);
-            let line_to_match = match language {
-                // Keep leading whitespace so the C-like matcher excludes indented
-                // calls/control flow inside a function. This heuristic intentionally
-                // also excludes indented C++ class methods and namespace members.
-                SourceLanguage::CLike | SourceLanguage::CLikeOrObjC => line,
-                _ => trimmed_line,
-            };
-            (!is_comment_line(trimmed_line, language) && language.is_source_symbol(line_to_match))
-                .then_some((line_number, trimmed_line))
+            let symbol = source_symbol_from_line(language, line)?;
+            Some((line_number, symbol))
         })
 }
 
@@ -354,7 +360,7 @@ pub(crate) struct SourceSymbolScanner<'a> {
 impl<'a> SourceSymbolScanner<'a> {
     pub(crate) fn new(language: SourceLanguage, content: &'a BStr) -> Self {
         Self {
-            symbols: source_symbols(content, language).collect(),
+            symbols: source_symbols(language, content).collect(),
         }
     }
 
@@ -388,8 +394,8 @@ impl<'a> SourceSymbolScanner<'a> {
 mod tests {
     use super::*;
 
-    fn collect_source_symbols(content: &BStr, language: SourceLanguage) -> Vec<(usize, &[u8])> {
-        source_symbols(content, language).collect()
+    fn collect_source_symbols(language: SourceLanguage, content: &BStr) -> Vec<(usize, &[u8])> {
+        source_symbols(language, content).collect()
     }
 
     #[test]
@@ -679,7 +685,7 @@ mod tests {
         let content = BStr::new(
             b"void outer(void)\n/*\n * misleading(comment)\n */\n    call(value);\nextern int actual(int value);\n",
         );
-        let symbols = collect_source_symbols(content, SourceLanguage::CLike)
+        let symbols = collect_source_symbols(SourceLanguage::CLike, content)
             .into_iter()
             .map(|(line, symbol)| (line, BStr::new(symbol)))
             .collect::<Vec<_>>();

@@ -29,7 +29,7 @@ fn strip_ansi_escape_codes(output: String) -> String {
 }
 
 #[test]
-fn test_diff_git_hunk_header_section() {
+fn test_diff_source_symbol_in_header() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -42,7 +42,11 @@ fn test_diff_git_hunk_header_section() {
             }
 
             pub async fn changed(value: i32) -> i32 {
+                // blah blah
                 value + 1
+            }
+
+            fn unchanged2() {
             }
         "},
     );
@@ -55,18 +59,71 @@ fn test_diff_git_hunk_header_section() {
             }
 
             pub async fn changed(value: i32) -> i32 {
+                // blah blah
                 value + 2
+            }
+
+            fn unchanged2() {
             }
         "},
     );
 
+    let output = work_dir.run_jj(["diff", "--color-words", "--context=0"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    Modified regular file src/lib.rs:
+        ...    pub async fn changed(value: i32) -> i32 {
+       7     :     value + 1
+            7:     value + 2
+        ...
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "--color-words", "--context=1"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    Modified regular file src/lib.rs:
+        ...    pub async fn changed(value: i32) -> i32 {
+       6    6:     // blah blah
+       7     :     value + 1
+            7:     value + 2
+       8    8: }
+        ...
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "--color-words", "--context=2"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    Modified regular file src/lib.rs:
+        ...
+       5    5: pub async fn changed(value: i32) -> i32 {
+       6    6:     // blah blah
+       7     :     value + 1
+            7:     value + 2
+       8    8: }
+       9    9: 
+        ...
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "--color-words", "--context=3"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    Modified regular file src/lib.rs:
+        ...    fn unchanged() {
+       4    4: 
+       5    5: pub async fn changed(value: i32) -> i32 {
+       6    6:     // blah blah
+       7     :     value + 1
+            7:     value + 2
+       8    8: }
+       9    9: 
+      10   10: fn unchanged2() {
+      11   11: }
+    [EOF]
+    ");
+
     let output = work_dir.run_jj(["diff", "--git", "--context=0"]);
     insta::assert_snapshot!(output, @"
     diff --git a/src/lib.rs b/src/lib.rs
-    index a29875152a..dc32bb3132 100644
+    index 550a09d9a8..7c32a17d3e 100644
     --- a/src/lib.rs
     +++ b/src/lib.rs
-    @@ -6,1 +6,1 @@ pub async fn changed(value: i32) -> i32 {
+    @@ -7,1 +7,1 @@ pub async fn changed(value: i32) -> i32 {
     -    value + 1
     +    value + 2
     [EOF]

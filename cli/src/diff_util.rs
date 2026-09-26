@@ -19,6 +19,7 @@ use std::future;
 use std::io;
 use std::iter;
 use std::ops::Range;
+use std::path;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -99,6 +100,7 @@ use crate::merge_tools::invoke_external_diff;
 use crate::merge_tools::new_utf8_temp_dir;
 use crate::source_symbol::SourceLanguage;
 use crate::source_symbol::SourceSymbolScanner;
+use crate::source_symbol::source_symbol_from_line;
 use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
@@ -698,6 +700,11 @@ pub fn show_diff_bytes<T: AsRef<[u8]> + Eq>(
     if !contents.is_changed() {
         return Ok(());
     }
+    let language = paths
+        .after
+        .rsplit(path::is_separator)
+        .next()
+        .and_then(SourceLanguage::from_file_name);
     for format in formats {
         match format {
             // Omit diff from "short" formats. Printing dummy file path wouldn't
@@ -724,6 +731,7 @@ pub fn show_diff_bytes<T: AsRef<[u8]> + Eq>(
                 }
                 show_color_words_diff_hunks(
                     *formatter,
+                    language,
                     contents,
                     Diff::new(&ConflictLabels::unlabeled(), &ConflictLabels::unlabeled()),
                     options,
@@ -811,6 +819,7 @@ impl ColorWordsDiffOptions {
 
 fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     formatter: &mut dyn Formatter,
+    language: Option<SourceLanguage>,
     contents: Diff<&Merge<T>>,
     conflict_labels: Diff<&ConflictLabels>,
     options: &ColorWordsDiffOptions,
@@ -821,7 +830,14 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     if let (Some(left), Some(right)) = (contents.before.as_resolved(), contents.after.as_resolved())
     {
         let contents = Diff::new(left, right).map(BStr::new);
-        show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
+        show_color_words_resolved_hunks(
+            formatter,
+            language,
+            contents,
+            line_number,
+            labels,
+            options,
+        )?;
         return Ok(());
     }
     match options.conflict {
@@ -831,6 +847,7 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
             });
             show_color_words_resolved_hunks(
                 formatter,
+                language,
                 contents.as_ref().map(BStr::new),
                 line_number,
                 labels,
@@ -841,6 +858,7 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
             let contents = contents.map(|side| files::merge(side, &materialize_options.merge));
             show_color_words_conflict_hunks(
                 formatter,
+                language,
                 contents.as_ref(),
                 line_number,
                 labels,
@@ -853,6 +871,7 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
 
 fn show_color_words_conflict_hunks(
     formatter: &mut dyn Formatter,
+    language: Option<SourceLanguage>,
     contents: Diff<&Merge<BString>>,
     mut line_number: DiffLineNumber,
     labels: Diff<&str>,
@@ -881,12 +900,12 @@ fn show_color_words_conflict_hunks(
                 let num_before = options.context;
                 line_number = show_color_words_context_lines(
                     formatter,
+                    language,
                     &contexts,
                     line_number,
                     labels,
                     options,
-                    num_after,
-                    num_before,
+                    (num_after, num_before),
                 )?;
                 contexts.clear();
                 emitted = true;
@@ -903,6 +922,7 @@ fn show_color_words_conflict_hunks(
                 } else {
                     show_color_words_unresolved_hunk(
                         formatter,
+                        language,
                         &hunk,
                         line_number,
                         labels,
@@ -917,17 +937,18 @@ fn show_color_words_conflict_hunks(
     let num_before = 0;
     show_color_words_context_lines(
         formatter,
+        None, // no source symbol at the end
         &contexts,
         line_number,
         labels,
         options,
-        num_after,
-        num_before,
+        (num_after, num_before),
     )
 }
 
 fn show_color_words_unresolved_hunk(
     formatter: &mut dyn Formatter,
+    language: Option<SourceLanguage>,
     hunk: &ConflictDiffHunk,
     line_number: DiffLineNumber,
     labels: Diff<&str>,
@@ -973,8 +994,14 @@ fn show_color_words_unresolved_hunk(
             false => labels.invert(),
         };
         // Individual hunk pair may be largely the same, so diff it again.
-        let new_line_number =
-            show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
+        let new_line_number = show_color_words_resolved_hunks(
+            formatter,
+            language,
+            contents,
+            line_number,
+            labels,
+            options,
+        )?;
         // Take max to assign unique line numbers to trailing hunks. The line
         // numbers can't be real anyway because preceding conflict hunks might
         // have been resolved.
@@ -988,6 +1015,7 @@ fn show_color_words_unresolved_hunk(
 
 fn show_color_words_resolved_hunks(
     formatter: &mut dyn Formatter,
+    language: Option<SourceLanguage>,
     contents: Diff<&BStr>,
     mut line_number: DiffLineNumber,
     labels: Diff<&str>,
@@ -1012,12 +1040,12 @@ fn show_color_words_resolved_hunks(
                 let num_before = options.context;
                 line_number = show_color_words_context_lines(
                     formatter,
+                    language,
                     context.as_slice(),
                     line_number,
                     labels,
                     options,
-                    num_after,
-                    num_before,
+                    (num_after, num_before),
                 )?;
                 context = None;
                 emitted = true;
@@ -1036,26 +1064,25 @@ fn show_color_words_resolved_hunks(
     let num_before = 0;
     show_color_words_context_lines(
         formatter,
+        None, // no source symbol at the end
         context.as_slice(),
         line_number,
         labels,
         options,
-        num_after,
-        num_before,
+        (num_after, num_before),
     )
 }
 
 /// Prints `num_after` lines, ellipsis, and `num_before` lines.
 fn show_color_words_context_lines(
     formatter: &mut dyn Formatter,
+    language: Option<SourceLanguage>,
     contexts: &[Diff<&BStr>],
     mut line_number: DiffLineNumber,
     labels: Diff<&str>,
     options: &ColorWordsDiffOptions,
-    num_after: usize,
-    num_before: usize,
+    (num_after, num_before): (usize, usize),
 ) -> io::Result<DiffLineNumber> {
-    const SKIPPED_CONTEXT_LINE: &str = "    ...\n";
     let extract = |after: bool| -> (Vec<&[u8]>, Vec<&[u8]>, u32) {
         let mut lines = contexts
             .iter()
@@ -1112,7 +1139,30 @@ fn show_color_words_context_lines(
     let (right_after, mut right_before, num_right_skipped) = extract(true);
     line_number = show(formatter, [&left_after, &right_after], line_number)?;
     if num_left_skipped > 0 || num_right_skipped > 0 {
-        write!(formatter, "{SKIPPED_CONTEXT_LINE}")?;
+        // Show the last symbol line as context for the skipped range, but omit
+        // it if a new symbol line immediately follows.
+        let symbol_line = language.and_then(|lang| {
+            let mut lines = contexts
+                .iter()
+                .flat_map(|contents| contents.after.split_inclusive(|b| *b == b'\n'))
+                .fuse();
+            lines.by_ref().take(num_after).for_each(drop);
+            let next_line = lines.by_ref().rev().take(num_before).last();
+            next_line
+                .and_then(|line| source_symbol_from_line(lang, line))
+                .is_none()
+                .then(|| lines.rfind(|line| source_symbol_from_line(lang, line).is_some()))
+                .flatten()
+        });
+        if let Some(line) = symbol_line {
+            write!(formatter, "    ...    ")?;
+            formatter.labeled("context").write_all(line)?;
+            if !line.ends_with(b"\n") {
+                writeln!(formatter)?;
+            }
+        } else {
+            writeln!(formatter, "    ...")?;
+        }
         line_number.left += num_left_skipped;
         line_number.right += num_right_skipped;
         if left_before.len() > num_before {
@@ -1427,6 +1477,10 @@ pub async fn show_color_words_diff(
         let right_path = path.target();
         let left_ui_path = path_converter.format_file_path(left_path);
         let right_ui_path = path_converter.format_file_path(right_path);
+        let language = right_path
+            .components()
+            .next_back()
+            .and_then(|name| SourceLanguage::from_file_name(name.as_internal_str()));
         let Diff {
             before: left_value,
             after: right_value,
@@ -1465,6 +1519,7 @@ pub async fn show_color_words_diff(
             } else {
                 show_color_words_diff_hunks(
                     formatter,
+                    language,
                     Diff::new(&empty_content(), &right_content.contents.file_content),
                     Diff::new(
                         &ConflictLabels::unlabeled(),
@@ -1536,6 +1591,7 @@ pub async fn show_color_words_diff(
             } else if left_content.contents != right_content.contents {
                 show_color_words_diff_hunks(
                     formatter,
+                    language,
                     Diff::new(
                         &left_content.contents.file_content,
                         &right_content.contents.file_content,
@@ -1562,6 +1618,7 @@ pub async fn show_color_words_diff(
             } else {
                 show_color_words_diff_hunks(
                     formatter,
+                    language,
                     Diff::new(&left_content.contents.file_content, &empty_content()),
                     Diff::new(
                         &left_content.contents.conflict_labels,
