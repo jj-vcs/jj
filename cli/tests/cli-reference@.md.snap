@@ -3500,6 +3500,9 @@ An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. U
 * `--editor` — Open an editor to edit the change description
 
    Forces an editor to open when using `--message` to allow the message to be edited afterwards.
+* `--use-combined-message` — Use a generated combined description without opening an editor
+
+   Concatenates the destination description followed by the source descriptions. Moves recognized trailer paragraphs to the end while preserving their text and order. Configured commit trailers are applied afterward using the normal deduplication rules.
 * `-i`, `--interactive` — Interactively choose which parts to squash
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-k`, `--keep-emptied` — The source revision will not be abandoned
