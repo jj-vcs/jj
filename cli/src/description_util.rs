@@ -21,6 +21,7 @@ use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
 use jj_lib::trailer::parse_description_trailers;
 use jj_lib::trailer::parse_trailers;
+use maplit::hashmap;
 use thiserror::Error;
 
 use crate::cli_util::WorkspaceCommandTransaction;
@@ -28,6 +29,7 @@ use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::config::CommandNameAndArgs;
+use crate::config::find_all_variables;
 use crate::formatter::PlainTextFormatter;
 use crate::templater::TemplateRenderer;
 use crate::text_util;
@@ -82,11 +84,16 @@ impl TextEditor {
 
     /// Opens the given `path` in editor.
     pub fn edit_file(&self, path: impl AsRef<Path>) -> Result<(), TextEditError> {
-        let mut cmd = self.editor.to_command();
-        cmd.arg(path.as_ref());
+        let path = path.as_ref();
+        let (name, args) = self.editor.split_name_and_args();
+        let vars = hashmap! { "path" => path };
+        let mut cmd = self.editor.to_command_with_variables(&vars);
+        if !find_all_variables(&args).contains("path") {
+            cmd.arg(path);
+        }
         tracing::info!(?cmd, "running editor");
         let status = cmd.status().map_err(|source| TextEditError::FailedToRun {
-            name: self.editor.split_name().into_owned(),
+            name: name.into_owned(),
             source,
         })?;
         if status.success() {

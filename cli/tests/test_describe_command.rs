@@ -20,12 +20,18 @@ use testutils::TestResult;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::fake_editor_path;
 use crate::common::force_interactive;
 
 #[test]
 fn test_describe() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
+    // Set up editor with explicit "$path" argument
+    test_env.add_config(format!(
+        "ui.editor = {}\n",
+        toml_edit::Value::from_iter([&fake_editor_path(), "$path"])
+    ));
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
@@ -48,7 +54,7 @@ fn test_describe() -> TestResult {
 
     // Check that the text file gets initialized with the current description and
     // make no changes
-    std::fs::write(&edit_script, "dump editor0")?;
+    std::fs::write(&edit_script, ["dump editor0", "expect-no-arg 0"].join("\0"))?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
