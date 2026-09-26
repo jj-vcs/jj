@@ -17,6 +17,8 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::env;
 use std::env::split_paths;
+use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
@@ -43,7 +45,6 @@ use jj_lib::secure_config::LoadedSecureConfig;
 use jj_lib::secure_config::SecureConfig;
 use rand::SeedableRng as _;
 use rand_chacha::ChaCha20Rng;
-use regex::Captures;
 use regex::Regex;
 use serde::Serialize as _;
 use tracing::instrument;
@@ -1111,7 +1112,7 @@ impl CommandNameAndArgs {
 
     /// Returns process builder configured with this after interpolating
     /// variables into the arguments.
-    pub fn to_command_with_variables<V: AsRef<str>>(
+    pub fn to_command_with_variables<V: AsRef<OsStr>>(
         &self,
         variables: &HashMap<&str, V>,
     ) -> Command {
@@ -1205,28 +1206,33 @@ where
 }
 
 // Not interested in $UPPER_CASE_VARIABLES
-static VARIABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
+static VARIABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$[a-z0-9_]+\b").unwrap());
 
-pub fn interpolate_variables<A: AsRef<str>, V: AsRef<str>>(
+pub fn interpolate_variables<A: AsRef<str>, V: AsRef<OsStr>>(
     args: &[A],
     variables: &HashMap<&str, V>,
-) -> Vec<String> {
+) -> Vec<OsString> {
     args.iter()
         .map(|arg| interpolate_variables_single(arg.as_ref(), variables))
         .collect()
 }
 
-fn interpolate_variables_single<V: AsRef<str>>(arg: &str, variables: &HashMap<&str, V>) -> String {
-    VARIABLE_REGEX
-        .replace_all(arg, |caps: &Captures| {
-            let name = &caps[1];
-            if let Some(subst) = variables.get(name) {
-                subst.as_ref().to_owned()
-            } else {
-                caps[0].to_owned()
-            }
-        })
-        .into_owned()
+fn interpolate_variables_single<V: AsRef<OsStr>>(
+    arg: &str,
+    variables: &HashMap<&str, V>,
+) -> OsString {
+    let mut buf = OsString::new();
+    let mut end = 0;
+    for m in VARIABLE_REGEX.find_iter(arg) {
+        let name = &m.as_str()[1..];
+        if let Some(subst) = variables.get(name) {
+            buf.push(&arg[end..m.start()]);
+            buf.push(subst);
+            end = m.end();
+        }
+    }
+    buf.push(&arg[end..]);
+    buf
 }
 
 /// Return all variable names found in the args, without the dollar sign
