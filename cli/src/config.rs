@@ -1207,12 +1207,12 @@ where
 // Not interested in $UPPER_CASE_VARIABLES
 static VARIABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
 
-pub fn interpolate_variables<V: AsRef<str>>(
-    args: &[String],
+pub fn interpolate_variables<A: AsRef<str>, V: AsRef<str>>(
+    args: &[A],
     variables: &HashMap<&str, V>,
 ) -> Vec<String> {
     args.iter()
-        .map(|arg| interpolate_variables_single(arg, variables))
+        .map(|arg| interpolate_variables_single(arg.as_ref(), variables))
         .collect()
 }
 
@@ -1230,10 +1230,10 @@ fn interpolate_variables_single<V: AsRef<str>>(arg: &str, variables: &HashMap<&s
 }
 
 /// Return all variable names found in the args, without the dollar sign
-pub fn find_all_variables(args: &[String]) -> impl Iterator<Item = &str> {
+pub fn find_all_variables<A: AsRef<str>>(args: &[A]) -> impl Iterator<Item = &str> {
     let regex = &*VARIABLE_REGEX;
     args.iter()
-        .flat_map(|arg| regex.find_iter(arg))
+        .flat_map(|arg| regex.find_iter(arg.as_ref()))
         .map(|single_match| {
             let s = single_match.as_str();
             &s[1..]
@@ -2169,34 +2169,28 @@ mod tests {
         };
 
         assert_eq!(
-            interpolate_variables(
-                &["$left", "$1", "$right", "$2"].map(ToOwned::to_owned),
-                &patterns
-            ),
+            interpolate_variables(&["$left", "$1", "$right", "$2"], &patterns),
             ["LEFT", "$1", "RIGHT", "$2"],
         );
 
         // Option-like
         assert_eq!(
-            interpolate_variables(&["-o$left$right".to_owned()], &patterns),
+            interpolate_variables(&["-o$left$right"], &patterns),
             ["-oLEFTRIGHT"],
         );
 
         // Sexp-like
         assert_eq!(
-            interpolate_variables(&["($unknown $left $right)".to_owned()], &patterns),
+            interpolate_variables(&["($unknown $left $right)"], &patterns),
             ["($unknown LEFT RIGHT)"],
         );
 
         // Not a word "$left"
-        assert_eq!(
-            interpolate_variables(&["$lefty".to_owned()], &patterns),
-            ["$lefty"],
-        );
+        assert_eq!(interpolate_variables(&["$lefty"], &patterns), ["$lefty"]);
 
         // Patterns in pattern: not expanded recursively
         assert_eq!(
-            interpolate_variables(&["$left_right".to_owned()], &patterns),
+            interpolate_variables(&["$left_right"], &patterns),
             ["$left $right"],
         );
     }
@@ -2204,17 +2198,14 @@ mod tests {
     #[test]
     fn test_find_all_variables() {
         assert_eq!(
-            find_all_variables(
-                &[
-                    "$left",
-                    "$right",
-                    "--two=$1 and $2",
-                    "--can-be-part-of-string=$output",
-                    "$NOT_CAPITALS",
-                    "--can-repeat=$right"
-                ]
-                .map(ToOwned::to_owned),
-            )
+            find_all_variables(&[
+                "$left",
+                "$right",
+                "--two=$1 and $2",
+                "--can-be-part-of-string=$output",
+                "$NOT_CAPITALS",
+                "--can-repeat=$right"
+            ],)
             .collect_vec(),
             ["left", "right", "1", "2", "output", "right"],
         );
