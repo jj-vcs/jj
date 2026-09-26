@@ -20,6 +20,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::hash::RandomState;
 use std::iter;
+use std::mem;
 use std::ops::Range;
 use std::slice;
 
@@ -335,6 +336,7 @@ impl<'input> Histogram<'input> {
                 })
                 .or_insert_with(|| (word, smallvec![pos]));
         }
+        word_to_positions.retain(|(_, positions)| positions.len() <= max_occurrences);
         Self { word_to_positions }
     }
 
@@ -358,6 +360,88 @@ impl<'input> Histogram<'input> {
             .find(word.hash, |(w, _)| comp.eq(w.text, word.text))?;
         Some(positions)
     }
+
+    fn narrowed(&self, positions: Range<LocalWordPosition>) -> NarrowedHistogram<'input, '_> {
+        NarrowedHistogram {
+            histogram: self,
+            start: positions.start,
+            end: positions.end,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct NarrowedHistogram<'input, 'aux> {
+    histogram: &'aux Histogram<'input>,
+    start: LocalWordPosition,
+    end: LocalWordPosition,
+}
+
+impl<'input, 'aux> NarrowedHistogram<'input, 'aux> {
+    fn positions_by_word<C: CompareBytes, S: BuildHasher>(
+        self,
+        word: HashedWord<'input>,
+        comp: &WordComparator<C, S>,
+    ) -> impl Iterator<Item = LocalWordPosition> + use<'aux, C, S> {
+        let Self { start, end, .. } = self;
+        self.histogram
+            .positions_by_word(word, comp)
+            .into_iter()
+            .flatten()
+            .copied()
+            .skip_while(move |&pos| pos < start)
+            .take_while(move |&pos| pos < end)
+            .map(move |pos| LocalWordPosition(pos.0 - start.0))
+    }
+}
+
+/// Finds the longest matching contiguous words. Returns the length and
+/// left/right start positions.
+///
+/// To speed this up, set `max_occurrences` to omit frequent words from the
+/// `right_histogram` (or hash table).
+fn find_longest_match<C: CompareBytes, S: BuildHasher>(
+    left: &LocalDiffSource,
+    right_histogram: NarrowedHistogram<'_, '_>,
+    comp: &WordComparator<C, S>,
+) -> Option<(usize, LocalWordPosition, LocalWordPosition)> {
+    let mut max_len = 0;
+    let mut left_max_pos = LocalWordPosition(0);
+    let mut right_max_pos = LocalWordPosition(0);
+
+    // Known matching lengths sorted by right_pos: scans sorted Vec linearly as
+    // there wouldn't be many contiguous matches.
+    let mut prev_matches: Vec<(LocalWordPosition, usize)> = Vec::new();
+    let mut curr_matches: Vec<(LocalWordPosition, usize)> = Vec::new();
+    for (left_pos, word) in left.hashed_words().enumerate() {
+        let left_pos = LocalWordPosition(left_pos);
+        let mut prev_matches_cursor = prev_matches.iter().copied().peekable();
+        for right_pos in right_histogram.positions_by_word(word, comp) {
+            // len = matched_lengths[left_pos - 1][right_pos - 1] + 1
+            let prev_right_pos = right_pos.0.checked_sub(1).map(LocalWordPosition);
+            let prev_match = prev_right_pos.and_then(|prev_pos| {
+                prev_matches_cursor
+                    .peeking_take_while(|&(pos, _)| pos < prev_pos)
+                    .for_each(drop);
+                prev_matches_cursor.next_if(|&(pos, _)| pos == prev_pos)
+            });
+            let len = prev_match.map_or(1, |(_, len)| len + 1);
+            curr_matches.push((right_pos, len));
+            if max_len < len {
+                max_len = len;
+                left_max_pos = left_pos;
+                right_max_pos = right_pos;
+            }
+        }
+        mem::swap(&mut prev_matches, &mut curr_matches);
+        curr_matches.clear();
+    }
+
+    max_len.checked_sub(1).map(|offset| {
+        let left_start_pos = LocalWordPosition(left_max_pos.0 - offset);
+        let right_start_pos = LocalWordPosition(right_max_pos.0 - offset);
+        (max_len, left_start_pos, right_start_pos)
+    })
 }
 
 /// Finds the LCS given a array where the value of `input[i]` indicates that
@@ -428,12 +512,25 @@ fn collect_unchanged_words<C: CompareBytes, S: BuildHasher>(
         return;
     }
 
+    let max_occurrences = 100;
+    let left_histogram = Histogram::calculate(left, comp, max_occurrences);
+    let right_histogram = Histogram::calculate(right, comp, max_occurrences);
+
     // Prioritize LCS-based algorithm than leading/trailing matches
     let old_len = found_positions.len();
-    collect_unchanged_words_lcs(found_positions, left, right, comp);
+    collect_unchanged_words_lcs(
+        found_positions,
+        (left, &left_histogram),
+        (right, &right_histogram),
+        comp,
+    );
     if found_positions.len() != old_len {
         return;
     }
+
+    // Since the LCS-based algorithm splits ranges by the most uncommon shared
+    // word, there often exist shared words around the boundary. We expand the
+    // unchanged regions before falling back to the longest match.
 
     // Trim leading common ranges (i.e. grow previous unchanged region)
     let common_leading_len = iter::zip(left.hashed_words(), right.hashed_words())
@@ -447,39 +544,45 @@ fn collect_unchanged_words<C: CompareBytes, S: BuildHasher>(
         .take_while(|&(l, r)| comp.eq_hashed(l, r))
         .count();
 
-    found_positions.extend(itertools::chain(
-        (0..common_leading_len).map(|i| {
-            (
-                left.map_to_global(LocalWordPosition(i)),
-                right.map_to_global(LocalWordPosition(i)),
-            )
-        }),
-        (1..=common_trailing_len).rev().map(|i| {
-            (
-                left.map_to_global(LocalWordPosition(left.ranges.len() - i)),
-                right.map_to_global(LocalWordPosition(right.ranges.len() - i)),
-            )
-        }),
-    ));
+    let uncommon_start = LocalWordPosition(common_leading_len);
+    let left_uncommon_end = LocalWordPosition(left.ranges.len() - common_trailing_len);
+    let right_uncommon_end = LocalWordPosition(right.ranges.len() - common_trailing_len);
+    let left_uncommon = left.narrowed(uncommon_start..left_uncommon_end);
+    let right_uncommon = right.narrowed(uncommon_start..right_uncommon_end);
+
+    found_positions.extend((0..common_leading_len).map(|i| {
+        (
+            left.map_to_global(LocalWordPosition(i)),
+            right.map_to_global(LocalWordPosition(i)),
+        )
+    }));
+    if !left_uncommon.ranges.is_empty() && !right_uncommon.ranges.is_empty() {
+        let right_uncommon_histogram = right_histogram.narrowed(uncommon_start..right_uncommon_end);
+        collect_unchanged_words_longest_match(
+            found_positions,
+            &left_uncommon,
+            (&right_uncommon, right_uncommon_histogram),
+            comp,
+        );
+    }
+    found_positions.extend((1..=common_trailing_len).rev().map(|i| {
+        (
+            left.map_to_global(LocalWordPosition(left.ranges.len() - i)),
+            right.map_to_global(LocalWordPosition(right.ranges.len() - i)),
+        )
+    }));
 }
 
 fn collect_unchanged_words_lcs<C: CompareBytes, S: BuildHasher>(
     found_positions: &mut Vec<(WordPosition, WordPosition)>,
-    left: &LocalDiffSource,
-    right: &LocalDiffSource,
+    (left, left_histogram): (&LocalDiffSource, &Histogram),
+    (right, right_histogram): (&LocalDiffSource, &Histogram),
     comp: &WordComparator<C, S>,
 ) {
-    let max_occurrences = 100;
-    let left_histogram = Histogram::calculate(left, comp, max_occurrences);
-    let left_count_to_entries = left_histogram.build_count_to_entries();
-    if *left_count_to_entries.keys().next().unwrap() > max_occurrences {
-        // If there are very many occurrences of all words, then we just give up.
-        return;
-    }
-    let right_histogram = Histogram::calculate(right, comp, max_occurrences);
     // Look for words with few occurrences in `left` (could equally well have picked
     // `right`?). If any of them also occur in `right`, then we add the words to
     // the LCS.
+    let left_count_to_entries = left_histogram.build_count_to_entries();
     let Some(uncommon_shared_word_positions) =
         left_count_to_entries.values().find_map(|left_entries| {
             let mut both_positions = left_entries
@@ -543,6 +646,45 @@ fn collect_unchanged_words_lcs<C: CompareBytes, S: BuildHasher>(
         found_positions,
         &left.narrowed(previous_left_position..LocalWordPosition(left.ranges.len())),
         &right.narrowed(previous_right_position..LocalWordPosition(right.ranges.len())),
+        comp,
+    );
+}
+
+/// Splits at the longest unchanged words, then recurses into the surrounding
+/// regions.
+///
+/// See https://en.wikipedia.org/wiki/Gestalt_pattern_matching and the Python
+/// difflib.
+fn collect_unchanged_words_longest_match<C: CompareBytes, S: BuildHasher>(
+    found_positions: &mut Vec<(WordPosition, WordPosition)>,
+    left: &LocalDiffSource,
+    (right, right_histogram): (&LocalDiffSource, NarrowedHistogram<'_, '_>),
+    comp: &WordComparator<C, S>,
+) {
+    let Some((max_len, left_start_pos, right_start_pos)) =
+        find_longest_match(left, right_histogram, comp)
+    else {
+        return;
+    };
+
+    let left_end_pos = LocalWordPosition(left_start_pos.0 + max_len);
+    let right_end_pos = LocalWordPosition(right_start_pos.0 + max_len);
+    collect_unchanged_words(
+        found_positions,
+        &left.narrowed(LocalWordPosition(0)..left_start_pos),
+        &right.narrowed(LocalWordPosition(0)..right_start_pos),
+        comp,
+    );
+    found_positions.extend((0..max_len).map(|i| {
+        (
+            left.map_to_global(LocalWordPosition(left_start_pos.0 + i)),
+            right.map_to_global(LocalWordPosition(right_start_pos.0 + i)),
+        )
+    }));
+    collect_unchanged_words(
+        found_positions,
+        &left.narrowed(left_end_pos..LocalWordPosition(left.ranges.len())),
+        &right.narrowed(right_end_pos..LocalWordPosition(right.ranges.len())),
         comp,
     );
 }
@@ -1192,6 +1334,114 @@ mod tests {
         assert!(!comp.eq(b"ab", b"a b"));
     }
 
+    fn byte_ranges(len: usize, stride: usize) -> Vec<Range<usize>> {
+        (0..len).step_by(stride).map(|i| i..i + 1).collect()
+    }
+
+    #[test]
+    fn test_histogram_max_occurrences() {
+        let comp = WordComparator::new(CompareBytesExactly);
+        let ranges = byte_ranges(6, 1);
+        let source = DiffSource::new(b"abcaba", &ranges, &comp);
+        let [word_a, word_b, word_c] = source.local().hashed_words().next_array().unwrap();
+
+        // "a" exceeds max_occurrences
+        let max_occurrences = 2;
+        let histogram = Histogram::calculate(&source.local(), &comp, max_occurrences);
+        let count_to_entries = histogram.build_count_to_entries();
+        assert_eq!(count_to_entries.keys().copied().collect_vec(), [1, 2]);
+
+        assert_eq!(histogram.positions_by_word(word_a, &comp), None);
+        assert_eq!(
+            histogram.positions_by_word(word_b, &comp),
+            Some([LocalWordPosition(1), LocalWordPosition(4)].as_slice())
+        );
+        assert_eq!(
+            histogram.positions_by_word(word_c, &comp),
+            Some([LocalWordPosition(2)].as_slice())
+        );
+    }
+
+    #[test]
+    fn test_histogram_narrowed() {
+        let comp = WordComparator::new(CompareBytesExactly);
+        let ranges = byte_ranges(6, 1);
+        let source = DiffSource::new(b"abcbab", &ranges, &comp);
+        let [word_a, word_b, word_c] = source.local().hashed_words().next_array().unwrap();
+
+        let histogram = Histogram::calculate(&source.local(), &comp, usize::MAX);
+        let narrowed = histogram.narrowed(LocalWordPosition(1)..LocalWordPosition(4));
+        assert_eq!(narrowed.positions_by_word(word_a, &comp).collect_vec(), []);
+        assert_eq!(
+            narrowed.positions_by_word(word_b, &comp).collect_vec(),
+            [LocalWordPosition(0), LocalWordPosition(2)]
+        );
+        assert_eq!(
+            narrowed.positions_by_word(word_c, &comp).collect_vec(),
+            [LocalWordPosition(1)]
+        );
+    }
+
+    fn longest_match_bytes(
+        left_text: &[u8],
+        right_text: &[u8],
+    ) -> Option<(usize, LocalWordPosition, LocalWordPosition)> {
+        let comp = WordComparator::new(CompareBytesExactly);
+        let left_ranges = byte_ranges(left_text.len(), 1);
+        let right_ranges = byte_ranges(right_text.len(), 1);
+        let left = DiffSource::new(left_text, &left_ranges, &comp);
+        let right = DiffSource::new(right_text, &right_ranges, &comp);
+        let max_occurrences = 100;
+        let right_histogram = Histogram::calculate(&right.local(), &comp, max_occurrences);
+        find_longest_match(
+            &left.local(),
+            right_histogram.narrowed(LocalWordPosition(0)..LocalWordPosition(right.ranges.len())),
+            &comp,
+        )
+    }
+
+    #[test]
+    fn test_find_longest_match() {
+        assert_eq!(longest_match_bytes(b"", b""), None);
+        assert_eq!(longest_match_bytes(b"abc", b""), None);
+        assert_eq!(longest_match_bytes(b"", b"abc"), None);
+        assert_eq!(longest_match_bytes(b"a", b"b"), None);
+        assert_eq!(
+            longest_match_bytes(b"a", b"a"),
+            Some((1, LocalWordPosition(0), LocalWordPosition(0)))
+        );
+        assert_eq!(
+            longest_match_bytes(b"a", b"ba"),
+            Some((1, LocalWordPosition(0), LocalWordPosition(1)))
+        );
+        assert_eq!(
+            longest_match_bytes(b"ba", b"a"),
+            Some((1, LocalWordPosition(1), LocalWordPosition(0)))
+        );
+        assert_eq!(
+            longest_match_bytes(b"aba", b"axba"),
+            Some((2, LocalWordPosition(1), LocalWordPosition(2)))
+        );
+        assert_eq!(
+            longest_match_bytes(b"abcdef", b"zbcdf"),
+            Some((3, LocalWordPosition(1), LocalWordPosition(1)))
+        );
+
+        // Multiple candidates
+        assert_eq!(
+            longest_match_bytes(b"abcxyzdef", b"*abc*xyz"),
+            Some((3, LocalWordPosition(0), LocalWordPosition(1)))
+        );
+        assert_eq!(
+            longest_match_bytes(b"aaaaa", b"aaa"),
+            Some((3, LocalWordPosition(0), LocalWordPosition(0)))
+        );
+        assert_eq!(
+            longest_match_bytes(b"aaa", b"aaaaa"),
+            Some((3, LocalWordPosition(0), LocalWordPosition(0)))
+        );
+    }
+
     fn unchanged_ranges(
         (left_text, left_ranges): (&[u8], &[Range<usize>]),
         (right_text, right_ranges): (&[u8], &[Range<usize>]),
@@ -1220,28 +1470,26 @@ mod tests {
 
     #[test]
     fn test_unchanged_ranges_non_unique_removed() {
-        // We used to consider the first two "a" in the first input to match the two
-        // "a"s in the second input. We no longer do.
         assert_eq!(
             unchanged_ranges(
                 (b"a a a a", &[0..1, 2..3, 4..5, 6..7]),
                 (b"a b a c", &[0..1, 2..3, 4..5, 6..7]),
             ),
-            vec![(0..1, 0..1)]
+            vec![(0..1, 0..1), (2..3, 4..5)]
         );
         assert_eq!(
             unchanged_ranges(
                 (b"a a a a", &[0..1, 2..3, 4..5, 6..7]),
                 (b"b a c a", &[0..1, 2..3, 4..5, 6..7]),
             ),
-            vec![(6..7, 6..7)]
+            vec![(0..1, 2..3), (6..7, 6..7)]
         );
         assert_eq!(
             unchanged_ranges(
                 (b"a a a a", &[0..1, 2..3, 4..5, 6..7]),
                 (b"b a a c", &[0..1, 2..3, 4..5, 6..7]),
             ),
-            vec![]
+            vec![(0..1, 2..3), (2..3, 4..5)]
         );
         assert_eq!(
             unchanged_ranges(
@@ -1254,28 +1502,26 @@ mod tests {
 
     #[test]
     fn test_unchanged_ranges_non_unique_added() {
-        // We used to consider the first two "a" in the first input to match the two
-        // "a"s in the second input. We no longer do.
         assert_eq!(
             unchanged_ranges(
                 (b"a b a c", &[0..1, 2..3, 4..5, 6..7]),
                 (b"a a a a", &[0..1, 2..3, 4..5, 6..7]),
             ),
-            vec![(0..1, 0..1)]
+            vec![(0..1, 0..1), (4..5, 2..3)]
         );
         assert_eq!(
             unchanged_ranges(
                 (b"b a c a", &[0..1, 2..3, 4..5, 6..7]),
                 (b"a a a a", &[0..1, 2..3, 4..5, 6..7]),
             ),
-            vec![(6..7, 6..7)]
+            vec![(2..3, 0..1), (6..7, 6..7)]
         );
         assert_eq!(
             unchanged_ranges(
                 (b"b a a c", &[0..1, 2..3, 4..5, 6..7]),
                 (b"a a a a", &[0..1, 2..3, 4..5, 6..7]),
             ),
-            vec![]
+            vec![(2..3, 0..1), (4..5, 2..3)]
         );
         assert_eq!(
             unchanged_ranges(
@@ -1283,6 +1529,33 @@ mod tests {
                 (b"a a a a", &[0..1, 2..3, 4..5, 6..7]),
             ),
             vec![(0..1, 0..1), (6..7, 6..7)]
+        );
+    }
+
+    #[test]
+    fn test_unchanged_ranges_longest_match() {
+        // No uncommon shared words; fall back to longest match "a a a"
+        assert_eq!(
+            unchanged_ranges(
+                (b"b a a a b b", &byte_ranges(11, 2)),
+                (b"b b a a a a", &byte_ranges(11, 2)),
+            ),
+            vec![(0..1, 0..1), (2..3, 4..5), (4..5, 6..7), (6..7, 8..9)]
+        );
+
+        // No uncommon shared words; fallback to longest match and recurse
+        assert_eq!(
+            unchanged_ranges(
+                (b"b c a a a c b c", &byte_ranges(15, 2)),
+                (b"c c b a a a a b b", &byte_ranges(17, 2)),
+            ),
+            vec![
+                (0..1, 4..5),     // "b" by lcs
+                (4..5, 6..7),     // "a a a" by longest match
+                (6..7, 8..9),     //
+                (8..9, 10..11),   //
+                (12..13, 14..15), // "b" by longest match
+            ]
         );
     }
 
@@ -1769,11 +2042,15 @@ int main(int argc, char **argv)
                DiffHunk::matching(["\t\tunsigned int mode;\n"].repeat(2)),
                DiffHunk::different(["", "\t\tint fd;\n\n"]),
                DiffHunk::matching(["\t\tif (size < len + 20 || sscanf(buffer, \"%o\", &mode) != 1)\n\t\t\tusage(\"corrupt \'tree\' file\");\n\t\tbuffer = sha1 + 20;\n\t\tsize -= len + 20;\n\t\t"].repeat(2)),
-               DiffHunk::different(["printf(\"%o %s (%s)\\n\", mode, path,", "data ="]),
+               DiffHunk::different(["printf(\"%o", "data"]),
+               DiffHunk::matching([" "].repeat(2)),
+               DiffHunk::different(["%s (%s)\\n\", mode, path,", "="]),
                DiffHunk::matching([" "].repeat(2)),
                DiffHunk::different(["sha1_to_hex", "read_sha1_file"]),
                DiffHunk::matching(["(sha1"].repeat(2)),
-               DiffHunk::different([")", ", type, &filesize);\n\t\tif (!data || strcmp(type, \"blob\"))\n\t\t\tusage(\"tree file refers to bad file data\");\n\t\tfd = create_file(path);\n\t\tif (fd < 0)\n\t\t\tusage(\"unable to create file\");\n\t\tif (write(fd, data, filesize) != filesize)\n\t\t\tusage(\"unable to write file\");\n\t\tfchmod(fd, mode);\n\t\tclose(fd);\n\t\tfree(data"]),
+               DiffHunk::different(["", ", type, &filesize"]),
+               DiffHunk::matching([")"].repeat(2)),
+               DiffHunk::different(["", ";\n\t\tif (!data || strcmp(type, \"blob\"))\n\t\t\tusage(\"tree file refers to bad file data\");\n\t\tfd = create_file(path);\n\t\tif (fd < 0)\n\t\t\tusage(\"unable to create file\");\n\t\tif (write(fd, data, filesize) != filesize)\n\t\t\tusage(\"unable to write file\");\n\t\tfchmod(fd, mode);\n\t\tclose(fd);\n\t\tfree(data"]),
                DiffHunk::matching([");\n\t}\n\treturn 0;\n}\n\nint main(int argc, char **argv)\n{\n\tint fd;\n\tunsigned char sha1[20];\n\n\tif (argc != 2)\n\t\tusage(\"read-tree <key>\");\n\tif (get_sha1_hex(argv[1], sha1) < 0)\n\t\tusage(\"read-tree <key>\");\n\tsha1_file_directory = getenv(DB_ENVIRONMENT);\n\tif (!sha1_file_directory)\n\t\tsha1_file_directory = DEFAULT_DB_ENVIRONMENT;\n\tif (unpack(sha1) < 0)\n\t\tusage(\"unpack failed\");\n\treturn 0;\n}\n"].repeat(2)),
             ]
         );
