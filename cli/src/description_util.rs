@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fmt::Write as _;
 use std::fs;
 use std::io;
 use std::io::Write as _;
+use std::num::NonZero;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitStatus;
@@ -34,6 +36,9 @@ use crate::formatter::PlainTextFormatter;
 use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
+
+/// 1-based line number.
+pub type LineNumber = NonZero<u32>;
 
 #[derive(Debug, Error)]
 pub enum TextEditError {
@@ -83,10 +88,13 @@ impl TextEditor {
     }
 
     /// Opens the given `path` in editor.
-    pub fn edit_file(&self, path: impl AsRef<Path>) -> Result<(), TextEditError> {
+    pub fn edit_file(&self, path: impl AsRef<Path>, line: LineNumber) -> Result<(), TextEditError> {
         let path = path.as_ref();
         let (name, args) = self.editor.split_name_and_args();
-        let vars = hashmap! { "path" => path };
+        let vars: HashMap<&str, OsString> = hashmap! {
+            "path" => path.into(),
+            "line" => line.to_string().into(),
+        };
         let mut cmd = self.editor.to_command_with_variables(&vars);
         if !find_all_variables(&args).contains("path") {
             cmd.arg(path);
@@ -109,11 +117,12 @@ impl TextEditor {
         &self,
         content: impl AsRef<[u8]>,
         suffix: Option<&str>,
+        line: LineNumber,
     ) -> Result<String, TempTextEditError> {
         let path = self
             .write_temp_file(content.as_ref(), suffix)
             .map_err(|err| TempTextEditError::new(err.into(), None))?;
-        self.edit_file(&path)
+        self.edit_file(&path, line)
             .map_err(|err| TempTextEditError::new(err.into(), Some(path.clone())))?;
         let edited = fs::read_to_string(&path)
             .context(&path)
@@ -173,13 +182,22 @@ where
     text_util::complete_newline(description.trim_matches('\n'))
 }
 
+fn skip_leading_comment_lines(text: &str) -> LineNumber {
+    let n = text
+        .lines()
+        .take_while(|line| line.starts_with("JJ:"))
+        .count();
+    LineNumber::new(u32::try_from(n).unwrap() + 1).unwrap()
+}
+
 pub fn edit_description(editor: &TextEditor, description: &str) -> Result<String, CommandError> {
     let mut description = description.to_owned();
     append_blank_line(&mut description);
     description.push_str("JJ: Lines starting with \"JJ:\" (like this one) will be removed.\n");
+    let line_number = skip_leading_comment_lines(&description);
 
     let description = editor
-        .edit_str(description, Some(".jjdescription"))
+        .edit_str(description, Some(".jjdescription"), line_number)
         .map_err(|err| err.with_name("description"))?;
 
     Ok(cleanup_description_lines(description.lines()))
@@ -213,9 +231,10 @@ pub fn edit_multiple_descriptions(
         append_blank_line(&mut bulk_message);
     }
     bulk_message.push_str("JJ: Lines starting with \"JJ:\" (like this one) will be removed.\n");
+    let line_number = skip_leading_comment_lines(&bulk_message);
 
     let bulk_message = editor
-        .edit_str(bulk_message, Some(".jjdescription"))
+        .edit_str(bulk_message, Some(".jjdescription"), line_number)
         .map_err(|err| err.with_name("description"))?;
 
     Ok(parse_bulk_edit_message(&bulk_message, &commits_map)?)

@@ -27,10 +27,10 @@ use crate::common::force_interactive;
 fn test_describe() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
-    // Set up editor with explicit "$path" argument
+    // Set up editor with explicit "$path" and "$line" arguments
     test_env.add_config(format!(
         "ui.editor = {}\n",
-        toml_edit::Value::from_iter([&fake_editor_path(), "$path"])
+        toml_edit::Value::from_iter([&fake_editor_path(), "$path", "$line"])
     ));
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -54,7 +54,10 @@ fn test_describe() -> TestResult {
 
     // Check that the text file gets initialized with the current description and
     // make no changes
-    std::fs::write(&edit_script, ["dump editor0", "expect-no-arg 0"].join("\0"))?;
+    std::fs::write(
+        &edit_script,
+        ["dump editor0", "expect-arg 0\n1", "expect-no-arg 1"].join("\0"),
+    )?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -289,6 +292,11 @@ fn test_describe_no_matching_revisions() {
 fn test_describe_multiple_commits() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
+    // Set up editor with explicit "$path" and "$line" arguments
+    test_env.add_config(format!(
+        "ui.editor = {}\n",
+        toml_edit::Value::from_iter([&fake_editor_path(), "$path", "$line"])
+    ));
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
@@ -324,7 +332,10 @@ fn test_describe_multiple_commits() -> TestResult {
     // Check that the text file gets initialized with the current description of
     // each commit and doesn't update commits if no changes are made.
     // Commit descriptions are edited in topological order
-    std::fs::write(&edit_script, "dump editor0")?;
+    std::fs::write(
+        &edit_script,
+        ["dump editor0", "expect-arg 0\n7", "expect-no-arg 1"].join("\0"),
+    )?;
     let output = work_dir.run_jj(["describe", "-r@", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------

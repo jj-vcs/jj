@@ -1120,7 +1120,7 @@ To use NeoVim instead:
 
 ```toml
 [ui]
-editor = "nvim"
+editor = ["nvim", "+$line"]
 ```
 
 For GUI editors you possibly need to use a `-w` or `--wait`. Some examples:
@@ -1138,6 +1138,11 @@ editor = "idea --temp-project --wait"   #IntelliJ
 ```
 
 Obviously, you would only set one line, don't copy them all in!
+
+The following variables will be substituted:
+
+- `$path`: File path (optional)
+- `$line`: 1-based line number for cursor positioning
 
 ## Editing diffs
 

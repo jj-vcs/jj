@@ -51,6 +51,7 @@ use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::complete;
+use crate::description_util::LineNumber;
 use crate::description_util::TextEditor;
 use crate::formatter::Formatter;
 use crate::templater::TemplateRenderer;
@@ -462,7 +463,11 @@ impl<'a> Converge<'a> {
         writeln!(self.ui.status(), "\n")?;
         let description = if merge_in_text_editor {
             self.text_editor()?
-                .edit_str(conflicted_description, Some(".jj-converge-description"))
+                .edit_str(
+                    conflicted_description,
+                    Some(".jj-converge-description"),
+                    LineNumber::MIN,
+                )
                 .map_err(|err| err.with_name("description"))?
         } else {
             conflicted_description
