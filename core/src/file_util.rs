@@ -124,10 +124,10 @@ pub fn path_to_bytes(path: &Path) -> Result<&[u8], BadPathEncoding> {
     platform::os_str_to_bytes(path.as_ref()).map_err(BadPathEncoding)
 }
 
-/// Expands "~/" to the user's home directory.
-pub fn expand_home_path(path_str: &str) -> PathBuf {
+/// Expands "~/" to the given `home_dir` path.
+pub fn expand_home_path(path_str: &str, home_dir: Option<&Path>) -> PathBuf {
     if let Some(remainder) = path_str.strip_prefix("~/")
-        && let Ok(home_dir) = etcetera::home_dir()
+        && let Some(home_dir) = home_dir
     {
         return home_dir.join(remainder);
     }

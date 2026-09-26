@@ -45,7 +45,9 @@ pub fn signer_from_settings(settings: &UserSettings) -> Result<Signer, SignInitE
         Box::new(GpgsmBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
         Box::new(SshBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
         #[cfg(feature = "testing")]
-        Box::new(TestSigningBackend),
+        Box::new(
+            TestSigningBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?,
+        ),
     ];
 
     let main_backend = settings

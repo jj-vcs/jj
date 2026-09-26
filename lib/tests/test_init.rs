@@ -20,7 +20,6 @@ use jj_lib::config::StackedConfig;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::Repo as _;
-use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use test_case::test_case;
@@ -138,7 +137,7 @@ fn test_init_external_git() -> TestResult {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_init_with_default_config(backend: TestRepoBackend) -> TestResult {
     // Test that we can create a repo without setting any non-default config
-    let settings = UserSettings::from_config(StackedConfig::with_defaults())?;
+    let settings = testutils::user_settings_from_config(StackedConfig::with_defaults());
     let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let repo = &test_workspace.repo;
     let wc_commit_id = repo
