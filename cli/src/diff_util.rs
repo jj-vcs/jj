@@ -15,6 +15,8 @@
 use std::borrow::Cow;
 use std::cmp::max;
 use std::cmp::min;
+use std::collections::HashMap;
+use std::ffi::OsString;
 use std::future;
 use std::io;
 use std::iter;
@@ -96,7 +98,6 @@ use crate::merge_tools::DiffToolMode;
 use crate::merge_tools::ExternalMergeTool;
 use crate::merge_tools::generate_diff;
 use crate::merge_tools::invoke_external_diff;
-use crate::merge_tools::new_utf8_temp_dir;
 use crate::source_symbol::SourceLanguage;
 use crate::source_symbol::SourceSymbolScanner;
 use crate::templater::TemplateRenderer;
@@ -1599,7 +1600,7 @@ pub async fn show_file_by_file_diff(
         Ok(fs_path)
     };
 
-    let temp_dir = new_utf8_temp_dir("jj-diff-")?;
+    let temp_dir = tempfile::Builder::new().prefix("jj-diff-").tempdir()?;
     let left_wc_dir = temp_dir.path().join("left");
     let right_wc_dir = temp_dir.path().join("right");
     let mut diff_stream = materialized_diff_stream(store, tree_diff, conflict_labels);
@@ -1634,24 +1635,20 @@ pub async fn show_file_by_file_diff(
         }
         let left_path = create_file(left_path, &left_wc_dir, left_value).await?;
         let right_path = create_file(right_path, &right_wc_dir, right_value).await?;
-        let patterns = &maplit::hashmap! {
+        let patterns: HashMap<&str, OsString> = maplit::hashmap! {
             "left" => left_path
                 .strip_prefix(temp_dir.path())
                 .expect("path should be relative to temp_dir")
-                .to_str()
-                .expect("temp_dir should be valid utf-8")
-                .to_owned(),
+                .into(),
             "right" => right_path
                 .strip_prefix(temp_dir.path())
                 .expect("path should be relative to temp_dir")
-                .to_str()
-                .expect("temp_dir should be valid utf-8")
-                .to_owned(),
-            "width" => width.to_string(),
+                .into(),
+            "width" => width.to_string().into(),
         };
 
         let mut writer = formatter.raw()?;
-        invoke_external_diff(ui, writer.as_mut(), tool, temp_dir.path(), patterns)
+        invoke_external_diff(ui, writer.as_mut(), tool, temp_dir.path(), &patterns)
             .map_err(DiffRenderError::DiffGenerate)?;
     }
     Ok::<(), DiffRenderError>(())
