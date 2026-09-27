@@ -3683,7 +3683,7 @@ Infrequently used commands such as for generating shell completions
 * `config-schema` — Print the JSON schema for the jj TOML config format
 * `diff` — Compare two files on disk
 * `exec` — Execute an external command via jj
-* `gc` — Run backend-dependent garbage collection
+* `gc` — Run backend-dependent maintenance
 * `install-man-pages` — Install Jujutsu's manpages to the provided path
 * `markdown-help` — Print the CLI help for all subcommands in Markdown
 * `snapshot` — Snapshot the working copy if needed
@@ -3837,9 +3837,9 @@ echo "args: $@"
 
 ## `jj util gc`
 
-Run backend-dependent garbage collection.
+Run backend-dependent maintenance.
 
-To garbage-collect old operations and the commits/objects referenced by them, run `jj op abandon ..<some old operation>` before `jj util gc`.
+Run `jj op abandon ..<some old operation>` before this command to make old operations eligible for removal. The Git backend only publishes a bounded additive pack; it does not delete Git objects because jj cannot exclude independent Git readers and writers. Git object reclamation is deferred.
 
 **Usage:** `jj util gc [OPTIONS]`
 
@@ -3847,7 +3847,7 @@ To garbage-collect old operations and the commits/objects referenced by them, ru
 
 * `--expire <EXPIRE>` — Time threshold
 
-   By default, only obsolete objects and operations older than 2 weeks are pruned.
+   By default, only obsolete operations older than 2 weeks are pruned. Git objects newer than this threshold are retained during repacking.
 
    Only the string "now" can be passed to this parameter. Support for arbitrary absolute and relative timestamps will come in a subsequent release.
 

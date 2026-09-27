@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::fs;
+use std::process::Command;
 
 use insta::assert_snapshot;
 use test_case::test_case;
@@ -62,8 +63,17 @@ fn test_gc_args() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    let output = work_dir.run_jj(["util", "gc"]);
-    insta::assert_snapshot!(output, @"");
+    // The Git object phase must not fall back to a configured Git executable.
+    let output = work_dir.run_jj([
+        "--config=git.executable-path=/nonexistent-git",
+        "util",
+        "gc",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Git objects repacked (188 pack bytes, 1128 index bytes); reclamation deferred.
+    [EOF]
+    ");
 
     let output = work_dir.run_jj(["util", "gc", "--at-op=@-"]);
     insta::assert_snapshot!(output, @"
@@ -121,12 +131,119 @@ fn test_gc_operation_log() {
     ");
 }
 
+#[test_case("sha1" ; "sha1")]
+#[test_case("sha256" ; "sha256")]
+fn test_gc_preserves_external_git_object_and_alternate(object_hash: &str) -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(
+            ".",
+            [
+                "git",
+                "init",
+                "--colocate",
+                "--object-hash",
+                object_hash,
+                "repo",
+            ],
+        )
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("tracked", "jj commit\n");
+    work_dir
+        .run_jj(["commit", "-m", "Retain this commit"])
+        .success();
+
+    // An independent Git writer publishes an object without a Git ref. Another repository
+    // borrows the object store, so a jj lock cannot authorize deletion of that object.
+    let external = work_dir.root().parent().unwrap().join("external-blob");
+    fs::write(&external, b"external Git bytes\0\xff")?;
+    let output = Command::new("git")
+        .current_dir(work_dir.root())
+        .args(["hash-object", "-w"])
+        .arg(&external)
+        .output()?;
+    assert!(output.status.success());
+    let object_id = String::from_utf8(output.stdout)?.trim().to_owned();
+
+    let alternate = work_dir.root().parent().unwrap().join("alternate");
+    assert!(
+        Command::new("git")
+            .arg("init")
+            .arg(format!("--object-format={object_hash}"))
+            .arg(&alternate)
+            .output()?
+            .status
+            .success()
+    );
+    fs::write(
+        alternate.join(".git/objects/info/alternates"),
+        format!("{}\n", work_dir.root().join(".git/objects").display()),
+    )?;
+
+    let output = work_dir
+        .run_jj([
+            "--config=git.executable-path=/nonexistent-git",
+            "util",
+            "gc",
+        ])
+        .success();
+    assert!(output.stderr.raw().contains("reclamation deferred"));
+    let output = Command::new("git")
+        .current_dir(&alternate)
+        .args(["cat-file", "-t", &object_id])
+        .output()?;
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"blob\n");
+    assert!(
+        Command::new("git")
+            .current_dir(work_dir.root())
+            .args(["fsck", "--full", "--no-reflogs"])
+            .output()?
+            .status
+            .success()
+    );
+    work_dir.run_jj(["log", "-r", "@-"]).success();
+    Ok(())
+}
+
+#[test]
+fn test_gc_defers_repack_when_pack_storage_exceeds_limit() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let pack_dir = work_dir.root().join(".git/objects/pack");
+    fs::create_dir_all(&pack_dir)?;
+    let marker = pack_dir.join("unrelated-storage");
+    fs::File::create(&marker)?.set_len(4 * 1024 * 1024 * 1024 + 1)?;
+
+    let output = work_dir
+        .run_jj([
+            "--config=git.executable-path=/nonexistent-git",
+            "util",
+            "gc",
+        ])
+        .success();
+    assert!(output.stderr.raw().contains("reclamation deferred"));
+    assert!(
+        output
+            .stderr
+            .raw()
+            .contains("4 GiB additive-repack threshold"),
+        "{}",
+        output.stderr.raw()
+    );
+    assert_eq!(fs::read_dir(&pack_dir)?.count(), 1);
+    Ok(())
+}
+
 #[test]
 fn test_shell_completions() {
     #[track_caller]
     fn test(shell: &str) {
         let test_env = TestEnvironment::default();
-        // Use the local backend because GitBackend::gc() depends on the git CLI.
         let output = test_env
             .run_jj_in(".", ["util", "completion", shell])
             .success();

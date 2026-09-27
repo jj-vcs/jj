@@ -15,7 +15,6 @@
 #![expect(missing_docs)]
 
 use std::collections::HashSet;
-use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -24,12 +23,13 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
+#[cfg(test)]
 use std::process::Command;
-use std::process::ExitStatus;
 use std::str::Utf8Error;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+use std::sync::atomic::AtomicBool;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -38,6 +38,10 @@ use futures::AsyncReadExt as _;
 use futures::StreamExt as _;
 use futures::io::Cursor;
 use futures::stream::BoxStream;
+use girt::PackWriteError;
+use girt::retention::RepackError;
+use girt::retention::RepackLimits;
+use girt::retention::RetentionPolicy;
 use gix::bstr::BString;
 use gix::objs::CommitRefIter;
 use gix::objs::Exists as _;
@@ -171,12 +175,13 @@ pub enum GitRepoAtWorkdirError {
     Other(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
-#[derive(Debug, Error)]
-pub enum GitGcError {
-    #[error("Failed to run git gc command")]
-    GcCommand(#[source] std::io::Error),
-    #[error("git gc command exited with an error: {0}")]
-    GcCommandErrorStatus(ExitStatus),
+/// Outcome of the Git object portion of `jj util gc`.
+#[derive(Debug)]
+pub enum GitGcOutcome {
+    /// A bounded pack was published; no existing Git storage was removed.
+    Repacked { pack_bytes: u64, index_bytes: u64 },
+    /// Additive repacking exceeded a bound; no Git objects were reclaimed.
+    Deferred { reason: String },
 }
 
 pub struct GitBackend {
@@ -192,7 +197,6 @@ pub struct GitBackend {
     shallow_root_ids: OnceLock<Vec<CommitId>>,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
-    git_executable: PathBuf,
     write_change_id_header: bool,
 }
 
@@ -218,7 +222,6 @@ impl GitBackend {
             shallow_root_ids: OnceLock::new(),
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
-            git_executable: git_settings.executable_path,
             write_change_id_header: git_settings.write_change_id_header,
         }
     }
@@ -883,107 +886,60 @@ fn to_no_gc_ref_update(id: &CommitId) -> gix::refs::transaction::RefEdit {
     }
 }
 
-fn to_ref_deletion(git_ref: gix::refs::Reference) -> gix::refs::transaction::RefEdit {
-    let expected = gix::refs::transaction::PreviousValue::ExistingMustMatch(git_ref.target);
-    gix::refs::transaction::RefEdit {
-        change: gix::refs::transaction::Change::Delete {
-            expected,
-            log: gix::refs::transaction::RefLog::AndReference,
-        },
-        name: git_ref.name,
-        deref: false,
-    }
-}
-
-/// Recreates `refs/jj/keep` refs for the `new_heads`, and removes the other
-/// unreachable and non-head refs.
-fn recreate_no_gc_refs(
+/// Retain all existing no-GC refs while adding heads from jj's index. Deleting a ref here
+/// would let an independent Git GC remove objects used by old readers or alternate stores.
+fn retain_no_gc_refs(
     git_repo: &gix::Repository,
     new_heads: impl IntoIterator<Item = CommitId>,
-    keep_newer: SystemTime,
-) -> BackendResult<()> {
-    // Calculate diff between existing no-gc refs and new heads.
+) -> BackendResult<Option<String>> {
+    const MAX_KEEP_REFS: usize = 100_000;
     let new_heads: HashSet<CommitId> = new_heads.into_iter().collect();
-    let mut no_gc_refs_to_keep_count: usize = 0;
-    let mut no_gc_refs_to_delete: Vec<gix::refs::Reference> = Vec::new();
-    let git_references = git_repo
+    let references = git_repo
         .references()
         .map_err(|err| BackendError::Other(err.into()))?;
-    let no_gc_refs_iter = git_references
+    let mut existing_names = HashSet::new();
+    let existing = references
         .prefixed(NO_GC_REF_NAMESPACE)
         .map_err(|err| BackendError::Other(err.into()))?;
-    for git_ref in no_gc_refs_iter {
-        let git_ref = git_ref.map_err(BackendError::Other)?.detach();
-        let oid = git_ref.target.try_id().ok_or_else(|| {
-            let name = git_ref.name.as_bstr();
-            BackendError::Other(format!("Symbolic no-gc ref found: {name}").into())
-        })?;
-        let id = CommitId::from_bytes(oid.as_bytes());
-        let name_good = git_ref.name.as_bstr()[NO_GC_REF_NAMESPACE.len()..] == id.hex();
-        if new_heads.contains(&id) && name_good {
-            no_gc_refs_to_keep_count += 1;
-            continue;
+    for reference in existing {
+        let reference = reference.map_err(BackendError::Other)?;
+        existing_names.insert(reference.name().as_bstr().to_vec());
+        if existing_names.len() > MAX_KEEP_REFS {
+            return Ok(Some(format!(
+                "more than {MAX_KEEP_REFS} jj keep refs already exist"
+            )));
         }
-        // Check timestamp of loose ref, but this is still racy on re-import
-        // because:
-        // - existing packed ref won't be demoted to loose ref
-        // - existing loose ref won't be touched
-        //
-        // TODO: might be better to switch to a dummy merge, where new no-gc ref
-        // will always have a unique name. Doing that with the current
-        // ref-per-head strategy would increase the number of the no-gc refs.
-        // https://github.com/jj-vcs/jj/pull/2659#issuecomment-1837057782
-        let loose_ref_path = git_repo.path().join(git_ref.name.to_path());
-        if let Ok(metadata) = loose_ref_path.metadata() {
-            let mtime = metadata.modified().expect("unsupported platform?");
-            if mtime > keep_newer {
-                tracing::trace!(?git_ref, "not deleting new");
-                no_gc_refs_to_keep_count += 1;
-                continue;
-            }
-        }
-        // Also deletes no-gc ref of random name created by old jj.
-        tracing::trace!(?git_ref, ?name_good, "will delete");
-        no_gc_refs_to_delete.push(git_ref);
     }
-    tracing::info!(
-        new_heads_count = new_heads.len(),
-        no_gc_refs_to_keep_count,
-        no_gc_refs_to_delete_count = no_gc_refs_to_delete.len(),
-        "collected reachable refs"
-    );
-
-    // It's slow to delete packed refs one by one, so update refs all at once.
-    let ref_edits = itertools::chain(
-        no_gc_refs_to_delete.into_iter().map(to_ref_deletion),
-        new_heads.iter().map(to_no_gc_ref_update),
-    );
+    let edits: Vec<_> = new_heads
+        .iter()
+        .filter(|id| !existing_names.contains(format!("{NO_GC_REF_NAMESPACE}{id}").as_bytes()))
+        .map(to_no_gc_ref_update)
+        .collect();
+    if existing_names.len().saturating_add(edits.len()) > MAX_KEEP_REFS {
+        return Ok(Some(format!(
+            "more than {MAX_KEEP_REFS} jj keep refs would be retained"
+        )));
+    }
     git_repo
-        .edit_references(ref_edits)
+        .edit_references(edits)
         .map_err(|err| BackendError::Other(err.into()))?;
-
-    Ok(())
+    Ok(None)
 }
 
-fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result<(), GitGcError> {
-    let keep_newer = keep_newer
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default(); // underflow
-    let mut git = Command::new(program);
-    git.arg("--git-dir=.") // turn off discovery
-        .arg("gc")
-        .arg(format!("--prune=@{} +0000", keep_newer.as_secs()));
-    // Don't specify it by GIT_DIR/--git-dir. On Windows, the path could be
-    // canonicalized as UNC path, which wouldn't be supported by git.
-    git.current_dir(git_dir);
-    // TODO: pass output to UI layer instead of printing directly here
-    tracing::info!(?git, "running git gc");
-    let status = git.status().map_err(GitGcError::GcCommand)?;
-    tracing::info!(?status, "git gc exited");
-    if !status.success() {
-        return Err(GitGcError::GcCommandErrorStatus(status));
-    }
-    Ok(())
+/// Bound only storage that this jj invocation can add. External Git writers may grow the
+/// directory independently, so this observation is not an exclusive disk quota.
+fn pack_directory_bytes(object_dir: &Path) -> io::Result<u64> {
+    let directory = object_dir.join("pack");
+    let mut entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(0),
+        Err(err) => return Err(err),
+    };
+    entries.try_fold(0u64, |sum, entry| {
+        let len = entry?.metadata()?.len();
+        sum.checked_add(len)
+            .ok_or_else(|| io::Error::other("pack directory size overflow"))
+    })
 }
 
 fn validate_git_object_id(
@@ -1554,19 +1510,22 @@ impl Backend for GitBackend {
 }
 
 impl GitBackend {
-    /// Perform garbage collection.
+    /// Publish an additive pack while deferring Git object reclamation.
     ///
-    /// All commits found in the `index` won't be removed. In addition to that,
-    /// objects created after `keep_newer` will be preserved. This mitigates a
-    /// risk of deleting new commits created concurrently by another process.
+    /// jj cannot exclude independent Git writers, pinned readers or alternate dependents, so
+    /// this operation retains existing packs, loose objects, reflogs and no-GC refs. Its bounded
+    /// pack publication is useful for small stores but is not equivalent to destructive Git GC.
     #[tracing::instrument(skip(self, index))]
-    pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
+    pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<GitGcOutcome> {
         let git_repo = self.lock_git_repo();
         let new_heads = index
             .all_heads_for_gc()
             .map_err(|err| BackendError::Other(err.into()))?
-            .filter(|id| *id != self.root_commit_id);
-        recreate_no_gc_refs(&git_repo, new_heads, keep_newer)?;
+            .filter(|id| *id != self.root_commit_id)
+            .collect::<Vec<_>>();
+        if let Some(reason) = retain_no_gc_refs(&git_repo, new_heads.iter().cloned())? {
+            return Ok(GitGcOutcome::Deferred { reason });
+        }
 
         // No locking is needed since we aren't going to add new "commits".
         let table = self.cached_extra_metadata_table()?;
@@ -1577,16 +1536,39 @@ impl GitBackend {
             .gc(&table, keep_newer)
             .map_err(|err| BackendError::Other(err.into()))?;
 
-        run_git_gc(
-            self.git_executable.as_ref(),
-            self.git_repo_path(),
-            keep_newer,
-        )
-        .map_err(|err| BackendError::Other(err.into()))?;
-        // Since "git gc" will move loose refs into packed refs, in-memory
-        // packed-refs cache should be invalidated without relying on mtime.
-        git_repo.refs.force_refresh_packed_buffer().ok();
-        Ok(())
+        const MAX_EXISTING_PACK_BYTES: u64 = 4 * 1024 * 1024 * 1024;
+        let repository = girt::Repository::open(self.git_repo_path())
+            .map_err(|err| BackendError::Other(err.into()))?;
+        let existing_bytes = pack_directory_bytes(repository.object_dir())
+            .map_err(|err| BackendError::Other(err.into()))?;
+        if existing_bytes > MAX_EXISTING_PACK_BYTES {
+            return Ok(GitGcOutcome::Deferred {
+                reason: "existing pack storage exceeds the 4 GiB additive-repack threshold".into(),
+            });
+        }
+
+        let format = repository.object_format();
+        let heads = new_heads
+            .iter()
+            .map(|id| girt::ObjectId::from_bytes(format, id.as_bytes()))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|err| BackendError::Other(err.into()))?;
+        let policy = RetentionPolicy {
+            heads,
+            recent_cutoff: keep_newer,
+            ..RetentionPolicy::default()
+        };
+        let cancel = AtomicBool::new(false);
+        match repository.repack_retained(&policy, RepackLimits::default(), &cancel) {
+            Ok(report) => Ok(GitGcOutcome::Repacked {
+                pack_bytes: report.written.pack_bytes,
+                index_bytes: report.written.index_bytes,
+            }),
+            Err(RepackError::Write(PackWriteError::Limit(reason))) => Ok(GitGcOutcome::Deferred {
+                reason: format!("repack {reason} limit exceeded"),
+            }),
+            Err(err) => Err(BackendError::Other(err.into())),
+        }
     }
 }
 

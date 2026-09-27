@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "git")]
+use std::io::Write as _;
 use std::slice;
 use std::time::Duration;
 use std::time::SystemTime;
 
+#[cfg(feature = "git")]
+use jj_lib::git_backend::GitGcOutcome;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
@@ -23,16 +27,18 @@ use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::ui::Ui;
 
-/// Run backend-dependent garbage collection.
+/// Run backend-dependent maintenance.
 ///
-/// To garbage-collect old operations and the commits/objects referenced by
-/// them, run `jj op abandon ..<some old operation>` before `jj util gc`.
+/// Run `jj op abandon ..<some old operation>` before this command to make old
+/// operations eligible for removal. The Git backend only publishes a bounded
+/// additive pack; it does not delete Git objects because jj cannot exclude
+/// independent Git readers and writers. Git object reclamation is deferred.
 #[derive(clap::Args, Clone, Debug)]
 pub struct UtilGcArgs {
     /// Time threshold
     ///
-    /// By default, only obsolete objects and operations older than 2 weeks are
-    /// pruned.
+    /// By default, only obsolete operations older than 2 weeks are pruned.
+    /// Git objects newer than this threshold are retained during repacking.
     ///
     /// Only the string "now" can be passed to this parameter. Support for
     /// arbitrary absolute and relative timestamps will come in a subsequent
@@ -64,7 +70,19 @@ pub async fn cmd_util_gc(
         .await?;
     #[cfg(feature = "git")]
     if let Ok(git_backend) = jj_lib::git::get_git_backend(repo.store()) {
-        git_backend.gc(repo.index(), keep_newer)?;
+        match git_backend.gc(repo.index(), keep_newer)? {
+            GitGcOutcome::Repacked {
+                pack_bytes,
+                index_bytes,
+            } => writeln!(
+                ui.status(),
+                "Git objects repacked ({pack_bytes} pack bytes, {index_bytes} index bytes); \
+                 reclamation deferred."
+            )?,
+            GitGcOutcome::Deferred { reason } => {
+                writeln!(ui.status(), "Git object reclamation deferred: {reason}.")?;
+            }
+        }
     }
     Ok(())
 }
