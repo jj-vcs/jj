@@ -222,7 +222,7 @@ pub struct RemoteView {
 }
 
 /// Iterates pair of local and remote refs by name.
-pub(crate) fn merge_join_ref_views<'a>(
+pub fn merge_join_ref_views<'a>(
     local_refs: &'a BTreeMap<RefNameBuf, RefTarget>,
     remote_views: &'a BTreeMap<RemoteNameBuf, RemoteView>,
     get_remote_refs: impl FnMut(&RemoteView) -> &BTreeMap<RefNameBuf, RemoteRef>,
@@ -255,7 +255,7 @@ pub(crate) fn merge_join_ref_views<'a>(
 }
 
 /// Iterates `(symbol, remote_ref)`s in lexicographical order.
-pub(crate) fn flatten_remote_refs(
+pub fn flatten_remote_refs(
     remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
     mut get_remote_refs: impl FnMut(&RemoteView) -> &BTreeMap<RefNameBuf, RemoteRef>,
 ) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {

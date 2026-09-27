@@ -71,7 +71,7 @@ pub mod merged_tree;
 pub mod merged_tree_builder;
 pub use jj_core::object_id;
 pub mod op_heads_store;
-pub mod op_store;
+pub use jj_core::op_store;
 pub mod op_walk;
 pub mod operation;
 #[expect(missing_docs)]
