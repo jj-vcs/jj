@@ -5110,7 +5110,7 @@ setting, but you could set it explicitly too.</p>
 </code></pre></div>
 <p>To use NeoVim instead:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[ui]</span>
-<span class="n">editor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;nvim&quot;</span>
+<span class="n">editor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;nvim&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;+$line&quot;</span><span class="p">]</span>
 </code></pre></div>
 <p>For GUI editors you possibly need to use a <code>-w</code> or <code>--wait</code>. Some examples:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[ui]</span>
@@ -5124,6 +5124,11 @@ setting, but you could set it explicitly too.</p>
 <span class="n">editor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;idea --temp-project --wait&quot;</span><span class="w">   </span><span class="c1">#IntelliJ</span>
 </code></pre></div>
 <p>Obviously, you would only set one line, don't copy them all in!</p>
+<p>The following variables will be substituted:</p>
+<ul>
+<li><code>$path</code>: File path (optional)</li>
+<li><code>$line</code>: 1-based line number for cursor positioning</li>
+</ul>
 <h2 id="editing-diffs">Editing diffs<a class="headerlink" href="#editing-diffs" title="Permanent link">&para;</a></h2>
 <p>The <code>ui.diff-editor</code> setting affects the default tool used for editing diffs
 (e.g. <code>jj split</code>, <code>jj squash -i</code>). If it is not set, the special value

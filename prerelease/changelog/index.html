@@ -7754,6 +7754,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   disable them. This can be used to disable built-in aliases or disable aliases
   in later layers (such as repo config files).</p>
 </li>
+<li>
+<p><code>ui.editor</code> now supports <code>$path</code> and <code>$line</code> substitution variables. Example:
+  <code>ui.editor = ["emacs", "+$line", "$path"]</code></p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
