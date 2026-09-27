@@ -590,46 +590,19 @@ impl GitBackend {
             .into_data())
     }
 
-    fn new_diff_platform(&self) -> BackendResult<gix::diff::blob::Platform> {
-        let attributes = gix::worktree::Stack::new(
-            Path::new(""),
-            gix::worktree::stack::State::AttributesStack(Default::default()),
-            gix::worktree::glob::pattern::Case::Sensitive,
-            Vec::new(),
-            Vec::new(),
-        );
-        let filter = gix::diff::blob::Pipeline::new(
-            Default::default(),
-            gix::filter::plumbing::Pipeline::new(
-                self.git_repo()
-                    .command_context()
-                    .map_err(|err| BackendError::Other(Box::new(err)))?,
-                Default::default(),
-            ),
-            Vec::new(),
-            Default::default(),
-        );
-        Ok(gix::diff::blob::Platform::new(
-            Default::default(),
-            filter,
-            gix::diff::blob::pipeline::Mode::ToGit,
-            attributes,
-        ))
-    }
-
-    fn read_tree_for_commit<'repo>(
-        &self,
-        repo: &'repo gix::Repository,
-        id: &CommitId,
-    ) -> BackendResult<gix::Tree<'repo>> {
+    fn tree_id_for_copy_inference(&self, id: &CommitId) -> BackendResult<girt::ObjectId> {
         let tree = self.read_commit(id).block_on()?.root_tree;
         // TODO(kfm): probably want to do something here if it is a merge
-        let tree_id = tree.first().clone();
-        let gix_id = validate_git_object_id(repo, &tree_id)?;
-        repo.find_object(gix_id)
-            .map_err(|err| map_not_found_err(err, &tree_id))?
-            .try_into_tree()
-            .map_err(|err| to_read_object_err(err, &tree_id))
+        let tree_id = tree.first();
+        let format = self.girt_repo()?.object_format();
+        girt::ObjectId::from_bytes(format, tree_id.as_bytes()).map_err(|_| {
+            BackendError::InvalidHashLength {
+                expected: format.digest_len(),
+                actual: tree_id.as_bytes().len(),
+                object_type: tree_id.object_type(),
+                hash: tree_id.hex(),
+            }
+        })
     }
 
     // Similar to gix's write_blob, but compute the hash outside our lock to
@@ -1047,18 +1020,6 @@ fn validate_git_object_id(
             object_type: id.object_type(),
             hash: id.hex(),
         }),
-    }
-}
-
-fn map_not_found_err(err: gix::object::find::existing::Error, id: &impl ObjectId) -> BackendError {
-    if matches!(err, gix::object::find::existing::Error::NotFound { .. }) {
-        BackendError::ObjectNotFound {
-            object_type: id.object_type(),
-            hash: id.hex(),
-            source: Box::new(err),
-        }
-    } else {
-        to_read_object_err(err, id)
     }
 }
 
@@ -1519,76 +1480,46 @@ impl Backend for GitBackend {
         root_id: &CommitId,
         head_id: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
-        let repo = self.git_repo();
-        let root_tree = self.read_tree_for_commit(&repo, root_id)?;
-        let head_tree = self.read_tree_for_commit(&repo, head_id)?;
-
-        let change_to_copy_record =
-            |change: gix::object::tree::diff::Change| -> BackendResult<Option<CopyRecord>> {
-                let gix::object::tree::diff::Change::Rewrite {
-                    source_location,
-                    source_entry_mode,
-                    source_id,
-                    entry_mode: dest_entry_mode,
-                    location: dest_location,
-                    ..
-                } = change
-                else {
-                    return Ok(None);
-                };
-                // TODO: Renamed symlinks cannot be returned because CopyRecord
-                // expects `source_file: FileId`.
-                if !source_entry_mode.is_blob() || !dest_entry_mode.is_blob() {
-                    return Ok(None);
-                }
-
-                let source = str::from_utf8(source_location)
-                    .map_err(|err| to_invalid_utf8_err(err, root_id))?;
-                let dest = str::from_utf8(dest_location)
-                    .map_err(|err| to_invalid_utf8_err(err, head_id))?;
-
-                let target = RepoPathBuf::from_internal_string(dest).unwrap();
-                if !paths.is_none_or(|paths| paths.contains(&target)) {
-                    return Ok(None);
-                }
-
-                Ok(Some(CopyRecord {
+        let root_tree = self.tree_id_for_copy_inference(root_id)?;
+        let head_tree = self.tree_id_for_copy_inference(head_id)?;
+        let mut objects = self.girt_objects()?.lock().unwrap();
+        objects
+            .refresh(
+                girt::PackLimits::default(),
+                girt::AlternateLimits::default(),
+            )
+            .map_err(|err| BackendError::Other(err.into()))?;
+        let rewrites = objects
+            .detect_rewrites(
+                Some(root_tree),
+                Some(head_tree),
+                girt::rewrites::Options {
+                    copies: girt::rewrites::Copies::ModifiedPostimage,
+                    approximate_binary: false,
+                    ..Default::default()
+                },
+                girt::rewrites::Limits::default(),
+                None,
+                &AtomicBool::new(false),
+            )
+            .map_err(|err| BackendError::Other(err.into()))?;
+        let mut records = Vec::new();
+        for rewrite in rewrites {
+            let source =
+                str::from_utf8(&rewrite.source).map_err(|err| to_invalid_utf8_err(err, root_id))?;
+            let dest =
+                str::from_utf8(&rewrite.target).map_err(|err| to_invalid_utf8_err(err, head_id))?;
+            let target = RepoPathBuf::from_internal_string(dest).unwrap();
+            if paths.is_none_or(|paths| paths.contains(&target)) {
+                records.push(Ok(CopyRecord {
                     target,
                     target_commit: head_id.clone(),
                     source: RepoPathBuf::from_internal_string(source).unwrap(),
-                    source_file: FileId::from_bytes(source_id.as_bytes()),
+                    source_file: FileId::from_bytes(rewrite.source_id.as_bytes()),
                     source_commit: root_id.clone(),
-                }))
-            };
-
-        let mut records: Vec<BackendResult<CopyRecord>> = Vec::new();
-        root_tree
-            .changes()
-            .map_err(|err| BackendError::Other(err.into()))?
-            .options(|opts| {
-                opts.track_path().track_rewrites(Some(gix::diff::Rewrites {
-                    copies: Some(gix::diff::rewrites::Copies {
-                        source: gix::diff::rewrites::CopySource::FromSetOfModifiedFiles,
-                        percentage: Some(0.5),
-                    }),
-                    percentage: Some(0.5),
-                    limit: 1000,
-                    track_empty: false,
                 }));
-            })
-            .for_each_to_obtain_tree_with_cache(
-                &head_tree,
-                &mut self.new_diff_platform()?,
-                |change| -> BackendResult<_> {
-                    match change_to_copy_record(change) {
-                        Ok(None) => {}
-                        Ok(Some(change)) => records.push(Ok(change)),
-                        Err(err) => records.push(Err(err)),
-                    }
-                    Ok(gix::object::tree::diff::Action::Continue(()))
-                },
-            )
-            .map_err(|err| BackendError::Other(err.into()))?;
+            }
+        }
         Ok(futures::stream::iter(records).boxed())
     }
 }
