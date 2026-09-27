@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use indoc::indoc;
 use test_case::test_case;
 use testutils::TestResult;
 use testutils::git;
@@ -1941,18 +1942,10 @@ fn test_workspaces_remove_current_workspace() {
     assert!(!test_env.env_root().join("secondary").exists());
 }
 
-/// Test context of commit summary template
 #[test]
 fn test_list_workspaces_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
-    test_env.add_config(
-        r#"
-        templates.workspace_list = """name ++ ": " ++ target.commit_id().short() ++ " " ++
-                                      target.description().first_line() ++
-                                      if(target.current_working_copy(), " (current)") ++ "\n""""
-        "#,
-    );
     let main_dir = test_env.work_dir("main");
     let secondary_dir = test_env.work_dir("secondary");
 
@@ -1962,27 +1955,32 @@ fn test_list_workspaces_template() {
         .run_jj(["workspace", "add", "--name", "second", "../secondary"])
         .success();
 
+    // Default template
+    let output = main_dir.run_jj(["workspace", "list", "--color=always"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    [38;5;2mdefault[39m: [39m.[39m [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;12m5[38;5;8m04e3d8c[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m
+    [38;5;2msecond[39m: [39m../secondary[39m [1m[38;5;5mp[0m[38;5;8mmmvwywv[39m [1m[38;5;4m05[0m[38;5;8m8f604d[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    [EOF]
+    ");
+
+    let template = indoc! {r#"
+        name ++ ": " ++ target.commit_id().short() ++ " " ++
+        target.description().first_line() ++
+        if(target.current_working_copy(), " (current)") ++ "\n"
+    "#};
+
     // "current_working_copy" should point to the workspace we operate on
-    let output = main_dir.run_jj(["workspace", "list"]);
+    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
     insta::assert_snapshot!(output, @"
     default: 504e3d8c1bcd  (current)
     second: 058f604dffcd 
     [EOF]
     ");
 
-    let output = secondary_dir.run_jj(["workspace", "list"]);
+    let output = secondary_dir.run_jj(["workspace", "list", "-T", template]);
     insta::assert_snapshot!(output, @"
     default: 504e3d8c1bcd 
     second: 058f604dffcd  (current)
-    [EOF]
-    ");
-
-    // Using template option
-    let template = r#"name ++ ": " ++ target.commit_id().short() ++ "\n""#;
-    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
-    insta::assert_snapshot!(output, @"
-    default: 504e3d8c1bcd
-    second: 058f604dffcd
     [EOF]
     ");
 }

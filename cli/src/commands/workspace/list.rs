@@ -65,7 +65,7 @@ pub async fn cmd_workspace_list(
 
         workspace_command
             .parse_template(ui, &language, &text)?
-            .labeled(["workspace_list"])
+            .labeled(["workspace_list", "workspace"])
     };
 
     let repo = workspace_command.repo();
