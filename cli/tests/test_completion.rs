@@ -1705,6 +1705,7 @@ fn test_merge_tools() {
     kdiff3
     meld
     meld-3
+    nvim
     vimdiff
     abracadabra
     [EOF]
@@ -1718,6 +1719,7 @@ fn test_merge_tools() {
     kdiff3
     meld
     mergiraf
+    nvim
     smerge
     vimdiff
     vscode
