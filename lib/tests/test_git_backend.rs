@@ -26,6 +26,7 @@ use jj_lib::backend::CopyRecord;
 use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::git_backend::GitBackend;
+use jj_lib::git_backend::JJ_CONFLICT_LABELS_COMMIT_HEADER;
 use jj_lib::git_backend::JJ_TREES_COMMIT_HEADER;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
@@ -498,5 +499,36 @@ fn test_conflict_headers_roundtrip() -> TestResult {
     repo.store().clear_caches();
     // Conflict trees and labels should be preserved on read.
     assert_tree_eq!(repo.store().get_commit(commit.id())?.tree(), merged_tree);
+    Ok(())
+}
+
+#[test]
+fn test_invalid_conflict_labels_header() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo;
+    let git_backend = get_git_backend(&repo);
+    let git_repo = git_backend.git_repo();
+    let tree = create_single_tree(&repo, &[(repo_path("file"), "content")]);
+    let commit = commit_with_tree(
+        repo.store(),
+        MergedTree::resolved(repo.store().clone(), tree.id().clone()),
+    );
+    let git_commit_id = gix::ObjectId::from_bytes_or_panic(commit.id().as_bytes());
+    let git_commit = git_repo.find_commit(git_commit_id)?;
+
+    let mut malformed: gix::objs::Commit = git_commit.decode()?.try_into()?;
+    malformed.extra_headers = vec![(
+        JJ_CONFLICT_LABELS_COMMIT_HEADER.into(),
+        b"first\nsecond".as_slice().into(),
+    )];
+    let malformed_id = git_repo.write_object(&malformed)?;
+    let malformed_id = CommitId::from_bytes(malformed_id.as_bytes());
+    let err = git_backend
+        .import_head_commits(std::slice::from_ref(&malformed_id))
+        .unwrap_err();
+    let jj_lib::backend::BackendError::ReadObject { source, .. } = err else {
+        panic!("unexpected error: {err:?}");
+    };
+    assert_eq!(source.to_string(), "Invalid jj:conflict-labels header");
     Ok(())
 }

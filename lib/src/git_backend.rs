@@ -713,17 +713,19 @@ fn commit_from_girt_without_root_parent(
             .map(|oid| CommitId::from_bytes(oid.as_bytes()))
             .collect()
     };
-    let conflict_labels = header_value(JJ_CONFLICT_LABELS_COMMIT_HEADER.as_bytes()).map_or_else(
-        || Merge::resolved(String::new()),
-        |value| {
-            str::from_utf8(&value)
-                .expect("labels should be valid utf8")
-                .split_terminator('\n')
-                .map(str::to_owned)
-                .collect::<MergeBuilder<_>>()
-                .build()
-        },
-    );
+    let conflict_labels = match header_value(JJ_CONFLICT_LABELS_COMMIT_HEADER.as_bytes()) {
+        None => Merge::resolved(String::new()),
+        Some(value) => {
+            // The header reader has already removed its framing newline. A trailing newline
+            // here represents an empty final label and must remain a merge term.
+            let value = str::from_utf8(&value).map_err(|err| to_read_object_err(err, id))?;
+            let labels: Vec<_> = value.split('\n').map(str::to_owned).collect();
+            if labels.len() % 2 == 0 {
+                return Err(to_read_object_err("Invalid jj:conflict-labels header", id));
+            }
+            Merge::from_vec(labels)
+        }
+    };
     let root_tree = match header_value(JJ_TREES_COMMIT_HEADER.as_bytes()) {
         None => Merge::resolved(TreeId::from_bytes(git_commit.tree().as_bytes())),
         Some(value) => {
