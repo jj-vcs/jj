@@ -19,12 +19,15 @@ use itertools::Itertools as _;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
+use jj_lib::fileset::FilePattern;
+use jj_lib::fileset::FilesetExpression;
 #[cfg(feature = "git")]
 use jj_lib::git::GitSubprocessOptions;
 #[cfg(feature = "git")]
 use jj_lib::git::create_worktree;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::workspace::Workspace;
 use tracing::instrument;
@@ -54,7 +57,7 @@ pub(crate) enum SparseInheritance {
 /// Add a workspace
 ///
 /// By default, the new workspace inherits the sparse patterns of the current
-/// workspace. You can override this with the `--sparse-patterns` option.
+/// workspace. You can override this with the `--sparse-patterns` or `--sparse` options.
 #[derive(clap::Args, Clone, Debug)]
 pub struct WorkspaceAddArgs {
     /// Where to create the new workspace
@@ -106,6 +109,15 @@ pub struct WorkspaceAddArgs {
     /// How to handle sparse patterns when creating a new workspace.
     #[arg(long, value_enum, default_value_t = SparseInheritance::Copy)]
     sparse_patterns: SparseInheritance,
+
+    /// Patterns of files to include in the new workspace
+    ///
+    /// The patterns are [fileset expressions]. Only plain paths are currently supported.
+    ///
+    /// [fileset expressions]:
+    ///     https://docs.jj-vcs.dev/latest/filesets/
+    #[arg(long, value_name = "FILESET/PATH", conflicts_with = "sparse_patterns", value_hint = clap::ValueHint::AnyPath)]
+    sparse: Vec<String>,
 }
 
 #[instrument(skip_all)]
@@ -115,6 +127,18 @@ pub async fn cmd_workspace_add(
     args: &WorkspaceAddArgs,
 ) -> Result<(), CommandError> {
     let old_workspace_command = command.workspace_helper(ui).await?;
+    let explicit_sparse_patterns = if args.sparse.is_empty() {
+        None
+    } else {
+        let expression = old_workspace_command.parse_union_filesets(ui, &args.sparse)?;
+        Some(
+            to_sparse_patterns(&expression)?
+                .into_iter()
+                .sorted_unstable()
+                .dedup()
+                .collect(),
+        )
+    };
     let destination_path = command.cwd().join(&args.destination);
     let workspace_name = if let Some(name) = &args.name {
         name.to_owned()
@@ -195,15 +219,19 @@ pub async fn cmd_workspace_add(
     #[cfg(feature = "git")]
     maybe_add_gitignore(&new_workspace_command)?;
 
-    let sparsity = match args.sparse_patterns {
-        SparseInheritance::Full => None,
-        SparseInheritance::Empty => Some(vec![]),
-        SparseInheritance::Copy => {
-            let sparse_patterns = old_workspace_command
-                .working_copy()
-                .sparse_patterns()?
-                .to_vec();
-            Some(sparse_patterns)
+    let sparsity = if let Some(patterns) = explicit_sparse_patterns {
+        Some(patterns)
+    } else {
+        match args.sparse_patterns {
+            SparseInheritance::Full => None,
+            SparseInheritance::Empty => Some(vec![]),
+            SparseInheritance::Copy => {
+                let sparse_patterns = old_workspace_command
+                    .working_copy()
+                    .sparse_patterns()?
+                    .to_vec();
+                Some(sparse_patterns)
+            }
         }
     };
 
@@ -276,4 +304,34 @@ pub async fn cmd_workspace_add(
     )
     .await?;
     Ok(())
+}
+
+/// Converts a fileset expression to a list of sparse patterns.
+///
+/// Sparse patterns are currently stored as a list of path prefixes so
+/// only expressions selecting plain paths can be represented. Fails
+/// if the expression contains glob or set operations.
+// TODO: Accept arbitrary fileset expressions once
+// https://github.com/jj-vcs/jj/issues/7815 is implemented
+fn to_sparse_patterns(expression: &FilesetExpression) -> Result<Vec<RepoPathBuf>, CommandError> {
+    match expression {
+        FilesetExpression::None => Ok(vec![]),
+        FilesetExpression::All => Ok(vec![RepoPathBuf::root()]),
+        FilesetExpression::Pattern(pattern) => match pattern {
+            FilePattern::FilePath(path) | FilePattern::PrefixPath(path) => Ok(vec![path.clone()]),
+            FilePattern::FileGlob { .. } | FilePattern::PrefixGlob { .. } => Err(user_error(
+                "Glob patterns are not yet supported in sparse patterns",
+            )),
+        },
+        FilesetExpression::UnionAll(expressions) => {
+            let mut patterns = vec![];
+            for expression in expressions {
+                patterns.extend(to_sparse_patterns(expression)?);
+            }
+            Ok(patterns)
+        }
+        FilesetExpression::Intersection(..) | FilesetExpression::Difference(..) => Err(user_error(
+            "Intersection and difference are not yet supported in sparse patterns",
+        )),
+    }
 }

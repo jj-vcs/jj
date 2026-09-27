@@ -3976,7 +3976,7 @@ Each workspace also has own sparse patterns.
 
 Add a workspace
 
-By default, the new workspace inherits the sparse patterns of the current workspace. You can override this with the `--sparse-patterns` option.
+By default, the new workspace inherits the sparse patterns of the current workspace. You can override this with the `--sparse-patterns` or `--sparse` options.
 
 **Usage:** `jj workspace add [OPTIONS] <DESTINATION>`
 
@@ -4013,6 +4013,11 @@ By default, the new workspace inherits the sparse patterns of the current worksp
   - `empty`:
     Clear all files from the workspace (it will be empty)
 
+* `--sparse <FILESET/PATH>` — Patterns of files to include in the new workspace
+
+   The patterns are [fileset expressions]. Only plain paths are currently supported.
+
+   [fileset expressions]: https://docs.jj-vcs.dev/latest/filesets/
 
 
 
