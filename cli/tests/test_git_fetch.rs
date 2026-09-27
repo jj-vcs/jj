@@ -758,12 +758,10 @@ fn test_git_fetch_conflicting_bookmarks() {
 fn test_git_fetch_conflicting_bookmarks_colocated() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.rem1.auto-track-bookmarks = '*'");
-    let work_dir = test_env.work_dir("repo");
-    git::init(work_dir.root());
-    // create_colocated_repo_and_bookmarks_from_trunk1(&test_env, &repo_path);
-    work_dir
-        .run_jj(["git", "init", "--git-repo", "."])
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
+    let work_dir = test_env.work_dir("repo");
     add_git_remote(&test_env, &work_dir, "rem1");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
 

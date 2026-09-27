@@ -492,11 +492,11 @@ fn test_git_colocated_unborn_bookmark() -> TestResult {
 #[test]
 fn test_git_colocated_export_bookmarks_on_snapshot() -> TestResult {
     let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    let git_repo = git::init(work_dir.root());
-    work_dir
-        .run_jj(["git", "init", "--git-repo", "."])
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
 
     // Create bookmark pointing to the initial commit
     work_dir.write_file("file", "initial");
@@ -528,11 +528,11 @@ fn test_git_colocated_export_bookmarks_on_snapshot() -> TestResult {
 #[test]
 fn test_git_colocated_rebase_on_import() -> TestResult {
     let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    let git_repo = git::init(work_dir.root());
-    work_dir
-        .run_jj(["git", "init", "--git-repo", "."])
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
 
     // Make some changes in jj and check that they're reflected in git
     work_dir.write_file("file", "contents");
@@ -582,11 +582,11 @@ fn test_git_colocated_rebase_on_import() -> TestResult {
 #[test]
 fn test_git_colocated_bookmarks() -> TestResult {
     let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    let git_repo = git::init(work_dir.root());
-    work_dir
-        .run_jj(["git", "init", "--git-repo", "."])
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
     work_dir.run_jj(["new", "-m", "foo"]).success();
     work_dir.run_jj(["new", "@-", "-m", "bar"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -646,11 +646,10 @@ fn test_git_colocated_bookmarks() -> TestResult {
 #[test]
 fn test_git_colocated_bookmark_forget() -> TestResult {
     let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    git::init(work_dir.root());
-    work_dir
-        .run_jj(["git", "init", "--git-repo", "."])
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
+    let work_dir = test_env.work_dir("repo");
     work_dir.run_jj(["new"]).success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "foo"])
@@ -730,11 +729,10 @@ fn test_git_colocated_bookmark_at_root() -> TestResult {
 #[test]
 fn test_git_colocated_conflicting_git_refs() -> TestResult {
     let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    git::init(work_dir.root());
-    work_dir
-        .run_jj(["git", "init", "--git-repo", "."])
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
+    let work_dir = test_env.work_dir("repo");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
@@ -759,9 +757,11 @@ fn test_git_colocated_conflicting_git_refs() -> TestResult {
 #[test]
 fn test_git_colocated_explicit_import_export() -> TestResult {
     let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
     let work_dir = test_env.work_dir("repo");
-    let git_repo = git::init(work_dir.root());
-    work_dir.run_jj(["git", "init", "--git-repo=."]).success();
+    let git_repo = git::open(work_dir.root());
 
     // Create unexportable bookmark
     work_dir
@@ -832,11 +832,11 @@ fn test_git_colocated_explicit_import_export() -> TestResult {
 #[test]
 fn test_git_colocated_checkout_non_empty_working_copy() -> TestResult {
     let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    let git_repo = git::init(work_dir.root());
-    work_dir
-        .run_jj(["git", "init", "--git-repo", "."])
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
 
     // Create an initial commit in Git
     // We use this to set HEAD to master
@@ -894,9 +894,10 @@ fn test_git_colocated_checkout_non_empty_working_copy() -> TestResult {
 fn test_git_colocated_fetch_deleted_or_moved_bookmark() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "origin"])
+        .success();
     let origin_dir = test_env.work_dir("origin");
-    git::init(origin_dir.root());
-    origin_dir.run_jj(["git", "init", "--git-repo=."]).success();
     origin_dir.run_jj(["describe", "-m=A"]).success();
     origin_dir
         .run_jj(["bookmark", "create", "-r@", "A"])
@@ -959,9 +960,11 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() -> TestResult {
 #[test]
 fn test_git_colocated_rebase_dirty_working_copy() -> TestResult {
     let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
     let work_dir = test_env.work_dir("repo");
-    let git_repo = git::init(work_dir.root());
-    work_dir.run_jj(["git", "init", "--git-repo=."]).success();
+    let git_repo = git::open(work_dir.root());
 
     work_dir.write_file("file", "base");
     work_dir.run_jj(["new"]).success();
@@ -1008,8 +1011,11 @@ fn test_git_colocated_rebase_dirty_working_copy() -> TestResult {
 #[test]
 fn test_git_colocated_external_checkout() -> TestResult {
     let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
     let work_dir = test_env.work_dir("repo");
-    let git_repo = git::init(work_dir.root());
+    let git_repo = git::open(work_dir.root());
     let git_check_out_ref = |name| -> TestResult {
         let target = git_repo
             .find_reference(name)?
@@ -1019,7 +1025,6 @@ fn test_git_colocated_external_checkout() -> TestResult {
         Ok(())
     };
 
-    work_dir.run_jj(["git", "init", "--git-repo=."]).success();
     work_dir.run_jj(["ci", "-m=A"]).success();
     work_dir
         .run_jj(["bookmark", "create", "-r@-", "master"])
@@ -1188,9 +1193,10 @@ fn test_git_colocated_concurrent_checkout() -> TestResult {
 #[test]
 fn test_git_colocated_squash_undo() -> TestResult {
     let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
     let work_dir = test_env.work_dir("repo");
-    git::init(work_dir.root());
-    work_dir.run_jj(["git", "init", "--git-repo=."]).success();
     work_dir.run_jj(["ci", "-m=A"]).success();
     // Test the setup
     insta::assert_snapshot!(get_log_output_divergence(&work_dir), @"
@@ -1222,9 +1228,11 @@ fn test_git_colocated_squash_undo() -> TestResult {
 #[test]
 fn test_git_colocated_undo_head_move() -> TestResult {
     let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
     let work_dir = test_env.work_dir("repo");
-    let git_repo = git::init(work_dir.root());
-    work_dir.run_jj(["git", "init", "--git-repo=."]).success();
+    let git_repo = git::open(work_dir.root());
 
     // Create new HEAD
     work_dir.run_jj(["new"]).success();

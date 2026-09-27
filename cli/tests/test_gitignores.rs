@@ -17,18 +17,16 @@ use std::io::Write as _;
 use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::symlink_file;
 use testutils::TestResult;
-use testutils::git;
 
 use crate::common::TestEnvironment;
 
 #[test]
 fn test_gitignores() -> TestResult {
     let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    git::init(work_dir.root());
-    work_dir
-        .run_jj(["git", "init", "--git-repo", "."])
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
+    let work_dir = test_env.work_dir("repo");
 
     // Say in core.excludesFiles that we don't want file1, file2, or file3
     let mut file = std::fs::OpenOptions::new()
@@ -111,9 +109,10 @@ fn test_gitignores_symlinked_ignore_files() -> TestResult {
     }
 
     let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
     let work_dir = test_env.work_dir("repo");
-    git::init(work_dir.root());
-    work_dir.run_jj(["git", "init", "--colocate"]).success();
 
     // Point core.excludesFile at a symlink to a file that ignores file1. Git
     // follows symlinks here, so file1 should be ignored.
@@ -165,11 +164,10 @@ fn test_gitignores_symlinked_ignore_files() -> TestResult {
 #[test]
 fn test_gitignores_ignored_file_in_target_commit() {
     let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    git::init(work_dir.root());
-    work_dir
-        .run_jj(["git", "init", "--git-repo", "."])
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
+    let work_dir = test_env.work_dir("repo");
 
     // Create a commit with file "ignored" in it
     work_dir.write_file("ignored", "committed contents\n");
