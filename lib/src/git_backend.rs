@@ -110,9 +110,11 @@ pub const CHANGE_ID_COMMIT_HEADER: &str = "change-id";
 #[derive(Debug, Error)]
 pub enum GitBackendInitError {
     #[error("Failed to initialize git repository")]
-    InitRepository(#[source] gix::init::Error),
+    InitRepository(#[source] girt::InitError),
     #[error("Failed to open git repository")]
     OpenRepository(#[source] gix::open::Error),
+    #[error("Unsupported Git object hash: {0:?}")]
+    UnsupportedObjectHash(gix::hash::Kind),
     #[error("Failed to encode git repository path")]
     EncodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -234,16 +236,13 @@ impl GitBackend {
         object_hash: gix::hash::Kind,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let git_repo_path = Path::new("git");
-        let git_repo = gix::ThreadSafeRepository::init_opts(
+        let girt_repo = girt::Repository::init(
+            girt_format(object_hash)?,
             store_path.join(git_repo_path),
-            gix::create::Kind::Bare,
-            gix::create::Options {
-                object_hash: Some(object_hash),
-                ..Default::default()
-            },
-            gix_open_opts_from_settings(settings),
+            girt::InitKind::Bare,
         )
         .map_err(GitBackendInitError::InitRepository)?;
+        let git_repo = open_initialized_repo(&girt_repo, settings)?;
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
         Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
@@ -263,16 +262,13 @@ impl GitBackend {
                 .context(&path)
                 .map_err(GitBackendInitError::Path)?
         };
-        let git_repo = gix::ThreadSafeRepository::init_opts(
+        let girt_repo = girt::Repository::init(
+            girt_format(object_hash)?,
             canonical_workspace_root,
-            gix::create::Kind::WithWorktree,
-            gix::create::Options {
-                object_hash: Some(object_hash),
-                ..Default::default()
-            },
-            gix_open_opts_from_settings(settings),
+            girt::InitKind::Worktree,
         )
         .map_err(GitBackendInitError::InitRepository)?;
+        let git_repo = open_initialized_repo(&girt_repo, settings)?;
         let git_repo_path = workspace_root.join(".git");
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
@@ -631,6 +627,47 @@ pub fn canonicalize_git_repo_path(path: &Path) -> io::Result<PathBuf> {
     } else {
         dunce::canonicalize(path)
     }
+}
+
+fn girt_format(kind: gix::hash::Kind) -> Result<girt::ObjectFormat, Box<GitBackendInitError>> {
+    match kind {
+        gix::hash::Kind::Sha1 => Ok(girt::ObjectFormat::Sha1),
+        gix::hash::Kind::Sha256 => Ok(girt::ObjectFormat::Sha256),
+        _ => Err(Box::new(GitBackendInitError::UnsupportedObjectHash(kind))),
+    }
+}
+
+fn open_initialized_repo(
+    repo: &girt::Repository,
+    settings: &UserSettings,
+) -> Result<gix::ThreadSafeRepository, Box<GitBackendInitError>> {
+    // jj keeps the existing Git config layout and reflog defaults for repositories it creates.
+    // This new repository is not exposed to other writers until initialization returns.
+    let bare = repo.is_bare();
+    let version = if repo.object_format() == girt::ObjectFormat::Sha256 {
+        1
+    } else {
+        0
+    };
+    let mut config = format!(
+        "[core]\n\tbare = {bare}\n\tlogallrefupdates = {}\n\trepositoryformatversion = {version}\n",
+        !bare
+    );
+    if version == 1 {
+        config.push_str("[extensions]\n\tobjectformat = sha256\n");
+    }
+    let config_path = repo.common_dir().join("config");
+    fs::write(&config_path, config)
+        .context(&config_path)
+        .map_err(GitBackendInitError::Path)?;
+
+    let hooks_path = repo.git_dir().join("hooks");
+    fs::create_dir_all(&hooks_path)
+        .context(&hooks_path)
+        .map_err(GitBackendInitError::Path)?;
+    gix::ThreadSafeRepository::open_opts(repo.git_dir(), gix_open_opts_from_settings(settings))
+        .map_err(GitBackendInitError::OpenRepository)
+        .map_err(Box::new)
 }
 
 fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
