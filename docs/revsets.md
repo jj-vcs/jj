@@ -280,9 +280,12 @@ revsets (expressions) as arguments.
 * `none()`: No commits. This function is rarely useful; it is provided for
   completeness.
 
-* `change_id(prefix)`: Commits with the given change ID prefix. If the specified
-  change is divergent, this resolves to multiple commits. It is an error to use a
-  non-unique prefix. Unmatched prefix isn't an error.
+* `change_id(prefix, [include_hidden])`: Commits with the given change ID prefix.
+  If the specified change is divergent, this resolves to multiple commits. It is
+  an error to use a non-unique prefix. Unmatched prefix isn't an error.
+
+  By default, only visible commits are returned. If `include_hidden` is `true`,
+  then hidden commits are included.
 
 * `commit_id(prefix)`: Commits with the given commit ID prefix. It is an error
   to use a non-unique prefix. Unmatched prefix isn't an error.
