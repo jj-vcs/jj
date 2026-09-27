@@ -1707,6 +1707,11 @@ Create a new repo backed by a clone of a Git repo
 
    [colocation docs]: https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
 * `--depth <DEPTH>` — Create a shallow clone of the given depth
+* `--sparse <PATH>` — Paths to include in the working copy (can be repeated)
+
+   The working copy is created with only these paths, as if `jj sparse set --clear --add <PATH>` had been run on a full clone. Other files are never written to disk.
+
+   The whole repository is still fetched, so `jj sparse set --add <PATH>` can materialize further paths later.
 * `-b`, `--branch <BRANCH>` — Name of the branch to fetch and use as the parent of the working-copy change (can be repeated)
 
    If not present, all branches are fetched and the repository's default branch is used as parent of the working-copy change.
