@@ -496,9 +496,7 @@ impl GitBackend {
         // Create no-gc ref even if known to the extras table. Concurrent GC
         // process might have deleted the no-gc ref.
         let locked_repo = self.lock_git_repo();
-        locked_repo
-            .edit_references(head_ids.iter().copied().map(to_no_gc_ref_update))
-            .map_err(|err| BackendError::Other(Box::new(err)))?;
+        add_no_gc_refs(self.girt_repo()?, head_ids.iter().copied())?;
 
         // These commits are imported from Git. Make our change ids persist (otherwise
         // future write_commit() could reassign new change id.)
@@ -932,44 +930,70 @@ fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
     }
 }
 
-/// Returns `RefEdit` that will create a ref in `refs/jj/keep` if not exist.
-/// Used for preventing GC of commits we create.
-fn to_no_gc_ref_update(id: &CommitId) -> gix::refs::transaction::RefEdit {
+/// Create a conditional keep-ref update without changing its reflog.
+fn no_gc_ref_edit(format: girt::ObjectFormat, id: &CommitId) -> BackendResult<girt::refs::RefEdit> {
     let name = format!("{NO_GC_REF_NAMESPACE}{id}");
-    let new = gix::refs::Target::Object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
-    let expected = gix::refs::transaction::PreviousValue::ExistingMustMatch(new.clone());
-    gix::refs::transaction::RefEdit {
-        change: gix::refs::transaction::Change::Update {
-            log: gix::refs::transaction::LogChange {
-                message: "used by jj".into(),
-                ..Default::default()
-            },
-            expected,
-            new,
-        },
-        name: name.try_into().unwrap(),
-        deref: false,
+    let name = girt::refs::RefName::new(name).map_err(|err| BackendError::Other(err.into()))?;
+    let id = girt::ObjectId::from_bytes(format, id.as_bytes())
+        .map_err(|err| BackendError::Other(err.into()))?;
+    let target = girt::refs::Target::Direct(id);
+    Ok(girt::refs::RefEdit {
+        name,
+        dereference: false,
+        target: Some(target.clone()),
+        expected: girt::refs::Expected::AbsentOr(target),
+        reflog: girt::refs::Reflog::Preserve,
+    })
+}
+
+fn add_no_gc_refs<'a>(
+    repo: &girt::Repository,
+    ids: impl IntoIterator<Item = &'a CommitId>,
+) -> BackendResult<()> {
+    let edits = ids
+        .into_iter()
+        .map(|id| no_gc_ref_edit(repo.object_format(), id))
+        .collect::<BackendResult<Vec<_>>>()?;
+    if !edits.is_empty() {
+        repo.references()
+            .map_err(|err| BackendError::Other(err.into()))?
+            .transaction(&edits)
+            .map_err(|err| BackendError::Other(err.into()))?;
     }
+    Ok(())
 }
 
 /// Retain all existing no-GC refs while adding heads from jj's index. Deleting a ref here
 /// would let an independent Git GC remove objects used by old readers or alternate stores.
 fn retain_no_gc_refs(
-    git_repo: &gix::Repository,
+    repo: &girt::Repository,
     new_heads: impl IntoIterator<Item = CommitId>,
 ) -> BackendResult<Option<String>> {
     const MAX_KEEP_REFS: usize = 100_000;
+    const MAX_TOTAL_REFS: usize = 200_000;
+    const MAX_REF_BYTES: usize = 64 * 1024 * 1024;
     let new_heads: HashSet<CommitId> = new_heads.into_iter().collect();
-    let references = git_repo
+    let references = repo
         .references()
         .map_err(|err| BackendError::Other(err.into()))?;
     let mut existing_names = HashSet::new();
-    let existing = references
-        .prefixed(NO_GC_REF_NAMESPACE)
-        .map_err(|err| BackendError::Other(err.into()))?;
+    let existing =
+        match references.list_controlled(MAX_TOTAL_REFS, MAX_REF_BYTES, &AtomicBool::new(false)) {
+            Ok(existing) => existing,
+            Err(girt::refs::ReferenceError::Limit(reason)) => {
+                return Ok(Some(format!("reference inventory {reason} limit exceeded")));
+            }
+            Err(err) => return Err(BackendError::Other(err.into())),
+        };
     for reference in existing {
-        let reference = reference.map_err(BackendError::Other)?;
-        existing_names.insert(reference.name().as_bstr().to_vec());
+        if !reference
+            .name
+            .as_bytes()
+            .starts_with(NO_GC_REF_NAMESPACE.as_bytes())
+        {
+            continue;
+        }
+        existing_names.insert(reference.name.as_bytes().to_vec());
         if existing_names.len() > MAX_KEEP_REFS {
             return Ok(Some(format!(
                 "more than {MAX_KEEP_REFS} jj keep refs already exist"
@@ -979,16 +1003,18 @@ fn retain_no_gc_refs(
     let edits: Vec<_> = new_heads
         .iter()
         .filter(|id| !existing_names.contains(format!("{NO_GC_REF_NAMESPACE}{id}").as_bytes()))
-        .map(to_no_gc_ref_update)
-        .collect();
+        .map(|id| no_gc_ref_edit(repo.object_format(), id))
+        .collect::<BackendResult<_>>()?;
     if existing_names.len().saturating_add(edits.len()) > MAX_KEEP_REFS {
         return Ok(Some(format!(
             "more than {MAX_KEEP_REFS} jj keep refs would be retained"
         )));
     }
-    git_repo
-        .edit_references(edits)
-        .map_err(|err| BackendError::Other(err.into()))?;
+    if !edits.is_empty() {
+        references
+            .transaction(&edits)
+            .map_err(|err| BackendError::Other(err.into()))?;
+    }
     Ok(None)
 }
 
@@ -1476,9 +1502,7 @@ impl Backend for GitBackend {
 
         // Everything up to this point had no permanent effect on the repo except
         // GC-able objects
-        locked_repo
-            .edit_reference(to_no_gc_ref_update(&id))
-            .map_err(|err| BackendError::Other(Box::new(err)))?;
+        add_no_gc_refs(self.girt_repo()?, [&id])?;
 
         // Update the signature to match the one that was actually written to the object
         // store
@@ -1577,13 +1601,12 @@ impl GitBackend {
     /// pack publication is useful for small stores but is not equivalent to destructive Git GC.
     #[tracing::instrument(skip(self, index))]
     pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<GitGcOutcome> {
-        let git_repo = self.lock_git_repo();
         let new_heads = index
             .all_heads_for_gc()
             .map_err(|err| BackendError::Other(err.into()))?
             .filter(|id| *id != self.root_commit_id)
             .collect::<Vec<_>>();
-        if let Some(reason) = retain_no_gc_refs(&git_repo, new_heads.iter().cloned())? {
+        if let Some(reason) = retain_no_gc_refs(self.girt_repo()?, new_heads.iter().cloned())? {
             return Ok(GitGcOutcome::Deferred { reason });
         }
 
