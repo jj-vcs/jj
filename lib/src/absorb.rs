@@ -93,6 +93,39 @@ pub enum AbsorbError {
     RevsetEvaluation(#[from] RevsetEvaluationError),
 }
 
+/// A hunk of the source revision which could not be absorbed into any
+/// destination commit.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnabsorbedHunk {
+    /// Path of the file the hunk belongs to.
+    pub path: RepoPathBuf,
+    /// 1-based range of the lines the hunk covers in the source revision file.
+    /// The end is exclusive. For a deletion, this is the line the removed
+    /// content was on, which can be past the end of the file.
+    pub lines: Range<usize>,
+    /// Reason the hunk could not be absorbed.
+    pub reason: UnabsorbedReason,
+}
+
+/// Reason why a hunk of the source revision could not be absorbed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UnabsorbedReason {
+    /// The destination of the changed lines could not be determined, typically
+    /// because some of the lines were modified by a commit outside the
+    /// destination revisions.
+    NoDestination,
+    /// The hunk is an insertion between the lines of several commits, so it can
+    /// be absorbed into any of them.
+    ///
+    /// The candidates are listed in the source order.
+    Ambiguous(Vec<CommitId>),
+    /// The hunk modifies the lines of several commits, so it can't be absorbed
+    /// into a single destination.
+    ///
+    /// The candidates are listed in the source order.
+    SpansMultipleCommits(Vec<CommitId>),
+}
+
 /// An absorb 'plan' indicating which commits should be modified and what they
 /// should be modified to.
 #[derive(Default)]
@@ -101,6 +134,8 @@ pub struct SelectedTrees {
     pub target_commits: HashMap<CommitId, MergedTreeBuilder>,
     /// Paths that were not absorbed for various error reasons.
     pub skipped_paths: Vec<(RepoPathBuf, String)>,
+    /// Hunks that were left in the source revision, in file order.
+    pub unabsorbed_hunks: Vec<UnabsorbedHunk>,
 }
 
 /// Builds trees to be merged into destination commits by splitting source
@@ -163,7 +198,21 @@ pub async fn split_hunks_to_trees(
             .filter_map(|(commit_id, range)| Some((commit_id.ok()?, range)))
             .collect_vec();
         let diff = ContentDiff::by_line([&left_text, &right_text]);
-        let selected_ranges = split_file_hunks(&annotation_ranges, &diff);
+        let split_hunks = split_file_hunks(&annotation_ranges, &diff);
+        let right_path = right_path.to_owned();
+        selected_trees
+            .unabsorbed_hunks
+            .extend(
+                split_hunks
+                    .unabsorbed
+                    .into_iter()
+                    .map(|(range, reason)| UnabsorbedHunk {
+                        path: right_path.clone(),
+                        lines: line_range(&right_text, &range),
+                        reason,
+                    }),
+            );
+        let selected_ranges = split_hunks.selected;
         // Build trees containing parent (= left) contents + selected hunks
         for (&commit_id, ranges) in &selected_ranges {
             let tree_builder = selected_trees
@@ -196,18 +245,29 @@ pub async fn split_hunks_to_trees(
 
 type SelectedRange = (Range<usize>, Range<usize>);
 
+/// Hunks of the source file split by destination commit.
+struct SplitFileHunks<'a> {
+    /// Ranges of the source (= right) text to be absorbed into each commit.
+    selected: HashMap<&'a CommitId, Vec<SelectedRange>>,
+    /// Hunks which couldn't be mapped to a destination commit, and the source
+    /// range each of them covers.
+    unabsorbed: Vec<(Range<usize>, UnabsorbedReason)>,
+}
+
 /// Maps `diff` hunks to commits based on the left `annotation_ranges`. The
 /// `annotation_ranges` should be compacted.
 fn split_file_hunks<'a>(
-    mut annotation_ranges: &[(&'a CommitId, Range<usize>)],
+    annotation_ranges: &[(&'a CommitId, Range<usize>)],
     diff: &ContentDiff,
-) -> HashMap<&'a CommitId, Vec<SelectedRange>> {
+) -> SplitFileHunks<'a> {
     debug_assert!(annotation_ranges.iter().all(|(_, range)| !range.is_empty()));
     let mut selected_ranges: HashMap<&CommitId, Vec<_>> = HashMap::new();
+    let mut unabsorbed = Vec::new();
     let mut diff_hunk_ranges = diff
         .hunk_ranges()
         .filter(|hunk| hunk.kind == DiffHunkKind::Different);
-    while !annotation_ranges.is_empty() {
+    let mut remaining_ranges = annotation_ranges;
+    while !remaining_ranges.is_empty() {
         let Some(hunk) = diff_hunk_ranges.next() else {
             break;
         };
@@ -216,18 +276,19 @@ fn split_file_hunks<'a>(
         if right_range.is_empty() {
             // If the hunk is pure deletion, it can be mapped to multiple
             // overlapped annotation ranges unambiguously.
-            let skip = annotation_ranges
+            let skip = remaining_ranges
                 .iter()
                 .take_while(|(_, range)| range.end <= left_range.start)
                 .count();
-            annotation_ranges = &annotation_ranges[skip..];
-            let pre_overlap = annotation_ranges
+            remaining_ranges = &remaining_ranges[skip..];
+            let pre_overlap = remaining_ranges
                 .iter()
                 .take_while(|(_, range)| range.end < left_range.end)
                 .count();
-            let maybe_overlapped_ranges = annotation_ranges.get(..pre_overlap + 1);
-            annotation_ranges = &annotation_ranges[pre_overlap..];
+            let maybe_overlapped_ranges = remaining_ranges.get(..pre_overlap + 1);
+            remaining_ranges = &remaining_ranges[pre_overlap..];
             let Some(overlapped_ranges) = maybe_overlapped_ranges else {
+                unabsorbed.push((right_range.clone(), UnabsorbedReason::NoDestination));
                 continue;
             };
             // Ensure that the ranges are contiguous and include the start.
@@ -246,32 +307,102 @@ fn split_file_hunks<'a>(
                     let selected = selected_ranges.entry(commit_id).or_default();
                     selected.push((start..end, right_range.clone()));
                 }
+            } else {
+                // A deletion is mapped to all the overlapped ranges, so it can
+                // only be rejected if some of the deleted lines are not
+                // attributed to any destination.
+                unabsorbed.push((right_range.clone(), UnabsorbedReason::NoDestination));
             }
         } else {
             // In other cases, the hunk should be included in an annotation
             // range to map it unambiguously. Skip any pre-overlapped ranges.
-            let skip = annotation_ranges
+            let skip = remaining_ranges
                 .iter()
                 .take_while(|(_, range)| range.end < left_range.end)
                 .count();
-            annotation_ranges = &annotation_ranges[skip..];
-            let Some((commit_id, cur_range)) = annotation_ranges.first() else {
+            remaining_ranges = &remaining_ranges[skip..];
+            let Some((commit_id, cur_range)) = remaining_ranges.first() else {
+                unabsorbed.push((right_range.clone(), UnabsorbedReason::NoDestination));
                 continue;
             };
             let contained = cur_range.start <= left_range.start && left_range.end <= cur_range.end;
-            // If the hunk is pure insertion, it can be mapped to two distinct
-            // annotation ranges, which is ambiguous.
-            let ambiguous = cur_range.end == left_range.start
-                && annotation_ranges
-                    .get(1)
-                    .is_some_and(|(_, next_range)| next_range.start == left_range.end);
-            if contained && !ambiguous {
+            // A pure insertion at the boundary of two annotation ranges can be
+            // mapped to either of them, which is ambiguous.
+            let ambiguous_with = remaining_ranges.get(1).filter(|(_, next_range)| {
+                cur_range.end == left_range.start && next_range.start == left_range.end
+            });
+            if contained && ambiguous_with.is_none() {
                 let selected = selected_ranges.entry(commit_id).or_default();
                 selected.push((left_range.clone(), right_range.clone()));
+            } else if let Some((next_commit_id, _)) = ambiguous_with {
+                unabsorbed.push((
+                    right_range.clone(),
+                    UnabsorbedReason::Ambiguous(vec![
+                        (*commit_id).clone(),
+                        (*next_commit_id).clone(),
+                    ]),
+                ));
+            } else {
+                let candidates = overlapping_commits(annotation_ranges, left_range);
+                let reason = match candidates.as_slice() {
+                    // The hunk covers lines which were not modified by any
+                    // destination, so there's no candidate to choose from.
+                    [] | [_] => UnabsorbedReason::NoDestination,
+                    _ => UnabsorbedReason::SpansMultipleCommits(candidates),
+                };
+                unabsorbed.push((right_range.clone(), reason));
             }
         }
     }
-    selected_ranges
+    // Hunks after the last annotation range can't be mapped to any commit.
+    for hunk in diff_hunk_ranges {
+        let [_, right_range]: &[_; 2] = hunk.ranges[..].try_into().unwrap();
+        unabsorbed.push((right_range.clone(), UnabsorbedReason::NoDestination));
+    }
+    SplitFileHunks {
+        selected: selected_ranges,
+        unabsorbed,
+    }
+}
+
+/// Commits of the annotation ranges overlapping the given range of the left (=
+/// parent) text, in source order. An empty `range` denotes an insertion point
+/// between lines. A commit annotating several ranges is listed once.
+fn overlapping_commits(
+    annotation_ranges: &[(&CommitId, Range<usize>)],
+    range: &Range<usize>,
+) -> Vec<CommitId> {
+    annotation_ranges
+        .iter()
+        .filter(|(_, annotated)| {
+            if range.is_empty() {
+                annotated.start <= range.start && range.start <= annotated.end
+            } else {
+                annotated.start < range.end && range.start < annotated.end
+            }
+        })
+        .map(|(commit_id, _)| (*commit_id).clone())
+        .unique()
+        .collect()
+}
+
+/// Converts a range of source file bytes to a 1-based range of line numbers.
+///
+/// An empty `range` denotes a deletion or an insertion point, and is mapped to
+/// the single line it lands on.
+fn line_range(text: &[u8], range: &Range<usize>) -> Range<usize> {
+    let start = line_number_at(text, range.start);
+    let end = if range.is_empty() {
+        start
+    } else {
+        // The range may include the trailing newline of the last line.
+        line_number_at(text, range.end - 1)
+    };
+    start..end + 1
+}
+
+fn line_number_at(text: &[u8], offset: usize) -> usize {
+    1 + memchr::memchr_iter(b'\n', &text[..offset]).count()
 }
 
 /// Constructs new text by replacing `text1` range with `text2` range for each
@@ -398,18 +529,18 @@ mod tests {
 
         // unchanged
         assert_eq!(
-            split_file_hunks(&[], &ContentDiff::by_line(["", ""])),
+            split_file_hunks(&[], &ContentDiff::by_line(["", ""])).selected,
             hashmap! {}
         );
 
         // insert single line
         assert_eq!(
-            split_file_hunks(&[], &ContentDiff::by_line(["", "2X\n"])),
+            split_file_hunks(&[], &ContentDiff::by_line(["", "2X\n"])).selected,
             hashmap! {}
         );
         // delete single line
         assert_eq!(
-            split_file_hunks(&[(commit_id1, 0..3)], &ContentDiff::by_line(["1a\n", ""])),
+            split_file_hunks(&[(commit_id1, 0..3)], &ContentDiff::by_line(["1a\n", ""])).selected,
             hashmap! { commit_id1 => vec![(0..3, 0..0)] }
         );
         // modify single line
@@ -417,7 +548,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..3)],
                 &ContentDiff::by_line(["1a\n", "1AA\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(0..3, 0..4)] }
         );
     }
@@ -431,7 +563,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6)],
                 &ContentDiff::by_line(["1a\n1b\n", "1X\n1a\n1Y\n1b\n1Z\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(0..0, 0..3), (3..3, 6..9), (6..6, 12..15)],
             }
@@ -441,7 +574,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..15)],
                 &ContentDiff::by_line(["1a\n1b\n1c\n1d\n1e\n1f\n", "1b\n1d\n1f\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(0..3, 0..0), (6..9, 3..3), (12..15, 6..6)],
             }
@@ -451,7 +585,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..12)],
                 &ContentDiff::by_line(["1a\n1b\n1c\n1d\n", "1A\n1b\n1C\n1d\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(0..3, 0..3), (6..9, 6..9)] }
         );
     }
@@ -466,7 +601,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1X\n1a\n1b\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(0..0, 0..3)] }
         );
         // insert middle line to first range
@@ -474,7 +610,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1X\n1b\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(3..3, 3..6)] }
         );
         // insert middle line between ranges (ambiguous)
@@ -482,7 +619,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n3X\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // insert middle line to second range
@@ -490,7 +628,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n2a\n2X\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(9..9, 9..12)] }
         );
         // insert last line
@@ -498,7 +637,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n2a\n2b\n2X\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(12..12, 12..15)] }
         );
     }
@@ -513,7 +653,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1b\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(0..3, 0..0)] }
         );
         // delete middle line from first range
@@ -521,7 +662,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(3..6, 3..3)] }
         );
         // delete middle line from second range
@@ -529,7 +671,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(6..9, 6..6)] }
         );
         // delete last line
@@ -537,7 +680,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n2a\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(9..12, 9..9)] }
         );
         // delete first and last lines
@@ -545,7 +689,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1b\n2a\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(0..3, 0..0)],
                 commit_id2 => vec![(9..12, 6..6)],
@@ -557,7 +702,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(3..6, 3..3)],
                 commit_id2 => vec![(6..12, 3..3)],
@@ -568,7 +714,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(3..6, 3..3)],
                 commit_id2 => vec![(6..9, 3..3)],
@@ -579,7 +726,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(0..6, 0..0)],
                 commit_id2 => vec![(6..9, 0..0)],
@@ -591,7 +739,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", ""])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(0..6, 0..0)],
                 commit_id2 => vec![(6..12, 0..0)],
@@ -609,7 +758,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1A\n1b\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(0..3, 0..3)] }
         );
         // modify middle line of first range
@@ -617,7 +767,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1B\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(3..6, 3..6)] }
         );
         // modify middle lines of both ranges (ambiguous)
@@ -626,7 +777,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1B\n2A\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // modify middle line of second range
@@ -634,7 +786,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n2A\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(6..9, 6..9)] }
         );
         // modify last line
@@ -642,7 +795,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n2a\n2B\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(9..12, 9..12)] }
         );
         // modify first and last lines
@@ -650,7 +804,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1A\n1b\n2a\n2B\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(0..3, 0..3)],
                 commit_id2 => vec![(9..12, 9..12)],
@@ -668,7 +823,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1A\n1B\n1X\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(0..6, 0..9)] }
         );
         // modify second range, insert adjacent middle line
@@ -676,7 +832,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n2X\n2A\n2B\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(6..12, 6..15)] }
         );
         // modify second range, insert last line
@@ -684,7 +841,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n2A\n2B\n2X\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(6..12, 6..15)] }
         );
         // modify first and last lines (unambiguous), insert middle line between
@@ -693,7 +851,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1A\n1b\n3X\n2a\n2B\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(0..3, 0..3)],
                 commit_id2 => vec![(9..12, 12..15)],
@@ -711,7 +870,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1A\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(0..6, 0..3)] }
         );
         // modify last line, delete adjacent middle line
@@ -719,7 +879,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n2B\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(6..12, 6..9)] }
         );
         // modify first and last lines, delete middle line from first range
@@ -727,7 +888,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1A\n2a\n2B\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(0..6, 0..3)],
                 commit_id2 => vec![(9..12, 6..9)],
@@ -738,7 +900,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1A\n1b\n2B\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(0..3, 0..3)],
                 commit_id2 => vec![(6..12, 6..9)],
@@ -749,7 +912,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), (commit_id2, 6..12)],
                 &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1B\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
     }
@@ -764,7 +928,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n1X\n0a\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(6..6, 6..9)] }
         );
         // insert middle line to second range
@@ -772,7 +937,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n0a\n2X\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(9..9, 9..12)] }
         );
         // insert middle lines to both ranges
@@ -780,7 +946,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n1X\n0a\n2X\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(6..6, 6..9)],
                 commit_id2 => vec![(9..9, 12..15)],
@@ -798,7 +965,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n1X\n0A\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // insert middle line to second range, modify masked line (ambiguous)
@@ -806,7 +974,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n0A\n2X\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // insert middle lines to both ranges, modify masked line (ambiguous)
@@ -814,7 +983,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n1X\n0A\n2X\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
     }
@@ -829,7 +999,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n0a\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(3..6, 3..3)] }
         );
         // delete middle line from second range
@@ -837,7 +1008,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n0a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(9..12, 9..9)] }
         );
         // delete middle lines from both ranges
@@ -845,7 +1017,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n0a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(3..6, 3..3)],
                 commit_id2 => vec![(9..12, 6..6)],
@@ -863,7 +1036,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n0A\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // delete middle line from second range, modify masked line (ambiguous)
@@ -871,7 +1045,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n0A\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // delete middle lines from both ranges, modify masked line (ambiguous)
@@ -879,7 +1054,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n0A\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
     }
@@ -897,7 +1073,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // delete middle line from second range, delete masked line (ambiguous)
@@ -905,7 +1082,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // delete middle lines from both ranges, delete masked line (ambiguous)
@@ -913,7 +1091,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
     }
@@ -928,7 +1107,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1B\n0a\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(3..6, 3..6)] }
         );
         // modify middle line of second range
@@ -936,7 +1116,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n0a\n2A\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id2 => vec![(9..12, 9..12)] }
         );
         // modify middle lines of both ranges
@@ -944,7 +1125,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1B\n0a\n2A\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(3..6, 3..6)],
                 commit_id2 => vec![(9..12, 9..12)],
@@ -962,7 +1144,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1B\n0A\n2a\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // modify middle line of second range, modify masked line (ambiguous)
@@ -970,7 +1153,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1b\n0A\n2A\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // modify middle lines to both ranges, modify masked line (ambiguous)
@@ -978,7 +1162,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6), /* 6..9, */ (commit_id2, 9..15)],
                 &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n1B\n0A\n2A\n2b\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
     }
@@ -992,7 +1177,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6) /* , 6..9 */],
                 &ContentDiff::by_line(["1a\n1b\n0a\n", "1a\n1b\n1X\n0a\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(6..6, 6..9)] }
         );
     }
@@ -1006,7 +1192,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6) /* , 6..9 */],
                 &ContentDiff::by_line(["1a\n1b\n0a\n", "1a\n1b\n1X\n0A\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
     }
@@ -1020,7 +1207,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6) /* , 6..9 */],
                 &ContentDiff::by_line(["1a\n1b\n0a\n", "1a\n0a\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(3..6, 3..3)] }
         );
         // delete all lines from range
@@ -1028,7 +1216,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6) /* , 6..9 */],
                 &ContentDiff::by_line(["1a\n1b\n0a\n", "0a\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(0..6, 0..0)] }
         );
     }
@@ -1042,7 +1231,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6) /* , 6..9 */],
                 &ContentDiff::by_line(["1a\n1b\n0a\n", "1a\n0A\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // delete all lines from range, modify masked line (ambiguous)
@@ -1050,7 +1240,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6) /* , 6..9 */],
                 &ContentDiff::by_line(["1a\n1b\n0a\n", "0A\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
     }
@@ -1067,7 +1258,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6) /* , 6..9 */],
                 &ContentDiff::by_line(["1a\n1b\n0a\n", "1a\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
         // delete all lines from range, delete masked line (ambiguous)
@@ -1075,7 +1267,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6) /* , 6..9 */],
                 &ContentDiff::by_line(["1a\n1b\n0a\n", ""])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
     }
@@ -1089,7 +1282,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6) /* , 6..9 */],
                 &ContentDiff::by_line(["1a\n1b\n0a\n", "1a\n1B\n0a\n"])
-            ),
+            )
+            .selected,
             hashmap! { commit_id1 => vec![(3..6, 3..6)] }
         );
     }
@@ -1103,7 +1297,8 @@ mod tests {
             split_file_hunks(
                 &[(commit_id1, 0..6) /* , 6..9 */],
                 &ContentDiff::by_line(["1a\n1b\n0a\n", "1a\n1B\n0A\n"])
-            ),
+            )
+            .selected,
             hashmap! {}
         );
     }
@@ -1126,12 +1321,176 @@ mod tests {
                     "1a\n2a\n1b\n1c\n1d\n3a\n3b\n",
                     "1A\n2a\n1B\n1d\n3X\n3A\n3b\n3Y\n"
                 ])
-            ),
+            )
+            .selected,
             hashmap! {
                 commit_id1 => vec![(0..3, 0..3), (6..12, 6..9)],
                 commit_id3 => vec![(15..18, 12..18), (21..21, 21..24)],
             }
         );
+    }
+
+    #[test]
+    fn test_split_file_hunks_unabsorbed_no_destination() {
+        let commit_id1 = &CommitId::from_hex("111111");
+
+        // The file has no annotated lines, e.g. it was last modified by commits
+        // outside the destination revisions.
+        assert_eq!(
+            split_file_hunks(&[], &ContentDiff::by_line(["1a\n", "1A\n"])).unabsorbed,
+            vec![(0..3, UnabsorbedReason::NoDestination)]
+        );
+
+        // The hunk is after the last annotation range.
+        assert_eq!(
+            split_file_hunks(
+                &[(commit_id1, 0..3)],
+                &ContentDiff::by_line(["1a\n1b\n", "1a\n1B\n"])
+            )
+            .unabsorbed,
+            vec![(3..6, UnabsorbedReason::NoDestination)]
+        );
+
+        // The hunk overlaps an annotation range but also covers lines which
+        // aren't part of it.
+        assert_eq!(
+            split_file_hunks(
+                &[(commit_id1, 3..6)],
+                &ContentDiff::by_line(["1a\n1b\n1c\n", "1A\n1B\n1C\n"])
+            )
+            .unabsorbed,
+            vec![(0..9, UnabsorbedReason::NoDestination)]
+        );
+
+        // The hunk after the annotation ranges have been exhausted by a
+        // deletion.
+        assert_eq!(
+            split_file_hunks(
+                &[(commit_id1, 0..3)],
+                &ContentDiff::by_line(["1a\n1b\n1c\n0a\n1d\n", "1a\n0a\n1D\n"])
+            )
+            .unabsorbed,
+            vec![
+                (3..3, UnabsorbedReason::NoDestination),
+                (6..9, UnabsorbedReason::NoDestination),
+            ]
+        );
+
+        // A deletion of lines which aren't all attributed to a destination
+        // can't be mapped to any commit.
+        assert_eq!(
+            split_file_hunks(
+                &[(commit_id1, 0..6) /* 6..9, */,],
+                &ContentDiff::by_line(["1a\n1b\n0a\n2a\n2b\n", "1a\n2b\n"])
+            )
+            .unabsorbed,
+            vec![(3..3, UnabsorbedReason::NoDestination)]
+        );
+    }
+
+    #[test]
+    fn test_split_file_hunks_partially_absorbed() {
+        let commit_id1 = &CommitId::from_hex("111111");
+
+        // The first line is attributed to the commit 1, but the last line isn't
+        // attributed to any destination.
+        let hunks = split_file_hunks(
+            &[(commit_id1, 0..3)],
+            &ContentDiff::by_line(["1a\n1b\n1c\n", "1A\n1b\n1C\n"]),
+        );
+        assert_eq!(
+            hunks.selected,
+            hashmap! { commit_id1 => vec![(0..3, 0..3)] }
+        );
+        assert_eq!(
+            hunks.unabsorbed,
+            vec![(6..9, UnabsorbedReason::NoDestination)]
+        );
+    }
+
+    #[test]
+    fn test_split_file_hunks_unabsorbed_ambiguous() {
+        let commit_id1 = &CommitId::from_hex("111111");
+        let commit_id2 = &CommitId::from_hex("222222");
+
+        // Insertion between the lines of two annotation ranges
+        assert_eq!(
+            split_file_hunks(
+                &[(commit_id1, 0..6), (commit_id2, 6..12)],
+                &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1b\n3X\n2a\n2b\n"])
+            )
+            .unabsorbed,
+            vec![(
+                6..9,
+                UnabsorbedReason::Ambiguous(vec![commit_id1.clone(), commit_id2.clone()])
+            )]
+        );
+    }
+
+    #[test]
+    fn test_split_file_hunks_unabsorbed_spans_multiple_commits() {
+        let commit_id1 = &CommitId::from_hex("111111");
+        let commit_id2 = &CommitId::from_hex("222222");
+        let spans = |commit_ids: Vec<CommitId>| UnabsorbedReason::SpansMultipleCommits(commit_ids);
+        let both = || vec![commit_id1.clone(), commit_id2.clone()];
+
+        // Modification of lines from two adjacent annotation ranges
+        assert_eq!(
+            split_file_hunks(
+                &[(commit_id1, 0..6), (commit_id2, 6..12)],
+                &ContentDiff::by_line(["1a\n1b\n2a\n2b\n", "1a\n1B\n2A\n2b\n"])
+            )
+            .unabsorbed,
+            vec![(3..9, spans(both()))]
+        );
+
+        // Modification of lines from two annotation ranges separated by lines
+        // which aren't attributed to any destination
+        assert_eq!(
+            split_file_hunks(
+                &[(commit_id1, 0..3), /* 3..6, */ (commit_id2, 6..9)],
+                &ContentDiff::by_line(["1a\n0a\n0b\n", "1A\n0A\n0B\n"])
+            )
+            .unabsorbed,
+            vec![(0..9, spans(both()))]
+        );
+
+        // A commit annotating several of the overlapped ranges is only listed
+        // once
+        assert_eq!(
+            split_file_hunks(
+                &[(commit_id1, 0..3), (commit_id2, 3..6), (commit_id1, 6..15)],
+                &ContentDiff::by_line(["1a\n2a\n1b\n1c\n1d\n", "1A\n2A\n1B\n1c\n1d\n"])
+            )
+            .unabsorbed,
+            vec![(0..9, spans(both()))]
+        );
+    }
+
+    #[test]
+    fn test_line_range() {
+        let text = b"1a\n1b\n1c\n";
+
+        // Modification of the second line
+        assert_eq!(line_range(text, &(3..6)), 2..3);
+        // Modification of the first and last lines
+        assert_eq!(line_range(text, &(0..3)), 1..2);
+        assert_eq!(line_range(text, &(6..9)), 3..4);
+        // Insertion between lines
+        assert_eq!(line_range(text, &(6..6)), 3..4);
+        // Insertion at the end of the file
+        assert_eq!(line_range(text, &(9..9)), 4..5);
+
+        // Deletion of the second line
+        assert_eq!(line_range(b"1a\n1b\n1c\n", &(3..3)), 2..3);
+        // Deletion of the last line, which was on the line past the end of the
+        // resulting file
+        assert_eq!(line_range(b"1a\n", &(3..3)), 2..3);
+
+        // File without a trailing newline
+        assert_eq!(line_range(b"1a", &(0..2)), 1..2);
+        // Empty file
+        assert_eq!(line_range(b"", &(0..0)), 1..2);
     }
 
     #[test]

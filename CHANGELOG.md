@@ -75,6 +75,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   disable them. This can be used to disable built-in aliases or disable aliases
   in later layers (such as repo config files).
 
+* `jj absorb` now prints a warning for each hunk it could not absorb, along with
+  the reason. If the hunk could be absorbed into several commits, the candidates
+  are listed so that they can be passed to `--into`.
+  [#7066](https://github.com/jj-vcs/jj/issues/7066)
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
