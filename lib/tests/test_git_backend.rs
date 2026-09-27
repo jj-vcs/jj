@@ -154,54 +154,42 @@ fn test_gc() -> TestResult {
         },
     );
 
-    // At first, all commits have no-gc refs
-    assert_eq!(
-        collect_no_gc_refs(git_repo_path),
-        hashset! {
-            commit_a.id().clone(),
-            commit_b.id().clone(),
-            commit_c.id().clone(),
-            commit_d.id().clone(),
-            commit_e.id().clone(),
-            commit_f.id().clone(),
-            commit_g.id().clone(),
-            commit_h.id().clone(),
-        },
-    );
+    // Every written commit starts with a keep ref.
+    let all_commits = hashset! {
+        commit_a.id().clone(),
+        commit_b.id().clone(),
+        commit_c.id().clone(),
+        commit_d.id().clone(),
+        commit_e.id().clone(),
+        commit_f.id().clone(),
+        commit_g.id().clone(),
+        commit_h.id().clone(),
+    };
+    assert_eq!(collect_no_gc_refs(git_repo_path), all_commits);
 
-    // Empty index, but all kept by file modification time
-    // (Beware that this invokes "git gc" and refs will be packed.)
+    // An empty index does not remove keep refs from old readers.
     get_git_backend(&repo).gc(base_index.as_index(), SystemTime::UNIX_EPOCH)?;
-    assert_eq!(
-        collect_no_gc_refs(git_repo_path),
-        hashset! {
-            commit_a.id().clone(),
-            commit_b.id().clone(),
-            commit_c.id().clone(),
-            commit_d.id().clone(),
-            commit_e.id().clone(),
-            commit_f.id().clone(),
-            commit_g.id().clone(),
-            commit_h.id().clone(),
-        },
-    );
+    assert_eq!(collect_no_gc_refs(git_repo_path), all_commits);
 
     // Don't rely on the exact system time because file modification time might
     // have lower precision for example.
     let now = || SystemTime::now() + Duration::from_secs(1);
 
-    // All reachable: redundant no-gc refs will be removed
+    // An indexed head whose keep ref disappeared is restored by gc.
+    let girt_repo = girt::Repository::open(git_repo_path)?;
+    let girt_ref = girt::refs::RefName::new(format!("refs/jj/keep/{}", commit_g.id()))?;
+    let girt_id = girt::ObjectId::from_bytes(girt_repo.object_format(), commit_g.id().as_bytes())?;
+    girt_repo.references()?.delete_without_reflog(
+        &girt_ref,
+        girt::refs::Expected::Value(girt::refs::Target::Direct(girt_id)),
+    )?;
+    let mut without_g = all_commits.clone();
+    without_g.remove(commit_g.id());
+    assert_eq!(collect_no_gc_refs(git_repo_path), without_g);
     get_git_backend(&repo).gc(repo.index(), now())?;
-    assert_eq!(
-        collect_no_gc_refs(git_repo_path),
-        hashset! {
-            commit_d.id().clone(),
-            commit_g.id().clone(),
-            commit_h.id().clone(),
-        },
-    );
+    assert_eq!(collect_no_gc_refs(git_repo_path), all_commits);
 
-    // G is no longer reachable
+    // Subsequent indexes may omit heads, but additive gc retains their keep refs.
     let mut mut_index = base_index.start_modification();
     mut_index.add_commit(&commit_a).block_on()?;
     mut_index.add_commit(&commit_b).block_on()?;
@@ -211,44 +199,24 @@ fn test_gc() -> TestResult {
     mut_index.add_commit(&commit_f).block_on()?;
     mut_index.add_commit(&commit_h).block_on()?;
     get_git_backend(&repo).gc(mut_index.as_index(), now())?;
-    assert_eq!(
-        collect_no_gc_refs(git_repo_path),
-        hashset! {
-            commit_d.id().clone(),
-            commit_e.id().clone(),
-            commit_h.id().clone(),
-        },
-    );
+    assert_eq!(collect_no_gc_refs(git_repo_path), all_commits);
 
-    // D|E|H are no longer reachable
     let mut mut_index = base_index.start_modification();
     mut_index.add_commit(&commit_a).block_on()?;
     mut_index.add_commit(&commit_b).block_on()?;
     mut_index.add_commit(&commit_c).block_on()?;
     mut_index.add_commit(&commit_f).block_on()?;
     get_git_backend(&repo).gc(mut_index.as_index(), now())?;
-    assert_eq!(
-        collect_no_gc_refs(git_repo_path),
-        hashset! {
-            commit_c.id().clone(),
-            commit_f.id().clone(),
-        },
-    );
+    assert_eq!(collect_no_gc_refs(git_repo_path), all_commits);
 
-    // B|C|F are no longer reachable
     let mut mut_index = base_index.start_modification();
     mut_index.add_commit(&commit_a).block_on()?;
     get_git_backend(&repo).gc(mut_index.as_index(), now())?;
-    assert_eq!(
-        collect_no_gc_refs(git_repo_path),
-        hashset! {
-            commit_a.id().clone(),
-        },
-    );
+    assert_eq!(collect_no_gc_refs(git_repo_path), all_commits);
 
-    // All unreachable
+    // Even an empty index cannot authorize deletion while other readers may exist.
     get_git_backend(&repo).gc(base_index.as_index(), now())?;
-    assert_eq!(collect_no_gc_refs(git_repo_path), hashset! {});
+    assert_eq!(collect_no_gc_refs(git_repo_path), all_commits);
     Ok(())
 }
 

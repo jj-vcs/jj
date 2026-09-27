@@ -59,7 +59,7 @@ erased-serde = "0.4.10"
 etcetera = "0.11.0"
 eyre = "0.6"
 futures = "0.3.32"
-girt = { path = "../../../girt/work/r35-ignore" }
+girt = "0.1.5"
 gix = { version = "0.87.1", default-features = false, features = [
     "attributes",
     "blob-diff",
