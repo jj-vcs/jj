@@ -847,14 +847,39 @@ fn env_base_layer() -> ConfigLayer {
         // should override $NO_COLOR." https://no-color.org/
         layer.set_value("ui.color", "never").unwrap();
     }
-    if let Ok(value) = env::var("VISUAL") {
-        layer.set_value("ui.editor", value).unwrap();
-    } else if let Ok(value) = env::var("EDITOR") {
+    if let Ok(value) = env::var("VISUAL").or_else(|_| env::var("EDITOR")) {
+        let value = editor_name_to_default_config(&value);
         layer.set_value("ui.editor", value).unwrap();
     }
     // Intentionally NOT respecting $PAGER here as it often creates a bad
     // out-of-the-box experience for users, see http://github.com/jj-vcs/jj/issues/3502.
     layer
+}
+
+fn editor_name_to_default_config(name: &str) -> &str {
+    match name {
+        "code" => "code --wait --goto $path:$line",
+        "code --wait" => "code --wait --goto $path:$line",
+        "codium" => "codium --wait --goto $path:$line",
+        "codium --wait" => "codium --wait --goto $path:$line",
+        "edit" => "edit $path:$line",
+        "msedit" => "msedit $path:$line",
+        "emacs" => "emacs +$line",
+        "hx" => "hx $path:$line",
+        "kak" => "kak +$line",
+        "kate" => "kate --block --line $line",
+        "kate --block" => "kate --block --line $line",
+        "nano" => "nano +$line",
+        "pico" => "pico +$line",
+        "subl" => "subl $path:$line",
+        "vim" => "vim +$line",
+        "vi" => "vi +$line",
+        "nvim" => "nvim +$line",
+        "zed" => "zed --wait $path:$line",
+        "zed --wait" => "zed --wait $path:$line",
+        // unrecognized editor, pass through unchanged
+        _ => name,
+    }
 }
 
 pub fn default_config_layers() -> Vec<ConfigLayer> {
