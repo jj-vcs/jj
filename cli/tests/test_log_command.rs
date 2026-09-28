@@ -1588,6 +1588,28 @@ fn test_log_word_wrap() {
 }
 
 #[test]
+fn test_log_word_wrap_json() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["describe", "-m", "one two three four five six seven eight"])
+        .success();
+
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["log", "--no-graph", "-r@", "-Tjson(self)"])
+            .arg("--config=ui.log-word-wrap=true")
+            .env("COLUMNS", "5")
+    });
+    let json: serde_json::Value = serde_json::from_str(output.stdout.raw()).unwrap();
+    assert_eq!(
+        json["description"],
+        "one two three four five six seven eight\n"
+    );
+    assert_eq!(output.stdout.raw().lines().count(), 1);
+}
+
+#[test]
 fn test_log_word_wrap_with_hyperlinks() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

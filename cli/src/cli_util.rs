@@ -3529,7 +3529,11 @@ impl LogContentFormat {
         if self.word_wrap {
             let mut recorder = FormatRecorder::new(formatter.maybe_color());
             content_fn(&mut recorder).await?;
-            text_util::write_wrapped(formatter, &recorder, self.width)?;
+            if serde_json::from_slice::<serde_json::Value>(recorder.data()).is_ok() {
+                recorder.replay(formatter)?;
+            } else {
+                text_util::write_wrapped(formatter, &recorder, self.width)?;
+            }
         } else {
             content_fn(formatter).await?;
         }
