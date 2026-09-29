@@ -52,7 +52,8 @@ union_op = { "|" }
 intersection_op = { "&" }
 difference_op = { "~" }
 prefix_ops = _{ negate_op }
-infix_ops = _{ union_op | intersection_op | difference_op }
+// The union op is separated in the grammar, because it's also parsed differently (unions are flattened/don't recurse).
+non_union_infix_op = _{ intersection_op | difference_op }
 
 function = { function_name ~ "(" ~ whitespace* ~ function_arguments ~ whitespace* ~ ")" }
 function_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
@@ -65,7 +66,54 @@ formal_parameters = {
   | ""
 }
 
-pattern = { strict_identifier ~ pattern_kind_op ~ primary }
+// Negating inside of these rules will produce a Pair on each success that needs
+// to be filtered out before Pratt parsing. However, it also results in a nicely
+// named error, because it fails on a specific rule, which affords better UX.
+//
+// Currently, each of these is set to limit of 64, with the exception of the
+// `recursive_depth_limit_reached` which is will be anywhere between 64 and
+// 128 repetitions (due to shared stacked between all rules).
+//
+// TODO: move this into an inline grammar into the fileset_parser.rs -- so that
+// bounds can be set as consts and kepty in sync for tests.
+prefix_op_width_limit_reached = {
+  !PEEK[65..]
+}
+
+primary_expression_width_limit_reached = {
+  !PEEK[65..]
+}
+
+// All of the Pratt recursion happens through "primary", so it is bound recursively to
+// a maximum nesting depth P. However, due to bounding the expression_range as well,
+// and stack sharing, the limit brought in by that bound E can also count, where in
+// worst case scenario only (P - E) nesting depth is allowed.
+recursive_depth_limit_reached = {
+  !PEEK[129..]
+}
+
+// Instead of putting a bound inside primary, pattern and expression rules are
+// bound instead. These two rules form a feedback vertex set for the recursive
+// cycle through the primary. This is done for better error reporting (otherwise
+// the recursive_depth_limit_reached is not reported by pest).
+//
+// When pattern is matched, an empty string is pushed to the stack.
+// Empty string always matches, and doesn't consume any tokens. Next,
+// a bound checking rule is used, which, for a given bound B, peeks
+// at the stack offsetted by B+1. If that many empty strings have
+// already been pushed, the rule must have already recursed for B
+// levels, an empty string pattern is tried, which always succeeds,
+// and the rule fails. If the recursing sub-rule doesn't recurse,
+// DROP is called, which just drops the top of the stack, without
+// trying to match. If less than B strings have been pushed to the
+// stack, PEEK will fail and the bound-checking rule succeeds, allowing
+// recursion to potentially continue.
+pattern = {
+  PUSH("") ~ recursive_depth_limit_reached
+  ~ strict_identifier ~ pattern_kind_op ~ primary
+  ~ DROP
+}
+
 bare_string_pattern = { strict_identifier ~ pattern_kind_op ~ bare_string }
 
 primary = {
@@ -77,9 +125,52 @@ primary = {
   | raw_string_literal
 }
 
+// Recursively bound the number of prefix_ops repetitions to the bound set
+// in prefix_op_width_limit_reached. See comment above pattern for an
+// explanation of the mechanism. In addition, adding a fallback rule that
+// matches empty string (always succeeds) provides a base case for the recursion
+// and also encodes the case where there are *no* prefix_ops. This is basically
+// an alternative to writing (prefix_ops ~ whitespace*){,B}. The latter is
+// simpler and has its merits, but using it will significantly increase
+// the binary size. Note also that it can also be used for limiting the token
+// tree "width", but not its nesting depth.
+bounded_prefix_op = _{
+  prefix_ops
+  ~ PUSH("") ~ prefix_op_width_limit_reached
+  ~ whitespace* ~ bounded_prefix_op
+  ~ DROP
+  | ""
+}
+
+bounded_primary_expression = _{
+  whitespace* ~ non_union_infix_op ~ whitespace* ~ bounded_prefix_op ~ primary
+  ~ PUSH("") ~ primary_expression_width_limit_reached
+  ~ bounded_primary_expression
+  ~ DROP
+  | ""
+}
+
+bounded_infix_primary_expression = _{
+  bounded_prefix_op ~ primary ~ bounded_primary_expression
+}
+
+// This will match a bounded number of prefix ops (possibly zero), followed by a primary
+// expression, followed by a bounded number of primary expressions with non-union infixes
+// (possibly zero), intermixed with an arbitrary number of primary expressions with the
+// union infix.
+//
+// First thing to note: bounded_infix_range_expression necessitates a primary expression,
+// so union expressions are valid, or they simply transition to a non-union infix chain.
+//
+// Second, and more important: this is safe; because union op has the lowest precedence,
+// all other terms will bind together before it, so it cannot be used to bypass the
+// nesting depth bound. It is also parsed differently, namely by union chains being
+// folded into a single AST node (holding a Vec). Thus leaving it unbounded, could
+// lead to increased resource usage, but no stack overflows.
 expression = {
-  (prefix_ops ~ whitespace*)* ~ primary
-  ~ (whitespace* ~ infix_ops ~ whitespace* ~ (prefix_ops ~ whitespace*)* ~ primary)*
+  PUSH("") ~ recursive_depth_limit_reached
+  ~ bounded_infix_primary_expression ~ (whitespace* ~ union_op ~ whitespace* ~ bounded_infix_primary_expression)*
+  ~ DROP
 }
 
 program = _{ SOI ~ whitespace* ~ expression ~ whitespace* ~ EOI }

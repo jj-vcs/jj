@@ -19,6 +19,8 @@ use std::sync::LazyLock;
 
 use itertools::Itertools as _;
 use pest::Parser as _;
+use pest::error::ErrorVariant;
+use pest::error::LineColLocation;
 use pest::iterators::Pair;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
@@ -76,7 +78,7 @@ impl Rule {
             Self::intersection_op => Some("&"),
             Self::difference_op => Some("~"),
             Self::prefix_ops => None,
-            Self::infix_ops => None,
+            Self::non_union_infix_op => None,
             Self::function => None,
             Self::function_name => None,
             Self::function_arguments => None,
@@ -90,6 +92,12 @@ impl Rule {
             Self::function_alias_declaration => None,
             Self::pattern_alias_declaration => None,
             Self::alias_declaration => None,
+            Self::bounded_infix_primary_expression => None,
+            Self::bounded_prefix_op => None,
+            Self::bounded_primary_expression => None,
+            Self::prefix_op_width_limit_reached => None,
+            Self::primary_expression_width_limit_reached => None,
+            Self::recursive_depth_limit_reached => None,
         }
     }
 }
@@ -103,10 +111,10 @@ pub type FilesetParseResult<T> = Result<T, FilesetParseError>;
 
 /// Error occurred during fileset parsing and name resolution.
 #[derive(Debug, Error)]
-#[error("{pest_error}")]
+#[error("{}", .pest_error.as_ref().map_or_else(|| .kind.to_string(), |e| e.to_string()))]
 pub struct FilesetParseError {
     kind: FilesetParseErrorKind,
-    pest_error: Box<pest::error::Error<Rule>>,
+    pest_error: Option<Box<pest::error::Error<Rule>>>,
     source: Option<Box<dyn error::Error + Send + Sync>>,
 }
 
@@ -139,10 +147,10 @@ impl FilesetParseError {
     /// Creates a new error with the given `kind` and `span`.
     pub(super) fn new(kind: FilesetParseErrorKind, span: pest::Span<'_>) -> Self {
         let message = kind.to_string();
-        let pest_error = Box::new(pest::error::Error::new_from_span(
+        let pest_error = Some(Box::new(pest::error::Error::new_from_span(
             pest::error::ErrorVariant::CustomError { message },
             span,
-        ));
+        )));
         Self {
             kind,
             pest_error,
@@ -192,9 +200,40 @@ impl AliasExpandError for FilesetParseError {
 
 impl From<pest::error::Error<Rule>> for FilesetParseError {
     fn from(err: pest::error::Error<Rule>) -> Self {
+        if let ErrorVariant::ParsingError {
+            positives,
+            negatives,
+        } = &err.variant
+            && let Some(msg) = positives
+                .iter()
+                .chain(negatives)
+                .find_map(|rule| match rule {
+                    Rule::prefix_op_width_limit_reached => Some("Too many op prefixes"),
+                    Rule::primary_expression_width_limit_reached => {
+                        Some("Too many chained operators")
+                    }
+                    Rule::recursive_depth_limit_reached => Some("Expression is nested too deeply"),
+                    _ => None,
+                })
+        {
+            let (line, col) = match err.line_col {
+                LineColLocation::Pos(pos) | LineColLocation::Span(pos, _) => pos,
+            };
+
+            // When dealing with bound-related parsing errors, there's little to no value in
+            // the regular error print-outs, because they're likely too large and too noisy.
+            // Without `pest_error` attached, kind is displayed, so put the message there.
+            return Self {
+                kind: FilesetParseErrorKind::Expression(format!(
+                    "{msg} (at line {line}, column {col})"
+                )),
+                pest_error: None,
+                source: None,
+            };
+        }
         Self {
             kind: FilesetParseErrorKind::SyntaxError,
-            pest_error: Box::new(rename_rules_in_pest_error(err)),
+            pest_error: Some(Box::new(rename_rules_in_pest_error(err))),
             source: None,
         }
     }
@@ -371,7 +410,18 @@ fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
             ExpressionKind::FunctionCall(function)
         }
         Rule::pattern => {
-            let [lhs, op, rhs] = first.into_inner().collect_array().unwrap();
+            let [lhs, op, rhs] = first
+                .into_inner()
+                .filter(|r| {
+                    !matches!(
+                        r.as_rule(),
+                        Rule::prefix_op_width_limit_reached
+                            | Rule::primary_expression_width_limit_reached
+                            | Rule::recursive_depth_limit_reached
+                    )
+                })
+                .collect_array()
+                .unwrap();
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             let pattern = Box::new(PatternNode {
@@ -424,7 +474,14 @@ fn parse_expression_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode>
             let expr = ExpressionKind::Binary(op_kind, lhs, rhs);
             Ok(ExpressionNode::new(expr, span))
         })
-        .parse(pair.into_inner())
+        .parse(pair.into_inner().filter(|r| {
+            !matches!(
+                r.as_rule(),
+                Rule::prefix_op_width_limit_reached
+                    | Rule::primary_expression_width_limit_reached
+                    | Rule::recursive_depth_limit_reached
+            )
+        }))
 }
 
 /// Parses text into expression tree. No name resolution is made at this stage.
