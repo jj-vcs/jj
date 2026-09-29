@@ -2188,7 +2188,7 @@ English. For example, <code>jj squash --from X --into Y</code>.</p>
 <p>Most commands accept revisions as options and paths as positional parameters.
 For example, the command to display the diff of a specific file in a specific
 revision is:</p>
-<div class="highlight"><pre><span></span><code>$ jj diff -r REV file.txt
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>diff<span class="w"> </span>-r<span class="w"> </span>REV<span class="w"> </span>file.txt
 </code></pre></div>
 <p>However, some commands cannot accept paths, so they allow omitting the <code>-r</code>
 flag. For example, the canonical command would be <code>jj new -r xyz</code>, but this
