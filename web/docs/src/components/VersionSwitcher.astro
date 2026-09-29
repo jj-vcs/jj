@@ -1,11 +1,12 @@
 ---
 // Determine the base URL - no base path for docs.jj-vcs.dev
 const siteBase = '/';
+const selectId = crypto.randomUUID();
 ---
 
-<div class="version-switcher" id="version-switcher-container" style="display: none;">
-  <label for="version-select" class="sl-hidden">Select documentation version</label>
-  <select id="version-select" class="version-select">
+<div class="version-switcher" style="display: none;">
+  <label for={selectId} class="sl-hidden">Select documentation version</label>
+  <select id={selectId} class="version-select">
     <option>Loading versions...</option>
   </select>
 </div>
@@ -13,11 +14,6 @@ const siteBase = '/';
 <script define:vars={{ siteBase }}>
     // Fetch versions client-side and populate the dropdown
     async function loadVersions() {
-      const container = document.getElementById('version-switcher-container');
-      const select = document.getElementById('version-select');
-
-      if (!container || !select) return;
-
       try {
         const response = await fetch(`${siteBase}versions.json`);
         if (!response.ok) {
@@ -43,46 +39,58 @@ const siteBase = '/';
           currentVersion = versionObj?.version || pathVersion;
         }
 
-        // Clear and populate the select
-        select.innerHTML = '';
-        versions.forEach(v => {
-          const option = document.createElement('option');
-          option.value = v.version;
+        for (const container of document.getElementsByClassName("version-switcher")) {
+          const select = container.children[1];
+          if (!select) return;
 
-          // Display title with alias if it has one
-          const displayTitle = v.aliases && v.aliases.length > 0
-            ? `${v.title} (${v.aliases.join(', ')})`
-            : v.title;
-          option.textContent = displayTitle;
+          // Clear and populate the select
+          select.innerHTML = '';
+          versions.forEach(v => {
+            const option = document.createElement('option');
+            option.value = v.version;
 
-          if (v.version === currentVersion) {
-            option.selected = true;
-          }
+            // Display title with alias if it has one
+            const displayTitle = v.aliases && v.aliases.length > 0
+              ? `${v.title} (${v.aliases.join(', ')})`
+              : v.title;
+            option.textContent = displayTitle;
 
-          select.appendChild(option);
-        });
+            if (v.version === currentVersion) {
+              option.selected = true;
+            }
 
-        // Show the container
-        container.style.display = 'flex';
+            select.appendChild(option);
+          });
 
-        // Add change handler
-        select.addEventListener('change', (e) => {
-          const selectedVersion = e.target.value;
-          const currentPath = window.location.pathname;
-          const versionRegex = /^\/[^\/]+/;
-          const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
-          window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
-        });
+          // Show the container
+          container.style.display = 'flex';
+
+          // Add change handler
+          select.addEventListener('change', (e) => {
+            const selectedVersion = e.target.value;
+            const currentPath = window.location.pathname;
+            const versionRegex = /^\/[^\/]+/;
+            const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
+            window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
+          });
+        }
       } catch (error) {
         console.debug('Could not load versions.json:', error);
       }
     }
 
-    // Load versions when DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', loadVersions);
-    } else {
-      loadVersions();
+    // The VersionSwitcher component exists twice in the DOM. Once for the
+    // desktop header bar and once for the mobile hamburger menu. Only one is
+    // visible at a time, but both exist. Because of that, we use this guard to
+    // avoid loading the versions.json file twice.
+    if (!globalThis.jjLoadVersionsStarted) {
+      globalThis.jjLoadVersionsStarted = true;
+      // Load versions when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadVersions);
+      } else {
+        loadVersions();
+      }
     }
   </script>
 
