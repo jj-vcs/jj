@@ -897,8 +897,8 @@ fn show_color_words_conflict_hunks(
                 contexts.push(Diff::new(hunk.lefts.first(), hunk.rights.first()));
             }
             DiffHunkKind::Different => {
-                let num_after = if emitted { options.context } else { 0 };
-                let num_before = options.context;
+                let num_leading = if emitted { options.context } else { 0 };
+                let num_trailing = options.context;
                 line_number = show_color_words_context_lines(
                     formatter,
                     language,
@@ -906,7 +906,7 @@ fn show_color_words_conflict_hunks(
                     line_number,
                     labels,
                     options,
-                    (num_after, num_before),
+                    (num_leading, num_trailing),
                 )?;
                 contexts.clear();
                 emitted = true;
@@ -934,8 +934,8 @@ fn show_color_words_conflict_hunks(
         }
     }
 
-    let num_after = if emitted { options.context } else { 0 };
-    let num_before = 0;
+    let num_leading = if emitted { options.context } else { 0 };
+    let num_trailing = 0;
     show_color_words_context_lines(
         formatter,
         None, // no source symbol at the end
@@ -943,7 +943,7 @@ fn show_color_words_conflict_hunks(
         line_number,
         labels,
         options,
-        (num_after, num_before),
+        (num_leading, num_trailing),
     )
 }
 
@@ -1037,8 +1037,8 @@ fn show_color_words_resolved_hunks(
                 context = Some(hunk_contents);
             }
             DiffHunkKind::Different => {
-                let num_after = if emitted { options.context } else { 0 };
-                let num_before = options.context;
+                let num_leading = if emitted { options.context } else { 0 };
+                let num_trailing = options.context;
                 line_number = show_color_words_context_lines(
                     formatter,
                     language,
@@ -1046,7 +1046,7 @@ fn show_color_words_resolved_hunks(
                     line_number,
                     labels,
                     options,
-                    (num_after, num_before),
+                    (num_leading, num_trailing),
                 )?;
                 context = None;
                 emitted = true;
@@ -1061,8 +1061,8 @@ fn show_color_words_resolved_hunks(
         }
     }
 
-    let num_after = if emitted { options.context } else { 0 };
-    let num_before = 0;
+    let num_leading = if emitted { options.context } else { 0 };
+    let num_trailing = 0;
     show_color_words_context_lines(
         formatter,
         None, // no source symbol at the end
@@ -1070,11 +1070,11 @@ fn show_color_words_resolved_hunks(
         line_number,
         labels,
         options,
-        (num_after, num_before),
+        (num_leading, num_trailing),
     )
 }
 
-/// Prints `num_after` lines, ellipsis, and `num_before` lines.
+/// Prints `num_leading` lines, ellipsis, and `num_trailing` lines.
 fn show_color_words_context_lines(
     formatter: &mut dyn Formatter,
     language: Option<SourceLanguage>,
@@ -1082,7 +1082,7 @@ fn show_color_words_context_lines(
     mut line_number: DiffLineNumber,
     labels: Diff<&str>,
     options: &ColorWordsDiffOptions,
-    (num_after, num_before): (usize, usize),
+    (num_leading, num_trailing): (usize, usize),
 ) -> io::Result<DiffLineNumber> {
     let extract = |after: bool| -> (Vec<&[u8]>, Vec<&[u8]>, u32) {
         let mut lines = contexts
@@ -1096,10 +1096,10 @@ fn show_color_words_context_lines(
             })
             .flat_map(|side| side.split_inclusive(|b| *b == b'\n'))
             .fuse();
-        let after_lines = lines.by_ref().take(num_after).collect();
-        let before_lines = lines.by_ref().rev().take(num_before + 1).collect();
+        let leading_lines = lines.by_ref().take(num_leading).collect();
+        let trailing_lines = lines.by_ref().rev().take(num_trailing + 1).collect();
         let num_skipped: u32 = lines.count().try_into().unwrap();
-        (after_lines, before_lines, num_skipped)
+        (leading_lines, trailing_lines, num_skipped)
     };
     let show = |formatter: &mut dyn Formatter,
                 [left_lines, right_lines]: [&[&[u8]]; 2],
@@ -1136,9 +1136,9 @@ fn show_color_words_context_lines(
         }
     };
 
-    let (left_after, mut left_before, num_left_skipped) = extract(false);
-    let (right_after, mut right_before, num_right_skipped) = extract(true);
-    line_number = show(formatter, [&left_after, &right_after], line_number)?;
+    let (left_leading, mut left_trailing, num_left_skipped) = extract(false);
+    let (right_leading, mut right_trailing, num_right_skipped) = extract(true);
+    line_number = show(formatter, [&left_leading, &right_leading], line_number)?;
     if num_left_skipped > 0 || num_right_skipped > 0 {
         // Show the last symbol line as context for the skipped range, but omit
         // it if a new symbol line immediately follows.
@@ -1147,8 +1147,8 @@ fn show_color_words_context_lines(
                 .iter()
                 .flat_map(|contents| contents.after.split_inclusive(|b| *b == b'\n'))
                 .fuse();
-            lines.by_ref().take(num_after).for_each(drop);
-            let next_line = lines.by_ref().rev().take(num_before).last();
+            lines.by_ref().take(num_leading).for_each(drop);
+            let next_line = lines.by_ref().rev().take(num_trailing).last();
             next_line
                 .and_then(|line| source_symbol_from_line(lang, line))
                 .is_none()
@@ -1166,18 +1166,18 @@ fn show_color_words_context_lines(
         }
         line_number.left += num_left_skipped;
         line_number.right += num_right_skipped;
-        if left_before.len() > num_before {
-            left_before.pop();
+        if left_trailing.len() > num_trailing {
+            left_trailing.pop();
             line_number.left += 1;
         }
-        if right_before.len() > num_before {
-            right_before.pop();
+        if right_trailing.len() > num_trailing {
+            right_trailing.pop();
             line_number.right += 1;
         }
     }
-    left_before.reverse();
-    right_before.reverse();
-    line_number = show(formatter, [&left_before, &right_before], line_number)?;
+    left_trailing.reverse();
+    right_trailing.reverse();
+    line_number = show(formatter, [&left_trailing, &right_trailing], line_number)?;
     Ok(line_number)
 }
 
