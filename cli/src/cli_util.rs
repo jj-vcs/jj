@@ -1371,6 +1371,106 @@ impl WorkspaceCommandHelper {
         Ok(())
     }
 
+    /// Snapshots this working copy so its changes survive workspace removal.
+    ///
+    /// A fresh working copy is snapshotted normally. A stale one is snapshotted
+    /// onto the operation it was last updated to, then that operation is merged
+    /// back in. Files on disk are not updated to a newer commit: the caller is
+    /// about to delete the directory, and applying the on-disk tree to a commit
+    /// that has since moved would record the wrong diff.
+    ///
+    /// On success, [`Self::repo`] is loaded at the operation to continue from.
+    #[instrument(skip_all)]
+    pub async fn snapshot_before_workspace_removal(&mut self, ui: &Ui) -> Result<(), CommandError> {
+        if !self.may_snapshot_working_copy {
+            return Ok(());
+        }
+        let git_import_export_lock = self.lock_git_import_export()?;
+        match self.snapshot_impl(ui, &git_import_export_lock).await {
+            Ok(stats) => {
+                print_snapshot_stats(ui, &stats, self.env().path_converter())?;
+                Ok(())
+            }
+            Err(SnapshotWorkingCopyError::Command(err)) => Err(err),
+            Err(SnapshotWorkingCopyError::StaleWorkingCopy(_)) => {
+                self.preserve_stale_working_copy(ui, &git_import_export_lock)
+                    .await
+            }
+        }
+    }
+
+    /// Snapshots a stale working copy onto its own operation and merges that
+    /// operation with the one this helper was loaded at.
+    #[instrument(skip_all)]
+    async fn preserve_stale_working_copy(
+        &mut self,
+        ui: &Ui,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<(), CommandError> {
+        let wc_op_id = self.working_copy().operation_id().clone();
+        let loader = self.workspace.repo_loader().clone();
+        let head_repo = self.repo().clone();
+        match loader.load_operation(&wc_op_id).await {
+            Ok(wc_op) => {
+                // Loaded at the working copy's operation, so the snapshot is
+                // relative to the commit those files actually belong to.
+                let wc_repo = loader.load_at(&wc_op).await?;
+                self.user_repo = ReadonlyUserRepo::new(wc_repo);
+                let stats = self
+                    .snapshot_impl(ui, git_import_export_lock)
+                    .await
+                    .map_err(|err| err.into_command_error())?;
+                print_snapshot_stats(ui, &stats, self.env().path_converter())?;
+
+                let snapshot_op = self.repo().operation().clone();
+                if snapshot_op.id() == wc_op.id() {
+                    self.user_repo = ReadonlyUserRepo::new(head_repo);
+                    return Ok(());
+                }
+                writeln!(
+                    ui.status(),
+                    "Working copy of workspace {} is stale; preserving its on-disk changes.",
+                    self.workspace_name().as_symbol(),
+                )?;
+
+                // Merging rebases the snapshot onto later history, so the
+                // on-disk changes stay reachable without being applied to a
+                // commit that has already moved.
+                let merged = merge_operations(
+                    None,
+                    &loader,
+                    vec![head_repo.operation().clone(), snapshot_op],
+                    Some(self.workspace_name()),
+                    Some("reconcile stale working-copy snapshot"),
+                    self.env.command.string_args(),
+                )
+                .await?;
+                {
+                    let op_heads_store = loader.op_heads_store().clone();
+                    let _lock = op_heads_store.lock().await?;
+                    op_heads_store
+                        .update_op_heads(merged.parent_ids(), merged.id())
+                        .await?;
+                }
+                self.user_repo = ReadonlyUserRepo::new(loader.load_at(&merged).await?);
+                Ok(())
+            }
+            Err(e @ OpStoreError::ObjectNotFound { .. }) => {
+                writeln!(
+                    ui.status(),
+                    "Failed to read working copy's current operation; attempting recovery. Error \
+                     message from read attempt: {e}"
+                )?;
+                let stats = self
+                    .create_and_check_out_recovery_commit(ui, git_import_export_lock)
+                    .await?;
+                print_snapshot_stats(ui, &stats, self.env().path_converter())?;
+                Ok(())
+            }
+            Err(err) => Err(err.into()),
+        }
+    }
+
     /// Imports new HEAD from the colocated Git repo.
     ///
     /// If the Git HEAD has changed, this function checks out the new Git HEAD.

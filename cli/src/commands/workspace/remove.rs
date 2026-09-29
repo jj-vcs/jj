@@ -124,16 +124,18 @@ pub async fn cmd_workspace_remove(
     }
 
     // Snapshot each workspace before its directory goes away, so that tracked
-    // working-copy changes that were never committed survive as a commit.
-    // Untracked and ignored files are not part of the snapshot and are lost
-    // along with the directory.
+    // working-copy changes that were never committed survive as a commit. A
+    // stale working copy is snapshotted onto the operation it was last updated
+    // to, rather than onto the commit that has since moved. Untracked and
+    // ignored files are not part of the snapshot and are lost along with the
+    // directory.
     let mut op_id = workspace_command.repo().op_id().clone();
     let mut paths_to_remove = Vec::new();
     for (abs_path, ws_workspace) in workspaces_to_remove {
         let op = ws_workspace.repo_loader().load_operation(&op_id).await?;
         let ws_repo = ws_workspace.repo_loader().load_at(&op).await?;
         let mut ws_helper = command.for_workable_repo(ui, ws_workspace, ws_repo)?;
-        ws_helper.maybe_snapshot(ui).await?;
+        ws_helper.snapshot_before_workspace_removal(ui).await?;
         // Continue from the operation the snapshot created, so that the next
         // snapshot and the removal itself build on it.
         op_id = ws_helper.repo().op_id().clone();

@@ -92,11 +92,11 @@ useful when the workspace path is no longer accessible or when you want to keep
 the files around.
 
 Use `jj workspace remove` to forget a workspace and remove its directory from
-disk. Tracked changes are snapshotted before the directory is removed, but
-ignored files in that directory are deleted. The main workspace cannot be
-removed. Removing the current workspace works on Unix, but Windows won't remove
-a directory that a process is running in; run the command from another directory
-using `jj -R` instead.
+disk. Tracked changes are snapshotted before the directory is removed, even if
+that working copy is stale, but ignored files in that directory are deleted.
+The main workspace cannot be removed. Removing the current workspace works on
+Unix, but Windows won't remove a directory that a process is running in; run
+the command from another directory using `jj -R` instead.
 
 ## Stale working copy
 

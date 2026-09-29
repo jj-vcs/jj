@@ -80,6 +80,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj workspace remove` no longer fails when the workspace being removed has a
+  stale working copy. On-disk changes are snapshotted onto the operation that
+  working copy was last updated to, so they are preserved instead of being
+  applied to a commit that has since moved.
+  [#10276](https://github.com/jj-vcs/jj/issues/10276)
+
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
   such as `ssh` asking for a key passphrase or for confirmation of an unknown
   host key. Subprocesses started from a terminal now inherit its console, rather

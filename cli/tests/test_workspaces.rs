@@ -1783,6 +1783,71 @@ fn test_workspaces_remove_snapshots_before_removal() {
 }
 
 #[test]
+fn test_workspaces_remove_stale_clean() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents\n");
+    main_dir.run_jj(["new"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    // Rewrite the secondary working-copy commit from the main workspace. The
+    // secondary working copy is now stale, but its files still match the
+    // commit it was last updated to.
+    main_dir.write_file("file", "changed in main\n");
+    main_dir.run_jj(["squash"]).success();
+
+    let output = main_dir.run_jj(["workspace", "remove", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Removed workspace directory "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary").exists());
+}
+
+#[test]
+fn test_workspaces_remove_stale_preserves_changes() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents\n");
+    main_dir.run_jj(["new"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    // Rewrite the secondary working-copy commit, then leave unsnapshotted
+    // changes in the stale working copy.
+    main_dir.write_file("file", "changed in main\n");
+    main_dir.run_jj(["squash"]).success();
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir.write_file("unsnapshotted.txt", "important data");
+
+    let output = main_dir.run_jj(["workspace", "remove", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Working copy of workspace secondary is stale; preserving its on-disk changes.
+    Removed workspace directory "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+
+    assert!(!test_env.env_root().join("secondary").exists());
+
+    let output = main_dir.run_jj(["log", "-r", r#"files("unsnapshotted.txt")"#, "--summary"]);
+    insta::assert_snapshot!(output, @"
+    ○  pmmvwywv test.user@example.com 2001-02-03 08:05:11 1351a74a
+    │  (no description set)
+    ~  A unsnapshotted.txt
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_workspaces_remove_colocated() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");
