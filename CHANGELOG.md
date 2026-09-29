@@ -21,6 +21,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
 
+* `jj workspace remove` no longer fails when the workspace being removed has a
+  stale working copy. On-disk changes are now snapshotted into a new commit on
+  top of the commit that working copy was last updated to, so they are preserved
+  instead of being applied to a commit that has since been rewritten.
+  [#10276](https://github.com/jj-vcs/jj/issues/10276)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
