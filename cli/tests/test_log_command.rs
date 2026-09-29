@@ -1065,6 +1065,65 @@ fn test_log_filtered_by_path() {
 }
 
 #[test]
+fn test_log_filtered_by_deleted_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["describe", "-m", "add file1"]).success();
+    work_dir.run_jj(["new", "-m", "delete file1"]).success();
+    work_dir.remove_file("file1");
+
+    // The revision deletes the path, so it matches the path filter and the
+    // warning is not printed.
+    let output = work_dir.run_jj(["log", "-r", "@", "-T", "description", "file1"]);
+    insta::assert_snapshot!(output, @"
+    @  delete file1
+    │
+    ~
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "@", "-T", "description", "-s", "file1"]);
+    insta::assert_snapshot!(output, @"
+    @  delete file1
+    │  D file1
+    ~
+    [EOF]
+    ");
+
+    // A path that no revision touches still warns.
+    let output = work_dir.run_jj(["log", "-r", "@", "-T", "description", "file2"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: No matching entries for paths: file2
+    [EOF]
+    ");
+
+    // Only the paths that no revision touches are reported.
+    let output = work_dir.run_jj([
+        "log",
+        "-r",
+        "@",
+        "-T",
+        "description",
+        "file1",
+        "file2",
+        "file3",
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  delete file1
+    │
+    ~
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: file2, file3
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_log_limit() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
