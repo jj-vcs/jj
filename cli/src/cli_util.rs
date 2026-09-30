@@ -649,6 +649,7 @@ impl CommandHelper {
                 // operation, then merge the divergent operations. The wc_commit_id of the
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
+                let pre_snapshot_commit_id = workspace_command.get_wc_commit_id().cloned();
                 let stale_stats = workspace_command
                     .snapshot_working_copy(ui, git_import_export_lock)
                     .await
@@ -657,6 +658,9 @@ impl CommandHelper {
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
                 let repo = workspace_command.repo();
                 let stale_wc_commit = repo.store().get_commit_async(wc_commit_id).await?;
+                // The snapshot above amends the working-copy commit only if the stale working
+                // copy had un-snapshotted changes.
+                let recovered_local_changes = pre_snapshot_commit_id.as_ref() != Some(wc_commit_id);
 
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
@@ -725,6 +729,20 @@ impl CommandHelper {
                             "Updated working copy to fresh commit {}",
                             short_commit_hash(desired_wc_commit.id())
                         )?;
+                        // The checkout above overwrote the working copy on disk, so files appear
+                        // to change or disappear even though nothing was lost: the un-snapshotted
+                        // changes were preserved in `stale_wc_commit`. Point the user at that
+                        // commit so the update doesn't look like data loss.
+                        if recovered_local_changes {
+                            let stale_commit = short_commit_hash(stale_wc_commit.id());
+                            writedoc!(
+                                ui.hint_default(),
+                                "
+                                Working-copy changes were saved in commit {stale_commit}.
+                                Inspect the saved commit with `jj show {stale_commit}`.
+                                ",
+                            )?;
+                        }
                     }
                 }
 
