@@ -2219,7 +2219,13 @@ async fn reset_index(
         } else {
             // If the parent tree is resolved, we can use gix's `index_from_tree` method.
             // This is more efficient than iterating over the tree and adding each entry.
-            git_repo.index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))?
+            // On Windows, build it ourselves so unsupported paths are filtered even when
+            // gix accepts their names.
+            if cfg!(windows) {
+                build_index_from_merged_tree(git_repo, &parent_tree).await?
+            } else {
+                git_repo.index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))?
+            }
         }
     } else {
         build_index_from_merged_tree(git_repo, &parent_tree).await?
@@ -2305,6 +2311,38 @@ async fn build_index_from_merged_tree(
     let mut entries = merged_tree.entries();
     while let Some((path, entry)) = entries.next().await {
         let entry = entry?;
+        if cfg!(windows) {
+            for (depth, component) in path.components().rev().enumerate() {
+                let mode = (depth == 0
+                    && entry
+                        .as_slice()
+                        .iter()
+                        .any(|value| matches!(value, Some(TreeValue::Symlink(_)))))
+                .then_some(gix::validate::path::component::Mode::Symlink);
+                if let Err(err) = gix::validate::path::component(
+                    BStr::new(component.as_internal_str()),
+                    mode,
+                    gix::validate::path::component::Options::default(),
+                ) {
+                    if matches!(
+                        err,
+                        gix::validate::path::component::Error::WindowsReservedName
+                            | gix::validate::path::component::Error::WindowsIllegalCharacter
+                    ) && path.has_windows_unsupported_component()
+                    {
+                        continue;
+                    }
+                    return Err(PathError {
+                        path: git_repo.index_path(),
+                        source: std::io::Error::new(std::io::ErrorKind::InvalidInput, err),
+                    }
+                    .into());
+                }
+            }
+        }
+        if cfg!(windows) && path.has_windows_unsupported_component() {
+            continue;
+        }
         if let Some(resolved) = entry.as_resolved() {
             push_index_entry(&path, resolved, gix::index::entry::Stage::Unconflicted);
             continue;
@@ -2468,6 +2506,9 @@ async fn update_intent_to_add_impl(
     while let Some(TreeDiffEntry { path, values }) = diff_stream.next().await {
         let values = values?;
         if values.before.is_absent() {
+            if cfg!(windows) && path.has_windows_unsupported_component() {
+                continue;
+            }
             let executable = match values.after.as_normal() {
                 Some(TreeValue::File {
                     id: _,

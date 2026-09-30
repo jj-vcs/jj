@@ -4062,6 +4062,84 @@ fn test_reset_head_waits_for_index_lock() -> TestResult {
     Ok(())
 }
 
+#[cfg(windows)]
+#[test]
+fn test_reset_head_skips_windows_device_name_from_index() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let tree = create_tree(
+        repo,
+        &[
+            (repo_path("NUL"), "contents"),
+            (repo_path("COM\u{b9}"), "contents"),
+        ],
+    );
+    let parent_commit = mut_repo
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree)
+        .write_unwrap();
+    let wc_commit = mut_repo
+        .new_commit(
+            vec![parent_commit.id().clone()],
+            repo.store().empty_merged_tree(),
+        )
+        .write_unwrap();
+
+    reset_head(mut_repo, &test_workspace.workspace, &wc_commit)?;
+    assert!(get_index_state(test_workspace.workspace.workspace_root()).is_empty());
+    Ok(())
+}
+
+#[cfg(windows)]
+#[test]
+fn test_update_intent_to_add_skips_windows_unsupported_paths() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let old_tree = repo.store().empty_merged_tree();
+    let new_tree = create_tree(
+        repo,
+        &[
+            (repo_path("NUL"), "contents"),
+            (repo_path("COM\u{b9}"), "contents"),
+        ],
+    );
+    git::update_intent_to_add(
+        repo.as_ref(),
+        test_workspace.workspace.workspace_root(),
+        &old_tree,
+        &new_tree,
+    )
+    .block_on()?;
+    assert!(get_index_state(test_workspace.workspace.workspace_root()).is_empty());
+    Ok(())
+}
+
+#[cfg(windows)]
+#[test]
+fn test_reset_head_rejects_unsafe_path_with_windows_unsupported_path() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let mut tx = repo.start_transaction();
+    let tree = create_tree(
+        repo,
+        &[
+            (repo_path("NUL"), "contents"),
+            (repo_path(".git/config"), "contents"),
+        ],
+    );
+    let parent = tx
+        .repo_mut()
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree)
+        .write_unwrap();
+    let wc = tx
+        .repo_mut()
+        .new_commit(vec![parent.id().clone()], repo.store().empty_merged_tree())
+        .write_unwrap();
+    assert!(reset_head(tx.repo_mut(), &test_workspace.workspace, &wc).is_err());
+    Ok(())
+}
+
 #[test]
 fn test_reset_head_with_index_no_conflict() -> TestResult {
     let test_workspace = TestWorkspace::init_colocated_git();
