@@ -103,6 +103,11 @@ pub trait WorkingCopyFactory {
         state_path: PathBuf,
         settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
+
+    /// Whether this working copy backend supports adopting an existing working copy directory.
+    fn supports_adopt(&self) -> bool {
+        false
+    }
 }
 
 /// A working copy that's being modified.
