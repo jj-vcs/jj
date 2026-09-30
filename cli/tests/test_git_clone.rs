@@ -1506,8 +1506,8 @@ fn test_git_clone_default_branch_query_overlaps_fetch() -> TestResult {
     );
     assert!(
         query_start < fetch_end,
-        "expected the default branch query to start before the fetch ended, so both \
-         connections to the remote are open at the same time:\n{log}"
+        "expected the default branch query to start before the fetch ended, so both connections \
+         to the remote are open at the same time:\n{log}"
     );
     Ok(())
 }
