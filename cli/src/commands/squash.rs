@@ -342,7 +342,11 @@ pub(crate) async fn cmd_squash(
         ui,
         tx.base_workspace_helper(),
         &fileset_expression,
-        source_commits.iter().map(|commit| &commit.selected_tree),
+        // The parent tree is needed to account for paths deleted by a source
+        // commit, which are still selectable.
+        source_commits
+            .iter()
+            .flat_map(|commit| [&commit.parent_tree, &commit.selected_tree]),
     )
     .await?;
 

@@ -2580,6 +2580,27 @@ fn test_squash_with_editor_and_empty_message() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_squash_deleted_file_by_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+
+    // The deletion is selectable, so the path matches and no warning is
+    // printed.
+    let output = work_dir.run_jj(["squash", "-f", "@", "-t", "@-", "file1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: kkmpptxz dae87160 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e52f0f27 (empty) (no description set)
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_description(work_dir: &TestWorkDir, rev: &str) -> CommandOutput {
     work_dir.run_jj(["log", "--no-graph", "-T", "description", "-r", rev])
