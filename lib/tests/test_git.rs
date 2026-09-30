@@ -3837,6 +3837,29 @@ fn test_reset_head_with_index() -> TestResult {
     Ok(())
 }
 
+#[cfg(windows)]
+#[test]
+fn test_reset_head_skips_windows_device_name_from_index() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let tree = create_tree(repo, &[(repo_path("NUL"), "contents")]);
+    let parent_commit = mut_repo
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree)
+        .write_unwrap();
+    let wc_commit = mut_repo
+        .new_commit(
+            vec![parent_commit.id().clone()],
+            repo.store().empty_merged_tree(),
+        )
+        .write_unwrap();
+
+    reset_head(mut_repo, &test_workspace.workspace, &wc_commit)?;
+    assert!(get_index_state(test_workspace.workspace.workspace_root()).is_empty());
+    Ok(())
+}
+
 #[test]
 fn test_reset_head_with_index_no_conflict() -> TestResult {
     let test_workspace = TestWorkspace::init_colocated_git();
