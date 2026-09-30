@@ -88,6 +88,7 @@ pub struct TagListArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+    #[arg(add = ArgValueCandidates::new(complete::tags))]
     pub names: Option<Vec<String>>,
 
     /// Show tags whose local targets are in the given revisions

@@ -46,6 +46,7 @@ pub struct TagTrackArgs {
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(required = true, value_name = "TAG[@REMOTE]")]
+    #[arg(add = ArgValueCandidates::new(complete::untracked_tags))]
     names: Vec<String>,
 
     /// Remote names to track
