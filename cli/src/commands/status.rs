@@ -77,10 +77,7 @@ pub(crate) async fn cmd_status(
         workspace_command.env().path_converter(),
     )?;
     let repo = workspace_command.repo();
-    let maybe_wc_commit = workspace_command
-        .get_wc_commit_id()
-        .map(|id| repo.store().get_commit(id))
-        .transpose()?;
+    let maybe_wc_commit = workspace_command.get_wc_commit().await?;
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
     ui.request_pager();

@@ -447,11 +447,7 @@ pub async fn cmd_gerrit_upload(
     let mut workspace_command = command.workspace_helper(ui).await?;
 
     let revisions: Vec<_> = if args.revisions.is_empty() {
-        match workspace_command
-            .get_wc_commit_id()
-            .map(|id| workspace_command.repo().store().get_commit(id))
-            .transpose()?
-        {
+        match workspace_command.get_wc_commit().await? {
             None => {
                 return Err(user_error("No revision provided")
                     .hinted("Explicitly specify a revision to upload with `-r`"));

@@ -654,9 +654,7 @@ impl CommandHelper {
                     .await
                     .map_err(|err| err.into_command_error())?;
 
-                let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
-                let repo = workspace_command.repo();
-                let stale_wc_commit = repo.store().get_commit_async(wc_commit_id).await?;
+                let stale_wc_commit = workspace_command.get_wc_commit().await?.unwrap();
 
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
@@ -1512,11 +1510,9 @@ impl WorkspaceCommandHelper {
 
     async fn prepare_working_copy_mutation(&self) -> Result<Commit, CommandError> {
         self.check_working_copy_writable()?;
-        if let Some(wc_commit_id) = self.get_wc_commit_id() {
-            Ok(self.repo().store().get_commit_async(wc_commit_id).await?)
-        } else {
-            Err(user_error("Nothing checked out in this workspace"))
-        }
+        self.get_wc_commit()
+            .await?
+            .ok_or_else(|| user_error("Nothing checked out in this workspace"))
     }
 
     pub async fn start_working_copy_mutation(
@@ -1579,6 +1575,15 @@ to the current parents may contain changes from multiple commits.
 
     pub fn get_wc_commit_id(&self) -> Option<&CommitId> {
         self.repo().view().get_wc_commit_id(self.workspace_name())
+    }
+
+    pub async fn get_wc_commit(&self) -> Result<Option<Commit>, CommandError> {
+        if let Some(id) = self.get_wc_commit_id() {
+            let commit = self.repo().store().get_commit_async(id).await?;
+            Ok(Some(commit))
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn working_copy_shared_with_git(&self) -> bool {

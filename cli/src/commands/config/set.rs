@@ -15,15 +15,12 @@
 use std::io;
 
 use clap_complete::ArgValueCandidates;
-use jj_lib::commit::Commit;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
-use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use super::ConfigTargetArgs;
 use crate::cli_util::CommandHelper;
-use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error_with_message;
 use crate::complete;
@@ -84,13 +81,6 @@ pub async fn cmd_config_set(
     Ok(())
 }
 
-/// Returns the commit of the working copy if it exists.
-async fn maybe_wc_commit(helper: &WorkspaceCommandHelper) -> Option<Commit> {
-    let repo = helper.repo();
-    let id = helper.get_wc_commit_id()?;
-    repo.store().get_commit_async(id).await.ok()
-}
-
 /// Check if the working copy author name matches the user's config value
 /// If it doesn't, print a warning message
 async fn check_wc_author(
@@ -103,7 +93,7 @@ async fn check_wc_author(
         // config set should work even if cwd isn't a jj repo
         return Ok(());
     };
-    if let Some(wc_commit) = maybe_wc_commit(&helper).await {
+    if let Some(wc_commit) = helper.get_wc_commit().await.ok().flatten() {
         let author = wc_commit.author();
         let orig_value = match author_change {
             AuthorChange::Name => &author.name,
