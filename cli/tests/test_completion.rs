@@ -343,9 +343,53 @@ fn test_tag_names() {
         .run_jj(["tag", "set", "-r@-", "bbb-local"])
         .success();
 
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "origin"])
+        .success();
+    let origin_dir = test_env.work_dir("origin");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "upstream"])
+        .success();
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "../origin"])
+        .success();
+    work_dir
+        .run_jj(["git", "remote", "add", "upstream", "../upstream"])
+        .success();
+    work_dir
+        .run_jj(["tag", "set", "-raaa-local", "aaa-tracked"])
+        .success();
+    work_dir
+        .run_jj(["tag", "set", "-raaa-local", "aaa-partially-tracked"])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "--remote=origin", "--tag=*-tracked"])
+        .success();
+    work_dir
+        .run_jj(["tag", "track", "aaa-tracked@upstream"])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "--remote=upstream", "--tag=aaa-tracked"])
+        .success();
+    origin_dir.run_jj(["commit", "-mremote-commit"]).success();
+    origin_dir
+        .run_jj(["tag", "set", "-r@-", "aaa-untracked"])
+        .success();
+    work_dir
+        .run_jj(["git", "fetch", "--all-remotes", "--tag=*"])
+        .success();
+    work_dir
+        .run_jj(["tag", "untrack", "aaa-untracked@origin"])
+        .success();
+    work_dir
+        .run_jj(["tag", "delete", "aaa-untracked"])
+        .success();
+
     let output = work_dir.complete_fish(["tag", "set", "a"]);
     insta::assert_snapshot!(output, @"
     aaa-local	commit1
+    aaa-partially-tracked	commit1
+    aaa-tracked	commit1
     [EOF]
     ");
 
@@ -354,6 +398,49 @@ fn test_tag_names() {
     bbb-local	commit1
     [EOF]
     ");
+
+    let output = work_dir.complete_fish(["tag", "track", "a"]);
+    insta::assert_snapshot!(output, @"
+    aaa-local	 commit1
+    aaa-partially-tracked	 commit1
+    aaa-untracked	 remote-commit
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["tag", "untrack", "a"]);
+    insta::assert_snapshot!(output, @"
+    aaa-partially-tracked	commit1
+    aaa-tracked	commit1
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["tag", "list", "a"]);
+    insta::assert_snapshot!(output, @"
+    aaa-local	commit1
+    aaa-partially-tracked	commit1
+    aaa-tracked	commit1
+    aaa-untracked
+    [EOF]
+    ");
+
+    insta::allow_duplicates!(for flag in ["-t", "--tag"] {
+        let output = work_dir.complete_fish(["git", "push", flag, "a"]);
+        insta::assert_snapshot!(output, @"
+        aaa-local	commit1
+        aaa-partially-tracked	commit1
+        aaa-tracked	commit1
+        [EOF]
+        ");
+
+        let output = work_dir.complete_fish(["git", "fetch", flag, "a"]);
+        insta::assert_snapshot!(output, @"
+        aaa-local	commit1
+        aaa-partially-tracked	commit1
+        aaa-tracked	commit1
+        aaa-untracked
+        [EOF]
+        ");
+    });
 }
 
 #[test]

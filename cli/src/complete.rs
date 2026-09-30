@@ -94,16 +94,26 @@ pub fn local_bookmarks() -> Vec<CompletionCandidate> {
 }
 
 pub fn tracked_bookmarks() -> Vec<CompletionCandidate> {
+    tracked_refs("bookmark", BOOKMARK_HELP_TEMPLATE)
+}
+
+pub fn tracked_tags() -> Vec<CompletionCandidate> {
+    tracked_refs("tag", TAG_HELP_TEMPLATE)
+}
+
+fn tracked_refs(kind: &str, help_template: &str) -> Vec<CompletionCandidate> {
     with_jj(|jj, _| {
         let output = jj
             .build()
-            .arg("bookmark")
+            .arg(kind)
             .arg("list")
             .arg("--tracked")
             .arg("--config")
-            .arg(BOOKMARK_HELP_TEMPLATE)
+            .arg(help_template)
             .arg("--template")
-            .arg(r#"if(remote, name ++ '@' ++ remote ++ bookmark_help() ++ "\n")"#)
+            .arg(format!(
+                r#"if(remote, name ++ '@' ++ remote ++ {kind}_help() ++ "\n")"#
+            ))
             .output()
             .map_err(user_error)?;
 
@@ -120,6 +130,14 @@ pub fn tracked_bookmarks() -> Vec<CompletionCandidate> {
 }
 
 pub fn untracked_bookmarks() -> Vec<CompletionCandidate> {
+    untracked_refs("bookmark", BOOKMARK_HELP_TEMPLATE)
+}
+
+pub fn untracked_tags() -> Vec<CompletionCandidate> {
+    untracked_refs("tag", TAG_HELP_TEMPLATE)
+}
+
+fn untracked_refs(kind: &str, help_template: &str) -> Vec<CompletionCandidate> {
     with_jj(|jj, _settings| {
         let remotes = jj
             .build()
@@ -134,50 +152,50 @@ pub fn untracked_bookmarks() -> Vec<CompletionCandidate> {
             .filter_map(|l| l.split_whitespace().next())
             .collect_vec();
 
-        let bookmark_table = jj
+        let ref_table = jj
             .build()
-            .arg("bookmark")
+            .arg(kind)
             .arg("list")
             .arg("--all-remotes")
             .arg("--config")
-            .arg(BOOKMARK_HELP_TEMPLATE)
+            .arg(help_template)
             .arg("--template")
-            .arg(
+            .arg(format!(
                 r#"
                 if(remote != "git",
                     if(!remote, name) ++ "\t" ++
                     if(remote, name ++ "@" ++ remote) ++ "\t" ++
                     if(tracked, "tracked") ++ "\t" ++
-                    bookmark_help() ++ "\n"
+                    {kind}_help() ++ "\n"
                 )"#,
-            )
+            ))
             .output()
             .map_err(user_error)?;
-        let bookmark_table = String::from_utf8_lossy(&bookmark_table.stdout);
+        let ref_table = String::from_utf8_lossy(&ref_table.stdout);
 
-        let mut possible_bookmarks_to_track = Vec::new();
-        let mut already_tracked_bookmarks = HashSet::new();
+        let mut possible_refs_to_track = Vec::new();
+        let mut already_tracked_refs = HashSet::new();
 
-        for line in bookmark_table.lines() {
+        for line in ref_table.lines() {
             let [local, remote, tracked, help] =
                 line.split('\t').collect_array().unwrap_or_default();
 
             if !local.is_empty() {
-                possible_bookmarks_to_track.extend(
+                possible_refs_to_track.extend(
                     remotes
                         .iter()
                         .map(|remote| (format!("{local}@{remote}"), help)),
                 );
             } else if tracked.is_empty() {
-                possible_bookmarks_to_track.push((remote.to_owned(), help));
+                possible_refs_to_track.push((remote.to_owned(), help));
             } else {
-                already_tracked_bookmarks.insert(remote);
+                already_tracked_refs.insert(remote);
             }
         }
-        possible_bookmarks_to_track
-            .retain(|(bookmark, _help)| !already_tracked_bookmarks.contains(&bookmark.as_str()));
+        possible_refs_to_track
+            .retain(|(symbol, _help)| !already_tracked_refs.contains(&symbol.as_str()));
 
-        Ok(possible_bookmarks_to_track
+        Ok(possible_refs_to_track
             .iter()
             .filter_map(|(symbol, help)| Some((symbol.split_once('@')?, help)))
             // There may be multiple remote bookmarks to track. Just pick the
@@ -191,19 +209,27 @@ pub fn untracked_bookmarks() -> Vec<CompletionCandidate> {
 }
 
 pub fn bookmarks() -> Vec<CompletionCandidate> {
+    refs("bookmark", BOOKMARK_HELP_TEMPLATE)
+}
+
+pub fn tags() -> Vec<CompletionCandidate> {
+    refs("tag", TAG_HELP_TEMPLATE)
+}
+
+fn refs(kind: &str, help_template: &str) -> Vec<CompletionCandidate> {
     with_jj(|jj, _settings| {
         let output = jj
             .build()
-            .arg("bookmark")
+            .arg(kind)
             .arg("list")
             .arg("--all-remotes")
             .arg("--config")
-            .arg(BOOKMARK_HELP_TEMPLATE)
+            .arg(help_template)
             .arg("--template")
-            .arg(
+            .arg(format!(
                 // only provide help for local refs, remote could be ambiguous
-                r#"name ++ if(remote, "@" ++ remote, bookmark_help()) ++ "\n""#,
-            )
+                r#"name ++ if(remote, "@" ++ remote, {kind}_help()) ++ "\n""#,
+            ))
             .output()
             .map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -213,14 +239,14 @@ pub fn bookmarks() -> Vec<CompletionCandidate> {
             .map(split_help_text)
             .chunk_by(|(name, _)| name.split_once('@').map(|t| t.0).unwrap_or(name)))
             .into_iter()
-            .map(|(bookmark, mut refs)| {
+            .map(|(name, mut refs)| {
                 let help = refs.find_map(|(_, help)| help);
                 let local = help.is_some();
                 let display_order = match local {
                     true => 0,
                     false => 1,
                 };
-                CompletionCandidate::new(bookmark)
+                CompletionCandidate::new(name)
                     .help(help)
                     .display_order(Some(display_order))
             })

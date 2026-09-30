@@ -161,6 +161,7 @@ pub struct GitPushArgs {
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long, short, group = "specific")]
+    #[arg(add = ArgValueCandidates::new(complete::local_tags))]
     tag: Vec<String>,
 
     /// Push all bookmarks and tags (including new ones)

@@ -101,6 +101,7 @@ pub struct GitFetchArgs {
     /// [logical operators]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long = "tag", short, group = "specific", value_name = "TAG")]
+    #[arg(add = ArgValueCandidates::new(complete::tags))]
     tags: Option<Vec<String>>,
 
     /// Fetch only tracked bookmarks and tags
