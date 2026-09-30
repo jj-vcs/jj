@@ -205,6 +205,11 @@ pub async fn cmd_workspace_add(
     }
 
     let working_copy_factory = command.get_working_copy_factory()?;
+    if args.adopt && !working_copy_factory.supports_adopt() {
+        return Err(user_error(
+            "Adopting an existing working copy is not supported with this working copy backend",
+        ));
+    }
     let repo_path = old_workspace_command.repo_path();
     // If we add per-workspace configuration, we'll need to reload settings for
     // the new workspace.
