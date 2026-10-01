@@ -43,10 +43,9 @@ use crate::ui::Ui;
 /// revisions are preceded by a "-" and new target revisions are preceded by a
 /// "+".
 ///
-/// See [`jj help -k bookmarks`] for more information.
+/// See [`jj help -k bookmarks`][bookmarks] for more information.
 ///
-/// [`jj help -k bookmarks`]:
-///     https://docs.jj-vcs.dev/latest/bookmarks
+/// [bookmarks]: https://docs.jj-vcs.dev/latest/bookmarks
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkListArgs {
     /// Show all tracked and untracked remote bookmarks including the ones
@@ -97,18 +96,16 @@ pub struct BookmarkListArgs {
 
     /// Render each bookmark using the given template
     ///
-    /// All 0-argument methods of the [`CommitRef` type] are available as
-    /// keywords in the template expression. See [`jj help -k templates`]
-    /// for more information.
+    /// All 0-argument methods of the [`CommitRef` type][CommitRef] are
+    /// available as keywords in the template expression. See
+    /// [`jj help -k templates`][templates] for more information.
     ///
     /// The default template can be set by the `templates.bookmark_list`
     /// setting.
     ///
-    /// [`CommitRef` type]:
-    ///     https://docs.jj-vcs.dev/latest/templates/#commitref-type
+    /// [CommitRef]: https://docs.jj-vcs.dev/latest/templates/#commitref-type
     ///
-    /// [`jj help -k templates`]:
-    ///     https://docs.jj-vcs.dev/latest/templates/
+    /// [templates]: https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T')]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,

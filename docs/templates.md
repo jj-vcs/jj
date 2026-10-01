@@ -872,21 +872,21 @@ config, run:
 jj config list --include-defaults --include-overridden colors
 ```
 
-The default colors can be found in [`colors.toml`], and the default explicitly
-added labels (such as `mutable` or `divergent`) can be found in
-[`templates.toml`]. Labels that appear in `colors.toml` but that are not
-explicitly present in `templates.toml` will have been automatically added by
-`jj` (such as `author` or `change_id`).
+The default colors can be found in [`colors.toml`][colors.toml], and the default
+explicitly added labels (such as `mutable` or `divergent`) can be found in
+[`templates.toml`][templates.toml]. Labels that appear in `colors.toml` but that
+are not explicitly present in `templates.toml` will have been automatically
+added by `jj` (such as `author` or `change_id`).
 
 [config-colors]: config.md#custom-colors-and-styles
-[`colors.toml`]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/colors.toml
-[`templates.toml`]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml
+[colors.toml]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/colors.toml
+[templates.toml]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml
 
 ## Configuration
 
 The default templates and aliases() are defined in the `[templates]` and
 `[template-aliases]` sections of the config respectively. The exact definitions
-can be seen in the [`templates.toml`] file.
+can be seen in the [`templates.toml`][templates.toml] file.
 
 <!--- TODO: Find a way to embed the default config files in the docs -->
 
