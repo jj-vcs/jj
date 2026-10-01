@@ -3650,7 +3650,13 @@ There is also a complementary `jj redo` command that would instead move in the d
 
 Use `jj op log` to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also `jj op restore` to explicitly restore an older operation by its id (available in the operation log).
 
-**Usage:** `jj undo`
+By default, `jj undo` refuses to undo an operation that was performed in another workspace, since that is usually not what you meant to undo. Pass `--allow-cross-workspace` to undo it anyway, or use `jj op revert` to revert a specific operation.
+
+**Usage:** `jj undo [OPTIONS]`
+
+###### **Options:**
+
+* `--allow-cross-workspace` — Allow undoing an operation that was performed in another workspace
 
 
 

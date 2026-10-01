@@ -26,6 +26,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj split` now opens a single editor session to edit descriptions for the
   split commits.
 
+* `jj undo` now refuses to undo an operation that was performed in another
+  workspace. Use `--allow-cross-workspace` to undo it anyway.
+
 ### Deprecations
 
 ### New features

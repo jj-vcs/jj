@@ -144,6 +144,36 @@ fn test_undo_ignores_op_revert() {
 }
 
 #[test]
+fn test_undo_cross_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let second_dir = test_env.work_dir("second");
+    main_dir.run_jj(["workspace", "add", "../second"]).success();
+
+    second_dir.run_jj(["describe", "-m", "second"]).success();
+
+    // Undoing an operation from another workspace is refused by default
+    let output = main_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Refusing to undo operation 33cbee28d986 because it was performed in workspace second
+    Hint: Use `--allow-cross-workspace` to undo it anyway, or use `jj op revert` to revert a specific operation
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // It can be allowed explicitly
+    let output = main_dir.run_jj(["undo", "--allow-cross-workspace"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Undid operation: 33cbee28d986 (2001-02-03 08:05:09) describe commit 94f41578a9e101e2c85877f3b4eaa9f5e915783f
+    Restored to operation: 9b9b7064bf7b (2001-02-03 08:05:08) create initial working-copy commit in workspace second
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_redo_non_undo_operation() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
