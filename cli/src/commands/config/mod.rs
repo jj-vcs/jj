@@ -177,11 +177,10 @@ impl ConfigTargetArgs {
 /// Operates on jj configuration, which comes from the config file and
 /// environment variables.
 ///
-/// See [`jj help -k config`] to know more about file locations, supported
-/// config options, and other details about `jj config`.
+/// See [`jj help -k config`][config] to know more about file locations,
+/// supported config options, and other details about `jj config`.
 ///
-/// [`jj help -k config`]:
-///     https://docs.jj-vcs.dev/latest/config/
+/// [config]: https://docs.jj-vcs.dev/latest/config/
 #[derive(clap::Subcommand, Clone, Debug)]
 pub(crate) enum ConfigCommand {
     #[command(visible_alias("e"))]

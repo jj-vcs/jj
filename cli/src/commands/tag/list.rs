@@ -99,18 +99,15 @@ pub struct TagListArgs {
 
     /// Render each tag using the given template
     ///
-    /// All 0-argument methods of the [`CommitRef` type] are available as
-    /// keywords in the template expression. See [`jj help -k templates`]
-    /// for more information.
+    /// All 0-argument methods of the [`CommitRef` type][CommitRef] are
+    /// available as keywords in the template expression. See
+    /// [`jj help -k templates`][templates] for more information.
     ///
-    /// The default template can be set by the `templates.tag_list`
-    /// setting.
+    /// The default template can be set by the `templates.tag_list` setting.
     ///
-    /// [`CommitRef` type]:
-    ///     https://docs.jj-vcs.dev/latest/templates/#commitref-type
+    /// [CommitRef]: https://docs.jj-vcs.dev/latest/templates/#commitref-type
     ///
-    /// [`jj help -k templates`]:
-    ///     https://docs.jj-vcs.dev/latest/templates/
+    /// [templates]: https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T')]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,

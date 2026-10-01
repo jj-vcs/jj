@@ -52,22 +52,22 @@ use crate::ui::Ui;
 /// Renders a graphical view of the project's history, ordered with children
 /// before parents. By default, the output only includes mutable revisions,
 /// along with some additional revisions for context. Use `jj log -r ::` to see
-/// all revisions. See [`jj help -k revsets`] for information about the syntax.
+/// all revisions. See [`jj help -k revsets`][revsets] for information about the
+/// syntax.
 ///
-/// [`jj help -k revsets`]:
-///     https://docs.jj-vcs.dev/latest/revsets/
+/// [revsets]: https://docs.jj-vcs.dev/latest/revsets/
 ///
-/// Spans of revisions that are not included in the graph per `--revisions` are
+/// Spans of revisions that are not included in the graph by `--revision` are
 /// rendered as a synthetic node labeled "(elided revisions)".
 ///
 /// The working-copy commit is indicated by a `@` symbol in the graph.
 /// [Immutable revisions] have a `◆` symbol. Other commits have a `○` symbol.
-/// All of these symbols can be [customized].
+/// All of these symbols can be [customized][log node style].
 ///
 /// [Immutable revisions]:
 ///     https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
 ///
-/// [customized]:
+/// [log node style]:
 ///     https://docs.jj-vcs.dev/latest/config/#node-style
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct LogArgs {
@@ -103,17 +103,15 @@ pub(crate) struct LogArgs {
     ///
     /// Run `jj log -T` to list the built-in templates.
     ///
-    /// All 0-argument methods of the [`Commit` type] are available as
-    /// keywords in the template expression. See [`jj help -k templates`] for
-    /// more information.
+    /// All 0-argument methods of the [`Commit` type][Commit] are available as
+    /// keywords in the template expression. See
+    /// [`jj help -k templates`][templates] for more information.
     ///
     /// If not specified, this defaults to the `templates.log` setting.
     ///
-    /// [`Commit` type]:
-    ///     https://docs.jj-vcs.dev/latest/templates/#commit-type
+    /// [Commit]: https://docs.jj-vcs.dev/latest/templates/#commit-type
     ///
-    /// [`jj help -k templates`]:
-    ///     https://docs.jj-vcs.dev/latest/templates/
+    /// [templates]: https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T')]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,

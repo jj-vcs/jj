@@ -3728,10 +3728,9 @@ async fn ensure_no_commit_loop(
 
 /// Jujutsu (An experimental VCS)
 ///
-/// To get started, see the tutorial [`jj help -k tutorial`].
+/// To get started, see the tutorial at [`jj help -k tutorial`][tutorial].
 ///
-/// [`jj help -k tutorial`]:
-///     https://docs.jj-vcs.dev/latest/tutorial/
+/// [tutorial]: https://docs.jj-vcs.dev/latest/tutorial/
 #[derive(clap::Parser, Clone, Debug)]
 #[command(name = "jj")]
 pub struct Args {

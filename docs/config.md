@@ -7,7 +7,7 @@ These are the config settings available to jj/Jujutsu.
 `jj` loads several types of config settings:
 
 - The built-in settings. These cannot be edited. They can be viewed in the
-  [`cli/src/config/`] directory in `jj`'s source repo.
+  [`cli/src/config/`][config dir] directory in `jj`'s source repo.
 
 - The user settings. These can be edited with `jj config edit --user`. User
   settings are located in [the user config files], which can be found with
@@ -43,7 +43,7 @@ syntax. We cover some of the basics below.
 The first thing to remember is that the value of a setting (the part to the
 right of the `=` sign) should be surrounded in quotes if it's a string.
 
-[`cli/src/config/`]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/
+[config dir]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/
 [JSON Schema Support]: #json-schema-support
 [specified on the command-line]: #specifying-config-on-the-command-line
 [syntax guide]: https://toml.io/en/latest
@@ -235,9 +235,10 @@ commit_id = "green"
 Parts of the style that are not overridden - such as the foreground color in the
 example above - are inherited from the style of the parent label.
 
-Which elements can be colored is not yet documented, but see
-the [default color configuration](https://github.com/jj-vcs/jj/blob/main/cli/src/config/colors.toml)
-for some examples of what's possible.
+Which elements can be colored is not yet documented, but see the
+[default color configuration][colors.toml] for some examples of what's possible.
+
+[colors.toml]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/colors.toml
 
 ### Default command
 
