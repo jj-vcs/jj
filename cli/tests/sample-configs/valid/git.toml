@@ -4,6 +4,7 @@ abandon-unreachable-commits = false
 fetch = ["origin", "fork"]
 push = "fork"
 record-synthetic-predecessors = false
+sign-before-push = true
 sign-on-push = true
 subprocess = false
 write-change-id-header = true

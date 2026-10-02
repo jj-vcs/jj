@@ -1957,6 +1957,9 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 
    Automatically tracks the bookmark if it is new.
 * `--dry-run` — Only display what will change on the remote
+* `--sign-before-push` — Record commit signatures in a separate transaction before pushing
+
+   This only has an effect when the `git.sign-on-push` setting is enabled. The signatures are committed to the repository before the push starts, so they are kept even if the push fails. This is useful with signing backends that require user interaction, such as hardware keys.
 * `-o`, `--option <OPTION>` — Git push options
 
 

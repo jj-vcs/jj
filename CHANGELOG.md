@@ -30,6 +30,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj git push` now supports `--sign-before-push` and the corresponding
+  `git.sign-before-push` configuration to record signatures created by
+  `git.sign-on-push` in a separate transaction before pushing, so they are
+  kept if the push fails and don't have to be recreated on retry.
+
 * Added the `TreeEntry.normal_value()` template method and the `TreeValue` type
   to access resolved tree values, formatted as their full object IDs, including
   Git submodule commit IDs.
