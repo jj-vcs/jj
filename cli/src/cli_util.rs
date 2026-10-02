@@ -3412,6 +3412,33 @@ pub async fn print_unmatched_explicit_paths<'a>(
     Ok(())
 }
 
+/// Rebases descendants of rewritten commits, or reparents them if `reparent`
+/// is set so that their content is preserved. Reports the number of rebased
+/// commits.
+pub async fn rebase_or_reparent_descendants(
+    ui: &Ui,
+    mut_repo: &mut MutableRepo,
+    reparent: bool,
+) -> Result<(), CommandError> {
+    let (num_rebased, extra_msg) = if reparent {
+        (
+            mut_repo.reparent_descendants().await?,
+            " (while preserving their content)",
+        )
+    } else {
+        (mut_repo.rebase_descendants().await?, "")
+    };
+    if let Some(mut formatter) = ui.status_formatter()
+        && num_rebased > 0
+    {
+        writeln!(
+            formatter,
+            "Rebased {num_rebased} descendant commits{extra_msg}."
+        )?;
+    }
+    Ok(())
+}
+
 pub async fn update_working_copy(
     repo: &Arc<ReadonlyRepo>,
     workspace: &mut Workspace,
