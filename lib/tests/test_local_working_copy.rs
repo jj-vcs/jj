@@ -36,6 +36,7 @@ use jj_lib::backend::TreeValue;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::file_util;
 use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::symlink_dir;
@@ -494,11 +495,12 @@ fn test_acl() -> TestResult {
     let mut ws = Workspace::load(
         &settings,
         &workspace_root,
+        &*default_workspace_loader_factory(),
         &test_workspace.env.default_backend_factories(),
         &default_working_copy_factories(),
     )?;
     // Reload commits from the store associated with the workspace
-    let repo = ws.repo_loader().load_at(repo.operation()).block_on()?;
+    let repo = ws.load_at(repo.operation()).block_on()?;
     let commit1 = repo.store().get_commit(commit1.id())?;
     let commit2 = repo.store().get_commit(commit2.id())?;
 

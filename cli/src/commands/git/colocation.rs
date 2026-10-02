@@ -377,7 +377,7 @@ async fn reload_workspace_helper(
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     let workspace = command.load_workspace_at(workspace_root, settings)?;
     let op = workspace.repo_loader().load_operation(op_id).await?;
-    let repo = workspace.repo_loader().load_at(&op).await?;
+    let repo = workspace.load_at(&op).await?;
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     Ok(workspace_command)
 }

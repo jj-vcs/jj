@@ -17,6 +17,7 @@ use std::path::Path;
 use itertools::Itertools as _;
 use jj_lib::default_backend_factories::default_backend_factories;
 use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
@@ -122,10 +123,11 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
     let machine1_workspace = Workspace::load(
         &settings,
         &machine1_root,
+        &*default_workspace_loader_factory(),
         &default_backend_factories(),
         &default_working_copy_factories(),
     )?;
-    let machine1_repo = machine1_workspace.repo_loader().load_at_head().block_on()?;
+    let machine1_repo = machine1_workspace.load_at_head().block_on()?;
     let mut machine1_tx = machine1_repo.start_transaction();
     let child1 = write_random_commit_with_parents(machine1_tx.repo_mut(), &[&initial]);
     machine1_tx.commit("test").block_on()?;
@@ -136,10 +138,11 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
     let machine2_workspace = Workspace::load(
         &settings,
         &machine2_root,
+        &*default_workspace_loader_factory(),
         &default_backend_factories(),
         &default_working_copy_factories(),
     )?;
-    let machine2_repo = machine2_workspace.repo_loader().load_at_head().block_on()?;
+    let machine2_repo = machine2_workspace.load_at_head().block_on()?;
     let mut machine2_tx = machine2_repo.start_transaction();
     let child2 = write_random_commit_with_parents(machine2_tx.repo_mut(), &[&initial]);
     machine2_tx.commit("test").block_on()?;
@@ -151,10 +154,11 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
     let merged_workspace = Workspace::load(
         &settings,
         &merged_path,
+        &*default_workspace_loader_factory(),
         &default_backend_factories(),
         &default_working_copy_factories(),
     )?;
-    let merged_repo = merged_workspace.repo_loader().load_at_head().block_on()?;
+    let merged_repo = merged_workspace.load_at_head().block_on()?;
     assert!(merged_repo.view().heads().contains(child1.id()));
     assert!(merged_repo.view().heads().contains(child2.id()));
     let op_id = merged_repo.op_id().clone();
@@ -171,6 +175,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) -> TestResult {
     // operation.
     let settings = testutils::user_settings();
     let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
+    let workspace_root = test_workspace.workspace.workspace_root();
     let test_env = &test_workspace.env;
     let repo = &test_workspace.repo;
 
@@ -183,7 +188,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) -> TestResult {
     // operation and then copying that back afterwards, leaving the existing
     // op-head(s) in place.
     let op_heads_dir = test_workspace.repo_path().join("op_heads");
-    let backup_path = test_workspace.root_dir().join("backup");
+    let backup_path = test_workspace.env.root().join("backup");
     copy_directory(&op_heads_dir, &backup_path);
     let mut tx = repo.start_transaction();
     write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
@@ -191,11 +196,11 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) -> TestResult {
 
     copy_directory(&backup_path, &op_heads_dir);
     // Reload the repo and check that only the new head is present.
-    let reloaded_repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
+    let reloaded_repo = test_env.load_workspace_at_head(&settings, workspace_root);
     assert_eq!(reloaded_repo.op_id(), &op_id);
     // Reload once more to make sure that the .jj/op_heads/ directory was updated
     // correctly.
-    let reloaded_repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
+    let reloaded_repo = test_env.load_workspace_at_head(&settings, workspace_root);
     assert_eq!(reloaded_repo.op_id(), &op_id);
     Ok(())
 }
