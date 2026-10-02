@@ -165,6 +165,7 @@ nav: # This lists all the files that become part of the documentation
 
   - Contributing:
       - Guidelines and "How to...?": 'contributing.md'
+      - AI contribution policy: 'ai-policy.md'
       - Code of conduct: 'code-of-conduct.md'
       - Style guide: 'style_guide.md'
       - Design docs: 'design_docs.md'
