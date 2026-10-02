@@ -358,6 +358,9 @@ impl From<WorkspaceInitError> for CommandError {
             WorkspaceInitError::OpHeadsStore(err) => {
                 user_error_with_message("Failed to record initial operation", err)
             }
+            WorkspaceInitError::RepoLoader(err) => {
+                internal_error_with_message("Failed to load the repo", err)
+            }
             WorkspaceInitError::WorkspaceStore(err) => {
                 internal_error_with_message("Failed to record workspace path", err)
             }
@@ -972,6 +975,7 @@ fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
         | RevsetResolutionError::WorkspaceMissingWorkingCopy { .. }
         | RevsetResolutionError::AmbiguousCommitIdPrefix(_)
         | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
+        | RevsetResolutionError::NoSuchWorkspace(_)
         | RevsetResolutionError::Backend(_)
         | RevsetResolutionError::Other(_) => vec![],
     }
