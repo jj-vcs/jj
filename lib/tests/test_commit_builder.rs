@@ -30,6 +30,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::rewrite::RebaseOptions;
+use jj_lib::time_util;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
@@ -303,8 +304,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) -> TestResult 
         .write_unwrap();
     tx.commit("test").block_on()?;
 
-    let initial_timestamp =
-        Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(initial_timestamp)?);
+    let initial_timestamp = time_util::parse_datetime(initial_timestamp)?;
     assert_eq!(initial_commit.author().timestamp, initial_timestamp);
     assert_eq!(initial_commit.committer().timestamp, initial_timestamp);
 
@@ -323,8 +323,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) -> TestResult 
     tx.repo_mut().rebase_descendants().block_on()?;
     tx.commit("test").block_on()?;
 
-    let new_timestamp_1 =
-        Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(new_timestamp_1)?);
+    let new_timestamp_1 = time_util::parse_datetime(new_timestamp_1)?;
     assert_ne!(new_timestamp_1, initial_timestamp);
 
     assert_eq!(rewritten_commit_1.author().timestamp, new_timestamp_1);
@@ -346,8 +345,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) -> TestResult 
     tx.repo_mut().rebase_descendants().block_on()?;
     tx.commit("test").block_on()?;
 
-    let new_timestamp_2 =
-        Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(new_timestamp_2)?);
+    let new_timestamp_2 = time_util::parse_datetime(new_timestamp_2)?;
     assert_ne!(new_timestamp_2, new_timestamp_1);
 
     assert_eq!(rewritten_commit_2.author().timestamp, new_timestamp_1);

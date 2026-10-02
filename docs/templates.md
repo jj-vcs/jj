@@ -719,7 +719,7 @@ The following methods are defined.
 
 * `.ago() -> String`: Format as relative timestamp.
 * `.format(format: Stringify) -> String`: Format with [the specified strftime-like
-  format string](https://docs.rs/chrono/latest/chrono/format/strftime/).
+  format string](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html).
 * `.utc() -> Timestamp`: Convert timestamp into UTC timezone.
 * `.local() -> Timestamp`: Convert timestamp into local timezone.
 * `.after(date: StringLiteral) -> Boolean`: True if the timestamp is exactly at or

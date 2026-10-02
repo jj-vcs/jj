@@ -65,7 +65,6 @@ harness = false
 [dependencies]
 ansi-to-tui = { workspace = true }
 bstr = { workspace = true }
-chrono = { workspace = true }
 clap = { workspace = true }
 clap-markdown = { workspace = true }
 clap_complete = { workspace = true }
@@ -83,6 +82,7 @@ globset = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
+jiff = { workspace = true }
 jj-lib = { workspace = true }
 maplit = { workspace = true }
 mimalloc = { workspace = true }

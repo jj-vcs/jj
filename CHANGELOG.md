@@ -26,6 +26,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj split` now opens a single editor session to edit descriptions for the
   split commits.
 
+* `Timestamp.format()` now follows [jiff's strftime
+  syntax](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html) instead of
+  chrono's. Most directives, including the default format, are unchanged, but:
+  * `%v` and `%+` are no longer supported. Use `%e-%b-%Y` and
+    `%Y-%m-%dT%H:%M:%S%.3f%:z` (which always includes milliseconds) instead.
+  * `%c`, `%x`, and `%r` produce different output. For example, `%x` now
+    formats as `2001 M07 8` rather than `07/08/01`.
+  * `%f` now prints only as many digits as needed rather than always 9. Use
+    `%9f` or `%N` for the old behavior. Similarly, `%.f` no longer pads to 3, 6,
+    or 9 digits, so it formats as `.12` rather than `.120`.
+  * `%:::z` now includes the minutes of an offset when they are non-zero.
+  * New directives and flags such as `%N`, `%Q`, `%^a`, and `%5Y` are now
+    accepted. `%#z` no longer panics.
+
 ### Deprecations
 
 ### New features
@@ -116,6 +130,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj workspace list` templates are now labeled with `workspace name`,
   `workspace root`, etc.
+
+* Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
+  correct UTC offset on days with a daylight savings transition. Previously,
+  the offset from the start of the day was used, so times after were off
+  by an hour. Likely a niche bug fix, but a bug fix nonetheless!
 
 ## [0.45.1] - 2026-09-03
 
