@@ -1181,11 +1181,78 @@ fn test_run_pool_removes_file_absent_in_next_commit() {
     // B's rewrite (@-) must NOT have only_in_a.txt leaked from A's slot.
     assert_snapshot!(
         work_dir
-        .run_jj(&["file", "list", "-r", "@-"])
-        .success()
-        .stdout,
+            .run_jj(&["file", "list", "-r", "@-"])
+            .success()
+            .stdout,
         @"
     ran.txt
+    [EOF]
+    ",
+    );
+}
+
+/// Renaming a file empties the slot's working copy directory before the renamed
+/// file is materialized into it. The next checkout reuses that slot, so the
+/// directory has to survive the deletion.
+#[test]
+fn test_run_pool_reuse_after_rename() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("readme.md", "");
+    work_dir.run_jj(&["commit", "-m", "add readme"]).success();
+    work_dir.write_file("readme.md", "foo\n");
+    work_dir
+        .run_jj(&["commit", "-m", "modify readme"])
+        .success();
+    // Stack: root → "add readme" (@--) → "modify readme" (@-) → @
+
+    // Pool size 1 forces both commits through the same slot sequentially.
+    // The new name differs in more than case: on a case-insensitive filesystem
+    // `mv` refuses a case-only rename as a no-op.
+    work_dir
+        .run_jj(&[
+            "run",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "@--::@-",
+            "--",
+            "mv",
+            "readme.md",
+            "docs.md",
+        ])
+        .success();
+
+    assert_snapshot!(
+        work_dir
+            .run_jj(&["file", "list", "-r", "@--"])
+            .success()
+            .stdout,
+        @"
+    docs.md
+    [EOF]
+    ",
+    );
+    assert_snapshot!(
+        work_dir
+            .run_jj(&["file", "list", "-r", "@-"])
+            .success()
+            .stdout,
+        @"
+    docs.md
+    [EOF]
+    ",
+    );
+    // The renamed file kept its contents.
+    assert_snapshot!(
+        work_dir
+            .run_jj(&["file", "show", "-r", "@-", "docs.md"])
+            .success()
+            .stdout,
+        @"
+    foo
     [EOF]
     ",
     );
