@@ -24,6 +24,8 @@ use std::ops::Range;
 use std::path;
 use std::path::Path;
 use std::path::PathBuf;
+use std::slice;
+use std::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
@@ -79,6 +81,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
+use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
@@ -87,8 +90,11 @@ use thiserror::Error;
 use tracing::instrument;
 use unicode_width::UnicodeWidthStr as _;
 
+use crate::cli_util::WorkspaceCommandHelper;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
+use crate::command_error::user_error;
 use crate::commit_templater;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
@@ -105,6 +111,9 @@ use crate::source_symbol::source_symbol_from_line;
 use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
+
+/// Dummy filename for commit _descriptions_ in diffs.
+pub const DUMMY_DESCRIPTION_PATH: &str = "JJ-COMMIT-DESCRIPTION";
 
 #[derive(clap::Args, Clone, Debug)]
 #[command(next_help_heading = "Diff Formatting Options")]
@@ -472,7 +481,7 @@ impl<'a> DiffRenderer<'a> {
             .await
     }
 
-    async fn show_diff_trees(
+    pub async fn show_diff_trees(
         &self,
         ui: &Ui,
         formatter: &mut dyn Formatter,
@@ -609,7 +618,6 @@ impl<'a> DiffRenderer<'a> {
         matcher: &dyn Matcher,
         width: usize,
     ) -> Result<(), DiffRenderError> {
-        const DUMMY_DESCRIPTION_PATH: &str = "JJ-COMMIT-DESCRIPTION";
         let mut formatter = formatter.labeled("diff");
         let from_description = if from_commits.is_empty() {
             Merge::resolved("")
@@ -623,7 +631,8 @@ impl<'a> DiffRenderer<'a> {
             .simplify()
         };
         let to_description = Merge::resolved(to_commit.description());
-        let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit).await?;
+        let from_tree =
+            rebase_to_dest_parent(self.repo, from_commits, slice::from_ref(to_commit)).await?;
         let to_tree = to_commit.tree();
         let copy_records = CopyRecords::default(); // TODO
         show_diff_bytes(
@@ -671,6 +680,32 @@ impl<'a> DiffRenderer<'a> {
         )
         .await
     }
+}
+
+/// Checks that the revset has no gaps, i.e. that there are no commits in
+/// between the roots and heads of the set that are not in the set themselves.
+/// The total diff of a revset with gaps in is not well defined.
+pub async fn check_diff_revset_has_no_gaps(
+    workspace_command: &WorkspaceCommandHelper,
+    expression: &Arc<UserRevsetExpression>,
+) -> Result<(), CommandError> {
+    let mut gaps_revset = workspace_command
+        .attach_revset_evaluator(
+            expression
+                .roots()
+                .range(&expression.heads())
+                .minus(expression),
+        )
+        .evaluate_to_commit_ids()?;
+    if let Some(commit_id) = gaps_revset.try_next().await? {
+        return Err(
+            user_error("Cannot diff revsets with gaps in.").hinted(format!(
+                "Revision {} would need to be in the set.",
+                short_commit_hash(&commit_id)
+            )),
+        );
+    }
+    Ok(())
 }
 
 pub async fn get_copy_records(

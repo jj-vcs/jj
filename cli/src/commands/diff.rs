@@ -27,11 +27,10 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::print_unmatched_explicit_paths;
-use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
-use crate::command_error::user_error;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
+use crate::diff_util::check_diff_revset_has_no_gaps;
 use crate::diff_util::get_copy_records;
 use crate::diff_util::show_templated;
 use crate::ui::Ui;
@@ -147,22 +146,7 @@ pub(crate) async fn cmd_diff(
             .unwrap_or(std::slice::from_ref(&RevisionArg::AT));
         let revisions_evaluator = workspace_command.parse_union_revsets(ui, revision_args)?;
         let target_expression = revisions_evaluator.expression();
-        let mut gaps_revset = workspace_command
-            .attach_revset_evaluator(
-                target_expression
-                    .roots()
-                    .range(&target_expression.heads())
-                    .minus(target_expression),
-            )
-            .evaluate_to_commit_ids()?;
-        if let Some(commit_id) = gaps_revset.try_next().await? {
-            return Err(
-                user_error("Cannot diff revsets with gaps in.").hinted(format!(
-                    "Revision {} would need to be in the set.",
-                    short_commit_hash(&commit_id)
-                )),
-            );
-        }
+        check_diff_revset_has_no_gaps(&workspace_command, target_expression).await?;
         let heads: Vec<_> = workspace_command
             .attach_revset_evaluator(target_expression.heads())
             .evaluate_to_commits()?
