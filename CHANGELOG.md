@@ -40,6 +40,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj git push` with `git.sign-on-push` enabled now signs commits in a
+  separate transaction before the push, so commits stay signed if the push
+  fails and a new push doesn't have to sign them again.
+
 * Added the `TreeEntry.normal_value()` template method and the `TreeValue` type
   to access resolved tree values, formatted as their full object IDs, including
   Git submodule commit IDs.
