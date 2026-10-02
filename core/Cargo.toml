@@ -13,6 +13,11 @@ documentation.workspace = true
 categories.workspace = true
 keywords.workspace = true
 
+include = [
+    "/LICENSE",
+    "/src/",
+]
+
 [[bench]]
 name = "diff_bench"
 harness = false
