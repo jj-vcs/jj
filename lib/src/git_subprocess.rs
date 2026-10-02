@@ -221,26 +221,23 @@ impl GitSubprocessContext {
         Ok(())
     }
 
-    /// How we retrieve the remote's default branch:
+    /// Starts `git remote show <remote_name>` without waiting for it.
     ///
-    /// `git remote show <remote_name>`
+    /// The query dumps a lot of information about the remote, with a line such
+    /// as `  HEAD branch: <default_branch>`, from which the default branch is
+    /// extracted by [`collect_remote_show()`].
     ///
-    /// dumps a lot of information about the remote, with a line such as:
-    /// `  HEAD branch: <default_branch>`
-    pub(crate) fn spawn_remote_show(
+    /// The query talks to the remote, so it opens a connection of its own.
+    /// Starting it before another remote operation lets both run at the same
+    /// time, instead of paying for the connections one after the other.
+    pub(crate) fn spawn_remote_show_cmd(
         &self,
         remote_name: &RemoteName,
-    ) -> Result<Option<RefNameBuf>, GitSubprocessError> {
+    ) -> Result<Child, GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
         command.args(["remote", "show", "--", remote_name.as_str()]);
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
-
-        let output = parse_git_remote_show_output(output)?;
-
-        // find the HEAD branch line in the output
-        let maybe_branch = parse_git_remote_show_default_branch(&output.stdout)?;
-        Ok(maybe_branch.map(Into::into))
+        self.spawn_cmd(command)
     }
 
     /// Push references to git
@@ -575,6 +572,19 @@ fn parse_git_worktree_output(output: Output) -> Result<(), GitSubprocessError> {
     }
 
     Err(external_git_error(&output.stderr))
+}
+
+/// Waits for a `git remote show` started by
+/// [`GitSubprocessContext::spawn_remote_show_cmd()`] and extracts the remote's
+/// default branch.
+pub(crate) fn collect_remote_show(child: Child) -> Result<Option<RefNameBuf>, GitSubprocessError> {
+    let output = wait_with_output(child)?;
+
+    let output = parse_git_remote_show_output(output)?;
+
+    // find the HEAD branch line in the output
+    let maybe_branch = parse_git_remote_show_default_branch(&output.stdout)?;
+    Ok(maybe_branch.map(Into::into))
 }
 
 fn parse_git_remote_show_output(output: Output) -> Result<Output, GitSubprocessError> {

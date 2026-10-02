@@ -1450,3 +1450,82 @@ fn test_git_clone_auto_track_bookmarks() {
 fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj(["bookmark", "list", "--all-remotes"])
 }
+
+/// The default branch query should not wait for the fetch to finish, otherwise
+/// an interactive authentication of the remote (e.g. a FIDO2 security key) is
+/// requested twice, with the whole fetch in between.
+#[cfg(unix)]
+#[test]
+fn test_git_clone_default_branch_query_overlaps_fetch() -> TestResult {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git::init(git_repo_path);
+    set_up_non_empty_git_repo(&git_repo);
+
+    // Record the lifetime of every git invocation to check that the default
+    // branch query runs while the fetch is still in progress.
+    let log_path = test_env.env_root().join("git-invocations.log");
+    let real_git = real_git_path();
+    let wrapper_path = test_env.env_root().join("git-wrapper.sh");
+    std::fs::write(
+        &wrapper_path,
+        formatdoc! {r#"
+            #!/bin/sh
+            echo "start $*" >> "{log}"
+            "{real_git}" "$@"
+            status=$?
+            echo "end $*" >> "{log}"
+            exit $status
+        "#, log = log_path.display(), real_git = real_git.display() },
+    )?;
+    let mut permissions = std::fs::metadata(&wrapper_path)?.permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&wrapper_path, permissions)?;
+    test_env.add_config(format!(
+        "git.executable-path = {}",
+        to_toml_value(wrapper_path.to_str().unwrap())
+    ));
+
+    root_dir
+        .run_jj(["git", "clone", "source", "clone"])
+        .success();
+
+    let log = std::fs::read_to_string(&log_path)?;
+    let fetch_end = first_invocation(&log, "end", "fetch");
+    assert!(
+        fetch_end.is_some(),
+        "expected a fetch in the git invocations:\n{log}"
+    );
+    let query_start = first_invocation(&log, "start", "remote show");
+    assert!(
+        query_start.is_some(),
+        "expected a default branch query in the git invocations:\n{log}"
+    );
+    assert!(
+        query_start < fetch_end,
+        "expected the default branch query to start before the fetch ended, so both connections \
+         to the remote are open at the same time:\n{log}"
+    );
+    Ok(())
+}
+
+/// Returns the index of the first logged line that starts with `phase` and
+/// runs the given git subcommand. The command line is prefixed with global
+/// options, so the subcommand is not the first word.
+fn first_invocation(haystack: &str, phase: &str, subcommand: &str) -> Option<usize> {
+    haystack
+        .lines()
+        .position(|line| line.starts_with(phase) && line.contains(&format!(" {subcommand} ")))
+}
+
+/// Path of the real `git` binary, to be called by the wrapper script.
+fn real_git_path() -> std::path::PathBuf {
+    let output = std::process::Command::new("sh")
+        .args(["-c", "command -v git"])
+        .output()
+        .expect("git should be available");
+    std::path::PathBuf::from(String::from_utf8(output.stdout).unwrap().trim())
+}
