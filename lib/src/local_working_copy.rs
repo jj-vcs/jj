@@ -2948,6 +2948,10 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
             settings,
         )?))
     }
+
+    fn supports_adopt(&self) -> bool {
+        true
+    }
 }
 
 /// A working copy that's locked on disk. The lock is held until you call
