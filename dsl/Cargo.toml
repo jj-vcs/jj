@@ -1,0 +1,34 @@
+[package]
+name = "jj-dsl"
+description = "Domain specific languages for Jujutsu - an experimental version control system"
+
+version = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+readme = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+
+include = [
+    "/LICENSE",
+    "/src/",
+]
+
+[dependencies]
+itertools = { workspace = true }
+jj-core = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
+strsim = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+eyre = { workspace = true }
+insta = { workspace = true }
+
+[lints]
+workspace = true

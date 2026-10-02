@@ -21,6 +21,10 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use itertools::Itertools as _;
+use jj_core::ref_name::RefNameBuf;
+use jj_core::ref_name::RemoteNameBuf;
+use jj_core::ref_name::RemoteRefSymbolBuf;
+use jj_core::symbol_util::format_string;
 use pest::Parser as _;
 use pest::iterators::Pair;
 use pest::pratt_parser::Assoc;
@@ -45,10 +49,6 @@ use crate::dsl_util::FunctionCallParser;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
 use crate::dsl_util::collect_similar;
-use crate::ref_name::RefNameBuf;
-use crate::ref_name::RemoteNameBuf;
-use crate::ref_name::RemoteRefSymbolBuf;
-use crate::symbol_util::format_string;
 
 mod private {
     use pest_derive::Parser;
@@ -208,7 +208,7 @@ pub enum RevsetParseErrorKind {
 
 impl RevsetParseError {
     /// Creates a new error with the given `kind` and `span`.
-    pub(super) fn with_span(kind: RevsetParseErrorKind, span: pest::Span<'_>) -> Self {
+    pub fn with_span(kind: RevsetParseErrorKind, span: pest::Span<'_>) -> Self {
         let message = kind.to_string();
         let pest_error = Box::new(pest::error::Error::new_from_span(
             pest::error::ErrorVariant::CustomError { message },
@@ -222,10 +222,7 @@ impl RevsetParseError {
     }
 
     /// Attaches the `source` error.
-    pub(super) fn with_source(
-        mut self,
-        source: impl Into<Box<dyn error::Error + Send + Sync>>,
-    ) -> Self {
+    pub fn with_source(mut self, source: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
         self.source = Some(source.into());
         self
     }
@@ -237,7 +234,7 @@ impl RevsetParseError {
 
     /// If this is a `NoSuchFunction` error, expands the candidates list with
     /// the given `other_functions`.
-    pub(super) fn extend_function_candidates<I>(mut self, other_functions: I) -> Self
+    pub fn extend_function_candidates<I>(mut self, other_functions: I) -> Self
     where
         I: IntoIterator,
         I::Item: AsRef<str>,
@@ -786,7 +783,7 @@ impl AliasDefinitionParser for RevsetAliasParser {
 
 /// Unwraps the inner value if the given `node` is an identifier, string or
 /// string pattern.
-pub(super) fn expect_string_pattern<'a>(
+pub fn expect_string_pattern<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
 ) -> Result<(&'a str, Option<&'a str>), RevsetParseError> {
@@ -818,7 +815,7 @@ pub fn expect_literal<T: FromStr>(
 }
 
 /// Unwraps the inner value if the given `node` is an identifier or string.
-pub(super) fn expect_string_literal<'a>(
+pub fn expect_string_literal<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
 ) -> Result<&'a str, RevsetParseError> {
@@ -834,7 +831,7 @@ pub(super) fn expect_string_literal<'a>(
 
 /// Applies the given function to the innermost `node` by unwrapping alias
 /// expansion nodes. Appends alias expansion stack to error and diagnostics.
-pub(super) fn catch_aliases<'a, 'i, T>(
+pub fn catch_aliases<'a, 'i, T>(
     diagnostics: &mut RevsetDiagnostics,
     node: &'a ExpressionNode<'i>,
     f: impl FnOnce(&mut RevsetDiagnostics, &'a ExpressionNode<'i>) -> Result<T, RevsetParseError>,
