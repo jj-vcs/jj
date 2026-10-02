@@ -7694,6 +7694,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>jj split</code> now opens a single editor session to edit descriptions for the
   split commits.</p>
 </li>
+<li>
+<p><code>jj undo</code> and <code>jj redo</code> now refuse to undo/redo an operation that was
+  performed in another workspace. Use <code>--allow-cross-workspace</code> to undo/redo
+  it anyway.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
