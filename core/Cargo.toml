@@ -1,6 +1,7 @@
 [package]
 name = "jj-core"
 description = "Core types and algorithms for Jujutsu - an experimental version control system"
+
 version.workspace = true
 license.workspace = true
 rust-version.workspace = true
