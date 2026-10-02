@@ -22,7 +22,6 @@ use std::fmt;
 use std::fmt::Display;
 use std::io;
 use std::path::Path;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -46,7 +45,6 @@ use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyRecords;
-use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::fileset;
@@ -86,7 +84,6 @@ use jj_lib::store::Store;
 use jj_lib::trailer;
 use jj_lib::trailer::Trailer;
 use jj_lib::ui_path::RepoPathUiConverter;
-use jj_lib::workspace_store::WorkspaceStore;
 use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
 use serde::Serialize as _;
@@ -1796,27 +1793,6 @@ impl WorkspaceRef {
     pub fn target(&self) -> &Commit {
         &self.target
     }
-
-    /// Returns the root path of the workspace if it is recorded and can be
-    /// resolved.
-    fn root(
-        &self,
-        workspace_store: &dyn WorkspaceStore,
-        path_converter: &RepoPathUiConverter,
-    ) -> Result<Option<PathBuf>, TemplatePropertyError> {
-        let RepoPathUiConverter::Fs { cwd: _, base } = path_converter;
-        // TODO: Stop reconstructing the workspace loader here
-        let workspace_loader = default_workspace_loader_factory().create(base)?;
-        let repo_path = workspace_loader.repo_path().to_owned();
-        // Workspaces created before jj 0.38.0 may not have a recorded path. List
-        // templates should also keep rendering if a recorded path is stale or
-        // unavailable. Use `jj workspace root --name` for strict path diagnostics.
-        let path = workspace_store
-            .get_workspace_path(self.name())?
-            .map(|workspace_path| repo_path.join(workspace_path))
-            .and_then(|path| dunce::canonicalize(path).ok());
-        Ok(path)
-    }
 }
 
 impl Template for WorkspaceRef {
@@ -1853,10 +1829,12 @@ fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'rep
         "root",
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let path_converter = language.path_converter;
             let workspace_store = language.repo.base_repo().loader().workspace_store();
+            // Workspaces created before jj 0.38.0 may not have a recorded path. List
+            // templates should also keep rendering if a recorded path is stale or
+            // unavailable. Use `jj workspace root --name` for strict path diagnostics.
             let out_property = self_property
-                .and_then(move |ws_ref| ws_ref.root(workspace_store.as_ref(), path_converter));
+                .and_then(|ws_ref| Ok(workspace_store.get_workspace_path(&ws_ref.name)?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -3093,6 +3071,7 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo
 #[cfg(test)]
 mod tests {
     use std::path::Component;
+    use std::path::PathBuf;
 
     use jj_lib::backend::CopyId;
     use jj_lib::backend::FileId;

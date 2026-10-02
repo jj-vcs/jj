@@ -28,6 +28,7 @@ use thiserror::Error;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::normalize_path;
 use crate::file_util::path_from_bytes;
 use crate::file_util::path_to_bytes;
 use crate::file_util::persist_temp_file;
@@ -112,6 +113,12 @@ impl SimpleWorkspaceStore {
         Ok(())
     }
 
+    fn repo_path(&self) -> &Path {
+        self.store_dir
+            .parent()
+            .expect("store_dir must be under the repo_path")
+    }
+
     fn lock(&self) -> Result<FileLock, FileLockError> {
         FileLock::lock(self.lock_file.clone())
     }
@@ -158,11 +165,7 @@ impl WorkspaceStore for SimpleWorkspaceStore {
             .workspaces
             .retain(|w| w.name.as_str() != workspace_name.as_str());
 
-        let repo_path = self
-            .store_dir
-            .parent()
-            .expect("store_dir must be under the repo_path");
-        let path_to_store = relative_path(repo_path, path);
+        let path_to_store = relative_path(self.repo_path(), path);
         let path_to_store = if path_to_store.is_relative() {
             slash_path(&path_to_store).into_owned()
         } else {
@@ -222,19 +225,16 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         &self,
         workspace_name: &WorkspaceName,
     ) -> Result<Option<PathBuf>, WorkspaceStoreError> {
-        let workspace = self
-            .read_store()?
-            .workspaces
+        let workspaces = self.read_store()?.workspaces;
+        let Some(w) = workspaces
             .iter()
             .find(|w| w.name.as_str() == workspace_name.as_str())
-            .cloned();
+        else {
+            return Ok(None);
+        };
 
-        Ok(workspace
-            .map(|w| {
-                path_from_bytes(&w.path)
-                    .map(|p| p.to_path_buf())
-                    .map_err(SimpleWorkspaceStoreError::BadPathEncoding)
-            })
-            .transpose()?)
+        let path = path_from_bytes(&w.path).map_err(SimpleWorkspaceStoreError::BadPathEncoding)?;
+        // Resolve ".." components literally and convert to native separators
+        Ok(Some(normalize_path(&self.repo_path().join(path))))
     }
 }

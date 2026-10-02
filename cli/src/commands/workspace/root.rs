@@ -22,7 +22,6 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
-use crate::command_error::user_error_with_message;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -58,16 +57,14 @@ pub async fn cmd_workspace_root(
                         ws_name.as_symbol()
                     ))
                 })?;
-            let full_path = workspace_command.repo_path().join(path);
-            dunce::canonicalize(&full_path).map_err(|err| {
-                user_error_with_message(
-                    format!(
-                        "Cannot resolve absolute workspace path: {}",
-                        full_path.display()
-                    ),
-                    err,
-                )
-            })?
+            if !path.exists() {
+                writeln!(
+                    ui.warning_default(),
+                    "Cannot access workspace path: {}",
+                    path.display()
+                )?;
+            }
+            path
         } else {
             return Err(user_error(format!(
                 "No such workspace: {}",
