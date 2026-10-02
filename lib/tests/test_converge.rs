@@ -233,35 +233,27 @@ fn test_find_divergent_changes_exactly_one_found() -> TestResult {
         timestamp: Timestamp::now(),
     };
 
-    let commit_1 = {
-        let mut tx = repo.start_transaction();
-        let commit = create_commit(
-            &mut tx,
-            &[root],
-            &empty_tree,
-            &author,
-            "foo",
-            Some(&change_aa),
-        );
-        tx.commit("tx1").block_on()?;
-        commit
-    };
+    let mut tx1 = repo.start_transaction();
+    let commit_1 = create_commit(
+        &mut tx1,
+        &[root],
+        &empty_tree,
+        &author,
+        "foo",
+        Some(&change_aa),
+    );
 
-    let commit_2 = {
-        let mut tx = repo.start_transaction();
-        let commit = create_commit(
-            &mut tx,
-            &[root],
-            &empty_tree,
-            &author,
-            "bar",
-            Some(&change_aa),
-        );
-        tx.commit("tx2").block_on()?;
-        commit
-    };
+    let mut tx2 = repo.start_transaction();
+    let commit_2 = create_commit(
+        &mut tx2,
+        &[root],
+        &empty_tree,
+        &author,
+        "bar",
+        Some(&change_aa),
+    );
 
-    let repo = repo.reload_at_head().block_on()?;
+    let repo = commit_transactions(vec![tx1, tx2]);
     assert_eq!(
         find_divergent_changes(&repo, RevsetExpression::all()).block_on()?,
         BTreeMap::from([(change_aa.clone(), vec![commit_2.clone(), commit_1.clone()])])
@@ -285,63 +277,47 @@ fn test_find_divergent_changes_two_found() -> TestResult {
         timestamp: Timestamp::now(),
     };
 
-    let commit_1 = {
-        let mut tx = repo.start_transaction();
-        let commit = create_commit(
-            &mut tx,
-            &[root],
-            &empty_tree,
-            &author,
-            "foo",
-            Some(&change_aa),
-        );
-        tx.commit("tx1").block_on()?;
-        commit
-    };
+    let mut tx1 = repo.start_transaction();
+    let commit_1 = create_commit(
+        &mut tx1,
+        &[root],
+        &empty_tree,
+        &author,
+        "foo",
+        Some(&change_aa),
+    );
 
-    let commit_2 = {
-        let mut tx = repo.start_transaction();
-        let commit = create_commit(
-            &mut tx,
-            &[root],
-            &empty_tree,
-            &author,
-            "bar",
-            Some(&change_aa),
-        );
-        tx.commit("tx2").block_on()?;
-        commit
-    };
+    let mut tx2 = repo.start_transaction();
+    let commit_2 = create_commit(
+        &mut tx2,
+        &[root],
+        &empty_tree,
+        &author,
+        "bar",
+        Some(&change_aa),
+    );
 
-    let commit_3 = {
-        let mut tx = repo.start_transaction();
-        let commit = create_commit(
-            &mut tx,
-            &[root],
-            &empty_tree,
-            &author,
-            "baz",
-            Some(&change_bb),
-        );
-        tx.commit("tx3").block_on()?;
-        commit
-    };
+    let mut tx3 = repo.start_transaction();
+    let commit_3 = create_commit(
+        &mut tx3,
+        &[root],
+        &empty_tree,
+        &author,
+        "baz",
+        Some(&change_bb),
+    );
 
-    let commit_4 = {
-        let mut tx = repo.start_transaction();
-        let commit = create_commit(
-            &mut tx,
-            &[root],
-            &empty_tree,
-            &author,
-            "qux",
-            Some(&change_bb),
-        );
-        tx.commit("tx4").block_on()?;
-        commit
-    };
+    let mut tx4 = repo.start_transaction();
+    let commit_4 = create_commit(
+        &mut tx4,
+        &[root],
+        &empty_tree,
+        &author,
+        "qux",
+        Some(&change_bb),
+    );
 
-    let repo = repo.reload_at_head().block_on()?;
+    let repo = commit_transactions(vec![tx1, tx2, tx3, tx4]);
     drop(assert_divergent_changes(
         &repo,
         &[
@@ -360,31 +336,23 @@ fn test_build_truncated_evolution_graph() -> TestResult {
     let commit1 = write_random_commit(tx.repo_mut());
     let repo1 = tx.commit("tx1").block_on()?;
 
-    let commit2 = {
-        let mut tx = repo1.start_transaction();
-        let commit2 = tx
-            .repo_mut()
-            .rewrite_commit(&commit1)
-            .set_description("rewritten->foo")
-            .write_unwrap();
-        tx.repo_mut().rebase_descendants().block_on()?;
-        tx.commit("tx2").block_on()?;
-        commit2
-    };
+    let mut tx2 = repo1.start_transaction();
+    let commit2 = tx2
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten->foo")
+        .write_unwrap();
+    tx2.repo_mut().rebase_descendants().block_on()?;
 
-    let commit3 = {
-        let mut tx = repo1.start_transaction();
-        let commit3 = tx
-            .repo_mut()
-            .rewrite_commit(&commit1)
-            .set_description("rewritten->bar")
-            .write_unwrap();
-        tx.repo_mut().rebase_descendants().block_on()?;
-        tx.commit("tx3").block_on()?;
-        commit3
-    };
+    let mut tx3 = repo1.start_transaction();
+    let commit3 = tx3
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten->bar")
+        .write_unwrap();
+    tx3.repo_mut().rebase_descendants().block_on()?;
 
-    let repo = repo1.reload_at_head().block_on()?;
+    let repo = commit_transactions(vec![tx2, tx3]);
 
     let divergent_commits = vec![commit2.clone(), commit3.clone()];
     let truncated_evolution_graph =
