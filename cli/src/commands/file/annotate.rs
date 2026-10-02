@@ -49,18 +49,17 @@ pub(crate) struct FileAnnotateArgs {
 
     /// Render each line using the given template
     ///
-    /// All 0-argument methods of the [`AnnotationLine` type] are available as
-    /// keywords in the template expression. See [`jj help -k templates`] for
-    /// more information.
+    /// All 0-argument methods of the [`AnnotationLine` type][AnnotationLine]
+    /// are available as keywords in the template expression. See
+    /// [`jj help -k templates`][templates] for more information.
     ///
     /// If not specified, this defaults to the `templates.file_annotate`
     /// setting.
     ///
-    /// [`AnnotationLine` type]:
+    /// [AnnotationLine]:
     ///     https://docs.jj-vcs.dev/latest/templates/#annotationline-type
     ///
-    /// [`jj help -k templates`]:
-    ///     https://docs.jj-vcs.dev/latest/templates/
+    /// [templates]: https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T')]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,

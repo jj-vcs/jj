@@ -75,17 +75,17 @@ pub(crate) struct EvologArgs {
 
     /// Render each revision using the given template
     ///
-    /// All 0-argument methods of the [`CommitEvolutionEntry` type] are
-    /// available as keywords in the template expression. See [`jj help -k
-    /// templates`] for more information.
+    /// All 0-argument methods of the
+    /// [`CommitEvolutionEntry` type][CommitEvolutionEntry] are available as
+    /// keywords in the template expression. See
+    /// [`jj help -k templates`][templates] for more information.
     ///
     /// If not specified, this defaults to the `templates.evolog` setting.
     ///
-    /// [`CommitEvolutionEntry` type]:
+    /// [CommitEvolutionEntry]:
     ///     https://docs.jj-vcs.dev/latest/templates/#commitevolutionentry-type
     ///
-    /// [`jj help -k templates`]:
-    ///     https://docs.jj-vcs.dev/latest/templates/
+    /// [templates]: https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T')]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,

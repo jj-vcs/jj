@@ -28,18 +28,17 @@ use crate::ui::Ui;
 pub struct WorkspaceListArgs {
     /// Render each workspace using the given template
     ///
-    /// All 0-argument methods of the [`WorkspaceRef` type] are available as
-    /// keywords in the template expression. See [`jj help -k templates`] for
-    /// more information.
+    /// All 0-argument methods of the [`WorkspaceRef` type][WorkspaceRef] are
+    /// available as keywords in the template expression. See
+    /// [`jj help -k templates`][templates] for more information.
     ///
     /// The default template can be set by the `templates.workspace_list`
     /// setting.
     ///
-    /// [`WorkspaceRef` type]:
+    /// [WorkspaceRef]:
     ///     https://docs.jj-vcs.dev/latest/templates/#workspaceref-type
     ///
-    /// [`jj help -k templates`]:
-    ///     https://docs.jj-vcs.dev/latest/templates/
+    /// [templates]: https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T')]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,

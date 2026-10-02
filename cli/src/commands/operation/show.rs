@@ -44,14 +44,13 @@ pub struct OperationShowArgs {
     /// Render the operation using the given template
     ///
     /// You can specify arbitrary template expressions using the
-    /// [built-in keywords]. See [`jj help -k templates`] for more
+    /// [built-in keywords]. See [`jj help -k templates`][templates] for more
     /// information.
     ///
     /// [built-in keywords]:
     ///     https://docs.jj-vcs.dev/latest/templates/#operation-keywords
     ///
-    /// [`jj help -k templates`]:
-    ///     https://docs.jj-vcs.dev/latest/templates/
+    /// [templates]: https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T')]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,

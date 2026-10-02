@@ -65,12 +65,11 @@ pub struct ConfigListArgs {
     /// see a detailed config list, use the `builtin_config_list_detailed`
     /// template.
     ///
-    /// See [`jj help -k templates`] for more information.
+    /// See [`jj help -k templates`][templates] for more information.
     ///
     /// [TOML's "dotted key" format]: https://toml.io/en/v1.0.0#keys
     ///
-    /// [`jj help -k templates`]:
-    ///     https://docs.jj-vcs.dev/latest/templates/
+    /// [templates]: https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T', verbatim_doc_comment)]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,

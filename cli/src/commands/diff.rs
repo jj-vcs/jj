@@ -91,15 +91,14 @@ pub(crate) struct DiffArgs {
 
     /// Render each file diff entry using the given template
     ///
-    /// All 0-argument methods of the [`TreeDiffEntry` type] are available as
-    /// keywords in the template expression. See [`jj help -k templates`] for
-    /// more information.
+    /// All 0-argument methods of the [`TreeDiffEntry` type][TreeDiffEntry] are
+    /// available as keywords in the template expression. See
+    /// [`jj help -k templates`][templates] for more information.
     ///
-    /// [`TreeDiffEntry` type]:
+    /// [TreeDiffEntry]:
     ///     https://docs.jj-vcs.dev/latest/templates/#treediffentry-type
     ///
-    /// [`jj help -k templates`]:
-    ///     https://docs.jj-vcs.dev/latest/templates/
+    /// [templates]: https://docs.jj-vcs.dev/latest/templates/
     #[arg(
         long,
         short = 'T',
