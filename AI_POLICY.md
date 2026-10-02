@@ -5,8 +5,6 @@ contributions as long as you review and edit what it produces to follow the
 project guidelines. However, please do not use AI and agents to communicate with
 the community, including Discord, issues, and pull requests.
 
-## Policy
-
 1. **You are the author.** AI is a tool you may use while creating a
    contribution, but you are the author.
 
