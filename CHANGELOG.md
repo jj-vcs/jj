@@ -16,6 +16,10 @@ and this project adheres to
 
 ### New features
 
+* `jj git push` with `git.sign-on-push` enabled now signs commits in a
+  separate transaction before the push, so commits stay signed if the push
+  fails and a new push doesn't have to sign them again.
+
 * Diff hunk headers now include symbol context even for unsupported languages.
 
 * `jj resolve` gained a built-in `:editor` merge tool that opens the conflicted
