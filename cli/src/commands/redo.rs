@@ -17,6 +17,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::short_operation_hash;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
@@ -34,15 +35,24 @@ use crate::ui::Ui;
 /// detailed description of any past undo/redo operations. See also `jj op
 /// restore` to explicitly restore an older operation by its id (available in
 /// the operation log).
+///
+/// By default, `jj redo` refuses to redo an undo-operation that was performed
+/// in another workspace, since that is usually not what you meant to redo. Pass
+/// `--allow-cross-workspace` to redo it anyway, or use `jj op revert` to revert
+/// a specific undo operation.
 #[derive(clap::Args, Clone, Debug)]
-pub struct RedoArgs {}
+pub struct RedoArgs {
+    /// Allow redoing an undo-operation that was performed in another workspace
+    #[arg(long)]
+    allow_cross_workspace: bool,
+}
 
 const REDO_OP_DESC_PREFIX: &str = "redo: restore to operation ";
 
 pub async fn cmd_redo(
     ui: &mut Ui,
     command: &CommandHelper,
-    _: &RedoArgs,
+    args: &RedoArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
 
@@ -117,6 +127,21 @@ pub async fn cmd_redo(
     {
         // cannot redo a non-undo-operation
         return Err(user_error("Nothing to redo"));
+    }
+
+    if !args.allow_cross_workspace
+        && let Some(op_workspace_name) = &target_op.metadata().workspace_name
+        && op_workspace_name != workspace_command.workspace_name()
+    {
+        return Err(user_error(format!(
+            "Refusing to redo operation {} because it was performed in workspace {}",
+            short_operation_hash(target_op.id()),
+            op_workspace_name.as_symbol()
+        ))
+        .hinted(
+            "Use `--allow-cross-workspace` to redo it anyway, or use `jj op revert` to revert a \
+             specific undo operation",
+        ));
     }
 
     let mut target_op_parent = target_op

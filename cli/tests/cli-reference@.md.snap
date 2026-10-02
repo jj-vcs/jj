@@ -2997,7 +2997,13 @@ This is the natural counterpart of `jj undo`. Repeated invocations of `jj undo` 
 
 Use `jj op log` to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also `jj op restore` to explicitly restore an older operation by its id (available in the operation log).
 
-**Usage:** `jj redo`
+By default, `jj redo` refuses to redo an undo-operation that was performed in another workspace, since that is usually not what you meant to redo. Pass `--allow-cross-workspace` to redo it anyway, or use `jj op revert` to revert a specific undo operation.
+
+**Usage:** `jj redo [OPTIONS]`
+
+###### **Options:**
+
+* `--allow-cross-workspace` — Allow redoing an undo-operation that was performed in another workspace
 
 
 
