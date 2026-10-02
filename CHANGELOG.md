@@ -30,6 +30,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   performed in another workspace. Use `--allow-cross-workspace` to undo/redo
   it anyway.
 
+* The `List.get()`, `.first()`, and `.last()` template functions now return
+  `Option<T>` instead of throwing an error on out-of-bounds access.
+
 ### Deprecations
 
 ### New features
