@@ -229,7 +229,7 @@ Here is how you can explore a GitHub repository with `jj`.
 <img src="demos/git_compat.png" />
 
 You can even have a [colocated local
-workspace](https://docs.jj-vcs.dev/latest/git-compatibility#colocated-jujutsugit-repos)
+workspace](https://docs.jj-vcs.dev/latest/git-compatibility#colocated-jujutsugit-workspaces)
 where you can use both `jj` and `git` commands interchangeably.
 
 ### The working copy is automatically committed
