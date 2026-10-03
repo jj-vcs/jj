@@ -48,6 +48,8 @@ pub struct TreeState {
     pub sparse_patterns: ::core::option::Option<SparsePatterns>,
     #[prost(message, optional, tag = "4")]
     pub watchman_clock: ::core::option::Option<WatchmanClock>,
+    #[prost(message, optional, tag = "8")]
+    pub fsmonitor_clock: ::core::option::Option<FsmonitorClock>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct WatchmanClock {
@@ -63,6 +65,13 @@ pub mod watchman_clock {
         #[prost(int64, tag = "2")]
         UnixTimestamp(i64),
     }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FsmonitorClock {
+    #[prost(string, tag = "1")]
+    pub monitor_name: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "2")]
+    pub value: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Checkout {

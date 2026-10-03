@@ -118,7 +118,7 @@ fn default_tree_state_settings() -> TreeStateSettings {
         conflict_marker_style: ConflictMarkerStyle::Snapshot,
         eol_conversion_mode: EolConversionMode::None,
         exec_change_setting: ExecChangeSetting::Auto,
-        fsmonitor_settings: FsmonitorSettings::None,
+        fsmonitor: FsmonitorSettings::None.to_fsmonitor(),
     }
 }
 
