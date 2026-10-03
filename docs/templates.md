@@ -136,6 +136,11 @@ The following functions are defined.
   Surround **non-empty** content with texts such as parentheses.
 * `config(name: Stringify) -> Option<ConfigValue>`: Look up configuration
    value by `name`.
+* `revset(revset: Stringify) -> List<Commit>`: Evaluates [a revset](revsets.md).
+
+  The revset is evaluated once during template parsing if its value evaluates to
+  a constant string. Queries built from values that aren't yet known during
+  parsing, for example `self.change_id()`, are evaluated per call at runtime.
 * `git_web_url([remote: String]) -> String`: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
   empty string on failure. SSH host alias resolution is currently unsupported.
