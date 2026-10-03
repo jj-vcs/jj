@@ -36,6 +36,8 @@ use jj_lib::dsl_util::StringLiteralParser;
 use jj_lib::dsl_util::collect_similar;
 use jj_lib::str_util::StringPattern;
 use pest::Parser as _;
+use pest::error::ErrorVariant;
+use pest::error::LineColLocation;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
 use pest::pratt_parser::Assoc;
@@ -110,6 +112,13 @@ impl Rule {
             Self::function_alias_declaration => None,
             Self::pattern_alias_declaration => None,
             Self::alias_declaration => None,
+            Self::bounded_infix_terms => None,
+            Self::bounded_method_chain => None,
+            Self::bounded_prefix_ops => None,
+            Self::infix_op_width_limit_reached => None,
+            Self::method_chain_width_limit_reached => None,
+            Self::prefix_op_width_limit_reached => None,
+            Self::recursive_depth_limit_reached => None,
         }
     }
 }
@@ -120,10 +129,10 @@ pub type TemplateDiagnostics = Diagnostics<TemplateParseError>;
 pub type TemplateParseResult<T> = Result<T, TemplateParseError>;
 
 #[derive(Debug, Error)]
-#[error("{pest_error}")]
+#[error("{}", .pest_error.as_ref().map_or_else(|| .kind.to_string(), |e| e.to_string()))]
 pub struct TemplateParseError {
     kind: TemplateParseErrorKind,
-    pest_error: Box<pest::error::Error<Rule>>,
+    pest_error: Option<Box<pest::error::Error<Rule>>>,
     source: Option<Box<dyn error::Error + Send + Sync>>,
 }
 
@@ -164,10 +173,10 @@ pub enum TemplateParseErrorKind {
 impl TemplateParseError {
     pub fn with_span(kind: TemplateParseErrorKind, span: pest::Span<'_>) -> Self {
         let message = kind.to_string();
-        let pest_error = Box::new(pest::error::Error::new_from_span(
+        let pest_error = Some(Box::new(pest::error::Error::new_from_span(
             pest::error::ErrorVariant::CustomError { message },
             span,
-        ));
+        )));
         Self {
             kind,
             pest_error,
@@ -261,9 +270,40 @@ impl AliasExpandError for TemplateParseError {
 
 impl From<pest::error::Error<Rule>> for TemplateParseError {
     fn from(err: pest::error::Error<Rule>) -> Self {
+        if let ErrorVariant::ParsingError {
+            positives,
+            negatives,
+        } = &err.variant
+            && let Some(msg) = positives
+                .iter()
+                .chain(negatives)
+                .find_map(|rule| match rule {
+                    Rule::infix_op_width_limit_reached => Some("Too many op postfixes"),
+                    Rule::method_chain_width_limit_reached => Some("Too many methods chained"),
+                    Rule::prefix_op_width_limit_reached => Some("Too many op prefixes"),
+                    Rule::recursive_depth_limit_reached => Some("Expression is nested too deeply"),
+                    _ => None,
+                })
+        {
+            let (line, col) = match err.line_col {
+                LineColLocation::Pos(pos) | LineColLocation::Span(pos, _) => pos,
+            };
+
+            // When dealing with bound-related parsing errors, there's little to no value in
+            // the regular error print-outs, because they're likely too large and too noisy.
+            // Without `pest_error` attached, kind is displayed, so put the message there.
+            return Self {
+                kind: TemplateParseErrorKind::Expression(format!(
+                    "{msg} (at line {line}, column {col})"
+                )),
+                pest_error: None,
+                source: None,
+            };
+        }
+
         Self {
             kind: TemplateParseErrorKind::SyntaxError,
-            pest_error: Box::new(rename_rules_in_pest_error(err)),
+            pest_error: Some(Box::new(rename_rules_in_pest_error(err))),
             source: None,
         }
     }
@@ -534,22 +574,24 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
         other => panic!("unexpected term: {other:?}"),
     };
     let primary_node = ExpressionNode::new(primary_kind, primary_span);
-    inner.try_fold(primary_node, |object, chain| {
-        assert_eq!(chain.as_rule(), Rule::function);
-        let span = object.span.start_pos().span(&chain.as_span().end_pos());
-        let method = Box::new(MethodCallNode {
-            object,
-            function: FUNCTION_CALL_PARSER.parse(
-                chain,
-                parse_identifier_name,
-                parse_template_node,
-            )?,
-        });
-        Ok(ExpressionNode::new(
-            ExpressionKind::MethodCall(method),
-            span,
-        ))
-    })
+    inner
+        .filter(|r| r.as_rule() != Rule::method_chain_width_limit_reached)
+        .try_fold(primary_node, |object, chain| {
+            assert_eq!(chain.as_rule(), Rule::function);
+            let span = object.span.start_pos().span(&chain.as_span().end_pos());
+            let method = Box::new(MethodCallNode {
+                object,
+                function: FUNCTION_CALL_PARSER.parse(
+                    chain,
+                    parse_identifier_name,
+                    parse_template_node,
+                )?,
+            });
+            Ok(ExpressionNode::new(
+                ExpressionKind::MethodCall(method),
+                span,
+            ))
+        })
 }
 
 fn parse_expression_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
@@ -604,13 +646,31 @@ fn parse_expression_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode
             let expr = ExpressionKind::Binary(op_kind, lhs, rhs);
             Ok(ExpressionNode::new(expr, span))
         })
-        .parse(pair.into_inner())
+        .parse(pair.into_inner().filter(|r| {
+            !matches!(
+                r.as_rule(),
+                Rule::bounded_method_chain
+                    | Rule::infix_op_width_limit_reached
+                    | Rule::method_chain_width_limit_reached
+                    | Rule::prefix_op_width_limit_reached
+                    | Rule::recursive_depth_limit_reached
+            )
+        }))
 }
 
 fn parse_template_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
     assert_eq!(pair.as_rule(), Rule::template);
     let span = pair.as_span();
-    let inner = pair.into_inner();
+    let inner = pair.into_inner().filter(|r| {
+        !matches!(
+            r.as_rule(),
+            Rule::bounded_method_chain
+                | Rule::infix_op_width_limit_reached
+                | Rule::method_chain_width_limit_reached
+                | Rule::prefix_op_width_limit_reached
+                | Rule::recursive_depth_limit_reached
+        )
+    });
     let mut nodes: Vec<_> = inner
         .filter_map(|pair| match pair.as_rule() {
             Rule::concat_op => None,
