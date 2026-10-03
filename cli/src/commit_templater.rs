@@ -76,6 +76,7 @@ use jj_lib::revset::RevsetContainingFn;
 use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
@@ -1070,6 +1071,70 @@ impl<'repo> CommitKeywordCache<'repo> {
 fn builtin_commit_template_functions<'repo>()
 -> TemplateBuildFunctionFnMap<'repo, CommitTemplateLanguage<'repo>> {
     let mut map = TemplateBuildFunctionFnMap::<CommitTemplateLanguage>::new();
+    map.insert("revset", |language, diagnostics, build_ctx, function| {
+        let [revset_node] = function.expect_exact_arguments()?;
+        let revset_property =
+            expect_stringify_expression(language, diagnostics, build_ctx, revset_node)?;
+        template_parser::catch_aliases(diagnostics, revset_node, |diagnostics, revset_node| {
+            if let Ok(query) = revset_property.extract() {
+                let (expression, inner_diagnostics) =
+                    parse_user_revset_expression(&language.revset_parse_context, &query).map_err(
+                        |err| {
+                            TemplateParseError::expression("In revset expression", revset_node.span)
+                                .with_source(err)
+                        },
+                    )?;
+                diagnostics.extend_with(inner_diagnostics, |diag| {
+                    TemplateParseError::expression("In revset expression", revset_node.span)
+                        .with_source(diag)
+                });
+                let revset = evaluate_user_revset_expression(
+                    language.repo,
+                    &language.revset_parse_context,
+                    language.id_prefix_context,
+                    &expression,
+                )
+                .map_err(|err| {
+                    TemplateParseError::expression("Failed to evaluate revset", revset_node.span)
+                        .with_source(err)
+                })?;
+                let commits: Vec<Commit> = revset
+                    .stream()
+                    .commits(language.repo.store())
+                    .try_collect()
+                    .block_on()
+                    .map_err(|err| {
+                        TemplateParseError::expression(
+                            "Failed to evaluate revset",
+                            revset_node.span,
+                        )
+                        .with_source(err)
+                    })?;
+                Ok(Literal(commits).into_dyn_wrapped())
+            } else {
+                let repo = language.repo;
+                let revset_parse_context = language.revset_parse_context.clone();
+                let id_prefix_context = language.id_prefix_context;
+                let out_property = revset_property.and_then(move |query| {
+                    let (expression, _) =
+                        parse_user_revset_expression(&revset_parse_context, &query)?;
+                    let revset = evaluate_user_revset_expression(
+                        repo,
+                        &revset_parse_context,
+                        id_prefix_context,
+                        &expression,
+                    )?;
+                    let commits: Vec<Commit> = revset
+                        .stream()
+                        .commits(repo.store())
+                        .try_collect()
+                        .block_on()?;
+                    Ok(commits)
+                });
+                Ok(out_property.into_dyn_wrapped())
+            }
+        })
+    });
     map.insert(
         "git_web_url",
         |language, diagnostics, build_ctx, function| {
