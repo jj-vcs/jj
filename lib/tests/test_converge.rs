@@ -401,31 +401,23 @@ fn test_simple_converge_description() -> TestResult {
     let commit1 = write_random_commit(tx.repo_mut());
     let repo1 = tx.commit("tx1").block_on()?;
 
-    let commit2 = {
-        let mut tx = repo1.start_transaction();
-        let commit2 = tx
-            .repo_mut()
-            .rewrite_commit(&commit1)
-            .set_description("rewritten->foo")
-            .write_unwrap();
-        tx.repo_mut().rebase_descendants().block_on()?;
-        tx.commit("tx2").block_on()?;
-        commit2
-    };
+    let mut tx2 = repo1.start_transaction();
+    let commit2 = tx2
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten->foo")
+        .write_unwrap();
+    tx2.repo_mut().rebase_descendants().block_on()?;
 
-    let commit3 = {
-        let mut tx = repo1.start_transaction();
-        let commit3 = tx
-            .repo_mut()
-            .rewrite_commit(&commit1)
-            .set_description("rewritten->bar")
-            .write_unwrap();
-        tx.repo_mut().rebase_descendants().block_on()?;
-        tx.commit("tx3").block_on()?;
-        commit3
-    };
+    let mut tx3 = repo1.start_transaction();
+    let commit3 = tx3
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten->bar")
+        .write_unwrap();
+    tx3.repo_mut().rebase_descendants().block_on()?;
 
-    let repo = repo1.reload_at_head().block_on()?;
+    let repo = commit_transactions(vec![tx2, tx3]);
     let divergent_commits = vec![commit2.clone(), commit3.clone()];
     let truncated_evolution_graph =
         TruncatedEvolutionGraph::new(repo, divergent_commits).block_on()?;
