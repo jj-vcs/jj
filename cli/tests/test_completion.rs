@@ -1462,6 +1462,13 @@ fn test_config() {
     [EOF]
     ");
 
+    // Schema candidates keep their help and are not duplicated by loaded keys.
+    let output = test_env.complete_fish(["config", "list", "user.na"]);
+    insta::assert_snapshot!(output, @"
+    user.name	Full name of the user, used in commits
+    [EOF]
+    ");
+
     let output = test_env.complete_fish(["log", "--config", "f"]);
     insta::assert_snapshot!(output, @"
     fsmonitor.backend=	Whether to use an external filesystem monitor, useful for large repos
@@ -1488,6 +1495,85 @@ fn test_config() {
     insta::assert_snapshot!(output, @"
     git.abandon-unreachable-commits=false
     git.abandon-unreachable-commits=true
+    [EOF]
+    ");
+}
+
+#[test_case(Shell::Bash; "bash")]
+#[test_case(Shell::Fish; "fish")]
+fn test_config_list_nested_names(shell: Shell) {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(indoc! {r#"
+        [colors]
+        completion-test = { fg = "red", bold = true }
+        "completion.test" = "blue"
+    "#});
+
+    // Include built-in and user-defined names below a schema table with no
+    // enumerated properties.
+    for prefix in ["colo", "colors", "colors."] {
+        let output = test_env
+            .complete_at(shell, 3, ["config", "list", prefix])
+            .success();
+        let names = output
+            .stdout
+            .raw()
+            .lines()
+            .map(|line| line.split('\t').next().unwrap())
+            .collect_vec();
+        for name in ["colors.change_id", "colors.completion-test.fg"] {
+            assert!(names.contains(&name), "{prefix}: {output}");
+        }
+    }
+
+    let output = test_env
+        .complete_at(shell, 3, ["config", "list", "colors.completion-t"])
+        .success();
+    assert_eq!(
+        output.stdout.raw().lines().sorted().collect_vec(),
+        [
+            "colors.completion-test",
+            "colors.completion-test.bold",
+            "colors.completion-test.fg",
+        ]
+    );
+
+    let output = test_env
+        .complete_at(shell, 3, ["config", "list", "colors.\"completion."])
+        .success();
+    assert_eq!(output.stdout.raw().trim_end(), "colors.\"completion.test\"");
+}
+
+#[test]
+fn test_config_list_repo_names() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"colors.completion-test = { fg = "red", bold = true }"#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["config", "set", "--repo", "colors.completion-test", "green"])
+        .success();
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--workspace",
+            "colors.completion-workspace",
+            "blue",
+        ])
+        .success();
+
+    // Repository selection loads its config and omits shadowed table children.
+    let output = test_env.complete_fish([
+        "--repository",
+        "repo",
+        "config",
+        "list",
+        "colors.completion-",
+    ]);
+    insta::assert_snapshot!(output, @"
+    colors.completion-test
+    colors.completion-workspace
     [EOF]
     ");
 }
