@@ -961,6 +961,83 @@ fn test_aliases_are_completed(shell: Shell) {
     }
 }
 
+#[test_case(Shell::Bash; "bash")]
+#[test_case(Shell::Zsh; "zsh")]
+#[test_case(Shell::Fish; "fish")]
+fn test_multi_word_aliases_are_completed(shell: Shell) {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(r#"aliases.multi = ["bookmark"]"#);
+    test_env.add_config(r#"aliases."multi word" = ["bookmark", "rename"]"#);
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "aaa"])
+        .success();
+
+    // Complete the whole alias name as a single argument. A complete name at
+    // the cursor must also be suggested, rather than expanded to its target.
+    insta::allow_duplicates! {
+        for arg in ["multi w", "multi word"] {
+            let output = work_dir.complete_at(shell, 1, [arg]);
+            match shell {
+                Shell::Bash | Shell::Zsh => {
+                    insta::assert_snapshot!(output, @"multi word[EOF]");
+                }
+                Shell::Fish => {
+                    insta::assert_snapshot!(output, @"
+                    multi word
+                    [EOF]
+                    ");
+                }
+                _ => unimplemented!("unexpected shell '{shell}'"),
+            }
+        }
+    }
+
+    // Arguments following both the spaced and quoted forms use the expanded
+    // command's completer. Trailing arguments must not move the cursor.
+    insta::allow_duplicates! {
+        for (index, args) in [
+            (3, vec!["multi", "word", "a"]),
+            (2, vec!["multi word", "a"]),
+            (3, vec!["multi", "word", "a", "new-name"]),
+            (2, vec!["multi word", "a", "new-name"]),
+        ] {
+            let output = work_dir.complete_at(shell, index, args);
+            match shell {
+                Shell::Bash => {
+                    insta::assert_snapshot!(output, @"aaa[EOF]");
+                }
+                Shell::Zsh => {
+                    insta::assert_snapshot!(output, @"aaa:(no description set)[EOF]");
+                }
+                Shell::Fish => {
+                    insta::assert_snapshot!(output, @"
+                    aaa\t(no description set)
+                    [EOF]
+                    ");
+                }
+                _ => unimplemented!("unexpected shell '{shell}'"),
+            }
+        }
+    }
+
+    // TODO: Suggest the next word of a multi-word alias. Currently completion
+    // follows the shorter prefix's definition instead.
+    let output = work_dir.complete_at(shell, 2, ["multi", "w"]);
+    assert!(
+        output.status.success() && output.stdout.is_empty(),
+        "completion expected to come back empty, but got: {output}"
+    );
+    // The word at the cursor must not expand the alias even when it completes
+    // the name exactly.
+    let output = work_dir.complete_at(shell, 2, ["multi", "word"]);
+    assert!(
+        output.status.success() && output.stdout.is_empty(),
+        "completion expected to come back empty, but got: {output}"
+    );
+}
+
 #[test]
 fn test_alias_descriptions_in_completions() {
     let test_env = TestEnvironment::default();
