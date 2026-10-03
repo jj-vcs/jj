@@ -1779,6 +1779,22 @@ key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52
 sign-on-push = true
 ```
 
+By default, the signatures created this way live in the same transaction as
+the push itself, so they are discarded if the push fails (for example because
+of a network error, or because a hardware signing key touch went unnoticed.)
+Set `git.sign-before-push` to
+record the signatures in their own transaction before pushing, so they are
+kept when the push has to be retried:
+
+```toml
+[git]
+sign-on-push = true
+sign-before-push = true
+```
+
+The same behavior can be requested for a single invocation with
+`jj git push --sign-before-push`.
+
 ## Commit Signature Verification
 
 By default signature verification and display is **disabled** as it incurs a

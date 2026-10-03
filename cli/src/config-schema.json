@@ -540,6 +540,11 @@
                     "description": "Whether to generate synthetic predecessors for fetched/imported commits",
                     "default": true
                 },
+                "sign-before-push": {
+                    "type": "boolean",
+                    "description": "Whether `jj git push` should record commit signatures in a separate transaction before pushing, so that they survive a failed push",
+                    "default": false
+                },
                 "sign-on-push": {
                     "type": "boolean",
                     "description": "Whether jj should sign commits before pushing",
