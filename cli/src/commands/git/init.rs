@@ -111,6 +111,16 @@ pub struct GitInitArgs {
     #[arg(long, value_enum, conflicts_with = "git_repo")]
     object_hash: Option<ObjectHash>,
 
+    /// Create a bare repo with no initial workspace
+    ///
+    /// A bare repo stores version history and metadata but has no working copy
+    /// of its own. Workspaces can be added afterward with `jj workspace add`.
+    ///
+    /// This mirrors the `git init --bare` workflow. The destination directory
+    /// will contain only `.jj/`, with workspaces added as siblings.
+    #[arg(long, conflicts_with_all = ["colocate", "no_colocate", "git_repo"])]
+    bare: bool,
+
     /// Specifies a path to an **existing** git repository to be
     /// used as the backing git repo for the newly created `jj` repo.
     ///
@@ -159,6 +169,23 @@ pub async fn cmd_git_init(
         || command.settings().get::<ObjectHash>("git.object-hash"),
         Result::Ok,
     )?;
+
+    if args.bare {
+        let (settings, _config_env) = command.settings_for_new_workspace(ui, &wc_path)?;
+        Workspace::init_bare_git(&settings, &wc_path, object_hash.into()).await?;
+        let relative_wc_path = file_util::relative_path(cwd, &wc_path);
+        writeln!(
+            ui.status(),
+            "Initialized bare repo in \"{}\"",
+            relative_wc_path.display()
+        )?;
+        writeln!(
+            ui.hint_default(),
+            "Add a workspace with: jj workspace add <name>"
+        )?;
+        return Ok(());
+    }
+
     do_init(
         ui,
         command,

@@ -136,7 +136,49 @@ pub(crate) async fn cmd_log(
     command: &CommandHelper,
     args: &LogArgs,
 ) -> Result<(), CommandError> {
+    if command.is_bare_repo() {
+        return cmd_log_bare_repo(ui, command, args).await;
+    }
+
     let workspace_command = command.workspace_helper(ui).await?;
+    run_log(ui, command, args, workspace_command).await
+}
+
+async fn cmd_log_bare_repo(
+    ui: &mut Ui,
+    command: &CommandHelper,
+    args: &LogArgs,
+) -> Result<(), CommandError> {
+    let cwd = command.cwd();
+    let mut workspace_dirs: Vec<_> = std::fs::read_dir(cwd)?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().join(".jj").join("working_copy").is_dir())
+        .collect();
+    workspace_dirs.sort_by_key(|e| e.file_name());
+    if workspace_dirs.is_empty() {
+        writeln!(
+            ui.status(),
+            "No workspaces found. Add one with: jj workspace add <name>"
+        )?;
+        return Ok(());
+    }
+    let workspace_root = workspace_dirs[0].path();
+    let workspace = command.load_workspace_at(&workspace_root, command.settings())?;
+    let repo = workspace.repo_loader().load_at_head().await?;
+    let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
+    let mut bare_args = args.clone();
+    if bare_args.revisions.is_empty() && bare_args.paths.is_empty() {
+        bare_args.revisions = vec![RevisionArg::from("working_copies()".to_owned())];
+    }
+    run_log(ui, command, &bare_args, workspace_command).await
+}
+
+async fn run_log(
+    ui: &mut Ui,
+    _command: &CommandHelper,
+    args: &LogArgs,
+    workspace_command: crate::cli_util::WorkspaceCommandHelper,
+) -> Result<(), CommandError> {
     let settings = workspace_command.settings();
 
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;

@@ -51,6 +51,48 @@ pub async fn cmd_workspace_list(
     command: &CommandHelper,
     args: &WorkspaceListArgs,
 ) -> Result<(), CommandError> {
+    if command.is_bare_repo() {
+        let repo_loader = command.load_bare_repo()?;
+        let repo = repo_loader.load_at_head().await?;
+        let mut formatter = ui.stdout_formatter();
+        let mut workspaces: Vec<_> = repo.view().wc_commit_ids().iter().collect();
+        workspaces.sort_by_key(|(name, _)| name.as_symbol().to_string());
+        let cwd = command.cwd();
+        for (name, wc_commit_id) in workspaces {
+            let commit = repo.store().get_commit_async(wc_commit_id).await?;
+            let ws_dir = cwd.join(name.as_symbol().to_string());
+            let path_str = if ws_dir.is_dir() {
+                format!(
+                    "{} ",
+                    jj_lib::file_util::relative_path(cwd, &ws_dir).display()
+                )
+            } else {
+                String::new()
+            };
+            let empty_tag = if commit.is_empty(repo.as_ref()).await? {
+                " (empty)"
+            } else {
+                ""
+            };
+            let desc = if commit.description().is_empty() {
+                "(no description set)".to_owned()
+            } else {
+                commit.description().lines().next().unwrap_or("").to_owned()
+            };
+            writeln!(
+                formatter,
+                "{}: {}{:.12} {:.12}{} {}",
+                name.as_symbol(),
+                path_str,
+                commit.change_id(),
+                wc_commit_id,
+                empty_tag,
+                desc
+            )?;
+        }
+        return Ok(());
+    }
+
     let workspace_command = command.workspace_helper(ui).await?;
 
     let template: TemplateRenderer<WorkspaceRef> = {
