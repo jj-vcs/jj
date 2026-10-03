@@ -79,6 +79,11 @@ The following functions are defined.
   content by adding both leading and trailing fill characters. If an odd number
   of fill characters are needed, the trailing fill will be one longer than the
   leading fill. The `content` shouldn't have newline characters.
+* `revset(revset: Stringify) -> List<Commit>`: Evaluates [a revset](revsets.md).
+
+  The revset is evaluated once during template parsing if its value evaluates to
+  a constant string. Queries built from values that aren't yet known during
+  parsing, for example `self.change_id()`, are evaluated per call at runtime.
 * `truncate_start(width: Integer, content: Template, [ellipsis: Template])`:
   Truncate `content` by removing leading characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
@@ -285,7 +290,7 @@ This type cannot be printed. The following methods are defined.
   of this commit. May not be available for some commits.
 * `.immutable() -> Boolean`: True if the commit is included in [the set of
   immutable commits](config.md#set-of-immutable-commits).
-* `.contained_in(revset: StringLiteral) -> Boolean`: True if the commit is included in
+* `.contained_in(revset: Stringify) -> Boolean`: True if the commit is included in
   [the provided revset](revsets.md).
 * `.conflict() -> Boolean`: True if the commit contains merge conflicts.
 * `.empty() -> Boolean`: True if the commit modifies no files.
@@ -687,8 +692,7 @@ A single-quoted string literal has no escape syntax. `'` can't be expressed
 inside a single-quoted string literal.
 
 String literals have their own type so that the value can be validated at parse
-time. For example, `contained_in(revset)` requires a literal so the revset can
-be parsed and checked before the template is evaluated.
+time.
 
 ### `StringPattern` type
 
