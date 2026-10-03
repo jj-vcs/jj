@@ -257,6 +257,17 @@
     `jj new @ A`
   Notes:
 
+- Use case: Squash-merge a branch into the current bookmark
+  Git command: >
+    `git merge --squash <branch>`
+  Jujutsu command: >
+    `jj new "fork_point(main | <branch>)"`
+    `jj restore --from <branch>`
+    `jj rebase --onto main`
+  Notes: Combines the branch's full diff into a single new change on top of
+    `main`. Unlike `jj squash --from <range> --into @`, this also works when
+    the branch merged `main` back in.
+
 - Use case: Check out a named revision (or branch) to examine source
   Git command: >
     `git checkout v1.0.1`
