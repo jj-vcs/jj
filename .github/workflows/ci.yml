@@ -172,6 +172,21 @@ jobs:
           components: rustfmt
       - run: cargo +nightly fmt --all -- --check
 
+  check-markdown:
+    name: check (rumdl)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Keep the version in sync with mise and the Nix development shell.
+      - uses: rvben/rumdl@bb84a49a85625b31ecf6c3e58b7bca7c75fbfefb # v0.2.77
+        with:
+          version: "0.2.77"
+          config: .config/rumdl.toml
+          path: ". cli/tests/cli-reference@.md.snap"
+          report-type: annotations
+
   check-clippy:
     name: check (clippy)
     permissions:
@@ -345,6 +360,7 @@ jobs:
     - build-nix
     - check-protos
     - check-rustfmt
+    - check-markdown
     - check-clippy
     - check-cargo-deny
     - check-codespell
