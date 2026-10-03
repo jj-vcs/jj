@@ -1036,6 +1036,36 @@ fn test_log_contained_in() {
     [EOF]
     [exit status: 1]
     "#);
+
+    let output = work_dir.run_jj([
+        "log",
+        // Configure a bad alias to ensure aliases are expanded in diagnostics.
+        "--config=template-aliases.bad_revset='\"maine\"'",
+        "-r::",
+        "-T",
+        &template_for_revset("bad_revset"),
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse template: In alias `bad_revset`
+    Caused by:
+    1:  --> 5:28
+      |
+    5 |       if(self.contained_in(bad_revset), "[contained_in]"),
+      |                            ^--------^
+      |
+      = In alias `bad_revset`
+    2:  --> 1:1
+      |
+    1 | "maine"
+      | ^-----^
+      |
+      = Failed to evaluate revset
+    3: Revision `maine` doesn't exist
+    Hint: Did you mean `main`?
+    [EOF]
+    [exit status: 1]
+    "#);
 }
 
 #[test]
