@@ -34,6 +34,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj split --no-editor` keeps the selected commit's description and leaves the
+  other split commit empty without opening an editor.
+
+* `jj squash --use-combined-message` can combine commit descriptions and
+  trailers without opening an editor.
+
 * Added the `TreeEntry.normal_value()` template method and the `TreeValue` type
   to access resolved tree values, formatted as their full object IDs, including
   Git submodule commit IDs.
