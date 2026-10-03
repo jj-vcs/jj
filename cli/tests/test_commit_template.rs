@@ -970,6 +970,23 @@ fn test_log_contained_in() {
     [EOF]
     ");
 
+    let output = work_dir.run_jj([
+        "log",
+        "-r::",
+        "-T",
+        // Build the revset query dynamically from the current commit.
+        &template_for_revset("commit_id"),
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  D [contained_in]
+    │ ○  C [contained_in]
+    │ ○  B main [contained_in]
+    │ ○  A [contained_in]
+    ├─╯
+    ◆  [contained_in]
+    [EOF]
+    ");
+
     // Suppress error that could be detected earlier
     let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("'unknown_fn()'")]);
     insta::assert_snapshot!(output, @r#"

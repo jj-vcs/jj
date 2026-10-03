@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `Commit.contained_in()` now accepts a `Stringify` instead of a `StringLiteral`.
+  This enables dynamic query building during templating.
+
 ### Fixed bugs
 
 ## [0.46.0] - 2026-10-07
