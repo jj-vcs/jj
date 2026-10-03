@@ -84,6 +84,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
+  `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
+
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
   such as `ssh` asking for a key passphrase or for confirmation of an unknown
   host key. Subprocesses started from a terminal now inherit its console, rather
