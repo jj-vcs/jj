@@ -60,6 +60,7 @@ pub mod gpg_signing;
 pub use jj_core::graph;
 pub mod graph_dominators;
 pub use jj_core::hex_util;
+pub mod hooks;
 pub mod id_prefix;
 pub mod index;
 pub mod iter_util;
