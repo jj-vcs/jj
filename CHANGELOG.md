@@ -82,6 +82,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `ui.editor` now supports `$path` and `$line` substitution variables. Example:
   `ui.editor = ["emacs", "+$line", "$path"]`
 
+* `Commit.contained_in()` now accepts a `Stringify` instead of a `StringLiteral`.
+  This enables dynamic query building during templating. 
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,

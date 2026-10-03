@@ -285,7 +285,7 @@ This type cannot be printed. The following methods are defined.
   of this commit. May not be available for some commits.
 * `.immutable() -> Boolean`: True if the commit is included in [the set of
   immutable commits](config.md#set-of-immutable-commits).
-* `.contained_in(revset: StringLiteral) -> Boolean`: True if the commit is included in
+* `.contained_in(revset: Stringify) -> Boolean`: True if the commit is included in
   [the provided revset](revsets.md).
 * `.conflict() -> Boolean`: True if the commit contains merge conflicts.
 * `.empty() -> Boolean`: True if the commit modifies no files.
@@ -687,8 +687,7 @@ A single-quoted string literal has no escape syntax. `'` can't be expressed
 inside a single-quoted string literal.
 
 String literals have their own type so that the value can be validated at parse
-time. For example, `contained_in(revset)` requires a literal so the revset can
-be parsed and checked before the template is evaluated.
+time.
 
 ### `StringPattern` type
 
