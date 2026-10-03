@@ -902,13 +902,18 @@ fn test_log_contained_in() {
     separate(" ",
       description.first_line(),
       bookmarks,
-      if(self.contained_in("{revset}"), "[contained_in]"),
+      if(self.contained_in({revset}), "[contained_in]"),
     ) ++ "\n"
     "#
         )
     };
 
-    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("subject(A)::")]);
+    let output = work_dir.run_jj([
+        "log",
+        "-r::",
+        "-T",
+        &template_for_revset(r#""subject(A)::""#),
+    ]);
     insta::assert_snapshot!(output, @"
     @  D
     │ ○  C [contained_in]
@@ -923,7 +928,7 @@ fn test_log_contained_in() {
         "log",
         "-r::",
         "-T",
-        &template_for_revset(r#"visible_heads()"#),
+        &template_for_revset(r#"'visible_heads()'"#),
     ]);
     insta::assert_snapshot!(output, @"
     @  D [contained_in]
@@ -936,7 +941,12 @@ fn test_log_contained_in() {
     ");
 
     // Suppress error that could be detected earlier
-    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("unknown_fn()")]);
+    let output = work_dir.run_jj([
+        "log",
+        "-r::",
+        "-T",
+        &template_for_revset(r#""unknown_fn()""#),
+    ]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Failed to parse template: In revset expression
@@ -957,7 +967,12 @@ fn test_log_contained_in() {
     [exit status: 1]
     "#);
 
-    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("author(x:'y')")]);
+    let output = work_dir.run_jj([
+        "log",
+        "-r::",
+        "-T",
+        &template_for_revset(r#""author(x:'y')""#),
+    ]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Failed to parse template: In revset expression
@@ -980,7 +995,7 @@ fn test_log_contained_in() {
     [exit status: 1]
     "#);
 
-    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("maine")]);
+    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset(r#""maine""#)]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Failed to parse template: Failed to evaluate revset
