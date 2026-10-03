@@ -23,6 +23,7 @@ use futures::executor::block_on_stream;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::backend::TreeId;
@@ -30,6 +31,7 @@ use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::converge::CommitsByChangeId;
+use jj_lib::converge::ConvergeResult;
 use jj_lib::converge::ConvergedAttribute;
 use jj_lib::converge::TreeIdsAndLabels;
 use jj_lib::converge::TruncatedEvolutionGraph;
@@ -1140,5 +1142,174 @@ fn test_automatic_converge_description_parent_and_trees_with_reparent() -> TestR
         ),
     );
     assert_eq!(get_predecessors(&repo, applied.id()), divergent_commit_ids);
+    Ok(())
+}
+
+fn signature_at(name: &str, email: &str, millis: i64) -> Signature {
+    Signature {
+        name: name.to_owned(),
+        email: email.to_owned(),
+        timestamp: Timestamp {
+            timestamp: MillisSinceEpoch(millis),
+            tz_offset: 0,
+        },
+    }
+}
+
+/// Rewrites one commit into two divergent commits that differ only in author.
+fn converge_divergent_authors(
+    predecessor_author: &Signature,
+    left_author: &Signature,
+    right_author: &Signature,
+) -> TestResult<(ConvergeResult, Commit)> {
+    let test_repo = TestRepo::init();
+    let mut tx = test_repo.repo.start_transaction();
+    let predecessor = tx
+        .repo_mut()
+        .new_commit(
+            vec![test_repo.repo.store().root_commit_id().clone()],
+            test_repo.repo.store().empty_merged_tree(),
+        )
+        .set_author(predecessor_author.clone())
+        .set_description("same description")
+        .write_unwrap();
+    let repo = tx.commit("test").block_on()?;
+
+    let mut tx_left = repo.start_transaction();
+    let commit_left = tx_left
+        .repo_mut()
+        .rewrite_commit(&predecessor)
+        .set_author(left_author.clone())
+        .write_unwrap();
+    tx_left.repo_mut().rebase_descendants().block_on()?;
+    let mut tx_right = repo.start_transaction();
+    let commit_right = tx_right
+        .repo_mut()
+        .rewrite_commit(&predecessor)
+        .set_author(right_author.clone())
+        .write_unwrap();
+    tx_right.repo_mut().rebase_descendants().block_on()?;
+    let repo = commit_transactions(vec![tx_left, tx_right]);
+
+    let graph = TruncatedEvolutionGraph::new(repo, vec![commit_left, commit_right]).block_on()?;
+    let result = converge_change(&graph, None, None, None, None).block_on()?;
+    Ok((result, predecessor))
+}
+
+// Shared predecessor (name, email, T0) rewritten to (name, email, T1) and
+// (name, email, T2). The author is solved as the predecessor. Description,
+// parents, and tree stay solved.
+#[test]
+fn test_converge_author_same_name_email_different_timestamps() -> TestResult {
+    let author_t0 = signature_at("Alice", "alice@example.com", 1_000);
+    let author_t1 = signature_at("Alice", "alice@example.com", 2_000);
+    let author_t2 = signature_at("Alice", "alice@example.com", 3_000);
+    let (result, predecessor) = converge_divergent_authors(&author_t0, &author_t1, &author_t2)?;
+
+    assert_eq!(result.author, ConvergedAttribute::Solved(author_t0));
+    assert_eq!(
+        result.description,
+        ConvergedAttribute::Solved("same description".to_owned())
+    );
+    assert_eq!(
+        result.parents,
+        ConvergedAttribute::Solved(predecessor.parent_ids().to_vec())
+    );
+    assert_eq!(result.tree, Some(TreeIdsAndLabels::new(predecessor.tree())));
+    Ok(())
+}
+
+// Both sides write the same new timestamp. Same-change acceptance on the first
+// resolution keeps that timestamp, not the predecessor's.
+#[test]
+fn test_converge_author_same_new_timestamp_on_both_sides() -> TestResult {
+    let author_t0 = signature_at("Alice", "alice@example.com", 1_000);
+    let author_t1 = signature_at("Alice", "alice@example.com", 2_000);
+    let (result, _) = converge_divergent_authors(&author_t0, &author_t1, &author_t1)?;
+    assert_eq!(result.author, ConvergedAttribute::Solved(author_t1));
+    Ok(())
+}
+
+// One side keeps the predecessor timestamp and the other moves it. The moved
+// timestamp wins, as a one-sided edit.
+#[test]
+fn test_converge_author_one_sided_timestamp_change() -> TestResult {
+    let author_t0 = signature_at("Alice", "alice@example.com", 1_000);
+    let author_t1 = signature_at("Alice", "alice@example.com", 2_000);
+    let (result, _) = converge_divergent_authors(&author_t0, &author_t0, &author_t1)?;
+    assert_eq!(result.author, ConvergedAttribute::Solved(author_t1));
+    Ok(())
+}
+
+// Same timestamp with a different name or email stays unsolved, so the prompt
+// still lists two distinct authors.
+#[test]
+fn test_converge_author_different_name_or_email_is_unsolved() -> TestResult {
+    let predecessor = signature_at("Alice", "alice@example.com", 1_000);
+    let other_email_left = signature_at("Alice", "left@example.com", 1_000);
+    let other_email_right = signature_at("Alice", "right@example.com", 1_000);
+    let (different_email, _) =
+        converge_divergent_authors(&predecessor, &other_email_left, &other_email_right)?;
+    assert!(matches!(
+        different_email.author,
+        ConvergedAttribute::Unsolved { .. }
+    ));
+
+    let other_name_left = signature_at("Bob", "alice@example.com", 1_000);
+    let other_name_right = signature_at("Carol", "alice@example.com", 1_000);
+    let (different_name, _) =
+        converge_divergent_authors(&predecessor, &other_name_left, &other_name_right)?;
+    assert!(matches!(
+        different_name.author,
+        ConvergedAttribute::Unsolved { .. }
+    ));
+    Ok(())
+}
+
+// Two visible commits share a change id and author identity but have no
+// in-change predecessor. The flow graph's synthetic root is the root commit's
+// empty author at the Unix epoch; the solution is the earlier real timestamp.
+#[test]
+fn test_converge_author_no_in_change_predecessor() -> TestResult {
+    // The second identity matches `make_root_commit`'s empty author, so the
+    // synthetic root's Unix-epoch timestamp must not win.
+    for (byte, name, email) in [(0xA1, "Alice", "alice@example.com"), (0xA2, "", "")] {
+        let test_repo = TestRepo::init();
+        let repo = &test_repo.repo;
+        let root_id = repo.store().root_commit_id().clone();
+        let change_id = make_change_id(&test_repo, byte);
+        let empty_tree = repo.store().empty_merged_tree();
+        let earlier = signature_at(name, email, 2_000);
+        let later = signature_at(name, email, 3_000);
+
+        let mut tx = repo.start_transaction();
+        let commit_earlier = create_commit(
+            &mut tx,
+            &[&root_id],
+            &empty_tree,
+            &earlier,
+            "same description",
+            Some(&change_id),
+        );
+        let repo = tx.commit("test").block_on()?;
+
+        let mut tx = repo.start_transaction();
+        let commit_later = create_commit(
+            &mut tx,
+            &[&root_id],
+            &empty_tree,
+            &later,
+            "same description",
+            Some(&change_id),
+        );
+        let repo = tx.commit("test").block_on()?;
+
+        let graph = TruncatedEvolutionGraph::new(repo.clone(), vec![commit_later, commit_earlier])
+            .block_on()?;
+        assert_eq!(&graph.flow_graph.start_node, repo.store().root_commit_id());
+
+        let result = converge_change(&graph, None, None, None, None).block_on()?;
+        assert_eq!(result.author, ConvergedAttribute::Solved(earlier));
+    }
     Ok(())
 }
