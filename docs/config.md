@@ -475,16 +475,27 @@ context = 3
 
 #### Git diff options
 
-In git diffs you can change the default number of lines of context shown.
+The following options apply to Git-format diffs, including the `diff.git()`
+template method.
 
 * `context`: Number of lines of context to show in the diff. The default is `3`.
 
 * `show-path-prefix`: Whether to show the `a/` and `b/` path prefixes in
   `diff --git` output. The default is `true`.
 
+* `renames`: Whether to show copies and renames using Git metadata. The default
+  is `true`. Set this to `false` to show ordinary per-path changes instead, such
+  as deleting the old path and adding the new path for a rename. This produces
+  larger patches, but allows text changes to be applied by tools that ignore Git
+  copy and rename metadata. Binary files still have no content patch. This does
+  not affect other diff formats or copy tracking during merges and rebases.
+  `--no-renames` overrides this option for command diff output; it does not
+  select Git format or override template settings.
+
 ```toml
 [diff.git]
 context = 3
+renames = true
 show-path-prefix = true
 ```
 
