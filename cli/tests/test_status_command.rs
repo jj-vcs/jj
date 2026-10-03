@@ -168,6 +168,19 @@ fn test_status_filtered() {
     Warning: No matching entries for paths: nonexistent
     [EOF]
     ");
+
+    // The output filtered to a file deleted in the working copy should display
+    // the deletion without a warning.
+    work_dir.remove_file("file_1");
+
+    let output = work_dir.run_jj(["status", "file_1"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    D file_1
+    Working copy  (@) : vruxwmqv 7a93426e (no description set)
+    Parent commit (@-): mzvwutvl d977fd8e (no description set)
+    [EOF]
+    ");
 }
 
 #[test]

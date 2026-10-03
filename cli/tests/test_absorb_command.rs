@@ -807,6 +807,31 @@ fn test_absorb_from_into() {
 }
 
 #[test]
+fn test_absorb_deleted_file_by_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m1"]).success();
+    work_dir.write_file("file1", "1a\n");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+
+    // The deletion is absorbable, so the path matches and no warning is
+    // printed.
+    let output = work_dir.run_jj(["absorb", "file1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Absorbed changes into 1 revisions:
+      qpvuntsm 835e9b1f (empty) 1
+    Working copy  (@) now at: zsuskuln 12b00c0d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 835e9b1f (empty) 1
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_absorb_paths() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

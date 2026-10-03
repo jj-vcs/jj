@@ -86,8 +86,15 @@ pub(crate) async fn cmd_status(
 
     if let Some(wc_commit) = &maybe_wc_commit {
         let status = collect_working_copy_status(repo.as_ref(), wc_commit, snapshot_stats).await?;
-        print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&status.tree])
-            .await?;
+        // The parent tree is needed to account for paths deleted in the working
+        // copy, which the diff below is rendered against.
+        print_unmatched_explicit_paths(
+            ui,
+            &workspace_command,
+            &fileset_expression,
+            [&status.parent_tree, &status.tree],
+        )
+        .await?;
 
         if !status.has_any_tracked_changes() && !status.has_any_untracked_paths() {
             writeln!(formatter, "The working copy has no changes.")?;

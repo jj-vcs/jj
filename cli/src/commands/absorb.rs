@@ -99,19 +99,21 @@ pub(crate) async fn cmd_absorb(
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
 
+    let repo = workspace_command.repo().as_ref();
+    // The parent tree is needed to account for paths deleted by the source
+    // commit, which are still absorbable.
+    let parent_tree = source_commit.parent_tree(repo).await?;
     print_unmatched_explicit_paths(
         ui,
         &workspace_command,
         &fileset_expression,
-        [&source_commit.tree()],
+        [&parent_tree, &source_commit.tree()],
     )
     .await?;
 
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
-    let repo = workspace_command.repo().as_ref();
     let source = if diff_selector.is_interactive() {
-        let parent_tree = source_commit.parent_tree(repo).await?;
         let source_tree = source_commit.tree();
         let format_instructions = || {
             formatdoc! {"
