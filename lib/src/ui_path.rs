@@ -61,6 +61,8 @@ pub enum RepoPathUiConverter {
         cwd: PathBuf,
         /// The repository root path.
         base: PathBuf,
+        /// The path to the repo directory.
+        repo_path: PathBuf,
     },
     // TODO: Add a no-op variant that uses the internal `RepoPath` representation. Can be useful
     // on a server.
@@ -70,11 +72,13 @@ impl RepoPathUiConverter {
     /// Format a path for display in the UI.
     pub fn format_file_path(&self, file: &RepoPath) -> String {
         match self {
-            Self::Fs { cwd, base } => {
-                file_util::relative_path(cwd, &file.to_fs_path_unchecked(base))
-                    .display()
-                    .to_string()
-            }
+            Self::Fs {
+                cwd,
+                base,
+                repo_path: _,
+            } => file_util::relative_path(cwd, &file.to_fs_path_unchecked(base))
+                .display()
+                .to_string(),
         }
     }
 
@@ -98,7 +102,11 @@ impl RepoPathUiConverter {
     /// where relative paths are interpreted as relative to.
     pub fn parse_file_path(&self, input: &str) -> Result<RepoPathBuf, UiPathParseError> {
         match self {
-            Self::Fs { cwd, base } => parse_fs_path(cwd, base, input).map_err(UiPathParseError::Fs),
+            Self::Fs {
+                cwd,
+                base,
+                repo_path: _,
+            } => parse_fs_path(cwd, base, input).map_err(UiPathParseError::Fs),
         }
     }
 }
@@ -184,6 +192,7 @@ mod tests {
         let ui = RepoPathUiConverter::Fs {
             cwd: PathBuf::from("."),
             base: PathBuf::from("."),
+            repo_path: PathBuf::from("./.jj/repo"),
         };
 
         let format = |before, after| {
