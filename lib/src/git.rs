@@ -1987,6 +1987,8 @@ pub enum GitResetHeadError {
     Git(Box<dyn std::error::Error + Send + Sync>),
     #[error("Failed to update Git HEAD ref")]
     UpdateHeadRef(#[source] Box<gix::reference::edit::Error>),
+    #[error("Failed to write Git index")]
+    WriteIndex(#[source] Box<gix::index::file::write::Error>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
@@ -2135,7 +2137,7 @@ async fn reset_index(
 
     index
         .write(gix::index::write::Options::default())
-        .map_err(GitResetHeadError::from_git)
+        .map_err(|err| GitResetHeadError::WriteIndex(err.into()))
 }
 
 fn build_index_from_merged_tree(
@@ -2276,7 +2278,7 @@ pub async fn update_intent_to_add(
     debug_assert!(mut_index.verify_entries().is_ok());
     mut_index
         .write(gix::index::write::Options::default())
-        .map_err(GitResetHeadError::from_git)?;
+        .map_err(|err| GitResetHeadError::WriteIndex(err.into()))?;
 
     Ok(())
 }

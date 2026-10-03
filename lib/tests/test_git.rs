@@ -3783,6 +3783,31 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_reset_head_index_locked() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+
+    // Another process holds the index lock
+    std::fs::write(git_repo.index_path().with_extension("lock"), "")?;
+    assert_matches!(
+        reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2),
+        Err(GitResetHeadError::WriteIndex(_))
+    );
+    // HEAD is updated before the index
+    assert_eq!(git_repo.head_id()?.detach(), git_id(&commit1));
+    assert_eq!(
+        tx.repo().git_head(WorkspaceName::DEFAULT),
+        &RefTarget::normal(commit1.id().clone())
+    );
+    Ok(())
+}
+
 fn get_index_state(workspace_root: &Path) -> String {
     let git_repo = gix::open(workspace_root).unwrap();
     let index = git_repo.index().unwrap();

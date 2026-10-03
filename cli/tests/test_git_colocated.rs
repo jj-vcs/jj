@@ -1191,6 +1191,61 @@ fn test_git_colocated_concurrent_checkout() -> TestResult {
 }
 
 #[test]
+fn test_git_colocated_index_locked() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file", "");
+    work_dir.run_jj(["new"]).success();
+
+    // Another process holds the index lock
+    work_dir.write_file(".git/index.lock", "");
+    let output = work_dir.run_jj(["new", "root()"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to write Git index
+    Caused by:
+    1: Could not acquire lock for index file
+    2: The lock for resource '$TEST_ENV/repo/.git/index' could not be obtained immediately after 1 attempt(s). The lockfile at '$TEST_ENV/repo/.git/index.lock' might need manual deletion.
+    Working copy  (@) now at: kkmpptxz 2b17ac71 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+    work_dir.write_file("file2", "");
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    A file2
+    Working copy  (@) : kkmpptxz 2f51cd2c (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: Failed to write Git index
+    Caused by:
+    1: Could not acquire lock for index file
+    2: The lock for resource '$TEST_ENV/repo/.git/index' could not be obtained immediately after 1 attempt(s). The lockfile at '$TEST_ENV/repo/.git/index.lock' might need manual deletion.
+    [EOF]
+    ");
+
+    // HEAD was updated, so it isn't imported as an external change
+    work_dir.remove_file(".git/index.lock");
+    let output = work_dir.run_jj(["log"]);
+    insta::assert_snapshot!(output, @"
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:10 2f51cd2c
+    │  (no description set)
+    │ ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 3dcf981e
+    ├─╯  (no description set)
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn test_git_colocated_squash_undo() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env

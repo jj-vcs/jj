@@ -2709,8 +2709,16 @@ pub async fn export_working_copy_changes_to_git(
     old_tree: &MergedTree,
     new_tree: &MergedTree,
 ) -> Result<(), CommandError> {
+    use std::error::Error as _;
     let repo = mut_repo.base_repo().as_ref();
-    jj_lib::git::update_intent_to_add(repo, workspace_root, old_tree, new_tree).await?;
+    match jj_lib::git::update_intent_to_add(repo, workspace_root, old_tree, new_tree).await {
+        Ok(()) => {}
+        Err(err @ jj_lib::git::GitResetHeadError::WriteIndex(_)) => {
+            writeln!(ui.warning_default(), "{err}")?;
+            print_error_sources(ui, err.source())?;
+        }
+        Err(err) => return Err(err.into()),
+    }
     let stats = jj_lib::git::export_refs(mut_repo)?;
     crate::git_util::print_git_export_stats(ui, &stats)?;
     Ok(())
@@ -2741,10 +2749,15 @@ async fn try_reset_git_head(
     // - With import_git_head importing HEAD concurrently
     // This can still fail if HEAD was updated concurrently by another JJ process
     // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
-    // case, the actual state will be imported on the next snapshot.
+    // case, the actual state will be imported on the next snapshot. Writing the
+    // index can fail if another process holds index.lock. The index is only a
+    // cache, so don't fail the operation after HEAD has already been moved.
     match jj_lib::git::reset_head(mut_repo, workspace_name, workspace_root, wc_commit).await {
         Ok(()) => Ok(()),
-        Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
+        Err(
+            err @ (jj_lib::git::GitResetHeadError::UpdateHeadRef(_)
+            | jj_lib::git::GitResetHeadError::WriteIndex(_)),
+        ) => {
             writeln!(ui.warning_default(), "{err}")?;
             print_error_sources(ui, err.source())?;
             Ok(())

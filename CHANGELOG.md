@@ -121,6 +121,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj workspace list` templates are now labeled with `workspace name`,
   `workspace root`, etc.
 
+* In colocated workspaces, failing to write the Git index (for example because
+  another process holds `index.lock`) is now reported as a warning instead of
+  aborting the command after Git `HEAD` has already been moved.
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
