@@ -2936,8 +2936,9 @@ y) * z</code>.</p>
 <h2 id="global-functions">Global functions<a class="headerlink" href="#global-functions" title="Permanent link">&para;</a></h2>
 <p>The following functions are defined.</p>
 <ul>
-<li><code>fill(width: Integer, content: Template) -&gt; Template</code>: Fill lines at
-  the given <code>width</code>.</li>
+<li><code>fill(width: Integer, content: Template, [break_words: bool]) -&gt; Template</code>:
+  Fill lines at the given <code>width</code>. If <code>break_words</code> is <code>true</code>, any words longer
+  than <code>width</code> will be split to fit in <code>width</code> characters.</li>
 <li><code>indent(prefix: Template, content: Template) -&gt; Template</code>: Indent
   non-empty lines by the given <code>prefix</code>.</li>
 <li><code>pad_start(width: Integer, content: Template, [fill_char: Template])</code>: Pad (or

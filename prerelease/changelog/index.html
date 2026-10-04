@@ -7771,6 +7771,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>ui.editor</code> now supports <code>$path</code> and <code>$line</code> substitution variables. Example:
   <code>ui.editor = ["emacs", "+$line", "$path"]</code></p>
 </li>
+<li>
+<p><code>fill</code> template function now supports an additional named parameter
+  <code>break_words</code>, that allows specifying if the template should break words
+  longer than <code>width</code> passed in the input to ensure no words overflow the
+  specified width.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
