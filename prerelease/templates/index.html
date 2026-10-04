@@ -3301,10 +3301,9 @@ defined.</p>
   the predicate <code>expression</code>. Example: <code>parents.any(|c| c.description().contains("fix"))</code></li>
 <li><code>.all(|item| expression) -&gt; Boolean</code>: Returns true if all elements satisfy
   the predicate <code>expression</code>. Example: <code>parents.all(|c| c.mine())</code></li>
-<li><code>.first() -&gt; T</code>: Returns the first element. Errors if the list is empty.</li>
-<li><code>.last() -&gt; T</code>: Returns the last element. Errors if the list is empty.</li>
-<li><code>.get(index: Integer) -&gt; T</code>: Returns the element at <code>index</code> (0-based). Errors
-  if the index is out of bounds.</li>
+<li><code>.first() -&gt; Option&lt;T&gt;</code>: Returns the first element.</li>
+<li><code>.last() -&gt; Option&lt;T&gt;</code>: Returns the last element.</li>
+<li><code>.get(index: Integer) -&gt; Option&lt;T&gt;</code>: Returns the element at <code>index</code> (0-based).</li>
 <li><code>.reverse() -&gt; List</code>: Returns the list in reverse order.</li>
 <li><code>.skip(count: Integer) -&gt; List</code>: Skips the first <code>count</code> elements and
   returns the rest.</li>
@@ -3346,6 +3345,10 @@ contained value is set. If set, all methods of the contained value can be
 invoked. If not set, an error will be reported inline on method call.</p>
 <p>On comparison between two optional values or optional and non-optional values,
 unset value is not an error. Unset value is considered less than any set values.</p>
+<p>Types convertible to <code>Boolean</code> (e.g. <code>String</code> and <code>List</code>) lack support for
+<code>Option</code> because the truthy conversion of an unset value would conflict with
+it. Instead, unset values of these types are converted to their empty
+equivalents.</p>
 <h3 id="refsymbol-type"><code>RefSymbol</code> type<a class="headerlink" href="#refsymbol-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
 <p><a href="#string-type">A <code>String</code> type</a>, but is formatted as revset symbol by quoting
@@ -3441,7 +3444,7 @@ following methods are defined.</p>
   of a UTF-8 codepoint, the codepoint is fully part of the result. If the <code>end</code>
   index is in the middle of a UTF-8 codepoint, the codepoint is not part of the
   result. If <code>end</code> is not given, returns from <code>start</code> to the end of the string.</li>
-<li><code>.first_line() -&gt; String</code></li>
+<li><code>.first_line() -&gt; String</code>: Equivalent to <code>.lines().first()</code>.</li>
 <li><code>.lines() -&gt; List&lt;String&gt;</code>: Split into lines excluding newline characters.</li>
 <li><code>.split(separator: StringPattern, [limit: Integer]) -&gt; List&lt;String&gt;</code>: Split
   into substrings by the given <code>separator</code> pattern. If <code>limit</code> is specified, it

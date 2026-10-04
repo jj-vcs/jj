@@ -7703,6 +7703,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>jj workspace list</code>/<code>root</code> no longer omit unreachable paths. All recorded
   paths are now shown, with warnings displayed in <code>jj workspace root</code>.</p>
 </li>
+<li>
+<p>The <code>List.get()</code>, <code>.first()</code>, and <code>.last()</code> template functions now return
+  <code>Option&lt;T&gt;</code> instead of throwing an error on out-of-bounds access.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
