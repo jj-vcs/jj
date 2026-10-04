@@ -1007,7 +1007,7 @@ fn map_not_found_err(err: gix::object::find::existing::Error, id: &impl ObjectId
         BackendError::ObjectNotFound {
             object_type: id.object_type(),
             hash: id.hex(),
-            source: Box::new(err),
+            source: Some(Box::new(err)),
         }
     } else {
         to_read_object_err(err, id)

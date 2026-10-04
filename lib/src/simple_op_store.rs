@@ -363,7 +363,7 @@ fn io_to_read_error(err: PathError, id: &impl ObjectId) -> OpStoreError {
         OpStoreError::ObjectNotFound {
             object_type: id.object_type(),
             hash: id.hex(),
-            source: Box::new(err),
+            source: Some(Box::new(err)),
         }
     } else {
         to_read_error(err.into(), id)

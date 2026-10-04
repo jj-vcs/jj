@@ -327,7 +327,7 @@ pub enum BackendError {
         /// The hex hash of the object that was not found.
         hash: String,
         /// The source error.
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
     /// Failed to read an object due to an I/O error or other unexpected error.
     #[error("Error when reading object {hash} of type {object_type}")]

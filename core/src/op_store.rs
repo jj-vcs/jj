@@ -390,7 +390,7 @@ pub enum OpStoreError {
         /// Identifier of the object.
         hash: String,
         /// Underlying error.
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
     /// Object could not be read.
     #[error("Error when reading object {hash} of type {object_type}")]

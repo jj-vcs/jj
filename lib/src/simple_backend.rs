@@ -74,7 +74,7 @@ fn map_not_found_err(err: std::io::Error, id: &impl ObjectId) -> BackendError {
         BackendError::ObjectNotFound {
             object_type: id.object_type(),
             hash: id.hex(),
-            source: Box::new(err),
+            source: Some(Box::new(err)),
         }
     } else {
         BackendError::ReadObject {

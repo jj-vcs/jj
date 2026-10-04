@@ -215,7 +215,7 @@ impl Backend for TestBackend {
                 None => Err(BackendError::ObjectNotFound {
                     object_type: "file".to_string(),
                     hash: id.hex(),
-                    source: format!("at path {path:?}").into(),
+                    source: Some(format!("at path {path:?}").into()),
                 }),
                 Some(contents) => {
                     let reader: Pin<Box<dyn AsyncRead + Send>> = Box::pin(Cursor::new(contents));
@@ -258,7 +258,7 @@ impl Backend for TestBackend {
                 None => Err(BackendError::ObjectNotFound {
                     object_type: "symlink".to_string(),
                     hash: id.hex(),
-                    source: format!("at path {path:?}").into(),
+                    source: Some(format!("at path {path:?}").into()),
                 }),
                 Some(target) => Ok(target),
             }
@@ -290,7 +290,7 @@ impl Backend for TestBackend {
                     .ok_or_else(|| BackendError::ObjectNotFound {
                         object_type: "copy".to_string(),
                         hash: id.hex(),
-                        source: "".into(),
+                        source: None,
                     })?;
             Ok(copy)
         })
@@ -315,7 +315,7 @@ impl Backend for TestBackend {
                 return Err(BackendError::ObjectNotFound {
                     object_type: "copy history".to_string(),
                     hash: copy_id.hex(),
-                    source: "".into(),
+                    source: None,
                 });
             }
             // Return all copy histories to test that the caller correctly ignores histories
@@ -355,7 +355,7 @@ impl Backend for TestBackend {
                 None => Err(BackendError::ObjectNotFound {
                     object_type: "tree".to_string(),
                     hash: id.hex(),
-                    source: format!("at path {path:?}").into(),
+                    source: Some(format!("at path {path:?}").into()),
                 }),
                 Some(tree) => Ok(tree),
             }
@@ -389,7 +389,7 @@ impl Backend for TestBackend {
             None => Err(BackendError::ObjectNotFound {
                 object_type: "commit".to_string(),
                 hash: id.hex(),
-                source: "".into(),
+                source: None,
             }),
             Some(commit) => Ok(commit),
         })
