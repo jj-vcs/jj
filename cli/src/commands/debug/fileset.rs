@@ -16,7 +16,7 @@ use std::fmt::Debug;
 use std::io::Write as _;
 
 use jj_lib::fileset;
-use jj_lib::fileset::FilesetDiagnostics;
+use jj_lib::fileset_parser::FilesetDiagnostics;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;

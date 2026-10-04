@@ -20,7 +20,8 @@ use jj_lib::iter_util::fallible_find;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::revset;
-use jj_lib::revset::RevsetDiagnostics;
+use jj_lib::revset_parser;
+use jj_lib::revset_parser::RevsetDiagnostics;
 
 use super::is_fast_forward;
 use super::warn_unmatched_local_bookmarks;
@@ -124,7 +125,7 @@ pub async fn cmd_bookmark_advance(
                 let commit_hex = target_commit.id().hex();
                 context
                     .local_variables
-                    .insert("to", revset::new_string_node(&commit_hex));
+                    .insert("to", revset_parser::new_string_node(&commit_hex));
 
                 let mut diags = RevsetDiagnostics::default();
                 let expression = revset::parse(&mut diags, &from_revset_str, &context)?;

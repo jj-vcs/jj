@@ -50,11 +50,12 @@ use jj_lib::repo::Repo;
 use jj_lib::revset;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetContainingFn;
-use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::revset_parser;
+use jj_lib::revset_parser::RevsetDiagnostics;
 use jj_lib::rewrite::CommitRewriter;
 use jj_lib::settings::SignBehavior;
 use jj_lib::str_util::StringExpression;
@@ -1433,7 +1434,7 @@ async fn find_default_target_revisions(
     let mut context = workspace_command.env().revset_parse_context();
     context
         .local_variables
-        .insert("remote", revset::new_string_node(remote.as_str()));
+        .insert("remote", revset_parser::new_string_node(remote.as_str()));
     let mut diagnostics = RevsetDiagnostics::default();
     let expression = revset::parse(&mut diagnostics, revset_text, &context)?;
     print_parse_diagnostics(ui, "In revsets.git-push", &diagnostics)?;

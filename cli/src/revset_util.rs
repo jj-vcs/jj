@@ -37,17 +37,18 @@ use jj_lib::revset;
 use jj_lib::revset::ResolvedRevset;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::Revset;
-use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
 use jj_lib::revset::RevsetParseContext;
-use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::revset_parser;
+use jj_lib::revset_parser::RevsetDiagnostics;
+use jj_lib::revset_parser::RevsetParseError;
 use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
@@ -339,7 +340,7 @@ pub struct BookmarkNameParseError {
 
 /// Parses bookmark name specified in revset syntax.
 pub fn parse_bookmark_name(text: &str) -> Result<RefNameBuf, BookmarkNameParseError> {
-    revset::parse_symbol(text)
+    revset_parser::parse_symbol(text)
         .map(Into::into)
         .map_err(|source| BookmarkNameParseError {
             input: text.to_owned(),
@@ -355,7 +356,7 @@ pub struct TagNameParseError {
 
 /// Parses tag name specified in revset syntax.
 pub fn parse_tag_name(text: &str) -> Result<RefNameBuf, TagNameParseError> {
-    revset::parse_symbol(text)
+    revset_parser::parse_symbol(text)
         .map(Into::into)
         .map_err(|source| TagNameParseError { source })
 }
@@ -407,8 +408,8 @@ where
     let mut name_expressions = Vec::new();
     let mut remote_symbols = Vec::new();
     for text in texts {
-        let node = revset::parse_program(text.as_ref()).map_err(wrap_err)?;
-        if let revset::ExpressionKind::RemoteSymbol(symbol) = node.kind {
+        let node = revset_parser::parse_program(text.as_ref()).map_err(wrap_err)?;
+        if let revset_parser::ExpressionKind::RemoteSymbol(symbol) = node.kind {
             remote_symbols.push(symbol);
         } else {
             let expr =

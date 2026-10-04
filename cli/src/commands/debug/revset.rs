@@ -18,7 +18,7 @@ use std::io::Write as _;
 use futures::TryStreamExt as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::revset;
-use jj_lib::revset::RevsetDiagnostics;
+use jj_lib::revset_parser::RevsetDiagnostics;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;

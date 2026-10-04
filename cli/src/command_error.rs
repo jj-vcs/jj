@@ -32,8 +32,8 @@ use jj_lib::converge::ConvergeError;
 use jj_lib::dsl_util::Diagnostics;
 use jj_lib::evolution::WalkPredecessorsError;
 use jj_lib::fileset::FilePatternParseError;
-use jj_lib::fileset::FilesetParseError;
-use jj_lib::fileset::FilesetParseErrorKind;
+use jj_lib::fileset_parser::FilesetParseError;
+use jj_lib::fileset_parser::FilesetParseErrorKind;
 use jj_lib::fix::FixError;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::index::IndexError;
@@ -46,11 +46,11 @@ use jj_lib::repo::EditCommitError;
 use jj_lib::repo::RepoLoaderError;
 use jj_lib::repo::RewriteRootCommit;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::revset;
 use jj_lib::revset::RevsetEvaluationError;
-use jj_lib::revset::RevsetParseError;
-use jj_lib::revset::RevsetParseErrorKind;
 use jj_lib::revset::RevsetResolutionError;
+use jj_lib::revset_parser;
+use jj_lib::revset_parser::RevsetParseError;
+use jj_lib::revset_parser::RevsetParseErrorKind;
 use jj_lib::secure_config::SecureConfigError;
 use jj_lib::str_util::StringPatternParseError;
 use jj_lib::trailer::TrailerParseError;
@@ -819,8 +819,8 @@ const REVSET_SYMBOL_HINT: &str = "See https://docs.jj-vcs.dev/latest/revsets/ or
                                   revsets` for how to quote symbols.";
 
 fn bookmark_name_parse_error_hint(err: &BookmarkNameParseError) -> Option<String> {
-    use revset::ExpressionKind;
-    match revset::parse_program(&err.input).map(|node| node.kind) {
+    use revset_parser::ExpressionKind;
+    match revset_parser::parse_program(&err.input).map(|node| node.kind) {
         Ok(ExpressionKind::RemoteSymbol(symbol)) => Some(format!(
             "Looks like remote bookmark. Run `jj bookmark track {symbol}` to track it."
         )),

@@ -48,9 +48,9 @@ use jj_lib::copies::CopyRecords;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::fileset;
-use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::fileset::FilesetParseContext;
+use jj_lib::fileset_parser::FilesetDiagnostics;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::id_prefix::IdPrefixIndex;
 use jj_lib::index::IndexResult;
@@ -71,9 +71,10 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetContainingFn;
-use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::revset_parser;
+use jj_lib::revset_parser::RevsetDiagnostics;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::SigStatus;
@@ -2131,7 +2132,7 @@ impl AsRef<str> for RefSymbolBuf {
 
 impl Display for RefSymbolBuf {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.pad(&revset::format_symbol(&self.0))
+        f.pad(&revset_parser::format_symbol(&self.0))
     }
 }
 
@@ -3145,11 +3146,11 @@ mod tests {
     use jj_lib::backend::SymlinkId;
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
-    use jj_lib::fileset::FilesetAliasesMap;
-    use jj_lib::revset::RevsetAliasesMap;
+    use jj_lib::fileset_parser::FilesetAliasesMap;
     use jj_lib::revset::RevsetExpression;
     use jj_lib::revset::RevsetExtensions;
     use jj_lib::revset::RevsetWorkspaceContext;
+    use jj_lib::revset_parser::RevsetAliasesMap;
     use testutils::TestRepoBackend;
     use testutils::TestWorkspace;
     use testutils::repo_path_buf;

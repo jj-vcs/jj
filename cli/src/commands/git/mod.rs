@@ -34,7 +34,7 @@ use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::RemoteRefSymbolBuf;
-use jj_lib::revset;
+use jj_lib::revset_parser;
 use jj_lib::store::Store;
 
 use self::clone::GitCloneArgs;
@@ -264,8 +264,8 @@ fn remove_remote_from_repo_config(
 fn get_trunk_symbol(layer: &ConfigLayer) -> Option<RemoteRefSymbolBuf> {
     if let Ok(Some(trunk_item)) = layer.look_up_item(TRUNK_CONFIG_NAME)
         && let Some(trunk_str) = trunk_item.as_str()
-        && let Ok(revset::ExpressionKind::RemoteSymbol(symbol)) =
-            revset::parse_program(trunk_str).map(|node| node.kind)
+        && let Ok(revset_parser::ExpressionKind::RemoteSymbol(symbol)) =
+            revset_parser::parse_program(trunk_str).map(|node| node.kind)
     {
         Some(symbol)
     } else {

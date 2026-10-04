@@ -38,11 +38,11 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
 use jj_lib::revset::ResolvedRevsetExpression;
-use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::revset_parser::RevsetDiagnostics;
 use jj_lib::settings::UserSettings;
 
 use crate::cli_util::CommandHelper;

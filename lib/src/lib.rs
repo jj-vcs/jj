@@ -45,7 +45,7 @@ pub mod extensions_map;
 pub use jj_core::file_util;
 pub mod files;
 pub mod fileset;
-mod fileset_parser;
+pub mod fileset_parser;
 pub mod fix;
 pub mod fmt_util;
 pub mod fsmonitor;
@@ -81,7 +81,7 @@ pub mod refs;
 pub mod repo;
 pub use jj_core::repo_path;
 pub mod revset;
-mod revset_parser;
+pub mod revset_parser;
 pub mod rewrite;
 #[cfg(feature = "testing")]
 pub mod secret_backend;

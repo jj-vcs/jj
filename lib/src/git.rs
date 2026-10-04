@@ -3678,7 +3678,7 @@ mod tests {
 
     use super::*;
     use crate::revset;
-    use crate::revset::RevsetDiagnostics;
+    use crate::revset_parser::RevsetDiagnostics;
 
     #[test]
     fn test_split_positive_negative_patterns() {
