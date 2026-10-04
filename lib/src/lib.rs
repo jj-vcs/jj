@@ -44,7 +44,7 @@ pub mod evolution;
 pub mod extensions_map;
 pub use jj_core::file_util;
 pub mod files;
-pub mod fileset;
+pub use jj_core::fileset;
 pub mod fileset_parser;
 pub mod fix;
 pub mod fmt_util;
