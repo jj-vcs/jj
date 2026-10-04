@@ -621,7 +621,7 @@ fn test_git_colocated_bookmarks() -> TestResult {
         .into_raw();
     git_repo.reference(
         "refs/heads/master",
-        gix::ObjectId::from_hex(target_id.as_bytes())?,
+        gix::ObjectId::from_hex(target_id.as_bytes()).unwrap(),
         gix::refs::transaction::PreviousValue::Any,
         "test",
     )?;
@@ -775,7 +775,7 @@ fn test_git_colocated_explicit_import_export() -> TestResult {
         .into_raw();
     git_repo.reference(
         "refs/remotes/git/bar",
-        gix::ObjectId::from_hex(target_id.as_bytes())?,
+        gix::ObjectId::from_hex(target_id.as_bytes()).unwrap(),
         gix::refs::transaction::PreviousValue::Any,
         "",
     )?;
@@ -1142,7 +1142,9 @@ fn test_git_colocated_concurrent_checkout() -> TestResult {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Failed to update Git HEAD ref
-    Caused by: The reference "HEAD" should have content dc0b92dfa0af129b2929fa1789fc896b075782b2, actual content was 091e39feb0aba632ab9a9503ceb1dddeac4dd496
+    Caused by:
+    1: Could not prepare reference edit, "reference"="HEAD", "referent"="HEAD"
+    2: Expected reference content dc0b92dfa0af129b2929fa1789fc896b075782b2
     Working copy  (@) now at: mzvwutvl cf0ddbb4 (empty) (no description set)
     Parent commit (@-)      : zsuskuln b6786455 (empty) commit3
     [EOF]

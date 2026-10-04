@@ -2996,7 +2996,7 @@ fn test_git_push_unmapped_refs() {
     Changes to push to origin:
       bookmark: bookmark2 [add to aa5df56a071b]
     Warning: The following bookmarks couldn't be updated locally:
-      bookmark2@origin: Failed to set: The change for reference "refs/remotes/origin/bookmark2" could not be committed: Directory not empty
+      bookmark2@origin: Failed to set: Could not commit reference, "reference"="refs/remotes/origin/bookmark2": Directory not empty
     Error: Failed to push some bookmarks
     [EOF]
     [exit status: 1]

@@ -197,7 +197,7 @@ fn test_git_clone_bad_source() {
     let output = root_dir.run_jj(["git", "clone", "", "dest"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: local path "" does not specify a path to a repository
+    Error: local path is empty and does not specify a path to a repository, "input"=""
     [EOF]
     [exit status: 2]
     "#);
@@ -206,7 +206,7 @@ fn test_git_clone_bad_source() {
     let output = root_dir.run_jj(["git", "clone", "https://", "dest"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: URL "https://" can not be parsed as valid URL
+    Error: URL can not be parsed as valid URL, "input"="https://"
     Caused by: Scheme requires host
     [EOF]
     [exit status: 2]

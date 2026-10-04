@@ -108,9 +108,9 @@ pub const CHANGE_ID_COMMIT_HEADER: &str = "change-id";
 #[derive(Debug, Error)]
 pub enum GitBackendInitError {
     #[error("Failed to initialize git repository")]
-    InitRepository(#[source] gix::init::Error),
+    InitRepository(#[source] gix::Error),
     #[error("Failed to open git repository")]
-    OpenRepository(#[source] gix::open::Error),
+    OpenRepository(#[source] gix::Error),
     #[error("Failed to encode git repository path")]
     EncodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -128,7 +128,7 @@ impl From<Box<GitBackendInitError>> for BackendInitError {
 #[derive(Debug, Error)]
 pub enum GitBackendLoadError {
     #[error("Failed to open git repository")]
-    OpenRepository(#[source] gix::open::Error),
+    OpenRepository(#[source] gix::Error),
     #[error("Failed to decode git repository path")]
     DecodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -161,10 +161,7 @@ impl From<GitBackendError> for BackendError {
 #[derive(Debug, Error)]
 pub enum GitRepoAtWorkdirError {
     #[error("No Git repository found at {path}")]
-    NotFound {
-        path: PathBuf,
-        source: gix::discover::is_git::Error,
-    },
+    NotFound { path: PathBuf, source: gix::Error },
     #[error("Unrelated Git repository found at {path}")]
     Unrelated { path: PathBuf },
     #[error("Failed to open Git repository")]
@@ -388,11 +385,13 @@ impl GitBackend {
         // The input path doesn't include ".git".
         let opts = open_repo.open_options().clone().open_path_as_is(false);
         let work_repo = gix::ThreadSafeRepository::open_opts(path, opts)
-            .map_err(|err| match err {
-                gix::open::Error::NotARepository { path, source } => {
+            .map_err(|source| {
+                if source.is_not_found() {
+                    let path = path.to_owned();
                     GitRepoAtWorkdirError::NotFound { path, source }
+                } else {
+                    GitRepoAtWorkdirError::Other(source.into())
                 }
-                err => GitRepoAtWorkdirError::Other(err.into()),
             })?
             .to_thread_local();
         let canonicalize = |path: &Path| {
@@ -582,7 +581,7 @@ impl GitBackend {
         )
         .map_err(|err| BackendError::WriteObject {
             object_type,
-            source: Box::new(err),
+            source: err.into(),
         })?;
 
         let locked_repo = self.lock_git_repo();
@@ -594,7 +593,7 @@ impl GitBackend {
                 .write_buf_with_known_id(gix::objs::Kind::Blob, bytes, oid)
                 .map_err(|err| BackendError::WriteObject {
                     object_type,
-                    source: err,
+                    source: err.into(),
                 })?;
             assert!(oid == write_oid);
         }
@@ -683,7 +682,7 @@ fn commit_from_git_without_root_parent(
     git_object: &gix::Object,
     is_shallow: bool,
 ) -> BackendResult<Commit> {
-    let decode_err = |err: gix::objs::decode::Error| to_read_object_err(err, id);
+    let decode_err = |err: gix::Exn<gix::error::Message>| to_read_object_err(err, id);
     let commit = git_object
         .try_to_commit_ref()
         .map_err(|err| to_read_object_err(err, id))?;
@@ -915,7 +914,9 @@ fn recreate_no_gc_refs(
         .prefixed(NO_GC_REF_NAMESPACE)
         .map_err(|err| BackendError::Other(err.into()))?;
     for git_ref in no_gc_refs_iter {
-        let git_ref = git_ref.map_err(BackendError::Other)?.detach();
+        let git_ref = git_ref
+            .map_err(|err| BackendError::Other(err.into()))?
+            .detach();
         let oid = git_ref.target.try_id().ok_or_else(|| {
             let name = git_ref.name.as_bstr();
             BackendError::Other(format!("Symbolic no-gc ref found: {name}").into())
@@ -1541,7 +1542,7 @@ impl Backend for GitBackend {
             .for_each_to_obtain_tree_with_cache(
                 &head_tree,
                 &mut self.new_diff_platform()?,
-                |change| -> BackendResult<_> {
+                |change| {
                     match change_to_copy_record(change) {
                         Ok(None) => {}
                         Ok(Some(change)) => records.push(Ok(change)),
@@ -2306,7 +2307,7 @@ mod tests {
         let git_commit = git_repo.find_commit(gix::ObjectId::from_bytes_or_panic(
             read_commit_id.as_bytes(),
         ))?;
-        let git_tree = git_repo.find_tree(git_commit.tree_id()?)?;
+        let git_tree = git_repo.find_tree(git_commit.tree_id().unwrap())?;
         let jj_conflict_entries = git_tree
             .iter()
             .map(Result::unwrap)
@@ -2367,7 +2368,7 @@ mod tests {
             read_commit_id.as_bytes(),
         ))?;
         assert_eq!(
-            Merge::resolved(TreeId::from_bytes(git_commit.tree_id()?.as_bytes())),
+            Merge::resolved(TreeId::from_bytes(git_commit.tree_id().unwrap().as_bytes())),
             commit.root_tree
         );
         Ok(())

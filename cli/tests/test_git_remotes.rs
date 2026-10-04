@@ -115,10 +115,9 @@ fn test_git_remotes() {
     ------- stderr -------
     Error: Unexpected Git error when managing remotes
     Caused by:
-    1: The fetch url under `remote.foo` was invalid
-    2: The url at "remote.<name>.url=https://" could not be parsed
-    3: URL "https://" can not be parsed as valid URL
-    4: Scheme requires host
+    1: The fetch url under `remote.foo` was invalid, "input"="foo"
+    2: Could not parse URL, "input"="https://", "key"="remote.<name>.url"
+    3: URL can not be parsed as valid URL, "input"="https://"
     [EOF]
     [exit status: 1]
     "#);
@@ -1086,7 +1085,7 @@ fn test_git_remote_name_validation() {
     ------- stderr -------
     Error: Invalid Git remote name
     Caused by:
-    1: remote names must be valid within refspecs for fetching: "my remote"
+    1: remote names must be valid within refspecs for fetching, "input"="my remote"
     2: Reference name contains invalid byte: " "
     [EOF]
     [exit status: 1]

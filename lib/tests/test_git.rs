@@ -4633,68 +4633,35 @@ fn test_load_default_fetch_bookmarks_invalid_configuration() -> TestResult {
         RemoteNameBuf(
             "first",
         ),
-        RefSpec {
-            kind: "fetch",
-            remote_name: "first",
-            source: Error {
-                key: "remote.<name>.fetch",
-                value: Some(
-                    "+refs/heads/bad*pattern*:refs/remotes/heads/bad*pattern*",
-                ),
-                environment_override: None,
-                source: Some(
-                    PatternUnsupported {
-                        pattern: "refs/heads/bad*pattern*",
-                    },
-                ),
-            },
-        },
+        fetch ref-spec under `remote.first` was invalid, "input"="first"
+        |
+        └─ Could not parse refspec, "input"="+refs/heads/bad*pattern*:refs/remotes/heads/bad*pattern*", "key"="remote.<name>.fetch"
+        |
+        └─ refspec patterns may only contain a single '*' character, "input"="refs/heads/bad*pattern*",
     )
     InvalidRemoteConfiguration(
         RemoteNameBuf(
             "second",
         ),
-        RefSpec {
-            kind: "fetch",
-            remote_name: "second",
-            source: Error {
-                key: "remote.<name>.fetch",
-                value: Some(
-                    "+refs/heads/badpattern?:refs/remotes/heads/badpattern?",
-                ),
-                environment_override: None,
-                source: Some(
-                    ReferenceName(
-                        InvalidByte {
-                            byte: "?",
-                        },
-                    ),
-                ),
-            },
-        },
+        fetch ref-spec under `remote.second` was invalid, "input"="second"
+        |
+        └─ Could not parse refspec, "input"="+refs/heads/badpattern?:refs/remotes/heads/badpattern?", "key"="remote.<name>.fetch"
+        |
+        └─ Reference name contains invalid byte: "?"
+        |
+        └─ Reference name contains invalid byte: "?",
     )
     InvalidRemoteConfiguration(
         RemoteNameBuf(
             "third",
         ),
-        RefSpec {
-            kind: "fetch",
-            remote_name: "third",
-            source: Error {
-                key: "remote.<name>.fetch",
-                value: Some(
-                    "+refs/heads/bad[pat]:refs/remotes/heads/bad[pat]",
-                ),
-                environment_override: None,
-                source: Some(
-                    ReferenceName(
-                        InvalidByte {
-                            byte: "[",
-                        },
-                    ),
-                ),
-            },
-        },
+        fetch ref-spec under `remote.third` was invalid, "input"="third"
+        |
+        └─ Could not parse refspec, "input"="+refs/heads/bad[pat]:refs/remotes/heads/bad[pat]", "key"="remote.<name>.fetch"
+        |
+        └─ Reference name contains invalid byte: "["
+        |
+        └─ Reference name contains invalid byte: "[",
     )
     "#);
     Ok(())

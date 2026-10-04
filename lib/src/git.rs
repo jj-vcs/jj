@@ -163,7 +163,7 @@ pub enum GitRemoteNameError {
     #[error("Git remotes with slashes are incompatible with jj: {}", .0.as_symbol())]
     WithSlash(RemoteNameBuf),
     #[error("Invalid Git remote name")]
-    InvalidName(#[from] gix::remote::name::Error),
+    InvalidName(#[from] gix::Error),
 }
 
 fn validate_remote_name(name: &RemoteName) -> Result<(), GitRemoteNameError> {
@@ -1787,7 +1787,7 @@ fn update_git_head(
     git_repo: &gix::Repository,
     expected_ref: gix::refs::transaction::PreviousValue,
     new_oid: Option<gix::ObjectId>,
-) -> Result<(), gix::reference::edit::Error> {
+) -> gix::Result<()> {
     let mut ref_edits = Vec::new();
     let new_target = if let Some(oid) = new_oid {
         gix::refs::Target::Object(oid)
@@ -1982,7 +1982,7 @@ pub enum GitResetHeadError {
     #[error(transparent)]
     Git(Box<dyn std::error::Error + Send + Sync>),
     #[error("Failed to update Git HEAD ref")]
-    UpdateHeadRef(#[source] Box<gix::reference::edit::Error>),
+    UpdateHeadRef(#[source] gix::Error),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
@@ -2034,7 +2034,7 @@ pub async fn reset_head(
         };
         let new_oid = new_head_target.as_normal().map(owned_oid_from_commit_id);
         update_git_head(&git_repo, expected_ref, new_oid)
-            .map_err(|err| GitResetHeadError::UpdateHeadRef(err.into()))?;
+            .map_err(GitResetHeadError::UpdateHeadRef)?;
         mut_repo.set_git_head_target(workspace_name, new_head_target);
     }
 
@@ -2592,7 +2592,7 @@ pub fn try_find_active_remote<'a>(
 fn try_find_active_remote_inner<'a>(
     git_repo: &'a gix::Repository,
     name: &RemoteName,
-) -> Option<Result<gix::Remote<'a>, gix::remote::find::Error>> {
+) -> Option<gix::Result<gix::Remote<'a>>> {
     // Since gix v0.86.0, try_find_remote() no longer filters out remotes
     // without configured URLs.
     git_repo
@@ -2921,7 +2921,7 @@ pub enum GitDefaultRefspecError {
     #[error("No git remote named '{}'", .0.as_symbol())]
     NoSuchRemote(RemoteNameBuf),
     #[error("Invalid configuration for remote `{}`", .0.as_symbol())]
-    InvalidRemoteConfiguration(RemoteNameBuf, #[source] Box<gix::remote::find::Error>),
+    InvalidRemoteConfiguration(RemoteNameBuf, #[source] gix::Error),
 }
 
 struct FetchedRefs {
@@ -3171,7 +3171,7 @@ pub fn load_default_fetch_bookmarks(
     let remote = try_find_active_remote_inner(git_repo, remote_name)
         .ok_or_else(|| GitDefaultRefspecError::NoSuchRemote(remote_name.to_owned()))?
         .map_err(|e| {
-            GitDefaultRefspecError::InvalidRemoteConfiguration(remote_name.to_owned(), Box::new(e))
+            GitDefaultRefspecError::InvalidRemoteConfiguration(remote_name.to_owned(), e)
         })?;
 
     let remote_refspecs = remote.refspecs(gix::remote::Direction::Fetch);
