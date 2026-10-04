@@ -5660,12 +5660,8 @@ to do with signing commits on modification of a change (e.g., rebasing or edits)
 <li><code>force</code>: sign all commits after modification, always, even if you are not the
   author.</li>
 </ul>
-<p>Instead of signing all commits during creation when <code>signing.behavior</code> is
-set to <code>own</code>, the <code>git.sign-on-push</code> configuration can be used to sign
-commits only upon running <code>jj git push</code>. All mutable unsigned commits
-being pushed will be signed prior to pushing. This might be preferred if the
-signing backend requires user interaction or is slow, so that signing is
-performed in a single batch operation.</p>
+<p>To sign commits only when pushing, set <code>signing.behavior = "drop"</code> and
+<code>git.sign-on-push = true</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Configure signing backend as before, but lazily signing only on push.</span>
 <span class="k">[signing]</span>
 <span class="n">behavior</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;drop&quot;</span>
@@ -5675,6 +5671,14 @@ performed in a single batch operation.</p>
 <span class="k">[git]</span>
 <span class="n">sign-on-push</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </code></pre></div>
+<p>With this setup, commits are not signed when they are created or rewritten. At
+push time, <code>git.sign-on-push</code> only signs commits that are not yet signed (that
+are mutable and authored by you, behaving like <code>own</code> even though write-time
+signing uses <code>drop</code>).</p>
+<p>This is useful when the signing backend requires user interaction or is slow,
+because the signing work is deferred to push time. If <code>signing.behavior</code> is set
+to <code>own</code> or <code>force</code>, commits may already be signed when written, and
+<code>git.sign-on-push</code> would have little or nothing left to sign.</p>
 <h2 id="commit-signature-verification">Commit Signature Verification<a class="headerlink" href="#commit-signature-verification" title="Permanent link">&para;</a></h2>
 <p>By default signature verification and display is <strong>disabled</strong> as it incurs a
 performance cost when rendering medium to large change logs. You can enable it
