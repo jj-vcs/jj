@@ -23,10 +23,10 @@ use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
 use jj_lib::commit::Commit;
-use jj_lib::fileset;
 use jj_lib::fileset::FilesetExpression;
-use jj_lib::fileset::FilesetParseContext;
+use jj_lib::fileset_parser;
 use jj_lib::fileset_parser::FilesetDiagnostics;
+use jj_lib::fileset_parser::FilesetParseContext;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
 use jj_lib::fix::LineRange;
@@ -566,7 +566,7 @@ fn get_tools_config(
             let expression = FilesetExpression::union_all(
                 tool.patterns
                     .iter()
-                    .map(|arg| fileset::parse(&mut diagnostics, arg, fileset_context))
+                    .map(|arg| fileset_parser::parse(&mut diagnostics, arg, fileset_context))
                     .try_collect()?,
             );
             if tool.line_range_args.is_empty() && tool.run_tool_if_zero_line_ranges {

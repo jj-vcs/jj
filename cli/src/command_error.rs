@@ -31,7 +31,7 @@ use jj_lib::config::ConfigMigrateError;
 use jj_lib::converge::ConvergeError;
 use jj_lib::dsl_util::Diagnostics;
 use jj_lib::evolution::WalkPredecessorsError;
-use jj_lib::fileset::FilePatternParseError;
+use jj_lib::fileset_parser::FilePatternParseError;
 use jj_lib::fileset_parser::FilesetParseError;
 use jj_lib::fileset_parser::FilesetParseErrorKind;
 use jj_lib::fix::FixError;

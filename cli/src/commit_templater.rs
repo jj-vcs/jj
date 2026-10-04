@@ -47,10 +47,10 @@ use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyRecords;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::extensions_map::ExtensionsMap;
-use jj_lib::fileset;
 use jj_lib::fileset::FilesetExpression;
-use jj_lib::fileset::FilesetParseContext;
+use jj_lib::fileset_parser;
 use jj_lib::fileset_parser::FilesetDiagnostics;
+use jj_lib::fileset_parser::FilesetParseContext;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::id_prefix::IdPrefixIndex;
 use jj_lib::index::IndexResult;
@@ -1511,9 +1511,10 @@ fn expect_fileset_literal(
     template_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let text = template_parser::expect_string_literal(node)?;
         let mut inner_diagnostics = FilesetDiagnostics::new();
-        let expression = fileset::parse(&mut inner_diagnostics, text, context).map_err(|err| {
-            TemplateParseError::expression("In fileset expression", node.span).with_source(err)
-        })?;
+        let expression =
+            fileset_parser::parse(&mut inner_diagnostics, text, context).map_err(|err| {
+                TemplateParseError::expression("In fileset expression", node.span).with_source(err)
+            })?;
         diagnostics.extend_with(inner_diagnostics, |diag| {
             TemplateParseError::expression("In fileset expression", node.span).with_source(diag)
         });

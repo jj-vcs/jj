@@ -74,11 +74,11 @@ use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::default_backend_factories::default_backend_factories;
 use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_workspace_loader_factory;
-use jj_lib::fileset;
 use jj_lib::fileset::FilesetExpression;
-use jj_lib::fileset::FilesetParseContext;
+use jj_lib::fileset_parser;
 use jj_lib::fileset_parser::FilesetAliasesMap;
 use jj_lib::fileset_parser::FilesetDiagnostics;
+use jj_lib::fileset_parser::FilesetParseContext;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
@@ -1626,7 +1626,7 @@ to the current parents may contain changes from multiple commits.
         let context = self.env.fileset_parse_context();
         let expressions: Vec<_> = file_args
             .iter()
-            .map(|arg| fileset::parse_maybe_bare(&mut diagnostics, arg, &context))
+            .map(|arg| fileset_parser::parse_maybe_bare(&mut diagnostics, arg, &context))
             .try_collect()?;
         print_parse_diagnostics(ui, "In fileset expression", &diagnostics)?;
         Ok(FilesetExpression::union_all(expressions))
@@ -1636,7 +1636,7 @@ to the current parents may contain changes from multiple commits.
         let mut diagnostics = FilesetDiagnostics::new();
         let pattern = self.settings().get_string("snapshot.auto-track")?;
         let context = self.env.fileset_parse_context_for_config();
-        let expression = fileset::parse(&mut diagnostics, &pattern, &context)?;
+        let expression = fileset_parser::parse(&mut diagnostics, &pattern, &context)?;
         print_parse_diagnostics(ui, "In `snapshot.auto-track`", &diagnostics)?;
         Ok(expression.to_matcher())
     }

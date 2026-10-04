@@ -40,11 +40,11 @@ use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::dsl_util;
 use crate::dsl_util::collect_similar;
-use crate::fileset;
 use crate::fileset::FilesetExpression;
-use crate::fileset::FilesetParseContext;
+use crate::fileset_parser;
 use crate::fileset_parser::FilesetAliasesMap;
 use crate::fileset_parser::FilesetDiagnostics;
+use crate::fileset_parser::FilesetParseContext;
 use crate::graph::GraphNode;
 use crate::id_prefix::IdPrefixContext;
 use crate::id_prefix::IdPrefixIndex;
@@ -1334,7 +1334,7 @@ pub fn expect_fileset_expression(
     // weird, we can either transform AST or turn off revset aliases completely.
     revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let mut inner_diagnostics = FilesetDiagnostics::new();
-        let expression = fileset::parse(&mut inner_diagnostics, node.span.as_str(), context)
+        let expression = fileset_parser::parse(&mut inner_diagnostics, node.span.as_str(), context)
             .map_err(|err| {
                 RevsetParseError::expression("In fileset expression", node.span).with_source(err)
             })?;
