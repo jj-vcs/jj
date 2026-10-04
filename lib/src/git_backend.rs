@@ -517,8 +517,9 @@ impl GitBackend {
         let locked_repo = self.lock_git_repo();
         let git_blob_id = validate_git_object_id(&locked_repo, id)?;
         let mut blob = locked_repo
-            .find_object(git_blob_id)
-            .map_err(|err| map_not_found_err(err, id))?
+            .try_find_object(git_blob_id)
+            .map_err(|err| to_read_object_err(err, id))?
+            .ok_or_else(|| not_found_err(id))?
             .try_into_blob()
             .map_err(|err| to_read_object_err(err, id))?;
         Ok(blob.take_data())
@@ -558,12 +559,13 @@ impl GitBackend {
     ) -> BackendResult<gix::Tree<'repo>> {
         let tree = self.read_commit(id).block_on()?.root_tree;
         // TODO(kfm): probably want to do something here if it is a merge
-        let tree_id = tree.first().clone();
-        let gix_id = validate_git_object_id(repo, &tree_id)?;
-        repo.find_object(gix_id)
-            .map_err(|err| map_not_found_err(err, &tree_id))?
+        let tree_id = tree.first();
+        let gix_id = validate_git_object_id(repo, tree_id)?;
+        repo.try_find_object(gix_id)
+            .map_err(|err| to_read_object_err(err, tree_id))?
+            .ok_or_else(|| not_found_err(tree_id))?
             .try_into_tree()
-            .map_err(|err| to_read_object_err(err, &tree_id))
+            .map_err(|err| to_read_object_err(err, tree_id))
     }
 
     // Similar to gix's write_blob, but compute the hash outside our lock to
@@ -1002,15 +1004,11 @@ fn validate_git_object_id(
     }
 }
 
-fn map_not_found_err(err: gix::object::find::existing::Error, id: &impl ObjectId) -> BackendError {
-    if matches!(err, gix::object::find::existing::Error::NotFound { .. }) {
-        BackendError::ObjectNotFound {
-            object_type: id.object_type(),
-            hash: id.hex(),
-            source: Some(Box::new(err)),
-        }
-    } else {
-        to_read_object_err(err, id)
+fn not_found_err(id: &impl ObjectId) -> BackendError {
+    BackendError::ObjectNotFound {
+        object_type: id.object_type(),
+        hash: id.hex(),
+        source: None,
     }
 }
 
@@ -1047,8 +1045,9 @@ fn import_extra_metadata_entries_from_heads(
         .collect_vec();
     while let Some(id) = work_ids.pop() {
         let git_object = git_repo
-            .find_object(validate_git_object_id(git_repo, &id)?)
-            .map_err(|err| map_not_found_err(err, &id))?;
+            .try_find_object(validate_git_object_id(git_repo, &id)?)
+            .map_err(|err| to_read_object_err(err, &id))?
+            .ok_or_else(|| not_found_err(&id))?;
         let is_shallow = shallow_roots.contains(&id);
         // TODO(#1624): Should we read the root tree here and check if it has a
         // `.jjconflict-...` entries? That could happen if the user used `git` to e.g.
@@ -1128,8 +1127,9 @@ impl Backend for GitBackend {
         let locked_repo = self.lock_git_repo();
         let git_blob_id = validate_git_object_id(&locked_repo, id)?;
         let mut blob = locked_repo
-            .find_object(git_blob_id)
-            .map_err(|err| map_not_found_err(err, id))?
+            .try_find_object(git_blob_id)
+            .map_err(|err| to_read_object_err(err, id))?
+            .ok_or_else(|| not_found_err(id))?
             .try_into_blob()
             .map_err(|err| to_read_object_err(err, id))?;
         let target = String::from_utf8(blob.take_data())
@@ -1168,8 +1168,9 @@ impl Backend for GitBackend {
         let locked_repo = self.lock_git_repo();
         let git_tree_id = validate_git_object_id(&locked_repo, id)?;
         let git_tree = locked_repo
-            .find_object(git_tree_id)
-            .map_err(|err| map_not_found_err(err, id))?
+            .try_find_object(git_tree_id)
+            .map_err(|err| to_read_object_err(err, id))?
+            .ok_or_else(|| not_found_err(id))?
             .try_into_tree()
             .map_err(|err| to_read_object_err(err, id))?;
         let mut entries: Vec<_> = git_tree
@@ -1289,8 +1290,9 @@ impl Backend for GitBackend {
             let locked_repo = self.lock_git_repo();
             let git_commit_id = validate_git_object_id(&locked_repo, id)?;
             let git_object = locked_repo
-                .find_object(git_commit_id)
-                .map_err(|err| map_not_found_err(err, id))?;
+                .try_find_object(git_commit_id)
+                .map_err(|err| to_read_object_err(err, id))?
+                .ok_or_else(|| not_found_err(id))?;
             let is_shallow = self.shallow_root_ids(&locked_repo)?.contains(id);
             commit_from_git_without_root_parent(id, &git_object, is_shallow)?
         };

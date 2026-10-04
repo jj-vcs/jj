@@ -167,7 +167,6 @@ fn test_edit_current_wc_commit_missing() {
     Caused by:
     1: Current working-copy commit not found
     2: Object 68a505386f936fff6d718f55005e77ea72589bc1 of type commit not found
-    3: An object with id 68a505386f936fff6d718f55005e77ea72589bc1 could not be found
     [EOF]
     [exit status: 255]
     ");

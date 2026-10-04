@@ -1073,11 +1073,10 @@ fn test_op_recover_from_bad_gc() -> TestResult {
         .success();
 
     let output = work_dir.run_jj(["--at-op", head_op_id, "debug", "reindex"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Internal error: Failed to index commits at operation ed13d7dc6cbe8904f205438fa5c7462eb06dc0b81f24d90a2d0976d1c08c72435e680e9e4aa445634b069e5641329efb97a6c73707cd8936d6129d1a0fb4da7c
-    Caused by:
-    1: Object 4e123bae951c3216a145dbcd56d60522739d362e of type commit not found
+    Caused by: Object 4e123bae951c3216a145dbcd56d60522739d362e of type commit not found
     [EOF]
     [exit status: 255]
     ");
