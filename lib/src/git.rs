@@ -1357,24 +1357,20 @@ pub fn export_some_refs(
         let Ok(head_ref) = git_repo.find_reference("HEAD") else {
             return Ok(());
         };
-        let target_name = head_ref.target().try_name().map(|name| name.to_owned());
-        if let Some((kind, symbol)) = target_name
-            .as_ref()
-            .and_then(|name| str::from_utf8(name.as_bstr()).ok())
-            .and_then(|name| parse_git_ref(name.as_ref()))
+        let old_target = head_ref.inner.target;
+        if let Some(target_name) = old_target.try_name()
+            && let Ok(target_name_str) = str::from_utf8(target_name.as_bstr())
+            && let Some((kind, symbol)) = parse_git_ref(target_name_str.as_ref())
         {
-            let old_target = head_ref.inner.target.clone();
-            let current_oid = match head_ref.into_fully_peeled_id() {
-                Ok(id) => Some(id.detach()),
-                Err(gix::reference::peel::Error::ToId(
-                    gix::refs::peel::to_id::Error::FollowToObject(
-                        gix::refs::peel::to_object::Error::Follow(
-                            gix::refs::file::find::existing::Error::NotFound { .. },
-                        ),
-                    ),
-                )) => None, // Unborn ref should be considered absent
-                Err(err) => return Err(GitExportError::from_git(err)),
-            };
+            // Unborn ref is mapped to None (= absent)
+            let maybe_target_ref = git_repo
+                .try_find_reference(target_name)
+                .map_err(GitExportError::from_git)?;
+            let current_oid = maybe_target_ref
+                .map(|target_ref| target_ref.into_fully_peeled_id())
+                .transpose()
+                .map_err(GitExportError::from_git)?
+                .map(|id| id.detach());
             let refs = match kind {
                 GitRefKind::Bookmark => &bookmarks,
                 GitRefKind::Tag => &tags,
