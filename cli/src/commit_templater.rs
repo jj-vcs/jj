@@ -151,7 +151,7 @@ pub struct CommitTemplateLanguage<'repo> {
     immutable_expression: Arc<UserRevsetExpression>,
     conflict_marker_style: ConflictMarkerStyle,
     build_fn_table: CommitTemplateBuildFnTable<'repo>,
-    keyword_cache: CommitKeywordCache<'repo>,
+    keyword_cache: CommitKeywordCache,
     cache_extensions: ExtensionsMap,
 }
 
@@ -421,7 +421,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         &self.workspace_name
     }
 
-    pub fn keyword_cache(&self) -> &CommitKeywordCache<'repo> {
+    pub fn keyword_cache(&self) -> &CommitKeywordCache {
         &self.keyword_cache
     }
 
@@ -1021,15 +1021,15 @@ impl CommitTemplateBuildFnTable<'_> {
 }
 
 #[derive(Default)]
-pub struct CommitKeywordCache<'repo> {
+pub struct CommitKeywordCache {
     // Build index lazily, and Rc to get away from &self lifetime.
     bookmarks_index: OnceCell<Rc<CommitRefsIndex>>,
     tags_index: OnceCell<Rc<CommitRefsIndex>>,
     git_refs_index: OnceCell<Rc<CommitRefsIndex>>,
-    is_immutable_fn: OnceCell<Rc<RevsetContainingFn<'repo>>>,
+    is_immutable_fn: OnceCell<Rc<RevsetContainingFn<'static>>>,
 }
 
-impl<'repo> CommitKeywordCache<'repo> {
+impl CommitKeywordCache {
     pub fn bookmarks_index(&self, repo: &dyn Repo) -> &Rc<CommitRefsIndex> {
         self.bookmarks_index
             .get_or_init(|| Rc::new(build_local_remote_refs_index(repo.view().bookmarks())))
@@ -1047,9 +1047,9 @@ impl<'repo> CommitKeywordCache<'repo> {
 
     pub fn is_immutable_fn(
         &self,
-        language: &CommitTemplateLanguage<'repo>,
+        language: &CommitTemplateLanguage,
         span: pest::Span<'_>,
-    ) -> TemplateParseResult<&Rc<RevsetContainingFn<'repo>>> {
+    ) -> TemplateParseResult<&Rc<RevsetContainingFn<'static>>> {
         // Alternatively, a negated (i.e. visible mutable) set could be computed.
         // It's usually smaller than the immutable set. The revset engine can also
         // optimize "::<recent_heads>" query to use bitset-based implementation.
@@ -1453,11 +1453,11 @@ fn expect_fileset_literal(
     })
 }
 
-fn evaluate_revset_expression<'repo>(
-    language: &CommitTemplateLanguage<'repo>,
+fn evaluate_revset_expression(
+    language: &CommitTemplateLanguage,
     span: pest::Span<'_>,
     expression: &UserRevsetExpression,
-) -> Result<Box<dyn Revset + 'repo>, TemplateParseError> {
+) -> Result<Box<dyn Revset>, TemplateParseError> {
     let make_error = || TemplateParseError::expression("Failed to evaluate revset", span);
     let repo = language.repo;
     let symbol_resolver = revset_util::default_symbol_resolver(
@@ -1473,12 +1473,12 @@ fn evaluate_revset_expression<'repo>(
     Ok(revset)
 }
 
-fn evaluate_user_revset<'repo>(
-    language: &CommitTemplateLanguage<'repo>,
+fn evaluate_user_revset(
+    language: &CommitTemplateLanguage,
     diagnostics: &mut TemplateDiagnostics,
     span: pest::Span<'_>,
     revset: &str,
-) -> Result<Box<dyn Revset + 'repo>, TemplateParseError> {
+) -> Result<Box<dyn Revset>, TemplateParseError> {
     let mut inner_diagnostics = RevsetDiagnostics::new();
     let expression = revset::parse(
         &mut inner_diagnostics,

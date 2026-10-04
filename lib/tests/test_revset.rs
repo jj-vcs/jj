@@ -119,10 +119,7 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
     }
 }
 
-fn revset_for_commits<'index>(
-    repo: &'index dyn Repo,
-    commits: &[&Commit],
-) -> Box<dyn Revset + 'index> {
+fn revset_for_commits(repo: &dyn Repo, commits: &[&Commit]) -> Box<dyn Revset> {
     let symbol_resolver = default_symbol_resolver(repo);
     RevsetExpression::commits(commits.iter().map(|commit| commit.id().clone()).collect())
         .resolve_user_expression(repo, &symbol_resolver)
@@ -1088,10 +1085,10 @@ fn try_resolve_commit_ids(
         .block_on())
 }
 
-fn try_evaluate_expression<'index>(
-    repo: &'index dyn Repo,
+fn try_evaluate_expression(
+    repo: &dyn Repo,
     revset_str: &str,
-) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
     try_resolve_expression(repo, revset_str).unwrap().evaluate()
 }
 

@@ -2702,11 +2702,11 @@ pub fn optimize<St: ExpressionState>(
 // TODO: find better place to host this function (or add compile-time revset
 // parsing and resolution like
 // `revset!("{unwanted}..{wanted}").evaluate(repo)`?)
-pub fn walk_revs<'index>(
-    repo: &'index dyn Repo,
+pub fn walk_revs(
+    repo: &dyn Repo,
     wanted: &[CommitId],
     unwanted: &[CommitId],
-) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
     RevsetExpression::commits(unwanted.to_vec())
         .range(&RevsetExpression::commits(wanted.to_vec()))
         .evaluate(repo)

@@ -273,7 +273,7 @@ impl<'repo> Bisector<'repo> {
     /// Returns the evaluated revset representing the remaining candidate
     /// commits. Can be used for getting an estimate of how many commits are
     /// left to evaluate.
-    pub async fn remaining_revset(&self) -> Result<Box<dyn Revset + 'repo>, BisectionError> {
+    pub async fn remaining_revset(&self) -> Result<Box<dyn Revset>, BisectionError> {
         Ok(self.candidates().evaluate(self.repo)?)
     }
 

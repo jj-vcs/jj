@@ -781,7 +781,7 @@ struct CommitsValidator<'repo> {
     repo: &'repo dyn Repo,
     known_heads: Vec<CommitId>,
     immutable_heads: Arc<ResolvedRevsetExpression>,
-    private_commits: Option<(String, Box<RevsetContainingFn<'repo>>)>,
+    private_commits: Option<(String, Box<RevsetContainingFn<'static>>)>,
     allow_empty_description: bool,
     allow_conflicts: bool,
 }
