@@ -2032,7 +2032,7 @@ Show a tutorial to get started with jj</li>
 <li>
 <p><code dir="auto">-T</code>, <code dir="auto">--template &#x3C;TEMPLATE></code> — Render each revision using the given template</p>
 <p>Run <code dir="auto">jj log -T</code> to list the built-in templates.</p>
-<p>You can also specify arbitrary template expressions using the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-keywords">built-in keywords</a>. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>All 0-argument methods of the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-type"><code dir="auto">Commit</code> type</a> are available as keywords in the template expression. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
 <p>If not specified, this defaults to the <code dir="auto">templates.log</code> setting.</p>
 </li>
 <li>
@@ -2305,7 +2305,8 @@ the current working copy revision.</p>
 </li>
 <li>
 <p><code dir="auto">-T</code>, <code dir="auto">--template &#x3C;TEMPLATE></code> — Render each operation using the given template</p>
-<p>You can specify arbitrary template expressions using the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-keywords">built-in keywords</a>. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>All 0-argument methods of the <a href="https://docs.jj-vcs.dev/latest/templates/#operation-type"><code dir="auto">Operation</code> type</a> are available as keywords in the template expression. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>If not specified, this defaults to the <code dir="auto">templates.op_log</code> setting.</p>
 </li>
 <li>
 <p><code dir="auto">-d</code>, <code dir="auto">--op-diff</code> — Show changes to the repository at each operation</p>
@@ -2422,7 +2423,8 @@ The remote-tracking bookmarks. Do not restore these if you'd like to push after 
 </li>
 <li>
 <p><code dir="auto">-T</code>, <code dir="auto">--template &#x3C;TEMPLATE></code> — Render the operation using the given template</p>
-<p>You can specify arbitrary template expressions using the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-keywords">built-in keywords</a>. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>All 0-argument methods of the <a href="https://docs.jj-vcs.dev/latest/templates/#operation-type"><code dir="auto">Operation</code> type</a> are available as keywords in the template expression. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>If not specified, this defaults to the <code dir="auto">templates.op_show</code> setting.</p>
 </li>
 <li>
 <p><code dir="auto">-p</code>, <code dir="auto">--patch</code> — Show patch of modifications to changes</p>
@@ -2818,7 +2820,8 @@ Clear all files from the workspace (it will be empty)</li>
 </li>
 <li>
 <p><code dir="auto">-T</code>, <code dir="auto">--template &#x3C;TEMPLATE></code> — Render each revision using the given template</p>
-<p>You can specify arbitrary template expressions using the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-keywords">built-in keywords</a>. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>All 0-argument methods of the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-type"><code dir="auto">Commit</code> type</a> are available as keywords in the template expression. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>If not specified, this defaults to the <code dir="auto">templates.show</code> setting.</p>
 </li>
 <li>
 <p><code dir="auto">-s</code>, <code dir="auto">--summary</code> — For each path, show only whether it was modified, added, or deleted</p>
