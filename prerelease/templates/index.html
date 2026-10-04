@@ -979,30 +979,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Keywords">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#commit-keywords" class="md-nav__link">
-    <span class="md-ellipsis">
-      Commit keywords
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#operation-keywords" class="md-nav__link">
-    <span class="md-ellipsis">
-      Operation keywords
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -2384,30 +2360,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Keywords">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#commit-keywords" class="md-nav__link">
-    <span class="md-ellipsis">
-      Commit keywords
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#operation-keywords" class="md-nav__link">
-    <span class="md-ellipsis">
-      Operation keywords
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -2903,16 +2855,19 @@ methods.</p>
 <p>A couple of <code>jj</code> commands accept a template via <code>-T</code>/<code>--template</code> option.</p>
 <h2 id="keywords">Keywords<a class="headerlink" href="#keywords" title="Permanent link">&para;</a></h2>
 <p>Keywords represent objects of different types; the types are described in
-a follow-up section. In addition to context-specific keywords, the top-level
-object can be referenced as <code>self</code>.</p>
-<h3 id="commit-keywords">Commit keywords<a class="headerlink" href="#commit-keywords" title="Permanent link">&para;</a></h3>
-<p>In <code>jj log</code> templates, all 0-argument methods of <a href="#commit-type">the <code>Commit</code>
-type</a> are available as keywords. For example, <code>commit_id</code> is
-equivalent to <code>self.commit_id()</code>.</p>
-<h3 id="operation-keywords">Operation keywords<a class="headerlink" href="#operation-keywords" title="Permanent link">&para;</a></h3>
-<p>In <code>jj op log</code> templates, all 0-argument methods of <a href="#operation-type">the <code>Operation</code>
-type</a> are available as keywords. For example,
-<code>current_operation</code> is equivalent to <code>self.current_operation()</code>.</p>
+the following sections. The top-level object for a template can always be
+referenced as <code>self</code>. Its concrete type depends on the command (and is
+documented on each command's <code>--template</code> help).</p>
+<p>In any template, all 0-argument methods of that top-level <code>self</code> type are
+available as keywords. For example:</p>
+<ul>
+<li>In <code>jj log</code>, <code>self</code> is <a href="#commit-type">the <code>Commit</code> type</a>, so <code>commit_id</code> is
+  equivalent to <code>self.commit_id()</code>.</li>
+<li>In <code>jj op log</code>, <code>self</code> is <a href="#operation-type">the <code>Operation</code> type</a>, so
+  <code>current_operation</code> is equivalent to <code>self.current_operation()</code>.</li>
+<li>In <code>jj file list</code>, <code>self</code> is <a href="#treeentry-type">the <code>TreeEntry</code> type</a>, so
+  <code>path</code> is equivalent to <code>self.path()</code>.</li>
+</ul>
 <h2 id="operators">Operators<a class="headerlink" href="#operators" title="Permanent link">&para;</a></h2>
 <p>The following operators are supported. <code>x</code> and <code>y</code> below can be any expression.</p>
 <p>Operators are listed in order of binding power from strongest to weakest, e.g.

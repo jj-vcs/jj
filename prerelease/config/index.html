@@ -2018,6 +2018,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#environment-variable-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment variable overrides
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#specifying-config-on-the-command-line" class="md-nav__link">
     <span class="md-ellipsis">
       Specifying config on the command-line
@@ -4167,6 +4176,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#environment-variable-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment variable overrides
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#specifying-config-on-the-command-line" class="md-nav__link">
     <span class="md-ellipsis">
       Specifying config on the command-line
@@ -4271,6 +4289,10 @@
   located inside the workspace.</p>
 </li>
 <li>
+<p>Settings from <a href="#environment-variable-overrides">environment variable overrides</a>
+  (for example <code>$JJ_USER</code> / <code>$JJ_EMAIL</code>).</p>
+</li>
+<li>
 <p>Settings <a href="#specifying-config-on-the-command-line">specified on the command-line</a>.</p>
 </li>
 </ul>
@@ -4346,6 +4368,16 @@ want.</p>
 <span class="n">email</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;YOUR_EMAIL@example.com&quot;</span>
 </code></pre></div>
 <p>Don't forget to change these to your own details!</p>
+<p>These can also be set with environment variables (handy with tools like
+<a href="https://direenv.net/">direnv</a>):</p>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">JJ_USER</span><span class="o">=</span><span class="s2">&quot;Your Name&quot;</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">JJ_EMAIL</span><span class="o">=</span><span class="s2">&quot;you@example.com&quot;</span>
+</code></pre></div>
+<p><code>$JJ_USER</code> overrides <code>user.name</code> and <code>$JJ_EMAIL</code> overrides <code>user.email</code>. They
+take precedence over values in config files (but not over <code>--config</code> /
+<code>--config-file</code>). See <a href="#environment-variable-overrides">Environment variable overrides</a>
+for the full list. For directory-based switching without env vars, use
+<a href="#conditional-variables">conditional variables</a>.</p>
 <h2 id="ui-settings">UI settings<a class="headerlink" href="#ui-settings" title="Permanent link">&para;</a></h2>
 <h3 id="colorizing-output">Colorizing output<a class="headerlink" href="#colorizing-output" title="Permanent link">&para;</a></h3>
 <p>Possible values are <code>always</code>, <code>never</code>, <code>debug</code> and <code>auto</code> (default: <code>auto</code>).
@@ -6135,6 +6167,49 @@ config files:</p>
 </ul>
 </li>
 </ul>
+<h3 id="environment-variable-overrides">Environment variable overrides<a class="headerlink" href="#environment-variable-overrides" title="Permanent link">&para;</a></h3>
+<p>Besides <code>$JJ_CONFIG</code> (which controls <a href="#user-config-files">where user config files are loaded
+from</a>), these environment variables override individual
+config keys. They take precedence over config files and are themselves
+overridden by <code>--config</code> / <code>--config-file</code>.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Variable</th>
+<th style="text-align: left;">Config key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>$JJ_USER</code></td>
+<td style="text-align: left;"><code>user.name</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$JJ_EMAIL</code></td>
+<td style="text-align: left;"><code>user.email</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$JJ_EDITOR</code></td>
+<td style="text-align: left;"><code>ui.editor</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$JJ_PAGER</code></td>
+<td style="text-align: left;"><code>ui.pager</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$JJ_OP_HOSTNAME</code></td>
+<td style="text-align: left;"><code>operation.hostname</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$JJ_OP_USERNAME</code></td>
+<td style="text-align: left;"><code>operation.username</code></td>
+</tr>
+</tbody>
+</table>
+<p>A few other variables act as fallbacks when no matching config is set (for
+example <code>$VISUAL</code> / <code>$EDITOR</code> for the editor, and <code>$NO_COLOR</code> for color), rather
+than hard overrides of configured values. See <a href="#editor">Editor</a> and
+<a href="#colorizing-output">Colorizing output</a>.</p>
 <h3 id="specifying-config-on-the-command-line">Specifying config on the command-line<a class="headerlink" href="#specifying-config-on-the-command-line" title="Permanent link">&para;</a></h3>
 <p>You can use one or more <code>--config</code>/<code>--config-file</code> options on the command line
 to specify additional configuration settings. This overrides settings defined in
