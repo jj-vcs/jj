@@ -583,14 +583,17 @@ impl TableStore {
     #[tracing::instrument(skip(self, head))]
     pub fn gc(&self, head: &Arc<ReadonlyTable>, keep_newer: SystemTime) -> Result<(), PathError> {
         let read_locked_cache = self.cached_tables.read().unwrap();
-        let reachable_tables: HashSet<&str> = itertools::chain(
-            head.ancestor_segments(),
-            // Also preserve cached segments so these segments can still be
-            // loaded from the disk.
-            read_locked_cache.values(),
-        )
-        .map(|table| table.name())
-        .collect();
+        let mut reachable_tables = HashSet::new();
+        // A cached table can come from another store without its ancestors
+        // having been loaded into this cache. Traverse every root's closure,
+        // stopping once an already traversed ancestor is reached.
+        for root in iter::once(head).chain(read_locked_cache.values()) {
+            for table in root.ancestor_segments() {
+                if !reachable_tables.insert(table.name()) {
+                    break;
+                }
+            }
+        }
 
         let remove_file_if_not_new = |entry: &fs::DirEntry| -> Result<(), PathError> {
             let path = entry.path();
@@ -902,6 +905,51 @@ mod tests {
             "expected child head marker {:?}, found {head_files:?}",
             child_table.name()
         );
+        Ok(())
+    }
+
+    #[test]
+    fn stacked_table_gc_preserves_cached_ancestors() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let writer = TableStore::init(temp_dir.path().to_path_buf(), 1);
+        let mut base = writer.get_head()?.start_mutation();
+        for id in 0..3u8 {
+            base.add_entry(vec![id], vec![id]);
+        }
+        let base = writer.save_table(base)?;
+        let mut child = base.start_mutation();
+        child.add_entry(vec![3], vec![3]);
+        let child = writer.save_table(child)?;
+        assert_eq!(child.parent_file.as_ref().unwrap().name(), base.name());
+
+        // An empty save returns the foreign Arc directly. Its parent segments
+        // have never been loaded through the collecting store's cache.
+        let collector = TableStore::load(temp_dir.path().to_path_buf(), 1);
+        let cached = collector.save_table(child.start_mutation())?;
+        assert!(Arc::ptr_eq(&cached, &child));
+        let mut unrelated = MutableTable::full(1);
+        unrelated.add_entry(vec![255], vec![42]);
+        collector.save_table(unrelated)?;
+        let (head, _lock) = collector.get_head_locked()?;
+        assert!(head.parent_file.is_none());
+        assert!(
+            !collector
+                .cached_tables
+                .read()
+                .unwrap()
+                .contains_key(base.name())
+        );
+        let cutoff = SystemTime::now() + std::time::Duration::from_secs(3600);
+        collector.gc(&head, cutoff)?;
+
+        // Preserving the cached child's file also requires preserving the
+        // parent file needed to load that child through a fresh store handle.
+        assert!(temp_dir.path().join(cached.name()).exists());
+        let fresh = TableStore::load(temp_dir.path().to_path_buf(), 1);
+        let reloaded = fresh.load_table(cached.name().to_owned())?;
+        for id in 0..4u8 {
+            assert_eq!(reloaded.get_value(&[id]), Some([id].as_slice()));
+        }
         Ok(())
     }
 
