@@ -80,6 +80,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Missing Git objects in partial clones now produce a user-facing error
+  explaining that the Git backend does not fetch promisor objects.
+  [#10091](https://github.com/jj-vcs/jj/issues/10091)
+
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
   such as `ssh` asking for a key passphrase or for confirmation of an unknown
   host key. Subprocesses started from a terminal now inherit its console, rather

@@ -518,7 +518,7 @@ impl GitBackend {
         let git_blob_id = validate_git_object_id(&locked_repo, id)?;
         let mut blob = locked_repo
             .find_object(git_blob_id)
-            .map_err(|err| map_not_found_err(err, id))?
+            .map_err(|err| map_not_found_err(&locked_repo, err, id))?
             .try_into_blob()
             .map_err(|err| to_read_object_err(err, id))?;
         Ok(blob.take_data())
@@ -561,7 +561,7 @@ impl GitBackend {
         let tree_id = tree.first().clone();
         let gix_id = validate_git_object_id(repo, &tree_id)?;
         repo.find_object(gix_id)
-            .map_err(|err| map_not_found_err(err, &tree_id))?
+            .map_err(|err| map_not_found_err(repo, err, &tree_id))?
             .try_into_tree()
             .map_err(|err| to_read_object_err(err, &tree_id))
     }
@@ -1002,16 +1002,45 @@ fn validate_git_object_id(
     }
 }
 
-fn map_not_found_err(err: gix::object::find::existing::Error, id: &impl ObjectId) -> BackendError {
+fn map_not_found_err(
+    repo: &gix::Repository,
+    err: gix::object::find::existing::Error,
+    id: &impl ObjectId,
+) -> BackendError {
     if matches!(err, gix::object::find::existing::Error::NotFound { .. }) {
-        BackendError::ObjectNotFound {
-            object_type: id.object_type(),
-            hash: id.hex(),
-            source: Box::new(err),
+        if has_promisor_remote(repo) {
+            BackendError::Unsupported(format!(
+                "Git object {} of type {} is missing in a partial clone. The Git backend does not \
+                 fetch missing objects from promisor remotes; use Git to fetch this object or use \
+                 a full clone",
+                id.hex(),
+                id.object_type()
+            ))
+        } else {
+            BackendError::ObjectNotFound {
+                object_type: id.object_type(),
+                hash: id.hex(),
+                source: Box::new(err),
+            }
         }
     } else {
         to_read_object_err(err, id)
     }
+}
+
+fn has_promisor_remote(repo: &gix::Repository) -> bool {
+    let config = repo.config_snapshot();
+    config
+        .sections_by_name("remote")
+        .into_iter()
+        .flatten()
+        .any(|section| {
+            config
+                .boolean_by("remote", section.header().subsection_name(), "promisor")
+                .ok()
+                .flatten()
+                .unwrap_or(false)
+        })
 }
 
 fn to_read_object_err(
@@ -1048,7 +1077,7 @@ fn import_extra_metadata_entries_from_heads(
     while let Some(id) = work_ids.pop() {
         let git_object = git_repo
             .find_object(validate_git_object_id(git_repo, &id)?)
-            .map_err(|err| map_not_found_err(err, &id))?;
+            .map_err(|err| map_not_found_err(git_repo, err, &id))?;
         let is_shallow = shallow_roots.contains(&id);
         // TODO(#1624): Should we read the root tree here and check if it has a
         // `.jjconflict-...` entries? That could happen if the user used `git` to e.g.
@@ -1129,7 +1158,7 @@ impl Backend for GitBackend {
         let git_blob_id = validate_git_object_id(&locked_repo, id)?;
         let mut blob = locked_repo
             .find_object(git_blob_id)
-            .map_err(|err| map_not_found_err(err, id))?
+            .map_err(|err| map_not_found_err(&locked_repo, err, id))?
             .try_into_blob()
             .map_err(|err| to_read_object_err(err, id))?;
         let target = String::from_utf8(blob.take_data())
@@ -1169,7 +1198,7 @@ impl Backend for GitBackend {
         let git_tree_id = validate_git_object_id(&locked_repo, id)?;
         let git_tree = locked_repo
             .find_object(git_tree_id)
-            .map_err(|err| map_not_found_err(err, id))?
+            .map_err(|err| map_not_found_err(&locked_repo, err, id))?
             .try_into_tree()
             .map_err(|err| to_read_object_err(err, id))?;
         let mut entries: Vec<_> = git_tree
@@ -1290,7 +1319,7 @@ impl Backend for GitBackend {
             let git_commit_id = validate_git_object_id(&locked_repo, id)?;
             let git_object = locked_repo
                 .find_object(git_commit_id)
-                .map_err(|err| map_not_found_err(err, id))?;
+                .map_err(|err| map_not_found_err(&locked_repo, err, id))?;
             let is_shallow = self.shallow_root_ids(&locked_repo)?.contains(id);
             commit_from_git_without_root_parent(id, &git_object, is_shallow)?
         };
@@ -1707,6 +1736,34 @@ mod tests {
         )
         .unwrap()
         .to_thread_local()
+    }
+
+    #[test]
+    fn missing_object_from_promisor_remote_is_user_error() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let mut config = git_config();
+        config.push("remote.origin.promisor = true".into());
+        let repo = gix::ThreadSafeRepository::init_opts(
+            temp_dir.path(),
+            gix::create::Kind::Bare,
+            gix::create::Options::default(),
+            gix::open::Options::isolated()
+                .config_overrides(config)
+                .strict_config(true),
+        )?
+        .to_thread_local();
+        let missing_id = FileId::from_bytes(repo.object_hash().null_ref().as_bytes());
+        let missing_object = repo
+            .find_object(gix::ObjectId::from_bytes_or_panic(missing_id.as_bytes()))
+            .unwrap_err();
+
+        let err = map_not_found_err(&repo, missing_object, &missing_id);
+        assert_matches!(
+            err,
+            BackendError::Unsupported(message)
+                if message.contains("partial clone") && message.contains(&missing_id.hex())
+        );
+        Ok(())
     }
 
     #[test]
