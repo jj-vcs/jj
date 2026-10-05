@@ -100,6 +100,33 @@ approval from someone else anyway. It is of course still appreciated if you
 review and comment on their PRs. Also, if the PR seems completely unrelated to
 your company's interests, do feel free to approve it.
 
+### Changelog entries
+
+When creating PRs, please update [`CHANGELOG.md`][changelog] with the new
+changes under the "Unreleased" section. Make sure to highlight any breaking
+changes or deprecations under the appropriate subsections. If you fixed a bug
+that has a corresponding issue, link the issue with Markdown link format, so
+that the changelog page on the generated docs can point to the actual issue.
+Generally a maintainer will update "Release highlights" during a release as
+needed, but feel free to add your change there if it makes sense. The order in
+each subsection does not really matter. Note that the changelog is also a common
+source of conflicts, since other PRs may have added an entry in the same spot
+you did.
+
+Not every change requires a changelog entry. Generally, changelog entries are
+useful for two reasons:
+
+1. Teach existing users about changes that affect their behavior. For example
+   new features or fixed bugs would be good to know, as well as deprecations.
+2. Attract new users. Maybe there was some limitation (lack of support for
+   something they needed), or maybe a shiny new feature really spoke to them.
+
+By this reasoning, it's not necessary to mention changes that people will simply
+notice when they run into them (or not notice at all), such as a reworded error
+message, backend refactors, or documentation updates.
+
+[changelog]: https://github.com/jj-vcs/jj/blob/main/CHANGELOG.md
+
 ### Community Guidelines
 
 This project follows [Google's Open Source Community
