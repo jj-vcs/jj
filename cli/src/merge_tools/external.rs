@@ -10,9 +10,6 @@ use std::sync::Arc;
 
 use bstr::BString;
 use itertools::Itertools as _;
-use jj_lib::backend::CopyId;
-use jj_lib::backend::MergedTreeValueExt as _;
-use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -191,9 +188,7 @@ async fn run_mergetool_external_single_file(
     tree_builder: &mut MergedTreeBuilder,
 ) -> Result<(), ConflictResolveError> {
     let MergeToolFile {
-        repo_path,
-        conflict,
-        file,
+        repo_path, file, ..
     } = merge_tool_file;
 
     let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
@@ -316,19 +311,10 @@ async fn run_mergetool_external_single_file(
         ));
     }
 
-    let new_tree_value = match new_file_ids.into_resolved() {
-        Ok(file_id) => {
-            let executable = file.executable.expect("should have been resolved");
-            Merge::resolved(file_id.map(|id| TreeValue::File {
-                id,
-                executable,
-                copy_id: CopyId::placeholder(),
-            }))
-        }
-        // Update the file ids only, leaving the executable flags unchanged
-        Err(file_ids) => conflict.with_new_file_ids(&file_ids),
-    };
-    tree_builder.set_or_remove(repo_path.to_owned(), new_tree_value);
+    tree_builder.set_or_remove(
+        repo_path.to_owned(),
+        merge_tool_file.new_tree_value(new_file_ids),
+    );
     Ok(())
 }
 
