@@ -488,6 +488,50 @@ impl MergeEditor {
     }
 }
 
+/// Resolves conflicts in the given files one by one by calling
+/// `resolve_file`, which should record the result in the tree builder passed
+/// to it. If resolving a file fails after at least one file has been
+/// resolved, the partially-resolved tree is returned along with the error so
+/// that the caller can save the resolved files.
+async fn resolve_files_one_by_one(
+    ui: &Ui,
+    path_converter: &RepoPathUiConverter,
+    tree: &MergedTree,
+    merge_tool_files: &[MergeToolFile],
+    resolve_file: impl AsyncFn(
+        &MergeToolFile,
+        &mut MergedTreeBuilder,
+    ) -> Result<(), ConflictResolveError>,
+) -> Result<(MergedTree, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
+    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
+    let mut partial_resolution_error = None;
+    for (i, merge_tool_file) in merge_tool_files.iter().enumerate() {
+        writeln!(
+            ui.status(),
+            "Resolving conflicts in: {}",
+            path_converter.format_file_path(&merge_tool_file.repo_path)
+        )?;
+        match resolve_file(merge_tool_file, &mut tree_builder).await {
+            Ok(()) => {}
+            Err(err) if i == 0 => {
+                // If the first resolution fails, just return the error normally
+                return Err(err);
+            }
+            Err(err) => {
+                // Some conflicts were already resolved, so we should return an error with the
+                // partially-resolved tree so that the caller can save the resolved files.
+                partial_resolution_error = Some(MergeToolPartialResolutionError {
+                    source: err,
+                    resolved_count: i,
+                });
+                break;
+            }
+        }
+    }
+    let new_tree = tree_builder.write_tree().await?;
+    Ok((new_tree, partial_resolution_error))
+}
+
 async fn pick_conflict_side(
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
