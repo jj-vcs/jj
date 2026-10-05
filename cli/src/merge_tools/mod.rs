@@ -21,6 +21,7 @@ use std::sync::Arc;
 use futures::future::try_join_all;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CopyId;
+use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeValue;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::backend::TreeValue;
@@ -365,6 +366,23 @@ impl MergeToolFile {
             file,
         })
     }
+
+    /// Builds the tree value to store for this file given the file ids
+    /// produced by a merge tool. If the file is still conflicted, the
+    /// executable bits are left unchanged.
+    fn new_tree_value(&self, new_file_ids: Merge<Option<FileId>>) -> MergedTreeValue {
+        match new_file_ids.into_resolved() {
+            Ok(file_id) => {
+                let executable = self.file.executable.expect("should have been resolved");
+                Merge::resolved(file_id.map(|id| TreeValue::File {
+                    id,
+                    executable,
+                    copy_id: CopyId::placeholder(),
+                }))
+            }
+            Err(file_ids) => self.conflict.with_new_file_ids(&file_ids),
+        }
+    }
 }
 
 /// Configured 3-way merge editor.
@@ -479,14 +497,8 @@ async fn pick_conflict_side(
     for merge_tool_file in merge_tool_files {
         // We use file IDs here to match the logic for the other external merge tools.
         // This ensures that the behavior is consistent.
-        let file = &merge_tool_file.file;
-        let file_id = file.ids.get_add(add_index).unwrap();
-        let executable = file.executable.expect("should have been resolved");
-        let new_tree_value = Merge::resolved(file_id.clone().map(|id| TreeValue::File {
-            id,
-            executable,
-            copy_id: CopyId::placeholder(),
-        }));
+        let file_id = merge_tool_file.file.ids.get_add(add_index).unwrap();
+        let new_tree_value = merge_tool_file.new_tree_value(Merge::resolved(file_id.clone()));
         tree_builder.set_or_remove(merge_tool_file.repo_path.clone(), new_tree_value);
     }
     tree_builder.write_tree().await
