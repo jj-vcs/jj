@@ -1791,10 +1791,11 @@ impl MutableRepo {
         match heads {
             [] => {}
             [head]
-                if head
-                    .parent_ids()
-                    .iter()
-                    .all(|parent_id| current_heads.contains(parent_id)) =>
+                if !head.parent_ids().is_empty()
+                    && head
+                        .parent_ids()
+                        .iter()
+                        .all(|parent_id| current_heads.contains(parent_id)) =>
             {
                 self.index
                     .add_commit(head)
