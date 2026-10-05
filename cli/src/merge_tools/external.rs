@@ -35,6 +35,7 @@ use super::diff_working_copies::DiffEditWorkingCopies;
 use super::diff_working_copies::DiffType;
 use super::diff_working_copies::check_out_trees;
 use super::diff_working_copies::set_readonly_recursively;
+use super::resolve_files_one_by_one;
 use crate::config::CommandNameAndArgs;
 use crate::config::find_all_variables;
 use crate::config::interpolate_variables;
@@ -328,41 +329,23 @@ pub async fn run_mergetool_external(
 ) -> Result<(MergedTree, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
     // TODO: add support for "dir" invocation mode, similar to the
     // "diff-invocation-mode" config option for diffs
-    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
-    let mut partial_resolution_error = None;
-    for (i, merge_tool_file) in merge_tool_files.iter().enumerate() {
-        writeln!(
-            ui.status(),
-            "Resolving conflicts in: {}",
-            path_converter.format_file_path(&merge_tool_file.repo_path)
-        )?;
-        match run_mergetool_external_single_file(
-            editor,
-            tree.store(),
-            merge_tool_file,
-            default_conflict_marker_style,
-            &mut tree_builder,
-        )
-        .await
-        {
-            Ok(()) => {}
-            Err(err) if i == 0 => {
-                // If the first resolution fails, just return the error normally
-                return Err(err);
-            }
-            Err(err) => {
-                // Some conflicts were already resolved, so we should return an error with the
-                // partially-resolved tree so that the caller can save the resolved files.
-                partial_resolution_error = Some(MergeToolPartialResolutionError {
-                    source: err,
-                    resolved_count: i,
-                });
-                break;
-            }
-        }
-    }
-    let new_tree = tree_builder.write_tree().await?;
-    Ok((new_tree, partial_resolution_error))
+    resolve_files_one_by_one(
+        ui,
+        path_converter,
+        tree,
+        merge_tool_files,
+        async |merge_tool_file, tree_builder| {
+            run_mergetool_external_single_file(
+                editor,
+                tree.store(),
+                merge_tool_file,
+                default_conflict_marker_style,
+                tree_builder,
+            )
+            .await
+        },
+    )
+    .await
 }
 
 pub async fn edit_diff_external(
