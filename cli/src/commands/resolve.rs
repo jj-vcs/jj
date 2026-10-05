@@ -30,18 +30,21 @@ use crate::ui::Ui;
 
 /// Resolve conflicted files with an external merge tool
 ///
-/// Only conflicts that can be resolved with a 3-way merge are supported. See
-/// docs for merge tool configuration instructions. External merge tools will be
-/// invoked for each conflicted file one-by-one until all conflicts are
-/// resolved. To stop resolving conflicts, exit the merge tool without making
-/// any changes.
+/// Only conflicts that can be resolved with a 3-way merge are supported by most
+/// merge tools. See docs for merge tool configuration instructions. External
+/// merge tools will be invoked for each conflicted file one-by-one until all
+/// conflicts are resolved. To stop resolving conflicts, exit the merge tool
+/// without making any changes.
+///
+/// The built-in `:editor` tool opens the conflicted file with conflict markers
+/// in your text editor (`ui.editor`). Conflicts with any number of sides are
+/// supported, and conflict markers left in the file are kept as a partially
+/// resolved conflict.
 ///
 /// Note that conflicts can also be resolved without using this command. You may
 /// edit the conflict markers in the conflicted file directly with a text
 /// editor.
 //  TODOs:
-//   - `jj resolve --editor` to resolve a conflict in the default text editor. Should work for
-//     conflicts with 3+ adds. Useful to resolve conflicts in a commit other than the current one.
 //   - A way to help split commits with conflicts that are too complicated (more than two sides)
 //     into commits with simpler conflicts. In case of a tree with many merges, we could for example
 //     point to existing commits with simpler conflicts where resolving those conflicts would help
@@ -60,8 +63,9 @@ pub(crate) struct ResolveArgs {
 
     /// Specify 3-way merge tool to be used
     ///
-    /// The built-in merge tools `:ours` and `:theirs` can be used to choose
-    /// side #1 and side #2 of the conflict respectively.
+    /// The built-in merge tool `:editor` opens the conflict markers in your
+    /// text editor. The built-in merge tools `:ours` and `:theirs` can be used
+    /// to choose side #1 and side #2 of the conflict respectively.
     #[arg(long, conflicts_with = "list", value_name = "NAME")]
     #[arg(add = ArgValueCandidates::new(complete::merge_editors))]
     tool: Option<String>,

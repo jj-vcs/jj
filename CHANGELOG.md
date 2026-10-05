@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Diff hunk headers now include symbol context even for unsupported languages.
 
+* `jj resolve` gained a built-in `:editor` merge tool that opens the conflicted
+  file with conflict markers in your text editor. Unlike the other merge tools,
+  it supports conflicts with more than two sides.
+
 ### Fixed bugs
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
