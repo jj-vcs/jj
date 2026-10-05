@@ -2866,13 +2866,13 @@ fn test_diff_conflict_sides_differ() {
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
     [38;5;6m<<<<<<< Created conflict[39m
-    [38;5;6m+++++++ left side #1 to right side #1 (zsuskuln 713a980c "left1")[39m
+    [38;5;6m+++++++ left to right side #1 (zsuskuln 713a980c "left1")[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m3.1[24m[39m
          [38;5;2m   4[39m: [4m[38;5;2mleft 3.2[24m[39m
     [38;5;1m   3[39m [38;5;2m   5[39m: [4m[38;5;2mleft 3.[24m[39m3
-    [38;5;6m------- left side #1 to right base #1 (rlvkpnrz aa7e33ed "base")[39m
+    [38;5;6m------- left to right base #1 (rlvkpnrz aa7e33ed "base")[39m
     [2m[38;5;2m   3[0m [2m[38;5;1m   3[0m: line 3
-    [38;5;6m+++++++ left side #1 to right side #2 (vruxwmqv 3fe2e860 "right1")[39m
+    [38;5;6m+++++++ left to right side #2 (vruxwmqv 3fe2e860 "right1")[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mline[38;5;2mright[24m[39m 3[4m[38;5;2m.1[24m[39m
     [38;5;6m>>>>>>> Conflict ends[39m
     [2m[38;5;1m   4[0m [2m[38;5;2m   6[0m: line 4
@@ -2925,13 +2925,13 @@ fn test_diff_conflict_sides_differ() {
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
     [38;5;6m<<<<<<< Resolved conflict[39m
-    [38;5;6m+++++++ left side #1 (zsuskuln 713a980c "left1") to right side #1[39m
+    [38;5;6m+++++++ left side #1 (zsuskuln 713a980c "left1") to right[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mleft[38;5;2mline[24m[39m [4m[38;5;1m3.1[24m[39m
     [38;5;1m   4[39m     : [4m[38;5;1mleft 3.2[24m[39m
     [38;5;1m   5[39m [38;5;2m   3[39m: [4m[38;5;1mleft 3.[24m[39m3
-    [38;5;6m------- left base #1 (rlvkpnrz aa7e33ed "base") to right side #1[39m
+    [38;5;6m------- left base #1 (rlvkpnrz aa7e33ed "base") to right[39m
     [2m[38;5;2m   3[0m [2m[38;5;1m   3[0m: line 3
-    [38;5;6m+++++++ left side #2 (vruxwmqv 3fe2e860 "right1") to right side #1[39m
+    [38;5;6m+++++++ left side #2 (vruxwmqv 3fe2e860 "right1") to right[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mright[38;5;2mline[24m[39m 3[4m[38;5;1m.1[24m[39m
     [38;5;6m>>>>>>> Conflict ends[39m
     [2m[38;5;1m   6[0m [2m[38;5;2m   4[0m: line 4

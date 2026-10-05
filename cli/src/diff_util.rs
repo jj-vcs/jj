@@ -985,7 +985,7 @@ fn show_color_words_unresolved_hunk(
         let positive = i % 2 == 0;
         writeln!(
             formatter.labeled("hunk_header"),
-            "{sep} left {left_term} to right {right_term}",
+            "{sep} left{left_term} to right{right_term}",
             sep = if positive { "+++++++" } else { "-------" },
             left_term = describe_conflict_term(&hunk.lefts, conflict_labels.before, left_index),
             right_term = describe_conflict_term(&hunk.rights, conflict_labels.after, right_index),
@@ -1022,20 +1022,21 @@ fn describe_conflict_term(
     conflict_labels: &ConflictLabels,
     index: usize,
 ) -> String {
+    if terms.is_resolved() {
+        return String::new();
+    }
     // These numbers should be compatible with the "tree-set" language #5307
     let is_add = index.is_multiple_of(2);
     let name = if is_add { "side" } else { "base" };
     let number = index / 2 + 1;
-    let label = if terms.is_resolved() {
-        None
-    } else if is_add {
+    let label = if is_add {
         conflict_labels.get_add(index / 2)
     } else {
         conflict_labels.get_remove(index / 2)
     };
     match label {
-        Some(label) => format!("{name} #{number} ({label})"),
-        None => format!("{name} #{number}"),
+        Some(label) => format!(" {name} #{number} ({label})"),
+        None => format!(" {name} #{number}"),
     }
 }
 
