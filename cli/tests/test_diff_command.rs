@@ -2861,24 +2861,24 @@ fn test_diff_conflict_sides_differ() {
     [2m[38;5;1m   5[0m [2m[38;5;2m  14[0m: line 5
     [EOF]
     "#);
-    insta::assert_snapshot!(diff_color_words_conflict_pair("base", "left1+right1"), @"
+    insta::assert_snapshot!(diff_color_words_conflict_pair("base", "left1+right1"), @r#"
     [38;5;3mCreated conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
     [38;5;6m<<<<<<< Created conflict[39m
-    [38;5;6m+++++++ left side #1 to right side #1[39m
+    [38;5;6m+++++++ left side #1 to right side #1 (zsuskuln 713a980c "left1")[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m3.1[24m[39m
          [38;5;2m   4[39m: [4m[38;5;2mleft 3.2[24m[39m
     [38;5;1m   3[39m [38;5;2m   5[39m: [4m[38;5;2mleft 3.[24m[39m3
-    [38;5;6m------- left side #1 to right base #1[39m
+    [38;5;6m------- left side #1 to right base #1 (rlvkpnrz aa7e33ed "base")[39m
     [2m[38;5;2m   3[0m [2m[38;5;1m   3[0m: line 3
-    [38;5;6m+++++++ left side #1 to right side #2[39m
+    [38;5;6m+++++++ left side #1 to right side #2 (vruxwmqv 3fe2e860 "right1")[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mline[38;5;2mright[24m[39m 3[4m[38;5;2m.1[24m[39m
     [38;5;6m>>>>>>> Conflict ends[39m
     [2m[38;5;1m   4[0m [2m[38;5;2m   6[0m: line 4
     [2m[38;5;1m   5[0m [2m[38;5;2m   7[0m: line 5
     [EOF]
-    ");
+    "#);
 
     // Diff from conflict to resolved
     insta::assert_snapshot!(diff_git_materialized("left1+right1", "base"), @r#"
@@ -2920,24 +2920,24 @@ fn test_diff_conflict_sides_differ() {
     [2m[38;5;1m  14[0m [2m[38;5;2m   5[0m: line 5
     [EOF]
     "#);
-    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "base"), @"
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "base"), @r#"
     [38;5;3mResolved conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
     [38;5;6m<<<<<<< Resolved conflict[39m
-    [38;5;6m+++++++ left side #1 to right side #1[39m
+    [38;5;6m+++++++ left side #1 (zsuskuln 713a980c "left1") to right side #1[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mleft[38;5;2mline[24m[39m [4m[38;5;1m3.1[24m[39m
     [38;5;1m   4[39m     : [4m[38;5;1mleft 3.2[24m[39m
     [38;5;1m   5[39m [38;5;2m   3[39m: [4m[38;5;1mleft 3.[24m[39m3
-    [38;5;6m------- left base #1 to right side #1[39m
+    [38;5;6m------- left base #1 (rlvkpnrz aa7e33ed "base") to right side #1[39m
     [2m[38;5;2m   3[0m [2m[38;5;1m   3[0m: line 3
-    [38;5;6m+++++++ left side #2 to right side #1[39m
+    [38;5;6m+++++++ left side #2 (vruxwmqv 3fe2e860 "right1") to right side #1[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mright[38;5;2mline[24m[39m 3[4m[38;5;1m.1[24m[39m
     [38;5;6m>>>>>>> Conflict ends[39m
     [2m[38;5;1m   6[0m [2m[38;5;2m   4[0m: line 4
     [2m[38;5;1m   7[0m [2m[38;5;2m   5[0m: line 5
     [EOF]
-    ");
+    "#);
 
     // Diff between conflicts
     insta::assert_snapshot!(diff_git_materialized("left1+right1", "left2+right2"), @r#"
@@ -2984,24 +2984,24 @@ fn test_diff_conflict_sides_differ() {
     [38;5;1m  14[39m     : [4m[38;5;1mline 5[24m[39m
     [EOF]
     "#);
-    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @"
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r#"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m1.[24m[39m1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
     [38;5;6m<<<<<<< Modified conflict[39m
-    [38;5;6m+++++++ left side #1 to right side #1[39m
+    [38;5;6m+++++++ left side #1 (zsuskuln 713a980c "left1") to right side #1 (royxmykx b50b218b "left2")[39m
         ...
     [2m[38;5;1m   5[0m [2m[38;5;2m   5[0m: left 3.3
          [38;5;2m   6[39m: [4m[38;5;2mleft 3.4[24m[39m
-    [38;5;6m------- left base #1 to right base #1[39m
+    [38;5;6m------- left base #1 (rlvkpnrz aa7e33ed "base") to right base #1 (rlvkpnrz aa7e33ed "base")[39m
     [2m[38;5;2m   3[0m [2m[38;5;1m   3[0m: line 3
-    [38;5;6m+++++++ left side #2 to right side #2[39m
+    [38;5;6m+++++++ left side #2 (vruxwmqv 3fe2e860 "right1") to right side #2 (znkkpsqq e57450eb "right2")[39m
     [2m[38;5;1m   3[0m [2m[38;5;2m   3[0m: right 3.1
     [38;5;6m>>>>>>> Conflict ends[39m
     [2m[38;5;1m   6[0m [2m[38;5;2m   7[0m: line 4
     [38;5;1m   7[39m     : [4m[38;5;1mline 5[24m[39m
     [EOF]
-    ");
+    "#);
 }
 
 #[test]
@@ -3167,22 +3167,22 @@ fn test_diff_conflict_bases_differ() {
         ...
     [EOF]
     "#);
-    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @"
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r#"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m     : [4m[38;5;1mline 1[24m[39m
     [2m[38;5;1m   2[0m [2m[38;5;2m   1[0m: line 2
     [38;5;6m<<<<<<< Modified conflict[39m
-    [38;5;6m+++++++ left side #1 to right side #1[39m
+    [38;5;6m+++++++ left side #1 (zsuskuln 9e995075 "left1") to right side #1 (znkkpsqq 218094ec "left2")[39m
         ...
-    [38;5;6m------- left base #1 to right base #1[39m
+    [38;5;6m------- left base #1 (rlvkpnrz 44cfbde6 "base1") to right base #1 (vruxwmqv 3c4d67e6 "base2")[39m
     [38;5;2m   3[39m [38;5;1m   2[39m: line 3[4m[38;5;1m.1[24m[39m
     [38;5;2m   3[39m [38;5;1m   3[39m: [4m[38;5;1mline 3.2[24m[39m
-    [38;5;6m+++++++ left side #2 to right side #2[39m
+    [38;5;6m+++++++ left side #2 (royxmykx 3087be1f "right1") to right side #2 (kmkuslsw 656695c3 "right2")[39m
     [2m[38;5;1m   3[0m [2m[38;5;2m   2[0m: right 3.1
     [38;5;6m>>>>>>> Conflict ends[39m
     [2m[38;5;1m   6[0m [2m[38;5;2m   5[0m: line 4
     [EOF]
-    ");
+    "#);
 }
 
 #[test]
@@ -3327,21 +3327,21 @@ fn test_diff_conflict_three_sides() {
     [2m[38;5;1m  15[0m [2m[38;5;2m  19[0m: line 5
     [EOF]
     "#);
-    insta::assert_snapshot!(diff_color_words_conflict_pair("side1+side2", "side1+side2+side3"), @"
+    insta::assert_snapshot!(diff_color_words_conflict_pair("side1+side2", "side1+side2+side3"), @r#"
     [38;5;3mModified conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [38;5;6m<<<<<<< Modified conflict[39m
-    [38;5;6m+++++++ left side #1 to right side #1[39m
+    [38;5;6m+++++++ left side #1 (royxmykx 3a079496 "side1") to right side #1 (royxmykx 3a079496 "side1")[39m
         ...
-    [38;5;6m------- left base #1 to right base #1[39m
+    [38;5;6m------- left base #1 (zsuskuln 75289ea3 "base2") to right base #1 (zsuskuln 75289ea3 "base2")[39m
         ...
-    [38;5;6m+++++++ left side #2 to right side #2[39m
+    [38;5;6m+++++++ left side #2 (vruxwmqv bc176227 "side2") to right side #2 (vruxwmqv bc176227 "side2")[39m
         ...
-    [38;5;6m------- left side #1 to right base #2[39m
+    [38;5;6m------- left side #1 (royxmykx 3a079496 "side1") to right base #2 (rlvkpnrz 07965fa1 "base1")[39m
     [38;5;2m   2[39m [38;5;1m   2[39m: line 2 [4m[38;5;2ma.1[24m[39m
     [38;5;2m   3[39m     : [4m[38;5;2mline 3 a.2[24m[39m
     [38;5;2m   4[39m [38;5;1m   2[39m: [4m[38;5;2mline 4 [24m[39mbase
-    [38;5;6m+++++++ left side #1 to right side #3[39m
+    [38;5;6m+++++++ left side #1 (royxmykx 3a079496 "side1") to right side #3 (znkkpsqq f73063c9 "side3")[39m
     [38;5;1m   2[39m [38;5;2m   2[39m: line 2 [4m[38;5;1ma.1[24m[39m
     [38;5;1m   3[39m     : [4m[38;5;1mline 3 a.2[24m[39m
     [38;5;1m   4[39m [38;5;2m   2[39m: [4m[38;5;1mline 4 [24m[39mbase
@@ -3349,7 +3349,7 @@ fn test_diff_conflict_three_sides() {
     [38;5;6m>>>>>>> Conflict ends[39m
     [2m[38;5;1m   5[0m [2m[38;5;2m   5[0m: line 5
     [EOF]
-    ");
+    "#);
 }
 
 #[test]

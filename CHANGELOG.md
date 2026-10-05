@@ -93,6 +93,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   longer than `width` passed in the input to ensure no words overflow the
   specified width.
 
+* The hunk headers of `diff.color-words.conflict = "pair"` now include the
+  conflict labels of the compared terms.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,

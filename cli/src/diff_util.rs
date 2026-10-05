@@ -861,6 +861,7 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
                 formatter,
                 language,
                 contents.as_ref(),
+                conflict_labels,
                 line_number,
                 labels,
                 options,
@@ -874,6 +875,7 @@ fn show_color_words_conflict_hunks(
     formatter: &mut dyn Formatter,
     language: Option<SourceLanguage>,
     contents: Diff<&Merge<BString>>,
+    conflict_labels: Diff<&ConflictLabels>,
     mut line_number: DiffLineNumber,
     labels: Diff<&str>,
     options: &ColorWordsDiffOptions,
@@ -925,6 +927,7 @@ fn show_color_words_conflict_hunks(
                         formatter,
                         language,
                         &hunk,
+                        conflict_labels,
                         line_number,
                         labels,
                         options,
@@ -951,6 +954,7 @@ fn show_color_words_unresolved_hunk(
     formatter: &mut dyn Formatter,
     language: Option<SourceLanguage>,
     hunk: &ConflictDiffHunk,
+    conflict_labels: Diff<&ConflictLabels>,
     line_number: DiffLineNumber,
     labels: Diff<&str>,
     options: &ColorWordsDiffOptions,
@@ -981,13 +985,10 @@ fn show_color_words_unresolved_hunk(
         let positive = i % 2 == 0;
         writeln!(
             formatter.labeled("hunk_header"),
-            "{sep} left {left_name} #{left_index} to right {right_name} #{right_index}",
+            "{sep} left {left_term} to right {right_term}",
             sep = if positive { "+++++++" } else { "-------" },
-            // these numbers should be compatible with the "tree-set" language #5307
-            left_name = if left_index % 2 == 0 { "side" } else { "base" },
-            left_index = left_index / 2 + 1,
-            right_name = if right_index % 2 == 0 { "side" } else { "base" },
-            right_index = right_index / 2 + 1,
+            left_term = describe_conflict_term(&hunk.lefts, conflict_labels.before, left_index),
+            right_term = describe_conflict_term(&hunk.rights, conflict_labels.after, right_index),
         )?;
         let contents = Diff::new(left_content, right_content);
         let labels = match positive {
@@ -1012,6 +1013,30 @@ fn show_color_words_unresolved_hunk(
 
     writeln!(formatter.labeled("hunk_header"), ">>>>>>> Conflict ends")?;
     Ok(max_line_number)
+}
+
+/// Describes the term at `index` of a conflict hunk, such as `side #1
+/// (<label>)` or `base #1`.
+fn describe_conflict_term(
+    terms: &Merge<&BStr>,
+    conflict_labels: &ConflictLabels,
+    index: usize,
+) -> String {
+    // These numbers should be compatible with the "tree-set" language #5307
+    let is_add = index.is_multiple_of(2);
+    let name = if is_add { "side" } else { "base" };
+    let number = index / 2 + 1;
+    let label = if terms.is_resolved() {
+        None
+    } else if is_add {
+        conflict_labels.get_add(index / 2)
+    } else {
+        conflict_labels.get_remove(index / 2)
+    };
+    match label {
+        Some(label) => format!("{name} #{number} ({label})"),
+        None => format!("{name} #{number}"),
+    }
 }
 
 fn show_color_words_resolved_hunks(
