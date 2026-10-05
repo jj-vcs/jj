@@ -18,6 +18,7 @@ mod external;
 
 use std::sync::Arc;
 
+use bstr::ByteSlice as _;
 use futures::future::try_join_all;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CopyId;
@@ -28,8 +29,12 @@ use jj_lib::backend::TreeValue;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
+use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MaterializedFileConflictValue;
+use jj_lib::conflicts::choose_materialized_conflict_marker_len;
+use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::try_materialize_file_conflict_value;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
@@ -41,6 +46,7 @@ use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
+use jj_lib::store::Store;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::working_copy::SnapshotError;
 use thiserror::Error;
@@ -56,9 +62,13 @@ use self::external::edit_diff_external;
 pub use self::external::generate_diff;
 pub use self::external::invoke_external_diff;
 use crate::config::CommandNameAndArgs;
+use crate::description_util::LineNumber;
+use crate::description_util::TextEditError;
+use crate::description_util::TextEditor;
 use crate::ui::Ui;
 
 const BUILTIN_EDITOR_NAME: &str = ":builtin";
+const TEXT_EDITOR_TOOL_NAME: &str = ":editor";
 const OURS_TOOL_NAME: &str = ":ours";
 const THEIRS_TOOL_NAME: &str = ":theirs";
 
@@ -90,6 +100,8 @@ pub enum ConflictResolveError {
     InternalTool(#[from] Box<BuiltinToolError>),
     #[error(transparent)]
     ExternalTool(#[from] ExternalToolError),
+    #[error(transparent)]
+    TextEditor(#[from] TextEditError),
     #[error(transparent)]
     InvalidRepoPath(#[from] InvalidRepoPathError),
     #[error("Couldn't find the path {0:?} in this revision")]
@@ -137,6 +149,10 @@ pub enum MergeToolConfigError {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MergeTool {
     Builtin,
+    /// Edits the materialized conflict markers in the user's text editor.
+    /// Unlike the other tools, this supports conflicts with any number of
+    /// sides.
+    TextEditor(TextEditor),
     Ours,
     Theirs,
     // Boxed because ExternalMergeTool is big compared to the Builtin variant.
@@ -156,6 +172,9 @@ impl MergeTool {
     ) -> Result<Option<Self>, MergeToolConfigError> {
         match name {
             BUILTIN_EDITOR_NAME => Ok(Some(Self::Builtin)),
+            TEXT_EDITOR_TOOL_NAME => {
+                Ok(Some(Self::TextEditor(TextEditor::from_settings(settings)?)))
+            }
             OURS_TOOL_NAME => Ok(Some(Self::Ours)),
             THEIRS_TOOL_NAME => Ok(Some(Self::Theirs)),
             _ => Ok(get_external_tool_config(settings, name)?.map(Self::external)),
@@ -347,13 +366,6 @@ impl MergeToolFile {
                     path: repo_path.to_owned(),
                     summary: conflict.describe(tree.labels()),
                 })?;
-        // We only support conflicts with 2 sides (3-way conflicts)
-        if file.ids.num_sides() > 2 {
-            return Err(ConflictResolveError::ConflictTooComplicated {
-                path: repo_path.to_owned(),
-                sides: file.ids.num_sides(),
-            });
-        }
         if file.executable.is_none() {
             return Err(ConflictResolveError::ExecutableConflict {
                 path: repo_path.to_owned(),
@@ -365,6 +377,19 @@ impl MergeToolFile {
             conflict,
             file,
         })
+    }
+
+    /// Returns an error if the conflict has more than two sides, since most
+    /// merge tools only support 3-way merges.
+    fn check_two_sided(&self) -> Result<(), ConflictResolveError> {
+        let sides = self.file.ids.num_sides();
+        if sides > 2 {
+            return Err(ConflictResolveError::ConflictTooComplicated {
+                path: self.repo_path.clone(),
+                sides,
+            });
+        }
+        Ok(())
     }
 
     /// Builds the tree value to store for this file given the file ids
@@ -457,6 +482,12 @@ impl MergeEditor {
                 .map(|&repo_path| MergeToolFile::from_tree_and_path(tree, repo_path)),
         )
         .await?;
+        // Most tools only support 3-way merges
+        if !matches!(self.tool, MergeTool::TextEditor(_)) {
+            for merge_tool_file in &merge_tool_files {
+                merge_tool_file.check_two_sided()?;
+            }
+        }
 
         match &self.tool {
             MergeTool::Builtin => {
@@ -464,6 +495,25 @@ impl MergeEditor {
                     .await
                     .map_err(Box::new)?;
                 Ok((tree, None))
+            }
+            MergeTool::TextEditor(editor) => {
+                resolve_files_one_by_one(
+                    ui,
+                    &self.path_converter,
+                    tree,
+                    &merge_tool_files,
+                    async |merge_tool_file, tree_builder| {
+                        edit_conflict_markers_in_text_editor(
+                            editor,
+                            tree.store(),
+                            merge_tool_file,
+                            self.conflict_marker_style,
+                            tree_builder,
+                        )
+                        .await
+                    },
+                )
+                .await
             }
             MergeTool::Ours => {
                 let tree = pick_conflict_side(tree, &merge_tool_files, 0).await?;
@@ -530,6 +580,76 @@ async fn resolve_files_one_by_one(
     }
     let new_tree = tree_builder.write_tree().await?;
     Ok((new_tree, partial_resolution_error))
+}
+
+/// Materializes the conflict with markers, lets the user edit it in their
+/// text editor, and parses the result back. Any conflict markers left in the
+/// file are kept as a (possibly partially resolved) conflict.
+async fn edit_conflict_markers_in_text_editor(
+    editor: &TextEditor,
+    store: &Store,
+    merge_tool_file: &MergeToolFile,
+    conflict_marker_style: ConflictMarkerStyle,
+    tree_builder: &mut MergedTreeBuilder,
+) -> Result<(), ConflictResolveError> {
+    let MergeToolFile {
+        repo_path, file, ..
+    } = merge_tool_file;
+
+    let conflict_marker_len = choose_materialized_conflict_marker_len(&file.contents);
+    let options = ConflictMaterializeOptions {
+        marker_style: conflict_marker_style,
+        marker_len: Some(conflict_marker_len),
+        merge: store.merge_options().clone(),
+    };
+    let initial_content = materialize_merge_result_to_bytes(&file.contents, &file.labels, &options);
+
+    // Name the temporary file after the conflicted file so the editor can pick
+    // the right syntax highlighting.
+    let temp_dir = tempfile::Builder::new()
+        .prefix("jj-resolve-")
+        .tempdir()
+        .map_err(ExternalToolError::SetUpDir)?;
+    let file_name = match repo_path.components().next_back() {
+        Some(name) => name.to_fs_name().map_err(|err| err.with_path(repo_path))?,
+        None => "output",
+    };
+    let temp_path = temp_dir.path().join(file_name);
+    std::fs::write(&temp_path, &initial_content).map_err(ExternalToolError::SetUpDir)?;
+
+    // Open the editor at the first conflict so the user doesn't have to look
+    // for it.
+    let start_marker = b"<".repeat(conflict_marker_len);
+    let first_conflict_line = initial_content
+        .lines()
+        .position(|line| {
+            line.starts_with(&start_marker)
+                && line
+                    .get(conflict_marker_len)
+                    .is_none_or(|b| b.is_ascii_whitespace())
+        })
+        .and_then(|index| u32::try_from(index + 1).ok())
+        .and_then(LineNumber::new)
+        .unwrap_or(LineNumber::MIN);
+    editor.edit_file(&temp_path, first_conflict_line)?;
+
+    let new_content = std::fs::read(&temp_path).map_err(ExternalToolError::Io)?;
+    if new_content.is_empty() || new_content == initial_content {
+        return Err(ConflictResolveError::EmptyOrUnchanged);
+    }
+    let new_file_ids = conflicts::update_from_content(
+        &file.unsimplified_ids,
+        store,
+        repo_path,
+        &new_content,
+        conflict_marker_len,
+    )
+    .await?;
+    tree_builder.set_or_remove(
+        repo_path.to_owned(),
+        merge_tool_file.new_tree_value(new_file_ids),
+    );
+    Ok(())
 }
 
 async fn pick_conflict_side(

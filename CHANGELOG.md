@@ -93,6 +93,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   longer than `width` passed in the input to ensure no words overflow the
   specified width.
 
+* `jj resolve` gained a built-in `:editor` merge tool that opens the conflicted
+  file with conflict markers in your text editor. Unlike the other merge tools,
+  it supports conflicts with more than two sides.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
