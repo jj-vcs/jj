@@ -837,6 +837,10 @@ _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 The following methods are defined.
 
 * `.name() -> RefSymbol`: Returns the workspace name as a symbol.
+* `.current_workspace() -> Boolean`: Returns whether this is the current
+  workspace. This is slightly different than
+  `self.target().current_working_copy()` because multiple workspaces can point
+  to the same commit.
 * `.target() -> Commit`: Returns the working-copy commit of this workspace.
 * `.root() -> Option<FsPath>`: Returns the workspace root path, if the root path
   is recorded.

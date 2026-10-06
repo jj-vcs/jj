@@ -282,17 +282,20 @@ label(if(op.current_operation(), "current_operation"),
 '''
 
 builtin_workspace_list = '''
-concat(
-  name,
-  ": ",
-  separate(" ",
-    if(root, root.relative()),
-    format_commit_summary_with_refs(
-      target,
-      format_commit_ref_names(target.bookmarks())
+label(if(current_workspace, "current_workspace"),
+  concat(
+    name,
+    if(current_workspace, " (current)"),
+    ": ",
+    separate(" ",
+      if(root, root.relative()),
+      format_commit_summary_with_refs(
+        target,
+        format_commit_ref_names(target.bookmarks())
+      ),
     ),
-  ),
-  "\n",
+    "\n",
+  )
 )
 '''
 

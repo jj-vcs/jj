@@ -60,7 +60,7 @@ fn test_workspaces_add_second_and_third_workspace() {
 
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    default (current): . rlvkpnrz 504e3d8c (empty) (no description set)
     [EOF]
     ");
 
@@ -96,7 +96,7 @@ fn test_workspaces_add_second_and_third_workspace() {
     // Both workspaces show up when we list them
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    default (current): . rlvkpnrz 504e3d8c (empty) (no description set)
     second: ../secondary rzvqmyuk bcc858e1 (empty) (no description set)
     [EOF]
     ");
@@ -263,7 +263,7 @@ fn test_workspaces_add_second_workspace_on_merge() {
 
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"
-    default: . zsuskuln 46ed31b6 (empty) merge
+    default (current): . zsuskuln 46ed31b6 (empty) merge
     [EOF]
     ");
 
@@ -415,7 +415,7 @@ fn test_workspaces_add_workspace_at_revision() {
 
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"
-    default: . kkmpptxz 5ac9178d (empty) (no description set)
+    default (current): . kkmpptxz 5ac9178d (empty) (no description set)
     [EOF]
     ");
 
@@ -539,7 +539,7 @@ fn test_workspaces_add_workspace_from_subdir() {
 
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . rlvkpnrz 0ba0ff35 (empty) (no description set)
+    default (current): . rlvkpnrz 0ba0ff35 (empty) (no description set)
     [EOF]
     ");
 
@@ -558,7 +558,7 @@ fn test_workspaces_add_workspace_from_subdir() {
     let output = secondary_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     default: ../main rlvkpnrz 0ba0ff35 (empty) (no description set)
-    secondary: . rzvqmyuk dea1be10 (empty) (no description set)
+    secondary (current): . rzvqmyuk dea1be10 (empty) (no description set)
     [EOF]
     ");
 }
@@ -587,7 +587,7 @@ fn test_workspaces_add_workspace_in_current_workspace() {
     // Workspace created despite warning
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"
-    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    default (current): . rlvkpnrz 504e3d8c (empty) (no description set)
     secondary: secondary pmmvwywv 058f604d (empty) (no description set)
     [EOF]
     ");
@@ -606,7 +606,7 @@ fn test_workspaces_add_workspace_in_current_workspace() {
     // Both workspaces created
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"
-    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    default (current): . rlvkpnrz 504e3d8c (empty) (no description set)
     secondary: secondary pmmvwywv 058f604d (empty) (no description set)
     third: third zxsnswpr 1c1effec (empty) (no description set)
     [EOF]
@@ -641,7 +641,7 @@ fn test_workspace_add_override_path_in_store() {
     // Both workspaces show up when we list them
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    default (current): . rlvkpnrz 504e3d8c (empty) (no description set)
     second: ../secondary pmmvwywv 058f604d (empty) (no description set)
     [EOF]
     ");
@@ -657,7 +657,7 @@ fn test_workspace_add_override_path_in_store() {
     // Only default workspace show up when we list them
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    default (current): . rlvkpnrz 504e3d8c (empty) (no description set)
     [EOF]
     ");
 
@@ -675,7 +675,7 @@ fn test_workspace_add_override_path_in_store() {
     // Both workspaces show up when we list them
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    default (current): . rlvkpnrz 504e3d8c (empty) (no description set)
     second: ../tertiary spxsnpux 96ef6c50 (empty) (no description set)
     [EOF]
     ");
@@ -1590,7 +1590,7 @@ fn test_workspaces_forget_multi_transaction() {
     // there should be three workspaces
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . rlvkpnrz f6bf8819 (empty) (no description set)
+    default (current): . rlvkpnrz f6bf8819 (empty) (no description set)
     second: ../second pmmvwywv 31da1455 (empty) (no description set)
     third: ../third rzvqmyuk bf5b5b4d (empty) (no description set)
     [EOF]
@@ -1602,7 +1602,7 @@ fn test_workspaces_forget_multi_transaction() {
         .success();
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . rlvkpnrz f6bf8819 (empty) (no description set)
+    default (current): . rlvkpnrz f6bf8819 (empty) (no description set)
     [EOF]
     ");
 
@@ -1622,7 +1622,7 @@ fn test_workspaces_forget_multi_transaction() {
     // recorded paths intact
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . rlvkpnrz f6bf8819 (empty) (no description set)
+    default (current): . rlvkpnrz f6bf8819 (empty) (no description set)
     second: ../second pmmvwywv 31da1455 (empty) (no description set)
     third: ../third rzvqmyuk bf5b5b4d (empty) (no description set)
     [EOF]
@@ -1648,7 +1648,7 @@ fn test_workspaces_forget_abandon_commits() {
     // there should be four workspaces, three of which are at the same empty commit
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . qpvuntsm 006bd113 (no description set)
+    default (current): . qpvuntsm 006bd113 (no description set)
     fourth: ../fourth uuqppmxq 94f41578 (empty) (no description set)
     second: ../second uuqppmxq 94f41578 (empty) (no description set)
     third: ../third uuqppmxq 94f41578 (empty) (no description set)
@@ -2039,29 +2039,48 @@ fn test_list_workspaces_template() {
     // Default template
     let output = main_dir.run_jj(["workspace", "list", "--color=always"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    [38;5;2mdefault[39m: [39m.[39m [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;12m5[38;5;8m04e3d8c[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m
+    [1m[38;5;2mdefault[39m (current): [39m.[39m [38;5;13mr[38;5;8mlvkpnrz[39m [38;5;12m5[38;5;8m04e3d8c[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
     [38;5;2msecond[39m: [39m../secondary[39m [1m[38;5;5mp[0m[38;5;8mmmvwywv[39m [1m[38;5;4m05[0m[38;5;8m8f604d[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     [EOF]
     ");
 
     let template = indoc! {r#"
-        name ++ ": " ++ target.commit_id().short() ++ " " ++
-        target.description().first_line() ++
-        if(target.current_working_copy(), " (current)") ++ "\n"
+        separate(" ",
+            name ++ ":",
+            target.commit_id().short(),
+            if(current_workspace, "(current workspace)"),
+            if(target.current_working_copy(), "(current @)"),
+        ) ++ "\n"
     "#};
 
     // "current_working_copy" should point to the workspace we operate on
     let output = main_dir.run_jj(["workspace", "list", "-T", template]);
     insta::assert_snapshot!(output, @"
-    default: 504e3d8c1bcd  (current)
-    second: 058f604dffcd 
+    default: 504e3d8c1bcd (current workspace) (current @)
+    second: 058f604dffcd
     [EOF]
     ");
 
     let output = secondary_dir.run_jj(["workspace", "list", "-T", template]);
     insta::assert_snapshot!(output, @"
-    default: 504e3d8c1bcd 
-    second: 058f604dffcd  (current)
+    default: 504e3d8c1bcd
+    second: 058f604dffcd (current workspace) (current @)
+    [EOF]
+    ");
+
+    // Make multiple workspaces point to the same commit.
+    secondary_dir.run_jj(["edit", "default@"]).success();
+
+    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    default: 504e3d8c1bcd (current workspace) (current @)
+    second: 504e3d8c1bcd (current @)
+    [EOF]
+    ");
+    let output = secondary_dir.run_jj(["workspace", "list", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    default: 504e3d8c1bcd (current @)
+    second: 504e3d8c1bcd (current workspace) (current @)
     [EOF]
     ");
 }
@@ -2130,7 +2149,7 @@ fn test_list_workspaces_template_root_unavailable() {
 
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    default (current): . qpvuntsm e8849ae1 (empty) (no description set)
     second: ../secondary uuqppmxq 94f41578 (empty) (no description set)
     [EOF]
     ");
@@ -2204,7 +2223,7 @@ fn test_workspaces_relative_path() -> TestResult {
 
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    default (current): . qpvuntsm e8849ae1 (empty) (no description set)
     secondary: ../secondary uuqppmxq 94f41578 (empty) (no description set)
     [EOF]
     ");
@@ -2402,7 +2421,7 @@ fn test_workspaces_rename_workspace() {
     // Both workspaces show up when we list them
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    default (current): . qpvuntsm e8849ae1 (empty) (no description set)
     second: ../secondary uuqppmxq 94f41578 (empty) (no description set)
     [EOF]
     ");
@@ -2412,7 +2431,7 @@ fn test_workspaces_rename_workspace() {
 
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    default (current): . qpvuntsm e8849ae1 (empty) (no description set)
     third: ../secondary uuqppmxq 94f41578 (empty) (no description set)
     [EOF]
     ");
@@ -2461,7 +2480,7 @@ fn test_workspaces_rename_workspace_from_before_workspace_store() {
 
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"
-    third: qpvuntsm e8849ae1 (empty) (no description set)
+    third (current): qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
 

@@ -60,6 +60,11 @@ and this project adheres to
   exposes `.object_id()`, `.file_type()`, and `.executable()` methods for
   inspecting each side of a (possibly conflicted) tree entry.
 
+* The `WorkspaceRef` template type now has a `.current_workspace() -> Boolean`
+  method, which can be used to identify the current workspace. This is slightly
+  different than `self.target().current_working_copy()` because multiple
+  workspaces can point to the same commit.
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
