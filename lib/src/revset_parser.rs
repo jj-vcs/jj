@@ -22,6 +22,8 @@ use std::sync::LazyLock;
 
 use itertools::Itertools as _;
 use pest::Parser as _;
+use pest::error::ErrorVariant;
+use pest::error::LineColLocation;
 use pest::iterators::Pair;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
@@ -125,7 +127,7 @@ impl Rule {
             Self::difference_op => Some("~"),
             Self::compat_add_op => Some("+"),
             Self::compat_sub_op => Some("-"),
-            Self::infix_op => None,
+            Self::non_union_infix_op => None,
             Self::function => None,
             Self::function_name => None,
             Self::keyword_argument => None,
@@ -143,6 +145,14 @@ impl Rule {
             Self::function_alias_declaration => None,
             Self::pattern_alias_declaration => None,
             Self::alias_declaration => None,
+            Self::bounded_infix_range_expression => None,
+            Self::bounded_postfix_op => None,
+            Self::bounded_prefix_op => None,
+            Self::bounded_range_expression => None,
+            Self::postfix_op_width_limit_reached => None,
+            Self::prefix_op_width_limit_reached => None,
+            Self::range_expression_width_limit_reached => None,
+            Self::recursive_depth_limit_reached => None,
         }
     }
 }
@@ -153,10 +163,10 @@ pub type RevsetDiagnostics = Diagnostics<RevsetParseError>;
 
 /// Error occurred during revset parsing and name resolution.
 #[derive(Debug, Error)]
-#[error("{pest_error}")]
+#[error("{}", .pest_error.as_ref().map_or_else(|| .kind.to_string(), |e| e.to_string()))]
 pub struct RevsetParseError {
     kind: Box<RevsetParseErrorKind>,
-    pest_error: Box<pest::error::Error<Rule>>,
+    pest_error: Option<Box<pest::error::Error<Rule>>>,
     source: Option<Box<dyn error::Error + Send + Sync>>,
 }
 
@@ -216,7 +226,7 @@ impl RevsetParseError {
         ));
         Self {
             kind: Box::new(kind),
-            pest_error,
+            pest_error: Some(pest_error),
             source: None,
         }
     }
@@ -284,9 +294,41 @@ impl AliasExpandError for RevsetParseError {
 
 impl From<pest::error::Error<Rule>> for RevsetParseError {
     fn from(err: pest::error::Error<Rule>) -> Self {
+        if let ErrorVariant::ParsingError {
+            positives,
+            negatives,
+        } = &err.variant
+            && let Some(msg) = positives
+                .iter()
+                .chain(negatives)
+                .find_map(|rule| match rule {
+                    Rule::postfix_op_width_limit_reached => Some("Too many op postfixes"),
+                    Rule::prefix_op_width_limit_reached => Some("Too many op prefixes"),
+                    Rule::range_expression_width_limit_reached => {
+                        Some("Too many chained operators")
+                    }
+                    Rule::recursive_depth_limit_reached => Some("Expression is nested too deeply"),
+                    _ => None,
+                })
+        {
+            let (line, col) = match err.line_col {
+                LineColLocation::Pos(pos) | LineColLocation::Span(pos, _) => pos,
+            };
+
+            // When dealing with bound-related parsing errors, there's little to no value in
+            // the regular error print-outs, because they're likely too large and too noisy.
+            // Without `pest_error` attached, kind is displayed, so put the message there.
+            return Self {
+                kind: Box::new(RevsetParseErrorKind::Expression(format!(
+                    "{msg} (at line {line}, column {col})"
+                ))),
+                pest_error: None,
+                source: None,
+            };
+        }
         Self {
             kind: Box::new(RevsetParseErrorKind::SyntaxError),
-            pest_error: Box::new(rename_rules_in_pest_error(err)),
+            pest_error: Some(Box::new(rename_rules_in_pest_error(err))),
             source: None,
         }
     }
@@ -597,12 +639,28 @@ fn parse_expression_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParse
             let expr = ExpressionKind::Binary(op_kind, lhs, rhs);
             Ok(ExpressionNode::new(expr, span))
         })
-        .parse(pair.into_inner())
+        .parse(pair.into_inner().filter(|r| {
+            !matches!(
+                r.as_rule(),
+                Rule::postfix_op_width_limit_reached
+                    | Rule::prefix_op_width_limit_reached
+                    | Rule::range_expression_width_limit_reached
+                    | Rule::recursive_depth_limit_reached
+            )
+        }))
 }
 
 fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseError> {
     let span = pair.as_span();
-    let mut pairs = pair.into_inner();
+    let mut pairs = pair.into_inner().filter(|r| {
+        !matches!(
+            r.as_rule(),
+            Rule::postfix_op_width_limit_reached
+                | Rule::prefix_op_width_limit_reached
+                | Rule::range_expression_width_limit_reached
+                | Rule::recursive_depth_limit_reached
+        )
+    });
     let first = pairs.next().unwrap();
     let expr = match first.as_rule() {
         // Ignore inner span to preserve parenthesized expression as such.
@@ -629,7 +687,9 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
         }
         // Identifier without "@" may be substituted by aliases. Primary expression including "@"
         // is considered an indecomposable unit, and no alias substitution would be made.
-        Rule::identifier if pairs.peek().is_none() => ExpressionKind::Identifier(first.as_str()),
+        Rule::identifier if pairs.clone().peekable().next().is_none() => {
+            ExpressionKind::Identifier(first.as_str())
+        }
         Rule::identifier | Rule::string_literal | Rule::raw_string_literal => {
             let name = parse_as_string_literal(first);
             match pairs.next() {
