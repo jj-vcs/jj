@@ -2990,7 +2990,9 @@ including capture group 0 for the full match.</p>
 <p><code>stringify(content: Stringify) -&gt; String</code>: Format <code>content</code> to string. This
   effectively removes color labels.</p>
 </li>
-<li><code>json(value: Serialize) -&gt; String</code>: Serialize <code>value</code> in JSON format.</li>
+<li><code>json(value: Serialize) -&gt; String</code>: Serialize <code>value</code> in JSON format. To
+  serialize multiple values as a JSON object, use <code>json({key =&gt; value, ..})</code>.
+  For example, <code>json({"commit_id" =&gt; commit_id, "tags" =&gt; tags})</code>.</li>
 <li><code>if(condition: Boolean, then: Any, [else: Any]) -&gt; Any</code>:
   Conditionally evaluates to <code>then</code> / <code>else</code> content.</li>
 <li><code>try(expr: Any, fallback: Any...) -&gt; Any</code>: Evaluates each expression in order
