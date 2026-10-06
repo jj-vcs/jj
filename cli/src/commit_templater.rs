@@ -1125,7 +1125,15 @@ impl CommitKeywordCache {
         // optimize "::<recent_heads>" query to use bitset-based implementation.
         self.is_immutable_fn.get_or_try_init(|| {
             let expression = &language.immutable_expression;
-            let revset = evaluate_revset_expression(language, span, expression)?;
+            let revset = evaluate_user_revset_expression(
+                language.repo,
+                &language.revset_parse_context,
+                language.id_prefix_context,
+                expression,
+            )
+            .map_err(|err| {
+                TemplateParseError::expression("Failed to evaluate revset", span).with_source(err)
+            })?;
             Ok(revset.containing_fn().into())
         })
     }
@@ -1668,22 +1676,6 @@ fn evaluate_user_revset_expression(
         .evaluate()
         .map_err(UserRevsetEvaluationError::Evaluation)?;
     Ok(revset)
-}
-
-fn evaluate_revset_expression(
-    language: &CommitTemplateLanguage,
-    span: pest::Span<'_>,
-    expression: &UserRevsetExpression,
-) -> Result<Box<dyn Revset>, TemplateParseError> {
-    evaluate_user_revset_expression(
-        language.repo,
-        &language.revset_parse_context,
-        language.id_prefix_context,
-        expression,
-    )
-    .map_err(|err| {
-        TemplateParseError::expression("Failed to evaluate revset", span).with_source(err)
-    })
 }
 
 fn builtin_commit_evolution_entry_methods<'repo>()
