@@ -98,6 +98,31 @@ removed. Removing the current workspace works on Unix, but Windows won't remove
 a directory that a process is running in; run the command from another directory
 using `jj -R` instead.
 
+### Bare repos
+
+You can create a repo with no default working copy using `jj git init --bare`.
+In this layout the `.jj/` directory lives at the project root and all workspaces
+are added alongside it as peers — none is special or required for others to
+function.
+
+```sh
+jj git init --bare my-project
+cd my-project
+jj workspace add main
+jj workspace add feat-1
+```
+
+This produces a layout like:
+
+```
+my-project/
+├── .jj/        ← repo storage (no working copy)
+├── main/       ← workspace
+└── feat-1/     ← workspace
+```
+
+See the [bare workspaces guide](guides/bare-workspaces.md) for details.
+
 ## Stale working copy
 
 Almost all commands go through three main steps:

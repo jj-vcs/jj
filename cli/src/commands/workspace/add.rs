@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::fs;
+use std::sync::Arc;
 
 use futures::future::try_join_all;
 use itertools::Itertools as _;
@@ -114,7 +115,6 @@ pub async fn cmd_workspace_add(
     command: &CommandHelper,
     args: &WorkspaceAddArgs,
 ) -> Result<(), CommandError> {
-    let old_workspace_command = command.workspace_helper(ui).await?;
     let destination_path = command.cwd().join(&args.destination);
     let workspace_name = if let Some(name) = &args.name {
         name.to_owned()
@@ -129,6 +129,11 @@ pub async fn cmd_workspace_add(
         return Err(user_error("New workspace name cannot be empty"));
     }
 
+    if command.is_bare_repo() {
+        return cmd_workspace_add_bare(ui, command, args, destination_path, workspace_name).await;
+    }
+
+    let old_workspace_command = command.workspace_helper(ui).await?;
     let repo = old_workspace_command.repo();
     if repo.view().get_wc_commit_id(&workspace_name).is_some() {
         return Err(user_error(format!(
@@ -181,7 +186,7 @@ pub async fn cmd_workspace_add(
     )?;
     // Show a warning if the user passed a path without a separator, since they
     // may have intended the argument to only be the name for the workspace.
-    if !args.destination.contains(std::path::is_separator) {
+    if !args.destination.contains(std::path::is_separator) && !command.is_bare_repo() {
         writeln!(
             ui.warning_default(),
             r#"Workspace created inside current directory. If this was unintentional, delete the "{}" directory and run `jj workspace forget {name}` to remove it."#,
@@ -275,5 +280,54 @@ pub async fn cmd_workspace_add(
         ),
     )
     .await?;
+    Ok(())
+}
+
+/// Handle `jj workspace add` when invoked from a bare repo root.
+async fn cmd_workspace_add_bare(
+    ui: &mut Ui,
+    command: &CommandHelper,
+    args: &WorkspaceAddArgs,
+    destination_path: std::path::PathBuf,
+    workspace_name: WorkspaceNameBuf,
+) -> Result<(), CommandError> {
+    if !args.revisions.is_empty() {
+        return Err(user_error(
+            "--revision is not supported when running from a bare repo root",
+        ));
+    }
+
+    let repo_loader = command.load_bare_repo()?;
+    let repo = Arc::new(repo_loader.load_at_head().await?);
+
+    if repo.view().get_wc_commit_id(&workspace_name).is_some() {
+        return Err(user_error(format!(
+            "Workspace named '{name}' already exists",
+            name = workspace_name.as_symbol()
+        )));
+    }
+    if !destination_path.exists() {
+        fs::create_dir(&destination_path).context(&destination_path)?;
+    } else if !file_util::is_empty_dir(&destination_path)? {
+        return Err(user_error(
+            "Destination path exists and is not an empty directory",
+        ));
+    }
+
+    let working_copy_factory = jj_lib::default_backend_factories::default_working_copy_factory();
+    let repo_path = command.cwd().join(".jj").join("repo");
+    let (_new_workspace, _repo) = Workspace::init_workspace_with_existing_repo(
+        &destination_path,
+        &repo_path,
+        &repo,
+        &*working_copy_factory,
+        workspace_name.clone(),
+    )
+    .await?;
+    writeln!(
+        ui.status(),
+        "Created workspace in \"{}\"",
+        file_util::relative_path(command.cwd(), &destination_path).display()
+    )?;
     Ok(())
 }

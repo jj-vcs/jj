@@ -21,6 +21,7 @@ use jj_lib::copies::CopyRecords;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -70,6 +71,37 @@ pub(crate) async fn cmd_status(
     command: &CommandHelper,
     args: &StatusArgs,
 ) -> Result<(), CommandError> {
+    if command.is_bare_repo() {
+        writeln!(
+            ui.warning_default(),
+            "This is a bare repo root with no working copy."
+        )?;
+        writeln!(
+            ui.hint_default(),
+            "Run commands from inside a workspace. Registered workspaces:"
+        )?;
+        let repo_loader = command.load_bare_repo()?;
+        let repo = repo_loader.load_at_head().await?;
+        let mut formatter = ui.stdout_formatter();
+        let mut workspaces: Vec<_> = repo.view().wc_commit_ids().iter().collect();
+        workspaces.sort_by_key(|(name, _)| name.as_symbol().to_string());
+        for (name, wc_commit_id) in workspaces {
+            let commit = repo.store().get_commit_async(wc_commit_id).await?;
+            writeln!(
+                formatter,
+                "  {}: {} {}",
+                name.as_symbol(),
+                &wc_commit_id.hex()[..12],
+                if commit.description().is_empty() {
+                    "(no description set)"
+                } else {
+                    commit.description().lines().next().unwrap_or("")
+                }
+            )?;
+        }
+        return Ok(());
+    }
+
     let (workspace_command, snapshot_stats, _) = command.workspace_helper_with_stats(ui).await?;
     print_snapshot_stats(
         ui,
