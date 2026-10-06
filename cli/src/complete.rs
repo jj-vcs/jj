@@ -772,7 +772,24 @@ fn config_keys_impl(only_leaves: bool, suffix: &str) -> Vec<CompletionCandidate>
 }
 
 pub fn config_keys() -> Vec<CompletionCandidate> {
-    config_keys_impl(false, "")
+    let mut candidates = config_keys_impl(false, "");
+    candidates.extend(with_jj(|_, settings| {
+        let mut candidates = Vec::new();
+        let mut stack = vec![ConfigNamePathBuf::root()];
+        while let Some(prefix) = stack.pop() {
+            for key in settings.config().table_keys(&prefix) {
+                let mut name = prefix.clone();
+                name.push(key);
+                candidates.push(CompletionCandidate::new(name.to_string()));
+                stack.push(name);
+            }
+        }
+        Ok(candidates)
+    }));
+    candidates
+        .into_iter()
+        .unique_by(|candidate| candidate.get_value().to_owned())
+        .collect()
 }
 
 pub fn leaf_config_keys() -> Vec<CompletionCandidate> {
@@ -1478,7 +1495,7 @@ mod tests {
     #[test]
     fn test_config_keys() {
         // Just make sure the schema is parsed without failure.
-        config_keys();
+        config_keys_impl(false, "");
     }
 
     #[test]
