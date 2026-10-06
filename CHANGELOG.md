@@ -6,20 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Release highlights
-
-### Breaking changes
-
-### Deprecations
-
-### New features
-
-### Fixed bugs
-
-* Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
-  `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
+<!-- BEGIN UNRELEASED NOTE -->
+Changes that have not been released yet are described in the
+[`changelog/`](https://github.com/jj-vcs/jj/tree/main/changelog) directory.
+<!-- END UNRELEASED NOTE -->
 
 ## [0.46.0] - 2026-10-07
 
@@ -5753,7 +5743,6 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.46.0...HEAD
 [0.46.0]: https://github.com/jj-vcs/jj/compare/v0.45.1...v0.46.0
 [0.45.1]: https://github.com/jj-vcs/jj/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/jj-vcs/jj/compare/v0.44.0...v0.45.0

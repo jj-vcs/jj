@@ -1,12 +1,34 @@
 # The `dev` dependency group sets up tools for building `jj`
 # documentation. `uv` will install these in a virtual environment.
+#
+# The project itself provides the `changelog` command (`uv run changelog`),
+# implemented in changelog/changelog.py.
 
 [project]
 name = "jj-docs"
-description = "Sets up MkDocs and related Python tools"
+description = "Sets up MkDocs, the changelog tool, and related Python tools"
 requires-python = ">=3.9"
 version = "0.1.0"
-dependencies = []
+dependencies = [
+    # Used by the changelog tool. `changelog check` compares notes against
+    # mdformat's output, so upgrading these may require reformatting notes.
+    "mdformat>=0.7.22,<0.8",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+changelog = "changelog.changelog:main"
+
+[build-system]
+# uv uses the build backend bundled with it, without downloading `uv_build`,
+# if its version is in this range. Keep the upper bound below the next minor
+# version of uv, per uv's versioning policy.
+requires = ["uv_build>=0.8.13,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "changelog"
+module-root = ""
 
 [dependency-groups]
 # These can be updated with `uv add --dev`.
@@ -30,7 +52,6 @@ dev = [
 ]
 
 [tool.uv]
-package = false
 # Pygments 2.20.0 caused https://github.com/jj-vcs/jj/issues/9230
 # For example, the `github` docs ended up having literal "```shell" in them,
 # see the exact breakage in
