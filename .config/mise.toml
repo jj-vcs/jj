@@ -71,6 +71,11 @@ description = "Lint the code with Clippy"
 tools.rust = "{{vars.rust_version}}"
 run = "cargo clippy --workspace --all-targets"
 
+[tasks."check:changelog"]
+description = "Check the changelog notes in changelog/ and CHANGELOG.md"
+tools.uv = "{{vars.uv_version}}"
+run = "uv run changelog check"
+
 [tasks."check:codespell"]
 description = "Check code for common misspellings"
 tools.uv = "{{vars.uv_version}}"
@@ -97,6 +102,13 @@ run = "cargo insta test --check --workspace --test-runner nextest --"
 description = "Check GitHub workflows with Zizmor"
 tools."cargo:zizmor" = "latest"
 run = "zizmor ."
+
+
+[tasks."new:changelog"]
+description = "Interactively add a changelog note to changelog/"
+tools.uv = "{{vars.uv_version}}"
+raw = true
+run = "uv run changelog new"
 
 
 [tasks."fix:clippy"]

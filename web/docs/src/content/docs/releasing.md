@@ -4,25 +4,29 @@ title: How to do a release
 
 ## Update changelog and Cargo versions
 
-Send a PR similar to <https://github.com/jj-vcs/jj/pull/7954>. Feel free to
-copy-edit the changelog in order to:
-
-* Populate "Release highlights" if relevant
-* Put more important items first so the reader doesn't miss them
-* Make items consistent when it comes to language and formatting
-* Catch any misplaced changelog items by looking at the CHANGELOG diff.
-
-To get the CHANGELOG diff, you can run
+Send a PR similar to <https://github.com/jj-vcs/jj/pull/7954>. Start by
+compiling the changelog notes in `changelog/` into a new section of
+`CHANGELOG.md`:
 
 ```shell
-jj log -r 'heads(tags())'  # Check that this shows the previous version
-jj diff --from 'heads(tags())' --to main CHANGELOG.md
+uv run changelog release 0.<number>.0
 ```
 
-Make sure to add a corresponding reference link at the bottom of the
-CHANGELOG for the new version's tag. It should be the github url comparing
-the previous version tag with the new version tag
-(e.g. `https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0`).
+This adds a `## [0.<number>.0] - <date>` section above the previous release
+(the date defaults to today in UTC; pass `--date YYYY-MM-DD` to override it),
+adds the link comparing the previous version tag with the new one at the bottom
+of `CHANGELOG.md`, and deletes the notes. To see the section without changing
+anything, run `uv run changelog preview`.
+
+Then copy-edit the new section in order to:
+
+* Add a `### Release highlights` section if relevant, at the top (below
+  "Security fixes", if any)
+* Add a `### Contributors` section at the end (see below)
+* Put more important items first so the reader doesn't miss them
+* Make items consistent when it comes to language and formatting
+* Catch any misplaced changelog items, such as a breaking change that was
+  filed as a new feature
 
 Producing the list of contributors is a bit annoying. The current suggestion is
 to run something like this:
