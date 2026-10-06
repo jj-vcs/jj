@@ -118,6 +118,7 @@
 "signature status invalid" = "red"
 
 "workspace name" = "green"
+"workspace current_workspace" = { bold = true }
 # TODO: qualify "root" as "commit root" and "operation root"; remove "workspace root"
 "workspace root" = "default"
 

@@ -2003,6 +2003,16 @@ fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'rep
         },
     );
     map.insert(
+        "current_workspace",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let current_workspace_name = language.workspace_name.clone();
+            let out_property =
+                self_property.map(move |ws_ref| ws_ref.name == current_workspace_name);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "target",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
