@@ -1125,7 +1125,7 @@ impl CommitKeywordCache {
         // optimize "::<recent_heads>" query to use bitset-based implementation.
         self.is_immutable_fn.get_or_try_init(|| {
             let expression = &language.immutable_expression;
-            let revset = evaluate_user_revset_expression(
+            let revset = evaluate_revset_expression(
                 language.repo,
                 &language.revset_parse_context,
                 language.id_prefix_context,
@@ -1152,20 +1152,19 @@ fn builtin_commit_template_functions<'repo>()
                 diagnostics,
                 revset_node,
                 |diagnostics, revset_node| {
-                    let (expression, inner_diagnostics) =
-                        parse_user_revset_expression(&language.revset_parse_context, &query)
-                            .map_err(|err| {
-                                TemplateParseError::expression(
-                                    "In revset expression",
-                                    revset_node.span,
-                                )
-                                .with_source(err)
-                            })?;
+                    let (expression, inner_diagnostics) = parse_revset_expression(
+                        &language.revset_parse_context,
+                        &query,
+                    )
+                    .map_err(|err| {
+                        TemplateParseError::expression("In revset expression", revset_node.span)
+                            .with_source(err)
+                    })?;
                     diagnostics.extend_with(inner_diagnostics, |diag| {
                         TemplateParseError::expression("In revset expression", revset_node.span)
                             .with_source(diag)
                     });
-                    let revset = evaluate_user_revset_expression(
+                    let revset = evaluate_revset_expression(
                         language.repo,
                         &language.revset_parse_context,
                         language.id_prefix_context,
@@ -1198,8 +1197,8 @@ fn builtin_commit_template_functions<'repo>()
             let revset_parse_context = language.revset_parse_context.clone();
             let id_prefix_context = language.id_prefix_context;
             let out_property = revset_property.and_then(move |query| {
-                let (expression, _) = parse_user_revset_expression(&revset_parse_context, &query)?;
-                let revset = evaluate_user_revset_expression(
+                let (expression, _) = parse_revset_expression(&revset_parse_context, &query)?;
+                let revset = evaluate_revset_expression(
                     repo,
                     &revset_parse_context,
                     id_prefix_context,
@@ -1482,7 +1481,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                     revset_node,
                     |diagnostics, node| {
                         let (expression, inner_diagnostics) =
-                            parse_user_revset_expression(&language.revset_parse_context, &query)
+                            parse_revset_expression(&language.revset_parse_context, &query)
                                 .map_err(|err| {
                                     TemplateParseError::expression(
                                         "In revset expression",
@@ -1494,7 +1493,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                             TemplateParseError::expression("In revset expression", node.span)
                                 .with_source(diag)
                         });
-                        evaluate_user_revset_expression(
+                        evaluate_revset_expression(
                             language.repo,
                             &language.revset_parse_context,
                             language.id_prefix_context,
@@ -1517,8 +1516,8 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 let out_property =
                     (self_property, revset_property).and_then(move |(commit, query)| {
                         let (expression, _) =
-                            parse_user_revset_expression(&revset_parse_context, &query)?;
-                        let revset = evaluate_user_revset_expression(
+                            parse_revset_expression(&revset_parse_context, &query)?;
+                        let revset = evaluate_revset_expression(
                             repo,
                             &revset_parse_context,
                             id_prefix_context,
@@ -1650,7 +1649,7 @@ fn expect_fileset_literal(
     })
 }
 
-fn parse_user_revset_expression(
+fn parse_revset_expression(
     revset_parse_context: &RevsetParseContext,
     revset_str: &str,
 ) -> Result<(Arc<UserRevsetExpression>, RevsetDiagnostics), RevsetParseError> {
@@ -1659,7 +1658,7 @@ fn parse_user_revset_expression(
     Ok((expression, diagnostics))
 }
 
-fn evaluate_user_revset_expression(
+fn evaluate_revset_expression(
     repo: &dyn Repo,
     revset_parse_context: &RevsetParseContext,
     id_prefix_context: &IdPrefixContext,
