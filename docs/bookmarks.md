@@ -230,5 +230,5 @@ command itself through an alias (as `jj b`), and for its subcommands.
 For example, `jj bookmark create BOOKMARK-NAME -r@` can be abbreviated as
 `jj b c BOOKMARK-NAME -r@`.
 
-[colocated-workspaces]: git-compatibility.md#colocated-jujutsugit-repos
+[colocated-workspaces]: git-compatibility.md#colocated-jujutsugit-workspaces
 [design]: design/tracking-branches.md
