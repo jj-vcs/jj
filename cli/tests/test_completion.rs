@@ -1713,6 +1713,7 @@ fn test_merge_tools() {
     let output = test_env.run_jj_in(dir, ["--", "jj", "resolve", "--tool", ""]);
     insta::assert_snapshot!(output, @"
     :builtin
+    :editor
     :ours
     :theirs
     kdiff3

@@ -10,9 +10,6 @@ use std::sync::Arc;
 
 use bstr::BString;
 use itertools::Itertools as _;
-use jj_lib::backend::CopyId;
-use jj_lib::backend::MergedTreeValueExt as _;
-use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -38,6 +35,7 @@ use super::diff_working_copies::DiffEditWorkingCopies;
 use super::diff_working_copies::DiffType;
 use super::diff_working_copies::check_out_trees;
 use super::diff_working_copies::set_readonly_recursively;
+use super::resolve_files_one_by_one;
 use crate::config::CommandNameAndArgs;
 use crate::config::find_all_variables;
 use crate::config::interpolate_variables;
@@ -191,9 +189,7 @@ async fn run_mergetool_external_single_file(
     tree_builder: &mut MergedTreeBuilder,
 ) -> Result<(), ConflictResolveError> {
     let MergeToolFile {
-        repo_path,
-        conflict,
-        file,
+        repo_path, file, ..
     } = merge_tool_file;
 
     let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
@@ -316,19 +312,10 @@ async fn run_mergetool_external_single_file(
         ));
     }
 
-    let new_tree_value = match new_file_ids.into_resolved() {
-        Ok(file_id) => {
-            let executable = file.executable.expect("should have been resolved");
-            Merge::resolved(file_id.map(|id| TreeValue::File {
-                id,
-                executable,
-                copy_id: CopyId::placeholder(),
-            }))
-        }
-        // Update the file ids only, leaving the executable flags unchanged
-        Err(file_ids) => conflict.with_new_file_ids(&file_ids),
-    };
-    tree_builder.set_or_remove(repo_path.to_owned(), new_tree_value);
+    tree_builder.set_or_remove(
+        repo_path.to_owned(),
+        merge_tool_file.new_tree_value(new_file_ids),
+    );
     Ok(())
 }
 
@@ -342,41 +329,23 @@ pub async fn run_mergetool_external(
 ) -> Result<(MergedTree, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
     // TODO: add support for "dir" invocation mode, similar to the
     // "diff-invocation-mode" config option for diffs
-    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
-    let mut partial_resolution_error = None;
-    for (i, merge_tool_file) in merge_tool_files.iter().enumerate() {
-        writeln!(
-            ui.status(),
-            "Resolving conflicts in: {}",
-            path_converter.format_file_path(&merge_tool_file.repo_path)
-        )?;
-        match run_mergetool_external_single_file(
-            editor,
-            tree.store(),
-            merge_tool_file,
-            default_conflict_marker_style,
-            &mut tree_builder,
-        )
-        .await
-        {
-            Ok(()) => {}
-            Err(err) if i == 0 => {
-                // If the first resolution fails, just return the error normally
-                return Err(err);
-            }
-            Err(err) => {
-                // Some conflicts were already resolved, so we should return an error with the
-                // partially-resolved tree so that the caller can save the resolved files.
-                partial_resolution_error = Some(MergeToolPartialResolutionError {
-                    source: err,
-                    resolved_count: i,
-                });
-                break;
-            }
-        }
-    }
-    let new_tree = tree_builder.write_tree().await?;
-    Ok((new_tree, partial_resolution_error))
+    resolve_files_one_by_one(
+        ui,
+        path_converter,
+        tree,
+        merge_tool_files,
+        async |merge_tool_file, tree_builder| {
+            run_mergetool_external_single_file(
+                editor,
+                tree.store(),
+                merge_tool_file,
+                default_conflict_marker_style,
+                tree_builder,
+            )
+            .await
+        },
+    )
+    .await
 }
 
 pub async fn edit_diff_external(

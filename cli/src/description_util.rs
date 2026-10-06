@@ -76,7 +76,7 @@ impl TempTextEditError {
 }
 
 /// Configured text editor.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TextEditor {
     editor: CommandNameAndArgs,
 }
