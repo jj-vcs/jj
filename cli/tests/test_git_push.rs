@@ -2753,10 +2753,10 @@ fn test_git_push_sign_on_push() {
     ------- stderr -------
     Updated signatures of 2 commits.
     Rebased 2 descendant commits.
-    Changes to push to origin:
-      bookmark: bookmark2 [move forward from 38a204733702 to d45e2adce0ad]
     Working copy  (@) now at: kmkuslsw 3d5a9465 (empty) commit which should not be signed 2
     Parent commit (@-)      : kpqxywon 48ea83e9 (empty) commit which should not be signed 1
+    Changes to push to origin:
+      bookmark: bookmark2 [move forward from 38a204733702 to d45e2adce0ad]
     [EOF]
     ");
     // Only commits which are being pushed should be signed
@@ -2842,10 +2842,10 @@ fn test_git_push_sign_on_push() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated signatures of 1 commits.
+    Working copy  (@) now at: pzsxstzt 0617b681 bookmark1* | (empty) commit to be signed 3
+    Parent commit (@-)      : kmkuslsw 5114df95 (empty) commit which should not be signed 2
     Changes to push to origin:
       bookmark: bookmark1 [move sideways from 9b2e76de3920 to 0617b6813c01]
-    Working copy  (@) now at: pzsxstzt 0617b681 bookmark1 | (empty) commit to be signed 3
-    Parent commit (@-)      : kmkuslsw 5114df95 (empty) commit which should not be signed 2
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", template]);
@@ -2862,6 +2862,198 @@ fn test_git_push_sign_on_push() {
     ◆
     [EOF]
     ");
+}
+
+#[test]
+fn test_git_push_sign_on_push_separate_transaction() -> TestResult {
+    // Signatures recorded by git.sign-on-push survive a failed push and don't
+    // have to be recreated on retry.
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    let template = r#"
+    separate("\n",
+      description.first_line(),
+      if(signature,
+        separate(", ",
+          "Signature: " ++ signature.display(),
+          "Status: " ++ signature.status(),
+          "Key: " ++ signature.key(),
+        )
+      )
+    )
+    "#;
+    work_dir
+        .run_jj(["new", "bookmark2", "-m", "commit to be signed 1"])
+        .success();
+    work_dir
+        .run_jj(["new", "-m", "commit to be signed 2"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "set", "bookmark2", "-r@"])
+        .success();
+    test_env.add_config(
+        r#"
+    signing.backend = "test"
+    signing.key = "impeccable"
+    git.sign-on-push = true
+    "#,
+    );
+
+    // create a hook on the remote that prevents pushing
+    let hook_path = test_env
+        .env_root()
+        .join("origin")
+        .join(".jj")
+        .join("repo")
+        .join("store")
+        .join("git")
+        .join("hooks")
+        .join("update");
+    std::fs::write(&hook_path, "#!/bin/sh\nexit 1")?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700))?;
+    }
+
+    // The push fails, but the signatures are kept in their own transaction
+    let output = work_dir.run_jj(["git", "push"]);
+    let mut settings = insta::Settings::clone_current();
+    settings.add_filter(r"\s*\n", "\n");
+    settings.bind(|| {
+        insta::assert_snapshot!(output, @"
+        ------- stderr -------
+        Updated signatures of 2 commits.
+        Working copy  (@) now at: yostqsxw 46cf8967 bookmark2* | (empty) commit to be signed 2
+        Parent commit (@-)      : vruxwmqv 46da2d5c (empty) commit to be signed 1
+        Changes to push to origin:
+          bookmark: bookmark2 [move forward from 38a204733702 to 46cf8967724d]
+        remote: error: hook declined to update refs/heads/bookmark2
+        Warning: The remote rejected the following updates:
+          refs/heads/bookmark2 (reason: hook declined)
+        Hint: Try checking if you have permission to push to all the bookmarks.
+        Error: Failed to push some bookmarks
+        [EOF]
+        [exit status: 1]
+        ");
+    });
+
+    // The signed commits are still there after the failed push
+    let output = work_dir.run_jj(["log", "-T", template, "-r", "::bookmark2"]);
+    insta::assert_snapshot!(output, @"
+    @  commit to be signed 2
+    │  Signature: test-display, Status: good, Key: impeccable
+    ○  commit to be signed 1
+    │  Signature: test-display, Status: good, Key: impeccable
+    ○  description 2
+    ◆
+    [EOF]
+    ");
+
+    // Retrying the push doesn't sign the commits again
+    std::fs::remove_file(&hook_path)?;
+    let output = work_dir.run_jj(["git", "push"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark2 [move forward from 38a204733702 to 46cf8967724d]
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
+fn test_git_push_sign_on_push_separate_transaction_change_bookmark() -> TestResult {
+    // Bookmarks created by --change/--named belong to the push attempt, so
+    // they are rolled back if the push fails, unlike the signatures.
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    work_dir
+        .run_jj(["new", "bookmark2", "-m", "commit to be signed"])
+        .success();
+    test_env.add_config(
+        r#"
+    signing.backend = "test"
+    signing.key = "impeccable"
+    git.sign-on-push = true
+    "#,
+    );
+
+    // create a hook on the remote that prevents pushing
+    let hook_path = test_env
+        .env_root()
+        .join("origin")
+        .join(".jj")
+        .join("repo")
+        .join("store")
+        .join("git")
+        .join("hooks")
+        .join("update");
+    std::fs::write(&hook_path, "#!/bin/sh\nexit 1")?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700))?;
+    }
+
+    let output = work_dir.run_jj(["git", "push", "--change", "@"]);
+    let mut settings = insta::Settings::clone_current();
+    settings.add_filter(r"\s*\n", "\n");
+    settings.bind(|| {
+        insta::assert_snapshot!(output, @"
+        ------- stderr -------
+        Creating bookmark push-vruxwmqvtpmx for revision vruxwmqvtpmx
+        Updated signatures of 1 commits.
+        Working copy  (@) now at: vruxwmqv 6d54c811 (empty) commit to be signed
+        Parent commit (@-)      : zsuskuln 38a20473 bookmark2 | (empty) description 2
+        Changes to push to origin:
+          bookmark: push-vruxwmqvtpmx [add to 6d54c811b601]
+        remote: error: hook declined to update refs/heads/push-vruxwmqvtpmx
+        Warning: The remote rejected the following updates:
+          refs/heads/push-vruxwmqvtpmx (reason: hook declined)
+        Hint: Try checking if you have permission to push to all the bookmarks.
+        Error: Failed to push some bookmarks
+        [EOF]
+        [exit status: 1]
+        ");
+    });
+
+    // The created bookmark is gone, but the signature is kept
+    let output = work_dir.run_jj(["bookmark", "list"]);
+    insta::assert_snapshot!(output, @"
+    bookmark1: qpvuntsm 9b2e76de (empty) description 1
+    bookmark2: zsuskuln 38a20473 (empty) description 2
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "log",
+        "-r",
+        "@",
+        "-T",
+        r#"separate("\n", description.first_line(), if(signature, "signed")) ++ "\n""#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  commit to be signed
+    │  signed
+    ~
+    [EOF]
+    ");
+
+    // Retrying the push creates the bookmark and pushes it
+    std::fs::remove_file(&hook_path)?;
+    let output = work_dir.run_jj(["git", "push", "--change", "@"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Creating bookmark push-vruxwmqvtpmx for revision vruxwmqvtpmx
+    Changes to push to origin:
+      bookmark: push-vruxwmqvtpmx [add to 6d54c811b601]
+    [EOF]
+    ");
+    Ok(())
 }
 
 #[test]

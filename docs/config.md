@@ -1803,6 +1803,14 @@ because the signing work is deferred to push time. If `signing.behavior` is set
 to `own` or `force`, commits may already be signed when written, and
 `git.sign-on-push` would have little or nothing left to sign.
 
+The commits are signed in their own transaction which is committed before
+the push starts. If the push fails, the commits stay signed and retrying
+does not have to sign them again. If nothing needs signing, no extra
+transaction is created.
+
+Because signing and pushing are separate operations, `jj undo` of the push
+operation would not undo the commit signatures.
+
 ## Commit Signature Verification
 
 By default signature verification and display is **disabled** as it incurs a

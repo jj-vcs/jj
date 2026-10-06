@@ -322,6 +322,7 @@ pub async fn cmd_git_push(
     }
 
     let mut tx = workspace_command.start_transaction();
+    let mut created_bookmark_names: Vec<RefNameBuf> = Vec::new();
     let mut by_remote = Vec::with_capacity(matching_remotes.len());
 
     if args.all {
@@ -398,6 +399,12 @@ pub async fn cmd_git_push(
         // --change and --named don't move existing bookmarks. If they did, be
         // careful to not select old state by -r/--revisions and bookmark names.
         let change_bookmark_names = create_change_bookmarks(ui, &mut tx, &args.change).await?;
+        created_bookmark_names.extend(
+            change_bookmark_names
+                .iter()
+                .filter(|(_, created)| *created)
+                .map(|(name, _)| name.clone()),
+        );
         let named_bookmark_commits = try_join_all(args.named.iter().map(|arg| async {
             let (name, revision_arg) = parse_named_bookmark(arg)?;
             let commit = tx
@@ -411,6 +418,7 @@ pub async fn cmd_git_push(
             ensure_new_bookmark_name(tx.repo(), name)?;
             tx.repo_mut()
                 .set_local_bookmark_target(name, RefTarget::normal(commit.id().clone()));
+            created_bookmark_names.push(name.clone());
         }
         let use_default_revset = args.bookmark.is_empty()
             && args.tag.is_empty()
@@ -426,6 +434,7 @@ pub async fn cmd_git_push(
             let mut ref_updates = GitPushRefTargets::default();
             let created_bookmarks = change_bookmark_names
                 .iter()
+                .map(|(name, _)| name)
                 .chain(named_bookmark_commits.iter().map(|(name, _)| name))
                 .map(|name| {
                     let remote_symbol = name.to_remote_symbol(remote);
@@ -569,13 +578,38 @@ pub async fn cmd_git_push(
             .map(|(remote, ref_updates)| ready_to_push_revset_expression(&tx, remote, ref_updates))
             .collect_vec();
 
-        by_remote = sign_commits_before_push(
+        let (signed_by_remote, num_signed) = sign_commits_before_push(
             ui,
             &mut tx,
             UserRevsetExpression::union_all(&to_push_exprs),
             by_remote,
         )
         .await?;
+        by_remote = signed_by_remote;
+
+        // Signing rewrites the commits that are about to be pushed, so
+        // without a dedicated transaction a failed push (e.g. an ssh
+        // authentication failure) would discard the signatures and signing
+        // would have to be redone on the next attempt.
+        if num_signed > 0 {
+            // Bookmarks created by --change/--named belong to the push
+            // attempt, not to the signing. Move them to the push transaction
+            // so a failed push still rolls them back.
+            let mut created_bookmark_targets = Vec::new();
+            for name in &created_bookmark_names {
+                let target = tx.repo().view().get_local_bookmark(name).clone();
+                created_bookmark_targets.push((name.clone(), target));
+                tx.repo_mut()
+                    .set_local_bookmark_target(name, RefTarget::absent());
+            }
+            // Commit the current transaction as a sign-only transaction,
+            // then open a new transaction for the push itself.
+            tx.finish(ui, "sign commits before push").await?;
+            tx = workspace_command.start_transaction();
+            for (name, target) in created_bookmark_targets {
+                tx.repo_mut().set_local_bookmark_target(&name, target);
+            }
+        }
     }
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
@@ -914,13 +948,13 @@ fn ready_to_push_revset_expression(
 /// Warns about commits that need a signature but are immutable.
 ///
 /// Returns the updated list of bookmark names and corresponding
-/// [`BookmarkPushUpdate`]s.
+/// [`BookmarkPushUpdate`]s, and the number of signed commits.
 async fn sign_commits_before_push<'a>(
     ui: &Ui,
     tx: &mut WorkspaceCommandTransaction<'_>,
     commits_to_push: Arc<UserRevsetExpression>,
     by_remote: Vec<(&'a RemoteName, GitPushRefTargets)>,
-) -> Result<Vec<(&'a RemoteName, GitPushRefTargets)>, CommandError> {
+) -> Result<(Vec<(&'a RemoteName, GitPushRefTargets)>, usize), CommandError> {
     let mut sign_settings = tx.settings().sign_settings();
     sign_settings.behavior = SignBehavior::Own;
     // TODO: make filter condition configurable by revset?
@@ -963,7 +997,7 @@ async fn sign_commits_before_push<'a>(
         .try_collect()
         .await?;
     if commit_ids.is_empty() {
-        return Ok(by_remote);
+        return Ok((by_remote, 0));
     }
 
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
@@ -1034,7 +1068,7 @@ async fn sign_commits_before_push<'a>(
         }
     }
 
-    Ok(by_remote)
+    Ok((by_remote, commit_ids.len()))
 }
 
 async fn print_commits_ready_to_push(
@@ -1300,11 +1334,14 @@ fn parse_named_bookmark(name_revision: &str) -> Result<(RefNameBuf, RevisionArg)
 }
 
 /// Creates bookmarks based on the change IDs.
+///
+/// Returns the bookmark names and whether each bookmark was created by this
+/// function (an existing bookmark pointing to the commit is reused).
 async fn create_change_bookmarks(
     ui: &Ui,
     tx: &mut WorkspaceCommandTransaction<'_>,
     changes: &[RevisionArg],
-) -> Result<Vec<RefNameBuf>, CommandError> {
+) -> Result<Vec<(RefNameBuf, bool)>, CommandError> {
     if changes.is_empty() {
         // NOTE: we don't want resolve_some_revsets_default_single to fail if the
         // changes argument wasn't provided, so handle that
@@ -1337,10 +1374,12 @@ async fn create_change_bookmarks(
             .try_collect()?
     };
 
+    let mut bookmark_entries = Vec::new();
     for (commit, name) in iter::zip(&all_commits, &bookmark_names) {
         let target = RefTarget::normal(commit.id().clone());
         if tx.repo().view().get_local_bookmark(name) == &target {
             // Existing bookmark pointing to the commit, which is allowed
+            bookmark_entries.push((name.clone(), false));
             continue;
         }
         ensure_new_bookmark_name(tx.repo(), name)?;
@@ -1351,8 +1390,9 @@ async fn create_change_bookmarks(
             change_id = commit.change_id()
         )?;
         tx.repo_mut().set_local_bookmark_target(name, target);
+        bookmark_entries.push((name.clone(), true));
     }
-    Ok(bookmark_names)
+    Ok(bookmark_entries)
 }
 
 fn find_bookmarks_to_push<'a>(
