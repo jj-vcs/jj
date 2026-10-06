@@ -104,6 +104,8 @@ jobs:
         with:
           version: "0.5.1"
           enable-cache: false
+      - name: Remove the note about unreleased changes from CHANGELOG.md
+        run: uv run changelog remove-unreleased-note
       - name: Compile docs and zip them up
         run: |
           uv run mkdocs build
@@ -139,6 +141,8 @@ jobs:
         with:
           version: "0.5.1"
           enable-cache: false
+      - name: Remove the note about unreleased changes from CHANGELOG.md
+        run: uv run changelog remove-unreleased-note
       - name: Install dependencies, compile and deploy docs to the "latest release" section of the website
         run: |
           git config user.name 'jj-docs[bot]'
