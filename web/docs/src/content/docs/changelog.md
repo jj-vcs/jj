@@ -2,7 +2,7 @@
 title: Changelog
 ---
 
-<!-- The contents of the CHANGELOG is manually kept up-to-date with PRs.
+<!-- CHANGELOG.md is compiled from the notes in changelog/ at release time.
      This file only exposes it to the website.
 -->
 

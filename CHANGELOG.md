@@ -6,28 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Release highlights
-
-### Breaking changes
-
-* `jj git push` now checks commits in `immutable()` for empty descriptions,
-  missing author/committer, conflicts, and being private
-  (`git.private-commits`). Commits that are already on the remote being pushed
-  to are still not checked.
-
-* Deleted `jj debug snapshot`. It was deprecated in 0.39.0. Use `jj util snapshot`
-  instead.
-
-### Deprecations
-
-### New features
-
-### Fixed bugs
-
-* In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
-  changes from being exported to Git HEAD and refs.
+<!-- BEGIN UNRELEASED NOTE -->
+Changes that have not been released yet are described in the
+[`changelog/`](https://github.com/jj-vcs/jj/tree/main/changelog) directory.
+<!-- END UNRELEASED NOTE -->
 
 ## [0.47.1] - 2026-11-04
 
@@ -5990,7 +5972,6 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.47.1...HEAD
 [0.47.1]: https://github.com/jj-vcs/jj/compare/v0.47.0...v0.47.1
 [0.47.0]: https://github.com/jj-vcs/jj/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/jj-vcs/jj/compare/v0.45.1...v0.46.0

@@ -13,7 +13,7 @@ Note that you need to sign Google's CLA to contribute.
 
 If applicable:
 
-- [ ] I have updated `CHANGELOG.md`
+- [ ] I have added a changelog note (`uv run changelog new`)
 - [ ] I have updated the documentation (`README.md`, `docs/`, `demos/`)
 - [ ] I have updated the config schema (`cli/src/config-schema.json`)
 - [ ] I have added/updated tests to cover my changes
