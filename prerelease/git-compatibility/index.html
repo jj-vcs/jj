@@ -1111,6 +1111,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Creating a repo backed by an existing Git repo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-the-same-working-copy-colocated" class="md-nav__link">
+    <span class="md-ellipsis">
+      In the same working copy (colocated)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#in-a-separate-working-copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      In a separate working copy
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1985,6 +2009,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Creating a repo backed by an existing Git repo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-the-same-working-copy-colocated" class="md-nav__link">
+    <span class="md-ellipsis">
+      In the same working copy (colocated)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#in-a-separate-working-copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      In a separate working copy
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2138,13 +2186,33 @@ a comparison with Git, including how workflows are different, see the
 creates a <a href="#colocated-jujutsugit-workspaces">colocated</a> Jujutsu workspace,
 there will be a <code>.jj</code> directory and a <code>.git</code> directory.</p>
 <h2 id="creating-a-repo-backed-by-an-existing-git-repo">Creating a repo backed by an existing Git repo<a class="headerlink" href="#creating-a-repo-backed-by-an-existing-git-repo" title="Permanent link">&para;</a></h2>
-<p>To create a Jujutsu repo backed by a Git repo you already have on disk, use <code>jj
-git init --git-repo=&lt;path to Git repo&gt; &lt;name&gt;</code>. The repo will work similar to a
-<a href="https://git-scm.com/docs/git-worktree">Git worktree</a>, meaning that the working
-copies files and the record of the working-copy commit will be separate, but the
-commits will be accessible in both repos. Use <code>jj git import</code> to update the
-Jujutsu repo with changes made in the Git repo. Use <code>jj git export</code> to update
-the Git repo with changes made in the Jujutsu repo.</p>
+<p>There are two common ways to start using Jujutsu with a Git repository you
+already have on disk.</p>
+<h3 id="in-the-same-working-copy-colocated">In the same working copy (colocated)<a class="headerlink" href="#in-the-same-working-copy-colocated" title="Permanent link">&para;</a></h3>
+<p>To create a Jujutsu repo <em>in the Git repository itself</em> (a repo with a
+<a href="#colocated-jujutsugit-workspaces">colocated</a> workspace), change into that
+directory and run:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>path/to/git-repo
+$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>init
+</code></pre></div>
+<p>Jujutsu reuses the existing Git repository as its backing store, so both <code>.jj/</code>
+and <code>.git/</code> live at the top level of the same working copy and you can use both
+<code>jj</code> and <code>git</code> commands there. This is the usual way to start using Jujutsu on
+an existing local Git checkout.</p>
+<h3 id="in-a-separate-working-copy">In a separate working copy<a class="headerlink" href="#in-a-separate-working-copy" title="Permanent link">&para;</a></h3>
+<p>To create a Jujutsu repo that shares commits with an existing Git repo but has
+its own working-copy files (similar to a
+<a href="https://git-scm.com/docs/git-worktree">Git worktree</a>), create it in a directory
+that is not already a Git checkout and point it at the Git repo:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>path/to/new/jj-repo
+$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>init<span class="w"> </span>--git-repo<span class="o">=</span>path/to/git-repo
+</code></pre></div>
+<p>(<code>path/to/git-repo</code> may be absolute, or relative to the current directory.) See
+<code>jj git init --help</code> for other arguments.</p>
+<p>The working-copy files and the record of the working-copy commit will be
+separate, but the commits will be accessible in both repos. Use <code>jj git import</code>
+to update the Jujutsu repo with changes made in the Git repo. Use
+<code>jj git export</code> to update the Git repo with changes made in the Jujutsu repo.</p>
 <h2 id="creating-a-repo-by-cloning-a-git-repo">Creating a repo by cloning a Git repo<a class="headerlink" href="#creating-a-repo-by-cloning-a-git-repo" title="Permanent link">&para;</a></h2>
 <p>To create a Jujutsu repo from a remote Git URL, use <code>jj git clone &lt;URL&gt;
 [&lt;destination&gt;]</code>. For example, <code>jj git clone

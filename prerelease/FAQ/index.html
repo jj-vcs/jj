@@ -556,6 +556,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-do-i-convert-an-existing-git-repo-into-a-jujutsu-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      How do I convert an existing Git repo into a Jujutsu repo?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#should-i-colocate-my-repository" class="md-nav__link">
     <span class="md-ellipsis">
       Should I colocate my repository?
@@ -2184,6 +2193,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-do-i-convert-an-existing-git-repo-into-a-jujutsu-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      How do I convert an existing Git repo into a Jujutsu repo?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#should-i-colocate-my-repository" class="md-nav__link">
     <span class="md-ellipsis">
       Should I colocate my repository?
@@ -2473,6 +2491,15 @@ which triggers on op log changes instead of using a two-second interval:</p>
 </code></pre></div>
 <p>Alternatively, you can use <a href="https://github.com/tim-janik/jj-fzf">jj-fzf</a>, where the central piece is the <code>jj log</code> view and common operations can be carried out via key bindings while the log view updates.</p>
 <p>The wiki lists additional TUIs and GUIs beyond the terminal: <a href="https://github.com/jj-vcs/jj/wiki/GUI-and-TUI">GUI-and-TUI</a></p>
+<h3 id="how-do-i-convert-an-existing-git-repo-into-a-jujutsu-repo">How do I convert an existing Git repo into a Jujutsu repo?<a class="headerlink" href="#how-do-i-convert-an-existing-git-repo-into-a-jujutsu-repo" title="Permanent link">&para;</a></h3>
+<p>From inside the Git repository, run <code>jj git init</code>. This creates a <code>.jj/</code>
+directory next to <code>.git/</code> and imports the existing history (a colocated
+workspace).</p>
+<p>If you instead want a separate Jujutsu working copy that shares commits with the
+Git repo (similar to a <a href="https://git-scm.com/docs/git-worktree">Git worktree</a>),
+then run <code>jj git init --git-repo=path/to/git-repo path/to/new/jj-repo</code>.</p>
+<p>See <a href="../git-compatibility/#creating-a-repo-backed-by-an-existing-git-repo">Creating a repo backed by an existing Git
+repo</a>.</p>
 <h3 id="should-i-colocate-my-repository"><a name="should-i-co-locate-my-repository"></a>Should I colocate my repository?<a class="headerlink" href="#should-i-colocate-my-repository" title="Permanent link">&para;</a></h3>
 <p>Colocating a Jujutsu repository allows you to use both Jujutsu and Git in the
 same working copy. The benefits of doing so are:</p>
@@ -2486,7 +2513,7 @@ same working copy. The benefits of doing so are:</p>
 <p>Tooling that expects a Git repository still works (IDEs, build tooling, etc.)</p>
 </li>
 </ul>
-<p>The <a href="../git-compatibility/#colocated-jujutsugit-repos">colocation documentation describes the
+<p>The <a href="../git-compatibility/#colocated-jujutsugit-workspaces">colocation documentation describes the
 drawbacks</a> but the most
 important ones are:</p>
 <ul>

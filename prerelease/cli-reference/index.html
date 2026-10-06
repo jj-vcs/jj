@@ -10073,7 +10073,7 @@ upload</code> does:
 <li>
 <p><code>--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</p>
 <p>Prevent Git tools that are unaware of <code>jj</code> and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the <code>.jj</code> directory.</p>
-<p>See <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
+<p>See <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
 </li>
 <li>
 <p><code>--depth &lt;DEPTH&gt;</code> — Create a shallow clone of the given depth</p>
@@ -10157,29 +10157,29 @@ upload</code> does:
 <p>By default, this command does nothing in colocated workspaces because the import happens automatically. Use <code>--ignore-working-copy</code> to forcibly import changes.</p>
 <p><strong>Usage:</strong> <code>jj git import</code></p>
 <h2 id="jj-git-init"><code>jj git init</code><a class="headerlink" href="#jj-git-init" title="Permanent link">&para;</a></h2>
-<p>Create a new Git backed repo</p>
+<p>Create a new Git backed repo.</p>
+<p>To use an existing Git repository as the backing store, run <code>jj git init</code> from that repository's root directory. This is the usual way to start using Jujutsu in an existing Git checkout. See <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces">colocation docs</a>.</p>
+<p>If the setting <code>git.colocate</code> has the value <code>false</code>, then new repositories will not be colocated. Pass <code>--colocate</code> to override this.</p>
 <p><strong>Usage:</strong> <code>jj git init [OPTIONS] [DESTINATION]</code></p>
 <h6 id="arguments_35"><strong>Arguments:</strong><a class="headerlink" href="#arguments_35" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>&lt;DESTINATION&gt;</code> — The destination directory where the <code>jj</code> repo will be created. If the directory does not exist, it will be created. If no directory is given, the current directory is used.</p>
-<p>By default the <code>git</code> repo is under <code>$destination/.jj</code></p>
+<p><code>&lt;DESTINATION&gt;</code> — The destination directory where the <code>jj</code> repo will be created. If the directory does not exist, it will be created. If no directory is given, the current directory is used</p>
 <p>Default value: <code>.</code></p>
 </li>
 </ul>
 <h6 id="options_37"><strong>Options:</strong><a class="headerlink" href="#options_37" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>--colocate</code> — Colocate the Jujutsu repo with the git repo</p>
-<p>Specifies that the <code>jj</code> repo should also be a valid <code>git</code> repo, allowing the use of both <code>jj</code> and <code>git</code> commands in the same directory.</p>
-<p>The repository will contain a <code>.git</code> dir in the top-level. Regular Git tools will be able to operate on the repo.</p>
-<p><strong>This is the default</strong>, and this option has no effect, unless the <a href="https://docs.jj-vcs.dev/latest/config/#default-colocation">git.colocate config</a> is set to <code>false</code>.</p>
-<p>This option is mutually exclusive with <code>--git-repo</code>.</p>
+<p><code>--colocate</code> — Colocate the workspace of the Jujutsu repo with the Git repo</p>
+<p>Specifies that the workspace of the <code>jj</code> repo should also be a valid <code>git</code> repo, allowing the use of both <code>jj</code> and <code>git</code> commands in the same directory. The workspace will contain a <code>.git</code> dir in the top-level, so regular Git tools will be able to operate on the repo.</p>
+<p><strong>This is the default</strong> (and this option has no effect) unless the [<code>git.colocate</code> config] is set to <code>false</code>.</p>
+<p>The <code>--colocate</code> option is equivalent to <code>--git-repo=DESTINATION</code>. These options are mutually exclusive.</p>
 </li>
 <li>
-<p><code>--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</p>
+<p><code>--no-colocate</code> — Disable colocation for the workspace of the Jujutsu repo with the Git repo</p>
 <p>Prevent Git tools that are unaware of <code>jj</code> and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the <code>.jj</code> directory.</p>
-<p>See <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
+<p>See <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
 </li>
 <li>
 <p><code>--object-hash &lt;OBJECT_HASH&gt;</code> — Object hash algorithm for the newly created Git repository.</p>
@@ -10190,8 +10190,8 @@ upload</code> does:
 </li>
 <li>
 <p><code>--git-repo &lt;GIT_REPO&gt;</code> — Specifies a path to an <strong>existing</strong> git repository to be used as the backing git repo for the newly created <code>jj</code> repo.</p>
-<p>If the specified <code>--git-repo</code> path happens to be the same as the <code>jj</code> repo path (both .jj and .git directories are in the same working directory), then both <code>jj</code> and <code>git</code> commands will work on the same repo. This is called a colocated workspace.</p>
-<p>This option is mutually exclusive with <code>--colocate</code>, and so if passed, turns colocation off.</p>
+<p>If the specified <code>--git-repo</code> path is the same as <code>DESTINATION</code>, then a <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces">colocated workspace</a> will be created, and both <code>jj</code> and <code>git</code> commands will work on the repo. The <code>git.colocate</code> setting is ignored in this case.</p>
+<p>If the specified <code>--git-repo</code> path is outside of the given <code>DESTINATION</code>, then the Jujutsa workspace will store a reference to the external Git repository (not a colocated workspace). This option is mutually exclusive with <code>--collate</code>.</p>
 </li>
 </ul>
 <h2 id="jj-git-push"><code>jj git push</code><a class="headerlink" href="#jj-git-push" title="Permanent link">&para;</a></h2>

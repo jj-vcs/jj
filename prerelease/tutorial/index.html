@@ -476,6 +476,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#using-an-existing-git-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using an existing Git repository
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2026,6 +2035,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#using-an-existing-git-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using an existing Git repository
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2534,6 +2552,18 @@ that descendant commits may have conflicts.</p>
 <p>Another command for rewriting contents of existing commits is <code>jj split</code>. Now
 that you've seen how <code>jj squash -i</code> and <code>jj diffedit</code> work, you can hopefully
 figure out how it works (with the help of the instructions in the diff).</p>
+<h2 id="using-an-existing-git-repository">Using an existing Git repository<a class="headerlink" href="#using-an-existing-git-repository" title="Permanent link">&para;</a></h2>
+<p>If you already have a local Git checkout, you can start using Jujutsu in that
+directory instead of cloning:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>path/to/my-git-repo
+$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>init
+</code></pre></div>
+<p>This creates a <a href="../git-compatibility/#colocated-jujutsugit-workspaces">colocated
+workspace</a> (<code>.jj/</code> next to
+<code>.git/</code>), so you can use both <code>jj</code> and <code>git</code> commands in the same directory. See
+<a href="../git-compatibility/#creating-a-repo-backed-by-an-existing-git-repo">Creating a repo backed by an existing Git
+repo</a> for
+more details.</p>
 <div class="footnote">
 <hr />
 <ol>
