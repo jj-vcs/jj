@@ -284,6 +284,67 @@ fn test_restore_conflicted_merge() {
 }
 
 #[test]
+fn test_restore_conflict_side() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(
+        &work_dir,
+        "base",
+        &[],
+        &[("file1", "base\n"), ("file2", "base\n")],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "a",
+        &["base"],
+        &[("file1", "a\n"), ("file2", "a\n")],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "b",
+        &["base"],
+        &[("file1", "b\n"), ("file3", "b\n")],
+    );
+    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
+
+    // Resolve all conflicts in favor of side 2. The non-conflicting change to
+    // file2 from side 1 is kept.
+    let output = work_dir.run_jj(["restore", "--from", "conflict_side(@, 2)"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv ff4f21dc conflict | conflict
+    Parent commit (@-)      : zsuskuln 6c90cb15 a | a
+    Parent commit (@-)      : royxmykx 158da5df b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file1"), @"b");
+    insta::assert_snapshot!(work_dir.read_file("file2"), @"a");
+    insta::assert_snapshot!(work_dir.read_file("file3"), @"b");
+
+    // Resolve only the specified paths
+    work_dir.run_jj(["new", "a", "b"]).success();
+    let output = work_dir.run_jj(["restore", "--from", "conflict_side(@, 1)", "file2"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["restore", "--from", "conflict_side(@, 1)", "file1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: kpqxywon 82da484e (no description set)
+    Parent commit (@-)      : zsuskuln 6c90cb15 a | a
+    Parent commit (@-)      : royxmykx 158da5df b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file1"), @"a");
+}
+
+#[test]
 fn test_restore_restore_descendants() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

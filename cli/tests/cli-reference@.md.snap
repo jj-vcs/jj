@@ -3104,7 +3104,11 @@ If only one of `--from` or `--into` is specified, the other one defaults to the 
 
 When neither `--from` nor `--into` is specified, the command restores into the working copy from its parent(s). `jj restore` without arguments is similar to `jj abandon`, except that it leaves an empty revision with its description and other metadata preserved.
 
+The source (`--from`) can also be a tree that doesn't belong to a single revision. For example, `jj restore --from 'conflict_side(@, 1)'` resolves all conflicts in the working copy in favor of the first side. See `jj help -k treesets` or the [treeset docs] for details.
+
 See `jj diffedit` if you'd like to restore portions of files rather than entire files.
+
+[treeset docs]: https://docs.jj-vcs.dev/latest/treesets/
 
 **Usage:** `jj restore [OPTIONS] [FILESETS]...`
 
@@ -3114,7 +3118,7 @@ See `jj diffedit` if you'd like to restore portions of files rather than entire 
 
 ###### **Options:**
 
-* `-f`, `--from <REVSET>` — Revision to restore from (source)
+* `-f`, `--from <TREESET>` — Revision or tree to restore from (source)
 * `-t`, `--into <REVSET>` [alias: `to`] — Revision to restore into (destination)
 * `-c`, `--changes-in <REVSET>` — Undo the changes in a revision as compared to the merge of its parents.
 

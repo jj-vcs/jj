@@ -137,10 +137,11 @@ and this project adheres to
 
 ### New features
 
-* `jj diff --from/--to` now accept a [treeset expression](docs/treesets.md)
-  for selecting trees that don't belong to a single revision. For example,
-  `jj diff --from 'tree_merge(X-)' --to X` merges the parents of `X`, and
-  `conflict_side(X, 1)` selects side 1 of the conflicts in `X`.
+* `jj diff --from/--to` and `jj restore --from` now accept a
+  [treeset expression](docs/treesets.md) for selecting trees that don't belong
+  to a single revision. For example, `jj diff --from 'tree_merge(X-)' --to X`
+  merges the parents of `X`, and `jj restore --from 'conflict_side(@, 1)'`
+  resolves all conflicts in the working copy in favor of side 1.
   [#5307](https://github.com/jj-vcs/jj/issues/5307)
 
 * `jj workspace add` supports `--colocate`/`--no-colocate` flags to control

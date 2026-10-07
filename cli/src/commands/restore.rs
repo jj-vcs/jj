@@ -47,8 +47,15 @@ use crate::ui::Ui;
 /// similar to `jj abandon`, except that it leaves an empty revision with its
 /// description and other metadata preserved.
 ///
+/// The source (`--from`) can also be a tree that doesn't belong to a single
+/// revision. For example, `jj restore --from 'conflict_side(@, 1)'` resolves
+/// all conflicts in the working copy in favor of the first side. See `jj help
+/// -k treesets` or the [treeset docs] for details.
+///
 /// See `jj diffedit` if you'd like to restore portions of files rather than
 /// entire files.
+///
+/// [treeset docs]: https://docs.jj-vcs.dev/latest/treesets/
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct RestoreArgs {
     /// Restore only these paths (instead of all paths)
@@ -56,8 +63,8 @@ pub(crate) struct RestoreArgs {
     #[arg(add = ArgValueCompleter::new(complete::modified_changes_in_or_range_files))]
     paths: Vec<String>,
 
-    /// Revision to restore from (source)
-    #[arg(long, short, value_name = "REVSET")]
+    /// Revision or tree to restore from (source)
+    #[arg(long, short, value_name = "TREESET")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     from: Option<RevisionArg>,
 
@@ -123,11 +130,11 @@ pub(crate) async fn cmd_restore(
         to_commit = workspace_command
             .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))
             .await?;
-        let from_commit = workspace_command
-            .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))
+        let from = workspace_command
+            .resolve_tree(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))
             .await?;
-        from_tree = from_commit.tree();
-        from_commits = vec![from_commit];
+        from_tree = from.tree;
+        from_commits = from.commits;
     } else {
         to_commit = workspace_command
             .resolve_single_rev(ui, args.changes_in.as_ref().unwrap_or(&RevisionArg::AT))
