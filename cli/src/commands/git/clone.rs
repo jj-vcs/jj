@@ -394,6 +394,13 @@ async fn fetch_new_remote(
 
         let fetch_refspecs = expand_fetch_refspecs(remote_name, ref_expr.clone())?;
 
+        // The default branch query needs a connection of its own, so start it
+        // before fetching to have both run at the same time. That way an
+        // interactive authentication (e.g. a FIDO2 security key) is asked for
+        // once for both connections, close together, instead of twice with the
+        // whole fetch in between.
+        let default_branch_query = git_fetch.start_default_branch_query(remote_name)?;
+
         git_fetch.fetch(
             remote_name,
             fetch_refspecs,
@@ -403,7 +410,7 @@ async fn fetch_new_remote(
 
         let import_stats = git_fetch.import_refs().await?;
 
-        let default_branch = git_fetch.get_default_branch(remote_name)?;
+        let default_branch = default_branch_query.get()?;
         (default_branch, import_stats)
     };
 

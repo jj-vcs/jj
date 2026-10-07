@@ -25,6 +25,7 @@ use std::iter;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Child;
 use std::sync::Arc;
 
 use bstr::BStr;
@@ -53,6 +54,7 @@ pub use crate::git_subprocess::GitSidebandLineTerminator;
 pub use crate::git_subprocess::GitSubprocessCallback;
 use crate::git_subprocess::GitSubprocessContext;
 use crate::git_subprocess::GitSubprocessError;
+use crate::git_subprocess::collect_remote_show;
 use crate::index::IndexError;
 use crate::matchers::EverythingMatcher;
 use crate::merge::Diff;
@@ -3261,6 +3263,37 @@ pub struct GitFetch<'a> {
     fetched: Vec<FetchedRefs>,
 }
 
+/// A started query for the remote's default branch name.
+///
+/// Created by [`GitFetch::start_default_branch_query()`]. The query runs in the
+/// background until the result is collected by [`Self::get()`].
+pub struct DefaultBranchQuery {
+    child: Option<Child>,
+}
+
+impl DefaultBranchQuery {
+    /// Waits for the query to finish and returns the remote's default branch.
+    pub fn get(mut self) -> Result<Option<RefNameBuf>, GitFetchError> {
+        let child = self
+            .child
+            .take()
+            .expect("query should only be collected once");
+        let default_branch = collect_remote_show(child)?;
+        tracing::debug!(?default_branch);
+        Ok(default_branch)
+    }
+}
+
+impl Drop for DefaultBranchQuery {
+    fn drop(&mut self) {
+        // Don't leave `git remote show` behind if the result is never collected.
+        if let Some(mut child) = self.child.take() {
+            let _kill_result = child.kill();
+            let _wait_result = child.wait();
+        }
+    }
+}
+
 impl<'a> GitFetch<'a> {
     pub fn new(
         mut_repo: &'a mut MutableRepo,
@@ -3364,12 +3397,28 @@ impl<'a> GitFetch<'a> {
         &self,
         remote_name: &RemoteName,
     ) -> Result<Option<RefNameBuf>, GitFetchError> {
+        let query = self.start_default_branch_query(remote_name)?;
+        query.get()
+    }
+
+    /// Starts a query for the remote's default branch name, without waiting
+    /// for the answer.
+    ///
+    /// The query needs a connection to the remote of its own, so it can be
+    /// started before fetching to have both run at the same time. That keeps
+    /// the prompts of an interactive authentication (e.g. a FIDO2 security
+    /// key) close together instead of one after the other, at the cost of one
+    /// extra concurrent connection.
+    #[tracing::instrument(skip(self))]
+    pub fn start_default_branch_query(
+        &self,
+        remote_name: &RemoteName,
+    ) -> Result<DefaultBranchQuery, GitFetchError> {
         if try_find_active_remote_inner(&self.git_repo, remote_name).is_none() {
             return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
         }
-        let default_branch = self.git_ctx.spawn_remote_show(remote_name)?;
-        tracing::debug!(?default_branch);
-        Ok(default_branch)
+        let child = self.git_ctx.spawn_remote_show_cmd(remote_name)?;
+        Ok(DefaultBranchQuery { child: Some(child) })
     }
 
     /// Import the previously fetched remote-tracking branches and tags into the

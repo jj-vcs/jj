@@ -141,6 +141,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj workspace list` templates are now labeled with `workspace name`,
   `workspace root`, etc.
 
+* `jj git clone` no longer asks for interactive authentication twice with the
+  whole fetch in between. The query for the remote's default branch needs a
+  connection of its own, so it now runs while the clone is fetching. Previously,
+  on a remote that requires a confirmation such as a FIDO2 security key, the
+  second prompt was asked only after the entire fetch was over, which on a large
+  repository is long enough to miss it.
+  [#10208](https://github.com/jj-vcs/jj/issues/10208)
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
