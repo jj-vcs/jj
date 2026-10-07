@@ -2775,8 +2775,6 @@ dependencies = [
  "nix 0.31.3",
  "num_cpus",
  "once_cell",
- "pest",
- "pest_derive",
  "pollster",
  "pretty_assertions",
  "proptest",

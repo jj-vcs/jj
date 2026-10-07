@@ -46,8 +46,6 @@ jj-dsl = { workspace = true }
 maplit = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }
-pest = { workspace = true }
-pest_derive = { workspace = true }
 pollster = { workspace = true }
 prost = { workspace = true }
 rand = { workspace = true }
