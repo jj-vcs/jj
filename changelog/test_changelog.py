@@ -5,6 +5,7 @@ Run with `uv run python changelog/test_changelog.py`.
 
 from __future__ import annotations
 
+import subprocess
 import tempfile
 import textwrap
 import unittest
@@ -12,6 +13,10 @@ from pathlib import Path
 from unittest import mock
 
 import changelog
+
+# The real implementation, which the tests otherwise replace to avoid network
+# access.
+fetch_compare_commits = changelog.fetch_compare_commits
 
 UNRELEASED_NOTE = """\
 <!-- BEGIN UNRELEASED NOTE -->
@@ -56,6 +61,14 @@ def scripted_input(answers):
     return input_fn
 
 
+def commit(name, email, login):
+    """Returns a commit as listed by GitHub's compare API."""
+    return {
+        "commit": {"author": {"name": name, "email": email}},
+        "author": {"login": login} if login is not None else None,
+    }
+
+
 class ChangelogTestCase(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
@@ -65,10 +78,13 @@ class ChangelogTestCase(unittest.TestCase):
         self.notes_dir.mkdir()
         self.changelog = self.root / "CHANGELOG.md"
         self.changelog.write_text(CHANGELOG_TEXT)
+        # GitHub's compare API, which `release` calls to list contributors.
+        self.fetch = mock.Mock(return_value=[])
         for name, value in (
             ("REPO_ROOT", self.root),
             ("NOTES_DIR", self.notes_dir),
             ("CHANGELOG", self.changelog),
+            ("fetch_compare_commits", self.fetch),
         ):
             patcher = mock.patch.object(changelog, name, value)
             patcher.start()
@@ -89,8 +105,8 @@ class NewNoteTest(ChangelogTestCase):
             [
                 "1",
                 "",
-                "* `jj workspace add` supports   `--colocate`/`--no-colocate` flags to "
-                "control whether a Git worktree is created alongside the workspace,",
+                ("* `jj workspace add` supports   `--colocate`/`--no-colocate` flags to "
+                "control whether a Git worktree is created alongside the workspace,"),
                 "see `jj workspace forget --help for details`.",
                 "",
             ]
@@ -235,9 +251,13 @@ class ReleaseTest(ChangelogTestCase):
         self.write_note("c-fix.md", "---\ntype: fix\n---\nFixed `jj foo`.\n")
         self.write_note("README.md", "# Notes\n")
 
-        deleted = changelog.release("0.3.0", "2026-03-01")
+        released = changelog.release("0.3.0", "2026-03-01")
 
-        self.assertEqual(sorted(p.name for p in deleted), ["a-msrv.md", "b-feature.md", "c-fix.md"])
+        self.assertEqual(
+            sorted(p.name for p in released.notes), ["a-msrv.md", "b-feature.md", "c-fix.md"]
+        )
+        # The fake GitHub API returned no commits.
+        self.assertFalse(released.contributors_listed)
         self.assertEqual(sorted(p.name for p in self.notes_dir.iterdir()), ["README.md"])
         self.assertEqual(
             self.changelog.read_text(),
@@ -346,6 +366,100 @@ class RemoveUnreleasedNoteTest(ChangelogTestCase):
         with self.assertRaisesRegex(changelog.ChangelogError, "expected one"):
             changelog.remove_unreleased_note_from_changelog()
         self.assertEqual(self.changelog.read_text(), without_note)
+
+    def test_unreleased_does_not_list_contributors(self):
+        changelog.release("Unreleased", None)
+        self.fetch.assert_not_called()
+        with self.assertRaisesRegex(changelog.ChangelogError, "contributors can't be listed"):
+            changelog.release("Unreleased", None, contributors=True)
+
+
+class ContributorsTest(ChangelogTestCase):
+    def test_release_lists_contributors(self):
+        self.write_note("a.md", "---\ntype: fix\n---\nFixed a.\n")
+        self.fetch.return_value = [commit("Bob", "bob@example.com", "bob")]
+        released = changelog.release("0.3.0", "2026-03-01")
+        self.fetch.assert_called_once_with("v0.2.0", "main")
+        self.assertTrue(released.contributors_listed)
+        self.assertIn(
+            textwrap.dedent(
+                """\
+                ## [0.3.0] - 2026-03-01
+
+                ### Fixed bugs
+
+                * Fixed a.
+
+                ### Contributors
+
+                Thanks to the people who made this release happen!
+
+                * Bob (@bob)
+
+                ## [0.2.0]"""
+            ),
+            self.changelog.read_text(),
+        )
+
+    def test_no_contributors(self):
+        self.write_note("a.md", "---\ntype: fix\n---\nFixed a.\n")
+        released = changelog.release("0.3.0", "2026-03-01", contributors=False)
+        self.fetch.assert_not_called()
+        self.assertFalse(released.contributors_listed)
+        self.assertNotIn("### Contributors", self.changelog.read_text())
+
+    def test_fetch_failure_changes_nothing(self):
+        self.write_note("a.md", "---\ntype: fix\n---\nFixed a.\n")
+        self.fetch.side_effect = changelog.ChangelogError("gh failed")
+        with self.assertRaisesRegex(changelog.ChangelogError, "gh failed"):
+            changelog.release("0.3.0", "2026-03-01")
+        self.assertEqual(self.changelog.read_text(), CHANGELOG_TEXT)
+        self.assertTrue((self.notes_dir / "a.md").exists())
+
+    def test_format_contributors(self):
+        commits = [
+            commit("Bob", "bob@example.com", "bob"),
+            commit("Dependabot", "bot@example.com", "dependabot[bot]"),
+            commit("alice", "alice@example.com", None),
+            # Same GitHub account with a different name: the first name wins.
+            commit("Bob Smith", "bob2@example.com", "bob"),
+            # Same unlinked email address, compared case-insensitively.
+            commit("Alice A.", "Alice@Example.com", None),
+            commit("Carol", "carol@example.com", None),
+            commit("zed", "zed@example.com", "Zed"),
+            commit("Gasper", "gasper@example.com", "gasper"),
+            commit("Gaëtan", "gaetan@example.com", "gaetan"),
+        ]
+        self.assertEqual(
+            changelog.format_contributors(commits),
+            ["alice", "Bob (@bob)", "Carol", "Gaëtan (@gaetan)", "Gasper (@gasper)", "zed (@Zed)"],
+        )
+
+
+class FetchCompareCommitsTest(unittest.TestCase):
+    def run_gh(self, **result):
+        completed = subprocess.CompletedProcess(args=[], **result)
+        with mock.patch.object(subprocess, "run", return_value=completed) as run:
+            commits = fetch_compare_commits("v0.1.0", "main")
+        self.assertEqual(
+            run.call_args.args[0],
+            ["gh", "api", "/repos/jj-vcs/jj/compare/v0.1.0...main", "--paginate"],
+        )
+        return commits
+
+    def test_concatenated_pages(self):
+        stdout = '{"commits": [{"sha": "1"}], "files": []}\n{"commits": [{"sha": "2"}]}\n'
+        commits = self.run_gh(returncode=0, stdout=stdout, stderr="")
+        self.assertEqual(commits, [{"sha": "1"}, {"sha": "2"}])
+
+    def test_gh_failure(self):
+        with self.assertRaisesRegex(changelog.ChangelogError, "HTTP 404.*\n.*--no-contributors"):
+            self.run_gh(returncode=1, stdout="", stderr="gh: Not Found (HTTP 404)\n")
+
+    def test_gh_missing(self):
+        with mock.patch.object(subprocess, "run", side_effect=FileNotFoundError):
+            with self.assertRaisesRegex(changelog.ChangelogError, "requires the GitHub CLI"):
+                fetch_compare_commits("v0.1.0", "main")
 
 
 if __name__ == "__main__":
