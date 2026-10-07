@@ -13,7 +13,7 @@
     "@astrojs/starlight": "^0.41.6",
     "astro": "^7.1.6",
     "astro-mermaid": "^2.1.0",
-    "js-yaml": "^4.3.1",
+    "js-yaml": "^4.3.2",
     "marked": "^18.0.7",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-gfm": "^3.1.0",
