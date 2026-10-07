@@ -6,7 +6,7 @@ new_tmp_dir
 {
     jj git clone https://github.com/octocat/Hello-World
     cd Hello-World
-    jj abandon --ignore-immutable test@origin
+    jj abandon --allow-immutable test@origin
     jj bookmark forget test
 } > /dev/null 2>&1
 
