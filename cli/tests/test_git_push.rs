@@ -3102,6 +3102,214 @@ fn test_git_push_named_multiple_remotes_from_config() {
     ");
 }
 
+#[cfg(unix)]
+fn write_executable(path: &std::path::Path, work_dir: &TestWorkDir, body: &str) {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    work_dir.write_file(path, format!("#!/bin/sh\n{body}\n"));
+    std::fs::set_permissions(
+        work_dir.root().join(path),
+        std::fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
+}
+
+#[cfg(unix)]
+fn write_local_hook(work_dir: &TestWorkDir, name: &str, body: &str) {
+    write_executable(
+        &std::path::PathBuf::from_iter([".jj-hooks", name]),
+        work_dir,
+        body,
+    );
+}
+
+#[cfg(unix)]
+fn write_global_hook(test_env: &TestEnvironment, name: &str, body: &str) {
+    let root_dir = test_env.work_dir("");
+    write_executable(
+        &std::path::PathBuf::from_iter(["home", ".config", "jj", "hooks", name]),
+        &root_dir,
+        body,
+    );
+}
+
+// Push a new bookmark on a fresh commit, exercising the git-pre-push /
+// git-post-push wiring in cmd_git_push. Kept separate from the rest of the
+// push semantics tests above, which predate the hooks feature.
+#[cfg(unix)]
+#[test]
+fn test_git_push_hook_local_absent_falls_back_to_global() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    write_global_hook(
+        &test_env,
+        "git-pre-push",
+        &format!(
+            "touch '{marker}'",
+            marker = test_env.env_root().join("global-ran").display()
+        ),
+    );
+
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    work_dir.run_jj(["git", "push", "--change", "@"]).success();
+
+    assert!(test_env.env_root().join("global-ran").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_hook_local_present_not_enabled_is_skipped() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    let marker = test_env.env_root().join("local-ran");
+    write_local_hook(
+        &work_dir,
+        "git-pre-push",
+        &format!("touch '{}'", marker.display()),
+    );
+    // Deliberately not running `jj hook enable`.
+
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    work_dir.run_jj(["git", "push", "--change", "@"]).success();
+
+    assert!(!marker.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_hook_enabled_runs_pre_and_post_push() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    let pre_marker = test_env.env_root().join("pre-ran");
+    let post_marker = test_env.env_root().join("post-ran");
+    write_local_hook(
+        &work_dir,
+        "git-pre-push",
+        &format!("touch '{}'", pre_marker.display()),
+    );
+    write_local_hook(
+        &work_dir,
+        "git-post-push",
+        &format!("touch '{}'", post_marker.display()),
+    );
+    work_dir.run_jj(["hook", "enable"]).success();
+
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    work_dir.run_jj(["git", "push", "--change", "@"]).success();
+
+    assert!(pre_marker.exists());
+    assert!(post_marker.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_hook_pre_push_failure_aborts_before_any_remote() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    let post_marker = test_env.env_root().join("post-ran");
+    write_local_hook(&work_dir, "git-pre-push", "exit 1");
+    write_local_hook(
+        &work_dir,
+        "git-post-push",
+        &format!("touch '{}'", post_marker.display()),
+    );
+    work_dir.run_jj(["hook", "enable"]).success();
+
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    let output = work_dir.run_jj(["git", "push", "--change", "@"]);
+    assert!(!output.status.success());
+    assert!(
+        !output.stderr.raw().contains("Changes to push"),
+        "no remote should have been contacted: {output}"
+    );
+    assert!(!post_marker.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_hook_stale_after_edit_falls_back_with_warning() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    write_local_hook(&work_dir, "git-pre-push", "exit 0");
+    work_dir.run_jj(["hook", "enable"]).success();
+    // Edit after enabling: if this ran, the push would abort.
+    write_local_hook(&work_dir, "git-pre-push", "exit 1");
+
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    let output = work_dir.run_jj(["git", "push", "--change", "@"]).success();
+    assert!(
+        output
+            .stderr
+            .raw()
+            .contains("its content changed since `jj hook enable` was run"),
+        "expected a stale-hook warning: {output}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_hook_no_hooks_flag_skips_even_when_enabled_and_failing() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    write_local_hook(&work_dir, "git-pre-push", "exit 1");
+    work_dir.run_jj(["hook", "enable"]).success();
+
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    let output = work_dir
+        .run_jj(["git", "push", "--no-hooks", "--change", "@"])
+        .success();
+    assert!(
+        !output.stderr.raw().contains("untrusted"),
+        "no warning expected, the skip is deliberate: {output}"
+    );
+
+    // --no-hooks must not have touched the trust state.
+    let status = work_dir.run_jj(["hook", "status"]).success();
+    assert!(status.stderr.raw().contains("present, trusted"));
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_hook_no_hooks_flag_with_nothing_configured_is_a_normal_push() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    work_dir
+        .run_jj(["git", "push", "--no-hooks", "--change", "@"])
+        .success();
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_hook_dry_run_skips_hooks() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    // A failing pre-push hook would abort a real push; --dry-run must never
+    // reach it at all.
+    write_local_hook(&work_dir, "git-pre-push", "exit 1");
+    work_dir.run_jj(["hook", "enable"]).success();
+
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    let output = work_dir
+        .run_jj(["git", "push", "--dry-run", "--change", "@"])
+        .success();
+    assert!(
+        output
+            .stderr
+            .to_string()
+            .contains("Dry-run requested, not pushing."),
+    );
+}
+
 #[must_use]
 fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
