@@ -63,6 +63,20 @@ Or install from the [AUR repository](https://aur.archlinux.org/packages/jujutsu-
 yay -S jujutsu-git
 ```
 
+#### Debian/Ubuntu
+
+`jujutsu` is available in the unofficial
+[deb.griffo.io](https://deb.griffo.io/install-latest-jujutsu-in-debian.html) APT
+repository, maintained by [dariogriffo](https://github.com/dariogriffo), with
+packages built automatically from the official releases:
+
+```shell
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://deb.griffo.io/EA0F721D231FDD3A0A17B9AC7808B4DD62C41256.asc | sudo gpg --dearmor --yes -o /etc/apt/keyrings/deb.griffo.io.gpg
+echo "deb [signed-by=/etc/apt/keyrings/deb.griffo.io.gpg] https://deb.griffo.io/apt $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/deb.griffo.io.list > /dev/null
+sudo apt update && sudo apt install jujutsu
+```
+
 #### NixOS
 
 If you're on NixOS you can install a **released** version of `jj` using the
