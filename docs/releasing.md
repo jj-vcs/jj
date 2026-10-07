@@ -20,66 +20,28 @@ Start by compiling the changelog notes in `changelog/` into a new section of
 uv run changelog release $NEW_VERSION
 ```
 
-This adds a `## [$NEW_VERSION] - <date>` section above the previous release
-(the date defaults to today; pass `--date YYYY-MM-DD` to override it),
-adds the link comparing `$OLD_VERSION` with `$NEW_VERSION` at the bottom of
-`CHANGELOG.md`, and deletes the notes. To see the section without changing
-anything, run `uv run changelog preview`.
+This script does the following:
+
+- Adds a `## [$NEW_VERSION] - <date>` section above the previous release
+  (the date defaults to today; pass `--date YYYY-MM-DD` to override it)
+- Fills in its "Contributors" section
+- Adds the link comparing `$OLD_VERSION` with `$NEW_VERSION` at the bottom of
+  `CHANGELOG.md`
+- Deletes the notes from the `changelog/` directory
+
+To see the section without changing anything, run `uv run changelog preview`.
+
+Listing contributors requires the [GitHub CLI](https://cli.github.com/).
 
 Then copy-edit the new section in order to:
 
 * Add a `### Release highlights` section if relevant, at the top (below
   "Security fixes", if any)
-* Add a `### Contributors` section at the end (see below)
+* Add GitHub usernames to contributors if any are missing
 * Put more important items first so the reader doesn't miss them
 * Make items consistent when it comes to language and formatting
 * Catch any miscategorized changelog items, such as a breaking change that was
   filed as a new feature
-
-Producing the list of contributors is a bit annoying. The current suggestion is
-to run something like this:
-
-```shell
-root=$(jj log -G -r 'heads(remote_tags(glob:"v*.*.*") & ::trunk())' -T commit_id)
-filter='
-map(.commits[] | select(.author.login | (. != null and endswith("[bot]") | not)))
-  | unique_by(if .author.login != null then .author.login else .author.email end)
-  | map(if .author.login != null
-        then "* \(.commit.author.name) (@\(.author.login))"
-        else "* \(.commit.author.name)"
-        end)
-  | .[]
-'
-gh api "/repos/jj-vcs/jj/compare/$root...main" --paginate | jq -sr "$filter" | sort -f
-```
-
-<https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#compare-two-commits>
-
-Alternatively, the list can be produced locally:
-
-```shell
-jj log -G -r 'heads(remote_tags())..trunk()' \
-   -T 'if(!self.author().name().ends_with("[bot]"), "* " ++ self.author() ++ "\n")' \
-   | sort -fu
-```
-
-Then try to find the right GitHub username for each person and copy their name
-and username from their GitHub profile (e.g., <https://github.com/martinvonz>).
-
-It might be good to cross-reference both of these outputs just in case.
-
-Add the list of contributors under the last subsection for this version (usually
-`Fixed bugs`):
-
-```md
-### Contributors
-
-Thanks to the people who made this release happen!
-
-* Name 1 (@github1)
-* Name 2 (@github2)
-* ...
-```
 
 ### Update Cargo versions
 
