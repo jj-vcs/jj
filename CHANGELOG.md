@@ -141,6 +141,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj workspace list` templates are now labeled with `workspace name`,
   `workspace root`, etc.
 
+* A foreign file (e.g. `.DS_Store`, or an AppleDouble `._*` file that appears
+  when a macOS-created archive is extracted on another system) in
+  `store/extra/heads` is now ignored instead of breaking every command that
+  reads commit metadata, or panicking on a non-UTF8 file name. Skipped
+  entries are logged at `warn` level (visible with `--debug` or `JJ_LOG`). If
+  no valid head remains, `jj` now reports an error instead of silently
+  reinitializing the store.
+  [#9775](https://github.com/jj-vcs/jj/issues/9775)
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
