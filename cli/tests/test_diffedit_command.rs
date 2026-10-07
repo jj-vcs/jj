@@ -17,6 +17,7 @@ use indoc::indoc;
 use testutils::TestResult;
 
 use crate::common::TestEnvironment;
+use crate::common::create_commit_with_files;
 
 #[test]
 fn test_diffedit() -> TestResult {
@@ -749,6 +750,54 @@ fn test_diffedit_merge() -> TestResult {
     >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
+    Ok(())
+}
+
+#[test]
+fn test_diffedit_from_treeset() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&work_dir, "merge", &["a", "b"], &[("file", "resolved\n")]);
+
+    // Reset the file to side 2 of the merge of the parents
+    std::fs::write(
+        &edit_script,
+        ["reset file", "dump JJ-INSTRUCTIONS instrs"].join("\0"),
+    )?;
+    let output = work_dir.run_jj([
+        "diffedit",
+        "--from",
+        "conflict_side(tree_merge(merge-), 2)",
+        "--to",
+        "merge",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv fa992a87 merge | merge
+    Parent commit (@-)      : zsuskuln 45537d53 a | a
+    Parent commit (@-)      : royxmykx 89d1b299 b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("instrs"))?, @"
+    You are editing changes in: vruxwmqv 7a739c41 merge | merge
+
+    The diff initially shows the commit's changes relative to `conflict_side(tree_merge(merge-), 2)`,
+    computed from:
+    royxmykx 89d1b299 b | b
+    zsuskuln 45537d53 a | a
+
+    Adjust the right side until it shows the contents you want. If you
+    don't make any changes, then the operation will be aborted.
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @"a");
     Ok(())
 }
 
