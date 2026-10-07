@@ -21,13 +21,16 @@ use futures::TryStreamExt as _;
 use futures::stream;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
+use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::TopoGroupedGraph;
 use jj_lib::graph::reverse_graph;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
@@ -223,16 +226,15 @@ pub(crate) async fn cmd_log(
         if unmatched_explicit_paths.is_empty() {
             return Ok(());
         }
-        let tree = &commit.tree();
-        unmatched_explicit_paths = stream::iter(unmatched_explicit_paths.iter().copied())
-            .filter_map(|path| async move {
-                tree.path_value(path)
-                    .await
-                    .map(|value| value.is_absent().then_some(path))
-                    .transpose()
-            })
-            .try_collect()
-            .await?;
+        unmatched_explicit_paths =
+            filter_absent_paths(&commit.tree(), &unmatched_explicit_paths).await?;
+        if unmatched_explicit_paths.is_empty() {
+            return Ok(());
+        }
+        // Paths deleted by the commit only exist in the parent tree.
+        let parent_tree = commit.parent_tree_no_resolve(repo.as_ref()).await?;
+        unmatched_explicit_paths =
+            filter_absent_paths(&parent_tree, &unmatched_explicit_paths).await?;
         Ok(())
     };
 
@@ -411,4 +413,20 @@ pub(crate) async fn cmd_log(
     }
 
     Ok(())
+}
+
+/// Returns the paths that don't exist in the `tree`.
+async fn filter_absent_paths<'a>(
+    tree: &MergedTree,
+    paths: &[&'a RepoPath],
+) -> BackendResult<Vec<&'a RepoPath>> {
+    stream::iter(paths.iter().copied())
+        .filter_map(|path| async move {
+            tree.path_value(path)
+                .await
+                .map(|value| value.is_absent().then_some(path))
+                .transpose()
+        })
+        .try_collect()
+        .await
 }
