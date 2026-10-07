@@ -6,3 +6,4 @@ context = 5
 
 [diff.git]
 context = 5
+renames = false
