@@ -975,6 +975,122 @@ fn test_diff_bad_args() {
 }
 
 #[test]
+fn test_diff_treeset() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "base", &[], &[("f", "base\n"), ("g", "base\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("f", "a\n")]);
+    create_commit_with_files(&work_dir, "b", &["base"], &[("f", "b\n"), ("g", "b\n")]);
+    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&work_dir, "merge", &["a", "b"], &[("f", "resolved\n")]);
+
+    // Same as `jj diff -r merge`
+    let output = work_dir.run_jj([
+        "diff",
+        "--git",
+        "--from",
+        "tree_merge(merge-)",
+        "--to",
+        "merge",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    diff --git a/f b/f
+    index 0000000000..2ab19ae607 100644
+    --- a/f
+    +++ b/f
+    @@ -1,8 +1,1 @@ resolved
+    -<<<<<<< conflict 1 of 1
+    -%%%%%%% diff from: rlvkpnrz 119e1ed0 "base"
+    -\\\\\\\        to: royxmykx 34916cf6 "b"
+    --base
+    -+b
+    -+++++++ zsuskuln f8d29a07 "a"
+    -a
+    ->>>>>>> conflict 1 of 1 ends
+    +resolved
+    [EOF]
+    "#);
+
+    // Conflicted paths differ between the sides, but other paths are resolved
+    let output = work_dir.run_jj([
+        "diff",
+        "--git",
+        "--from",
+        "conflict_side(conflict, 1)",
+        "--to",
+        "conflict_side(conflict, 2)",
+    ]);
+    insta::assert_snapshot!(output, @"
+    diff --git a/f b/f
+    index 7898192261..6178079822 100644
+    --- a/f
+    +++ b/f
+    @@ -1,1 +1,1 @@ b
+    -a
+    +b
+    [EOF]
+    ");
+
+    // Sides can be selected from merged trees too
+    let output = work_dir.run_jj([
+        "diff",
+        "--summary",
+        "--from",
+        "conflict_side(tree_merge(a | b), 2)",
+        "--to",
+        "b",
+    ]);
+    insta::assert_snapshot!(output, @"
+    M f
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["diff", "--from", "tree_merge(none())"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Revset `none()` didn't resolve to any revisions
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["diff", "--from", "conflict_side(a, 2)"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot select conflict side 2 of a tree with 1 side(s)
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["diff", "--from", "conflict_side(a | b, 1)"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Revset `a | b` resolved to more than one revision
+    Hint: The revset `a | b` resolved to these revisions:
+      royxmykx 34916cf6 b | b
+      zsuskuln f8d29a07 a | a
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["diff", "--from", "tree_merge(a) | b"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to parse revset: Function `tree_merge` doesn't exist
+    Caused by:  --> 1:1
+      |
+    1 | tree_merge(a) | b
+      | ^--------^
+      |
+      = Function `tree_merge` doesn't exist
+    Hint: Tree functions can only be used at the top level of the expression. See https://docs.jj-vcs.dev/latest/treesets/ or use `jj help -k treesets`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_diff_relative_paths() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

@@ -137,6 +137,12 @@ and this project adheres to
 
 ### New features
 
+* `jj diff --from/--to` now accept a [treeset expression](docs/treesets.md)
+  for selecting trees that don't belong to a single revision. For example,
+  `jj diff --from 'tree_merge(X-)' --to X` merges the parents of `X`, and
+  `conflict_side(X, 1)` selects side 1 of the conflicts in `X`.
+  [#5307](https://github.com/jj-vcs/jj/issues/5307)
+
 * `jj workspace add` supports `--colocate`/`--no-colocate` flags to control
   whether a Git worktree is created alongside the workspace. The default
   colocates when the current workspace is colocated and the `git.colocate`

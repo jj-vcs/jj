@@ -1019,7 +1019,9 @@ Compare file contents between two revisions
 
 With the `-r` option, shows the changes compared to the parent revision. If there are several parent revisions (i.e., the given revision is a merge), then they will be merged and the changes from the result to the given revision will be shown.
 
-With the `--from` and/or `--to` options, shows the difference from/to the given revisions. If either is left out, it defaults to the working-copy commit. For example, `jj diff --from main` shows the changes from "main" (perhaps a bookmark name) to the working-copy commit.
+With the `--from` and/or `--to` options, shows the difference from/to the given revisions. If either is left out, it defaults to the working-copy commit. For example, `jj diff --from main` shows the changes from "main" (perhaps a bookmark name) to the working-copy commit. These options also accept trees that don't belong to a single revision, such as the merge of several revisions. See `jj help -k treesets` or the [treeset docs] for details.
+
+[treeset docs]: https://docs.jj-vcs.dev/latest/treesets/
 
 If no option is specified, it defaults to `-r @`.
 
@@ -1038,10 +1040,10 @@ If no option is specified, it defaults to `-r @`.
    If a revision is a merge commit, this shows changes *from* the automatic merge of the contents of all of its parents *to* the contents of the revision itself.
 
    If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
-* `-f`, `--from <REVSET>` — Show changes from this revision
+* `-f`, `--from <TREESET>` — Show changes from this revision or tree
 
    If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
-* `-t`, `--to <REVSET>` — Show changes to this revision
+* `-t`, `--to <TREESET>` — Show changes to this revision or tree
 
    If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
 * `-T`, `--template <TEMPLATE>` — Render each file diff entry using the given template
@@ -2145,6 +2147,8 @@ Print this message or the help of the given subcommand(s)
     A functional language for selecting a set of revision
   - `templates`:
     A functional language to customize command output
+  - `treesets`:
+    A language for selecting a tree
   - `tutorial`:
     Show a tutorial to get started with jj
 
