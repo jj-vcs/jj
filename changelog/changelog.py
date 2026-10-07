@@ -19,9 +19,12 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import re
+import subprocess
 import sys
 import textwrap
+import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,7 +36,12 @@ import mdformat
 REPO_ROOT = Path(__file__).resolve().parents[1]
 NOTES_DIR = REPO_ROOT / "changelog"
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"
-REPO_URL = "https://github.com/jj-vcs/jj"
+GITHUB_REPO = "jj-vcs/jj"
+REPO_URL = f"https://github.com/{GITHUB_REPO}"
+# Contributors are the authors of the commits from the previous version's tag
+# to this branch on GitHub.
+CONTRIBUTORS_HEAD = "main"
+CONTRIBUTORS_INTRO = "Thanks to the people who made this release happen!"
 # The version to pass to `release` to add notes as unreleased changes.
 UNRELEASED = "Unreleased"
 # Lines in CHANGELOG.md around the note saying where unreleased changes are,
@@ -55,7 +63,8 @@ TYPE_SECTIONS = {
     "packaging": "Packaging changes",
     "security": "Security fixes",
 }
-# "Release highlights" and "Contributors" are added by hand during a release.
+# "Release highlights" are added by hand during a release.
+# "Contributors" is added in compile_section.
 SECTION_ORDER = (
     "Security fixes",
     "Breaking changes",
@@ -159,10 +168,16 @@ def bullet(text: str) -> str:
     return "* " + textwrap.indent(text, "  ").removeprefix("  ")
 
 
-def compile_section(version: str, date: str | None, notes: Sequence[Note]) -> str:
+def compile_section(
+    version: str,
+    date: str | None,
+    notes: Sequence[Note],
+    contributors: Sequence[str] = (),
+) -> str:
     """Renders a CHANGELOG.md version section, ending with a blank line.
 
     The heading has no date if `date` is None. Empty sections are omitted.
+    `contributors` are the entries of the Contributors section.
     """
     entries: dict[str, list[str]] = {section: [] for section in SECTION_ORDER}
     for note in sorted(notes, key=lambda n: n.path.name):
@@ -176,6 +191,9 @@ def compile_section(version: str, date: str | None, notes: Sequence[Note]) -> st
         out += [f"### {section}", ""]
         for entry in entries[section]:
             out += [bullet(entry), ""]
+    if contributors:
+        out += ["### Contributors", "", CONTRIBUTORS_INTRO, ""]
+        out += [bullet(name) for name in contributors] + [""]
     return "\n".join(out) + "\n"
 
 
@@ -238,16 +256,22 @@ def check() -> list[str]:
     return errors
 
 
-def insert_release(changelog: str, version: str, section: str) -> str:
-    """Inserts a version section and its comparison link into CHANGELOG.md."""
-    lines = changelog.splitlines(keepends=True)
-    heading_index = prev_version = None
+@dataclass(frozen=True)
+class ReleasePosition:
+    heading_index: int
+    link_index: int
+    previous_version: str
+
+
+def release_position(lines: Sequence[str], version: str) -> ReleasePosition:
+    """Finds where a new version's section and link go in CHANGELOG.md."""
+    heading_index = previous_version = None
     for i, line in enumerate(lines):
         m = VERSION_HEADING_RE.match(line)
         if m:
-            heading_index, prev_version = i, m.group(1)
+            heading_index, previous_version = i, m.group(1)
             break
-    if heading_index is None:
+    if heading_index is None or previous_version is None:
         raise ChangelogError(
             f"{CHANGELOG.name}: no `## [X.Y.Z] - YYYY-MM-DD` heading to insert above"
         )
@@ -260,17 +284,59 @@ def insert_release(changelog: str, version: str, section: str) -> str:
         raise ChangelogError(
             f"{CHANGELOG.name}: no `[X.Y.Z]: <url>` link line to insert above"
         )
-    if version == UNRELEASED:
-        link = f"[{UNRELEASED}]: {REPO_URL}/compare/v{prev_version}...HEAD\n"
-    else:
-        link = f"[{version}]: {REPO_URL}/compare/v{prev_version}...v{version}\n"
-    return "".join(
-        lines[:heading_index]
-        + [section]
-        + lines[heading_index:link_index]
-        + [link]
-        + lines[link_index:]
-    )
+    return ReleasePosition(heading_index, link_index, previous_version)
+
+
+def fetch_compare_commits(base: str, head: str) -> list[dict]:
+    """Returns the commits in `base...head` on GitHub, using the `gh` CLI."""
+    command = [
+        "gh",
+        "api",
+        f"/repos/{GITHUB_REPO}/compare/{base}...{head}",
+        "--paginate",
+        "--jq",
+        ".commits[]",
+    ]
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise ChangelogError(
+            "listing contributors requires the GitHub CLI (`gh`); install it and "
+            "run `gh auth login`, or pass --no-contributors"
+        )
+    if result.returncode != 0:
+        raise ChangelogError(
+            f"`{' '.join(command)}` failed:\n{result.stderr.strip()}\n"
+            "Pass --no-contributors to skip listing contributors."
+        )
+    # `gh` prints each commit as JSON on its own line.
+    return [json.loads(line) for line in result.stdout.splitlines()]
+
+
+def format_contributors(commits: Sequence[dict]) -> list[str]:
+    """Returns `Name (@login)` entries for the commits' authors, sorted.
+
+    Bots are skipped. Authors are deduplicated by GitHub account, or by email
+    address for commits that aren't linked to a GitHub account (which are
+    listed by name only). The first commit's author name is used.
+    """
+    contributors: dict[tuple[str, str], str] = {}
+    for commit in commits:
+        login = (commit.get("author") or {}).get("login")
+        if login is not None and login.endswith("[bot]"):
+            continue
+        author = commit["commit"]["author"]
+        key = ("login", login.lower()) if login else ("email", author["email"].lower())
+        contributors.setdefault(
+            key, f"{author['name']} (@{login})" if login else author["name"]
+        )
+    return sorted(contributors.values(), key=contributor_name_sort_key)
+
+
+def contributor_name_sort_key(text: str) -> tuple[str, str]:
+    """Sorts case-insensitively and ignoring accents, so "Gaëtan" < "Gasper"."""
+    decomposed = unicodedata.normalize("NFKD", text.casefold())
+    return ("".join(c for c in decomposed if not unicodedata.combining(c)), text)
 
 
 def today() -> str:
@@ -281,17 +347,31 @@ def is_unreleased(version: str) -> bool:
     return version.lower() == UNRELEASED.lower()
 
 
-def release(version: str, date: str | None) -> list[Path]:
-    """Compiles notes into CHANGELOG.md, deletes them, and returns their paths.
+@dataclass(frozen=True)
+class Released:
+    # The notes that were compiled and deleted.
+    notes: list[Path]
+    # Whether the Contributors section was filled in.
+    contributors_listed: bool
+
+
+def release(version: str, date: str | None, contributors: bool | None = None) -> Released:
+    """Compiles notes into CHANGELOG.md and deletes them.
 
     If `version` is "Unreleased", the notes are added as an undated
     `## [Unreleased]` section, which may be empty. This is used to show
     unreleased changes in the prerelease docs.
+
+    If `contributors` is true, the Contributors section lists the authors of
+    the commits since the previous version on GitHub. It defaults to true
+    unless `version` is "Unreleased".
     """
     unreleased = is_unreleased(version)
     if unreleased:
         if date is not None:
             raise ChangelogError(f"a date can't be given for {UNRELEASED}")
+        if contributors:
+            raise ChangelogError(f"contributors can't be listed for {UNRELEASED}")
         version = UNRELEASED
     elif not VERSION_RE.fullmatch(version):
         raise ChangelogError(
@@ -299,18 +379,31 @@ def release(version: str, date: str | None) -> list[Path]:
         )
     else:
         date = date or today()
+    if contributors is None:
+        contributors = not unreleased
 
     paths = note_paths()
     if not paths and not unreleased:
         raise ChangelogError(f"no changelog notes in {NOTES_DIR}")
     notes = load_notes(paths)
-    changelog = CHANGELOG.read_text(encoding="utf-8")
-    section = compile_section(version, date, notes)
-    updated = insert_release(changelog, version, section)
-    CHANGELOG.write_text(updated, encoding="utf-8")
+    lines = CHANGELOG.read_text(encoding="utf-8").splitlines(keepends=True)
+    pos = release_position(lines, version)
+    commits = (
+        fetch_compare_commits(f"v{pos.previous_version}", CONTRIBUTORS_HEAD)
+        if contributors
+        else []
+    )
+    contributor_entries = format_contributors(commits)
+    head = "HEAD" if unreleased else f"v{version}"
+    link = f"[{version}]: {REPO_URL}/compare/v{pos.previous_version}...{head}\n"
+    # The link goes below the section, so insert it first.
+    lines.insert(pos.link_index, link)
+    section = compile_section(version, date, notes, contributor_entries)
+    lines.insert(pos.heading_index, section)
+    CHANGELOG.write_text("".join(lines), encoding="utf-8")
     for path in paths:
         path.unlink()
-    return paths
+    return Released(notes=paths, contributors_listed=bool(contributor_entries))
 
 
 def read_paragraph(input_fn: Callable[[str], str]) -> tuple[str, bool]:
@@ -422,6 +515,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     release_parser.add_argument(
         "--date", help=f"release date (default: today; not allowed with {UNRELEASED})"
     )
+    release_parser.add_argument(
+        "--contributors",
+        action=argparse.BooleanOptionalAction,
+        help="list the authors of the commits since the previous version on "
+        f"GitHub's {CONTRIBUTORS_HEAD} branch, using the GitHub CLI (`gh`) "
+        "(default: on, except for Unreleased)",
+    )
 
     subparsers.add_parser(
         "remove-unreleased-note",
@@ -445,16 +545,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             notes = load_notes(note_paths())
             sys.stdout.write(compile_section(args.version, args.date, notes))
         elif args.command == "release":
-            paths = release(args.version, args.date)
+            released = release(args.version, args.date, args.contributors)
             print(
-                f"Added {args.version} to {CHANGELOG.name} from {len(paths)} notes "
-                "and deleted them."
+                f"Added {args.version} to {CHANGELOG.name} from "
+                f"{len(released.notes)} notes and deleted them."
             )
             if not is_unreleased(args.version):
-                print(
-                    'Add "Release highlights" (if relevant) and "Contributors" '
-                    "sections to it; see docs/releasing.md."
-                )
+                if released.contributors_listed:
+                    sections = 'a "Release highlights" section (if relevant)'
+                else:
+                    sections = (
+                        '"Release highlights" (if relevant) and "Contributors" sections'
+                    )
+                print(f"Add {sections} to it; see docs/releasing.md.")
         elif args.command == "remove-unreleased-note":
             remove_unreleased_note_from_changelog()
             print(f"Removed the unreleased note from {CHANGELOG.name}.")
