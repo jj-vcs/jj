@@ -24,6 +24,10 @@ and this project adheres to
 
 ### Fixed bugs
 
+* `jj gerrit upload` and `jj git push` now honor `ui.color` when highlighting
+  keywords in remote feedback, such as Gerrit's `SUCCESS` message.
+  [#7696](https://github.com/jj-vcs/jj/issues/7696)
+
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
 
