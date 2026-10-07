@@ -1,10 +1,10 @@
 # Treesets
 
 Some commands take a revision only to get the tree (the file contents) of it.
-For example, `jj diff --from/--to` compares two trees, and `jj restore --from`
-copies file contents from a tree. These commands accept an expression in the
-treeset language, which is an extension of the [revset language](revsets.md)
-for selecting a tree.
+For example, `jj diff --from/--to` compares two trees, `jj restore --from`
+copies file contents from a tree, and `jj file show -r` prints file contents
+from a tree. These commands accept an expression in the treeset language, which
+is an extension of the [revset language](revsets.md) for selecting a tree.
 
 A plain revset selects the tree of the single revision it resolves to. For
 example, `jj diff --from main` compares the tree of the "main" bookmark to the
