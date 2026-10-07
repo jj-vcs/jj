@@ -12,11 +12,116 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use itertools::Itertools as _;
 use testutils::TestResult;
 
 use crate::common::TestEnvironment;
 use crate::common::create_commit;
 use crate::common::create_commit_with_files;
+
+#[test]
+fn test_gerrit_upload_remote_colors() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    let hook_path = remote_dir.root().join(".git/hooks/post-receive");
+    std::fs::write(
+        &hook_path,
+        "#!/bin/sh\nprintf 'SUCCESS: uploaded\\n'\nprintf '\\033[32mserver color\\033[0m\\n'\n",
+    )?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700))?;
+    }
+    test_env
+        .run_jj_in(".", ["git", "clone", "--colocate", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    create_commit(&local_dir, "a", &[]);
+
+    let upload = |branch, color| {
+        let output = local_dir
+            .run_jj([
+                "gerrit",
+                "upload",
+                "-r",
+                "a",
+                "--remote-branch",
+                branch,
+                "--color",
+                color,
+            ])
+            .success();
+        output
+            .stderr
+            .raw()
+            .lines()
+            .filter(|line| line.starts_with("remote: "))
+            .map(str::trim_end)
+            .join("\n")
+    };
+    insta::assert_snapshot!(upload("always", "always"), @"
+    remote: \u{1b}[1;32mSUCCESS\u{1b}[m: uploaded
+    remote: \u{1b}[32mserver color\u{1b}[0m
+    ");
+    insta::assert_snapshot!(upload("never", "never"), @"
+    remote: SUCCESS: uploaded
+    remote: \u{1b}[32mserver color\u{1b}[0m
+    ");
+    // The test runner captures output, so automatic color should be disabled.
+    insta::assert_snapshot!(upload("auto", "auto"), @"
+    remote: SUCCESS: uploaded
+    remote: \u{1b}[32mserver color\u{1b}[0m
+    ");
+
+    // Keep Git's configured keyword styles, while honoring jj's color choice.
+    local_dir
+        .run_jj([
+            "util",
+            "exec",
+            "--",
+            "git",
+            "config",
+            "color.remote.success",
+            "magenta",
+        ])
+        .success();
+    local_dir
+        .run_jj([
+            "util",
+            "exec",
+            "--",
+            "git",
+            "config",
+            "color.remote",
+            "never",
+        ])
+        .success();
+    insta::assert_snapshot!(upload("custom", "always"), @"
+    remote: \u{1b}[35mSUCCESS\u{1b}[m: uploaded
+    remote: \u{1b}[32mserver color\u{1b}[0m
+    ");
+    local_dir
+        .run_jj([
+            "util",
+            "exec",
+            "--",
+            "git",
+            "config",
+            "color.remote",
+            "always",
+        ])
+        .success();
+    insta::assert_snapshot!(upload("disabled", "never"), @"
+    remote: SUCCESS: uploaded
+    remote: \u{1b}[32mserver color\u{1b}[0m
+    ");
+    Ok(())
+}
 
 #[test]
 fn test_gerrit_upload_dryrun() {

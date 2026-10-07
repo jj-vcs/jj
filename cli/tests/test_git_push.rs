@@ -2865,6 +2865,41 @@ fn test_git_push_sign_on_push() {
 }
 
 #[test]
+fn test_git_push_remote_colors() -> TestResult {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    work_dir.run_jj(["describe", "-m", "color test"]).success();
+    let hook_path =
+        git_repo_dir_for_jj_repo(&test_env.work_dir("origin")).join("hooks/post-receive");
+    std::fs::write(&hook_path, "#!/bin/sh\nprintf 'SUCCESS: pushed\\n'\n")?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700))?;
+    }
+    for (color, expected) in [
+        ("always", "remote: \x1b[1;32mSUCCESS\x1b[m: pushed"),
+        ("never", "remote: SUCCESS: pushed"),
+        ("auto", "remote: SUCCESS: pushed"),
+    ] {
+        let output = work_dir
+            .run_jj([
+                "git",
+                "push",
+                "--named",
+                &format!("color-{color}=@"),
+                "--color",
+                color,
+            ])
+            .success();
+        assert!(output.stderr.raw().contains(expected), "{output}");
+    }
+    Ok(())
+}
+
+#[test]
 fn test_git_push_rejected_by_remote() -> TestResult {
     let test_env = TestEnvironment::default();
     set_up(&test_env);

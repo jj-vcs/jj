@@ -176,6 +176,10 @@ impl GitSubprocessCallback for GitSubprocessUi<'_> {
         self.progress_output.is_some()
     }
 
+    fn use_sideband_colors(&self) -> Option<bool> {
+        Some(self.ui.color())
+    }
+
     fn progress(&mut self, progress: &GitProgress) -> io::Result<()> {
         if let Some(output) = &mut self.progress_output {
             self.progress.update(Instant::now(), progress, output)
