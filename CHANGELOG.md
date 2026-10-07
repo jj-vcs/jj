@@ -12,6 +12,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.46.0] - 2026-10-07
+
+### Release highlights
+
+* Jujutsu can now colocate workspaces besides the default one by creating Git
+  worktrees. Use `jj workspace add --[no-]colocate` and the setting
+  `git.colocate` to control this.
+
+### Breaking changes
+
 * The minimum supported `git` command version is now 2.42.0, up from 2.41.0.
   `jj workspace add` uses `git worktree add --orphan`, which was added in
   2.42.0.
@@ -36,16 +52,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `List.get()`, `.first()`, and `.last()` template functions now return
   `Option<T>` instead of throwing an error on out-of-bounds access.
 
-### Deprecations
-
 ### New features
-
-* Added the `TreeEntry.normal_value()` template method and the `TreeValue` type
-  to access resolved tree values, formatted as their full object IDs, including
-  Git submodule commit IDs.
-
-* Diff hunk headers now include nearby source symbols for many common
-  programming and markup languages.
 
 * `jj workspace add` supports `--colocate`/`--no-colocate` flags to control
   whether a Git worktree is created alongside the workspace. The default
@@ -53,19 +60,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   config is `true`. `jj workspace forget` removes the corresponding Git
   worktree when one exists.
 
-* `jj workspace remove` removes a workspace and its directory from disk. The
-  working-copy state is snapshotted into a commit before removal.
-
 * `jj git colocation status`/`enable`/`disable` now work on child
   workspaces. `status` correctly reports colocation state and includes
   the workspace name. `enable` creates a Git worktree and `disable`
   removes it, allowing colocation to be toggled after workspace
   creation.
 
-* `fix.tools.<name>.line-range-args` (replaces `line-range-arg`) is an array of
-  string template args to pass to the fix tool. This is more flexible in cases
-  where you need to pass multiple arguments to the tool, such as separate args
-  for the range start and range end.
+* `jj workspace remove` removes a workspace and its directory from disk. The
+  working-copy state is snapshotted into a commit before removal.
+
+* Added commands `jj file edit` and `jj file delete` for editing files in any
+  revision without needing to change the working copy.
 
 * `jj git push` now supports pushing to multiple remotes at the same time.
   This can be configured via `git.push` set to a string pattern
@@ -74,6 +79,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The default target revisions for `jj git push` can now be configured via
   `revsets.git-push`.
+
+* Added the `TreeEntry.normal_value()` template method and the `TreeValue` type
+  to access resolved tree values, formatted as their full object IDs, including
+  Git submodule commit IDs.
+
+* Diff hunk headers now include nearby source symbols for many common
+  programming and markup languages.
+
+* `fix.tools.<name>.line-range-args` (replaces `line-range-arg`) is an array of
+  string template args to pass to the fix tool. This is more flexible in cases
+  where you need to pass multiple arguments to the tool, such as separate args
+  for the range start and range end.
 
 * `jj run` now uses the sparse patterns from the workspace it's run from.
   Use the `--sparse-patterns` option to control this behavior (evaluated
@@ -98,9 +115,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The hunk headers of `diff.color-words.conflict = "pair"` now include the
   conflict labels of the compared terms.
-
-* Added commands `jj file edit` and `jj file delete` for editing files in any
-  revision without needing to change the working copy.
 
 ### Fixed bugs
 
@@ -140,6 +154,40 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj workspace list` templates are now labeled with `workspace name`,
   `workspace root`, etc.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Aaron Bies (@slerpyyy)
+* Austin Seipp (@thoughtpolice)
+* Bartok9 (@Bartok9)
+* Brice Figureau (@masterzen)
+* Bryan O'Sullivan (@bos)
+* Caleb White (@calebdw)
+* David Rieber (@drieber)
+* Farid Zakaria (@fzakaria)
+* Gabriel Goller (@kaffarell)
+* Gasper Stukelj (@mirkomartn)
+* Jakub Stasiak (@jstasiak)
+* JamBalaya56562 (@JamBalaya56562)
+* Joseph Lou (@josephlou5)
+* Karnajeet Gosavi (@kg290)
+* LOG (@logarithmone1128)
+* Martin von Zweigbergk (@martinvonz)
+* Matt Stark (@matts1)
+* Mustafa Officewala (@genericusername2709)
+* pederbe (@pederbe)
+* Philip Metzger (@PhilipMetzger)
+* Pro (@twistedfall)
+* Remo Senekowitsch (@senekor)
+* Sami Hiltunen (@SamiHiltunen)
+* sofia (@badp)
+* Stephen Jennings (@jennings)
+* Vincent Ging Ho Yim (@cenviity)
+* xtqqczze (@xtqqczze)
+* Yannik Sander (@ysndr)
+* Yuya Nishihara (@yuja)
 
 ## [0.45.1] - 2026-09-03
 
@@ -5702,7 +5750,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.45.1...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.46.0...HEAD
+[0.46.0]: https://github.com/jj-vcs/jj/compare/v0.45.1...v0.46.0
 [0.45.1]: https://github.com/jj-vcs/jj/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/jj-vcs/jj/compare/v0.44.0...v0.45.0
 [0.44.0]: https://github.com/jj-vcs/jj/compare/v0.43.0...v0.44.0
