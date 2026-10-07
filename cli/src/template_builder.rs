@@ -60,6 +60,7 @@ use crate::templater::CoalesceTemplate;
 use crate::templater::ConcatTemplate;
 use crate::templater::ConditionalProperty;
 use crate::templater::Email;
+use crate::templater::Environment;
 use crate::templater::HyperlinkTemplate;
 use crate::templater::JoinTemplate;
 use crate::templater::LabelTemplate;
@@ -97,6 +98,8 @@ use crate::time_util;
 /// context in which it is invoked.
 pub trait TemplateLanguage<'a> {
     type Property: CoreTemplatePropertyVar<'a> + 'a;
+
+    fn env_vars(&self) -> &HashMap<String, String>;
 
     fn settings(&self) -> &UserSettings;
 
@@ -194,6 +197,7 @@ where
     Self: WrapTemplateProperty<'a, Option<PathBuf>>,
     Self: WrapTemplateProperty<'a, Signature>,
     Self: WrapTemplateProperty<'a, Email>,
+    Self: WrapTemplateProperty<'a, Environment>,
     Self: WrapTemplateProperty<'a, SizeHint>,
     Self: WrapTemplateProperty<'a, RegexCaptures>,
     Self: WrapTemplateProperty<'a, Timestamp>,
@@ -248,6 +252,7 @@ pub enum CoreTemplatePropertyKind<'a> {
     FsPathOpt(BoxedTemplateProperty<'a, Option<PathBuf>>),
     Signature(BoxedTemplateProperty<'a, Signature>),
     Email(BoxedTemplateProperty<'a, Email>),
+    Environment(BoxedTemplateProperty<'a, Environment>),
     SizeHint(BoxedTemplateProperty<'a, SizeHint>),
     RegexCaptures(BoxedTemplateProperty<'a, RegexCaptures>),
     Timestamp(BoxedTemplateProperty<'a, Timestamp>),
@@ -288,6 +293,7 @@ macro_rules! impl_core_property_wrappers {
             FsPathOpt(Option<std::path::PathBuf>),
             Signature(jj_lib::backend::Signature),
             Email($crate::templater::Email),
+            Environment($crate::templater::Environment),
             SizeHint($crate::templater::SizeHint),
             RegexCaptures($crate::templater::RegexCaptures),
             Timestamp(jj_lib::backend::Timestamp),
@@ -328,6 +334,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::FsPathOpt(_) => "Option<FsPath>",
             Self::Signature(_) => "Signature",
             Self::Email(_) => "Email",
+            Self::Environment(_) => "Environment",
             Self::SizeHint(_) => "SizeHint",
             Self::RegexCaptures(_) => "RegexCaptures",
             Self::Timestamp(_) => "Timestamp",
@@ -367,6 +374,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::FsPathOpt(property) => Ok(option_to_boolean(property)),
             Self::Signature(_) => Err(self),
             Self::Email(property) => Ok(property.map(|e| !e.0.is_empty()).into_dyn()),
+            Self::Environment(_) => Err(self),
             Self::SizeHint(_) => Err(self),
             Self::RegexCaptures(_) => Err(self),
             Self::Timestamp(_) => Err(self),
@@ -417,6 +425,11 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::FsPathOpt(property) => Some(property.into_serialize()),
             Self::Signature(property) => Some(property.into_serialize()),
             Self::Email(property) => Some(property.into_serialize()),
+            Self::Environment(property) => Some(
+                property
+                    .and_then(|environment| Ok(environment.value))
+                    .into_serialize(),
+            ),
             Self::SizeHint(property) => Some(property.into_serialize()),
             Self::RegexCaptures(_) => None,
             Self::Timestamp(property) => Some(property.into_serialize()),
@@ -442,6 +455,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::FsPathOpt(property) => Some(property.into_template()),
             Self::Signature(property) => Some(property.into_template()),
             Self::Email(property) => Some(property.into_template()),
+            Self::Environment(property) => Some(property.into_template()),
             Self::SizeHint(_) => None,
             Self::RegexCaptures(_) => None,
             Self::Timestamp(property) => Some(property.into_template()),
@@ -503,6 +517,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::FsPathOpt(_), _) => None,
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
+            (Self::Environment(_), _) => None,
             (Self::SizeHint(_), _) => None,
             (Self::RegexCaptures(_), _) => None,
             (Self::Timestamp(_), _) => None,
@@ -540,6 +555,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::FsPathOpt(_), _) => None,
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
+            (Self::Environment(_), _) => None,
             (Self::SizeHint(_), _) => None,
             (Self::RegexCaptures(_), _) => None,
             (Self::Timestamp(_), _) => None,
@@ -605,6 +621,7 @@ pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a
     pub config_value_methods: TemplateBuildMethodFnMap<'a, L, ConfigValue, P>,
     pub fs_path_methods: TemplateBuildMethodFnMap<'a, L, PathBuf, P>,
     pub email_methods: TemplateBuildMethodFnMap<'a, L, Email, P>,
+    pub environment_methods: TemplateBuildMethodFnMap<'a, L, Environment, P>,
     pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature, P>,
     pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint, P>,
     pub regex_captures_methods: TemplateBuildMethodFnMap<'a, L, RegexCaptures, P>,
@@ -637,6 +654,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             fs_path_methods: HashMap::new(),
             signature_methods: HashMap::new(),
             email_methods: HashMap::new(),
+            environment_methods: HashMap::new(),
             size_hint_methods: HashMap::new(),
             regex_captures_methods: HashMap::new(),
             timestamp_methods: HashMap::new(),
@@ -660,6 +678,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             fs_path_methods,
             signature_methods,
             email_methods,
+            environment_methods,
             size_hint_methods,
             regex_captures_methods,
             timestamp_methods,
@@ -680,6 +699,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         merge_fn_map(&mut self.fs_path_methods, fs_path_methods);
         merge_fn_map(&mut self.signature_methods, signature_methods);
         merge_fn_map(&mut self.email_methods, email_methods);
+        merge_fn_map(&mut self.environment_methods, environment_methods);
         merge_fn_map(&mut self.size_hint_methods, size_hint_methods);
         merge_fn_map(&mut self.regex_captures_methods, regex_captures_methods);
         merge_fn_map(&mut self.timestamp_methods, timestamp_methods);
@@ -708,6 +728,7 @@ where
             fs_path_methods: builtin_fs_path_methods(),
             signature_methods: builtin_signature_methods(),
             email_methods: builtin_email_methods(),
+            environment_methods: builtin_environment_methods(),
             size_hint_methods: builtin_size_hint_methods(),
             regex_captures_methods: builtin_regex_captures_methods(),
             timestamp_methods: builtin_timestamp_methods(),
@@ -802,6 +823,11 @@ where
             }
             CoreTemplatePropertyKind::Email(property) => {
                 let table = &self.email_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
+            CoreTemplatePropertyKind::Environment(property) => {
+                let table = &self.environment_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
             }
@@ -1783,6 +1809,20 @@ fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     map
 }
 
+fn builtin_environment_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, Environment> {
+    let mut map = TemplateBuildMethodFnMap::<L, Environment>::new();
+    map.insert(
+        "is_set",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|environment| environment.is_set);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
+}
+
 fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
 -> TemplateBuildMethodFnMap<'a, L, SizeHint> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
@@ -2674,6 +2714,15 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             Ok(out_property.into_dyn_wrapped())
         }
     });
+    map.insert("env", |language, diagnostics, _build_ctx, function| {
+        let [name_node] = function.expect_exact_arguments()?;
+        let name_property =
+            expect_stringify_expression(language, diagnostics, _build_ctx, name_node)?;
+        let env_vars = language.env_vars().clone();
+        let out_property =
+            name_property.and_then(move |name| Ok(Environment::new(env_vars.get(&name).cloned())));
+        Ok(out_property.into_dyn_wrapped())
+    });
     map
 }
 
@@ -3138,6 +3187,8 @@ mod tests {
     /// Helper to set up template evaluation environment.
     struct TestTemplateEnv {
         language: TestTemplateLanguage,
+        #[allow(unused)]
+        env_vars: HashMap<String, String>,
         aliases_map: TemplateAliasesMap,
         color_rules: Vec<(Vec<String>, formatter::Style)>,
     }
@@ -3148,16 +3199,32 @@ mod tests {
         }
 
         fn with_config(config: StackedConfig) -> Self {
-            Self::with_config_and_current_dir(config, default_current_dir())
+            Self::with(config, default_current_dir(), HashMap::new())
         }
 
-        fn with_config_and_current_dir(config: StackedConfig, current_dir: PathBuf) -> Self {
+        fn with(
+            config: StackedConfig,
+            current_dir: PathBuf,
+            env_vars: HashMap<String, String>,
+        ) -> Self {
             let settings = testutils::user_settings_from_config(config);
             Self {
-                language: TestTemplateLanguage::new(&settings, &current_dir),
+                language: TestTemplateLanguage::new(&env_vars, &settings, &current_dir),
+                env_vars,
                 aliases_map: TemplateAliasesMap::new(),
                 color_rules: Vec::new(),
             }
+        }
+
+        fn with_config_and_current_dir(config: StackedConfig, current_dir: PathBuf) -> Self {
+            Self::with(config, current_dir, HashMap::new())
+        }
+
+        fn with_config_and_env_vars(
+            config: StackedConfig,
+            env_vars: HashMap<String, String>,
+        ) -> Self {
+            Self::with(config, default_current_dir(), env_vars)
         }
     }
 
@@ -5965,6 +6032,36 @@ mod tests {
         // dynamic lookup where name expression itself fails at runtime
         env.add_keyword("bad_string", || new_error_property::<String>("Bad"));
         insta::assert_snapshot!(env.render_ok(r#"config(bad_string)"#), @"<Error: Bad>");
+    }
+
+    #[test]
+    fn test_env_function() {
+        let env_vars = HashMap::from([
+            ("JJ_TEMPLATE_ENV".to_owned(), "template-value".to_owned()),
+            ("JJ_EMPTY_ENV".to_owned(), "".to_owned()),
+        ]);
+        let mut env =
+            TestTemplateEnv::with_config_and_env_vars(StackedConfig::with_defaults(), env_vars);
+
+        // Look up environment variables by string literal.
+        insta::assert_snapshot!(env.render_ok(r#"env("JJ_TEMPLATE_ENV")"#), @"template-value");
+        insta::assert_snapshot!(env.render_ok(r#"env("JJ_EMPTY_ENV")"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#"env("JJ_MISSING_ENV")"#), @"");
+
+        // Check whether each environment variable is set, even if its value is empty.
+        insta::assert_snapshot!(env.render_ok(r#"env("JJ_TEMPLATE_ENV").is_set()"#), @"true");
+        insta::assert_snapshot!(env.render_ok(r#"env("JJ_EMPTY_ENV").is_set()"#), @"true");
+        insta::assert_snapshot!(env.render_ok(r#"env("JJ_MISSING_ENV").is_set()"#), @"false");
+
+        // Look up an environment variable by a dynamic name (exercises `Stringify` input).
+        env.add_keyword("env_name", || literal("JJ_TEMPLATE_ENV".to_owned()));
+        insta::assert_snapshot!(env.render_ok("env(env_name)"), @"template-value");
+
+        // Use the presence check in a conditional.
+        insta::assert_snapshot!(
+            env.render_ok(r#"if(env("JJ_EMPTY_ENV").is_set(), "yes", "no")"#),
+            @"yes"
+        );
     }
 
     #[test]

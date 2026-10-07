@@ -131,6 +131,28 @@ impl Template for Email {
     }
 }
 
+/// Environment variable value and whether the variable was present.
+#[derive(Clone, Debug)]
+pub struct Environment {
+    pub value: String,
+    pub is_set: bool,
+}
+
+impl Environment {
+    pub fn new(value: Option<String>) -> Self {
+        Self {
+            is_set: value.is_some(),
+            value: value.unwrap_or_default(),
+        }
+    }
+}
+
+impl Template for Environment {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        self.value.format(formatter)
+    }
+}
+
 // In template language, an integer value is represented as i64. However, we use
 // usize here because it's more convenient to guarantee that the lower value is
 // bounded to 0.
