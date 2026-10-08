@@ -24,6 +24,7 @@
 pub mod dsl_util;
 pub mod fileset_parser;
 pub mod revset_parser;
+pub mod template_parser;
 
 #[cfg(test)]
 mod tests {

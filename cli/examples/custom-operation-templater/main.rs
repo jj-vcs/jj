@@ -15,13 +15,13 @@
 use jj_cli::cli_util::CliRunner;
 use jj_cli::operation_templater::OperationTemplateLanguageBuildFnTable;
 use jj_cli::operation_templater::OperationTemplateLanguageExtension;
-use jj_cli::template_parser;
-use jj_cli::template_parser::TemplateParseError;
 use jj_cli::templater::TemplatePropertyExt as _;
 use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 use jj_lib::operation::Operation;
+use jj_lib::template_parser;
+use jj_lib::template_parser::TemplateParseError;
 
 struct HexCounter;
 

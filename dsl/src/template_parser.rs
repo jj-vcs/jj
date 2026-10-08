@@ -21,22 +21,7 @@ use std::mem;
 use std::sync::LazyLock;
 
 use itertools::Itertools as _;
-use jj_lib::dsl_util;
-use jj_lib::dsl_util::AliasDeclaration;
-use jj_lib::dsl_util::AliasDeclarationParser;
-use jj_lib::dsl_util::AliasDefinitionParser;
-use jj_lib::dsl_util::AliasExpandError;
-use jj_lib::dsl_util::AliasExpandableExpression;
-use jj_lib::dsl_util::AliasId;
-use jj_lib::dsl_util::AliasesMap;
-use jj_lib::dsl_util::Diagnostics;
-use jj_lib::dsl_util::ExpressionFolder;
-use jj_lib::dsl_util::FoldableExpression;
-use jj_lib::dsl_util::FunctionCallParser;
-use jj_lib::dsl_util::InvalidArguments;
-use jj_lib::dsl_util::StringLiteralParser;
-use jj_lib::dsl_util::collect_similar;
-use jj_lib::str_util::StringPattern;
+use jj_core::str_util::StringPattern;
 use pest::Parser as _;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
@@ -47,6 +32,21 @@ use thiserror::Error;
 
 use self::private::Rule;
 use self::private::TemplateParser;
+use crate::dsl_util;
+use crate::dsl_util::AliasDeclaration;
+use crate::dsl_util::AliasDeclarationParser;
+use crate::dsl_util::AliasDefinitionParser;
+use crate::dsl_util::AliasExpandError;
+use crate::dsl_util::AliasExpandableExpression;
+use crate::dsl_util::AliasId;
+use crate::dsl_util::AliasesMap;
+use crate::dsl_util::Diagnostics;
+use crate::dsl_util::ExpressionFolder;
+use crate::dsl_util::FoldableExpression;
+use crate::dsl_util::FunctionCallParser;
+use crate::dsl_util::InvalidArguments;
+use crate::dsl_util::StringLiteralParser;
+use crate::dsl_util::collect_similar;
 
 mod private {
     use pest_derive::Parser;
@@ -938,10 +938,9 @@ pub fn lookup_method<'a, V>(
 
 #[cfg(test)]
 mod tests {
-    use jj_lib::dsl_util::KeywordArgument;
-    use testutils::TestResult;
-
     use super::*;
+    use crate::dsl_util::KeywordArgument;
+    use crate::tests::TestResult;
 
     #[derive(Debug)]
     struct WithTemplateAliasesMap(TemplateAliasesMap);

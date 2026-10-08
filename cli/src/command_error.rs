@@ -53,6 +53,8 @@ use jj_lib::revset::RevsetParseErrorKind;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::secure_config::SecureConfigError;
 use jj_lib::str_util::StringPatternParseError;
+use jj_lib::template_parser::TemplateParseError;
+use jj_lib::template_parser::TemplateParseErrorKind;
 use jj_lib::trailer::TrailerParseError;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::ui_path::UiPathParseError;
@@ -80,8 +82,6 @@ use crate::merge_tools::MergeToolPartialResolutionError;
 use crate::revset_util::BookmarkNameParseError;
 use crate::revset_util::TagNameParseError;
 use crate::revset_util::UserRevsetEvaluationError;
-use crate::template_parser::TemplateParseError;
-use crate::template_parser::TemplateParseErrorKind;
 use crate::ui::Ui;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

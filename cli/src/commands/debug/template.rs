@@ -15,9 +15,10 @@
 use std::fmt::Debug;
 use std::io::Write as _;
 
+use jj_lib::template_parser;
+
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::template_parser;
 use crate::ui::Ui;
 
 /// Parse a template

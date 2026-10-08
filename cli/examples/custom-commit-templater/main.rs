@@ -18,8 +18,6 @@ use futures::TryStreamExt as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::commit_templater::CommitTemplateBuildFnTable;
 use jj_cli::commit_templater::CommitTemplateLanguageExtension;
-use jj_cli::template_parser;
-use jj_cli::template_parser::TemplateParseError;
 use jj_cli::templater::TemplatePropertyExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -37,6 +35,8 @@ use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::template_parser;
+use jj_lib::template_parser::TemplateParseError;
 use once_cell::sync::OnceCell;
 use pollster::FutureExt as _;
 

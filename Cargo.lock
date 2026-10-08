@@ -2656,7 +2656,6 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pest",
- "pest_derive",
  "pollster",
  "proptest",
  "proptest-state-machine",
