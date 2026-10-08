@@ -358,7 +358,7 @@ pub async fn fix_files(
                     old_term.clone()
                 });
                 if new_value != old_value {
-                    tree_builder.set_or_remove(repo_path.clone(), new_value);
+                    tree_builder.set_or_remove(repo_path.clone(), new_value)?;
                     has_changes = true;
                 }
             }

@@ -209,7 +209,7 @@ pub async fn restore_tree(
             for (path, value) in tree.entries_matching(&matcher) {
                 // TODO: if https://github.com/jj-vcs/jj/issues/4152 is implemented, we will need
                 // to expand resolved conflicts into `Merge::repeated(value, num_sides)`.
-                builder.set_or_remove(path, value?);
+                builder.set_or_remove(path, value?)?;
             }
             builder.write_tree().await
         };

@@ -187,7 +187,7 @@ pub async fn split_hunks_to_trees(
                     copy_id: copy_id.clone(),
                 })
             };
-            tree_builder.set_or_remove(left_path.to_owned(), new_tree_value);
+            tree_builder.set_or_remove(left_path.to_owned(), new_tree_value)?;
         }
     }
 

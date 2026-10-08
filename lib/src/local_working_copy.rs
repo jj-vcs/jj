@@ -1376,19 +1376,22 @@ impl TreeState {
             invalid_utf8_paths: invalid_utf8_paths_rx.into_iter().collect(),
         };
         let mut tree_builder = MergedTreeBuilder::new(self.tree.clone());
-        trace_span!("process tree entries").in_scope(|| {
+        trace_span!("process tree entries").in_scope(|| -> Result<(), BackendError> {
             for (path, tree_values) in &tree_entries_rx {
-                tree_builder.set_or_remove(path, tree_values);
+                tree_builder.set_or_remove(path, tree_values)?;
             }
-        });
-        let deleted_files = trace_span!("process deleted tree entries").in_scope(|| {
-            let deleted_files = HashSet::from_iter(deleted_files_rx);
-            is_dirty |= !deleted_files.is_empty();
-            for file in &deleted_files {
-                tree_builder.set_or_remove(file.clone(), Merge::absent());
-            }
-            deleted_files
-        });
+            Ok(())
+        })?;
+        let deleted_files = trace_span!("process deleted tree entries").in_scope(
+            || -> Result<_, BackendError> {
+                let deleted_files = HashSet::from_iter(deleted_files_rx);
+                is_dirty |= !deleted_files.is_empty();
+                for file in &deleted_files {
+                    tree_builder.set_or_remove(file.clone(), Merge::absent())?;
+                }
+                Ok(deleted_files)
+            },
+        )?;
         trace_span!("process file states").in_scope(|| {
             let changed_file_states = file_states_rx
                 .iter()

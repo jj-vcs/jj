@@ -22,6 +22,7 @@ use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::stream;
 
+use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::MergedTreeValue;
 use crate::backend::MergedTreeValueExt as _;
@@ -62,14 +63,32 @@ impl MergedTreeBuilder {
     /// sides as the `base_tree` used to construct this builder (unless the
     /// base tree is resolved). Unresolved `TreeValue::Tree` merges are not
     /// supported. Use `Merge::absent()` to remove a value from the tree.
-    pub fn set_or_remove(&mut self, path: RepoPathBuf, values: MergedTreeValue) {
-        assert!(!values.is_tree() || values.is_resolved());
-        assert!(
-            values.is_resolved()
-                || self.base_tree.tree_ids().is_resolved()
-                || values.num_sides() == self.base_tree.tree_ids().num_sides()
-        );
+    pub fn set_or_remove(
+        &mut self,
+        path: RepoPathBuf,
+        values: MergedTreeValue,
+    ) -> BackendResult<()> {
+        if values.is_tree() && !values.is_resolved() {
+            return Err(BackendError::Other(
+                "Unresolved TreeValue::Tree merges are not supported in MergedTreeBuilder".into(),
+            ));
+        }
+        if !values.is_resolved()
+            && !self.base_tree.tree_ids().is_resolved()
+            && values.num_sides() != self.base_tree.tree_ids().num_sides()
+        {
+            return Err(BackendError::Other(
+                format!(
+                    "Override at {} has {} sides, which does not match base tree with {} sides",
+                    path.as_internal_file_string(),
+                    values.num_sides(),
+                    self.base_tree.tree_ids().num_sides(),
+                )
+                .into(),
+            ));
+        }
         self.overrides.insert(path, values);
+        Ok(())
     }
 
     /// Create new tree(s) from the base tree(s) and overrides.

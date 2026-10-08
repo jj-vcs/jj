@@ -268,7 +268,9 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) -> TestResult {
                     executable: false,
                     copy_id: copy_id.clone(),
                 };
-                tree_builder.set_or_remove(file_path, Merge::normal(value));
+                tree_builder
+                    .set_or_remove(file_path, Merge::normal(value))
+                    .unwrap();
                 return;
             }
             Kind::GitSubmodule => {
@@ -278,7 +280,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) -> TestResult {
                 Merge::normal(TreeValue::GitSubmodule(id))
             }
         };
-        tree_builder.set_or_remove(path.to_owned(), value);
+        tree_builder.set_or_remove(path.to_owned(), value).unwrap();
     }
 
     let mut kinds = vec![
@@ -1879,14 +1881,14 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
             executable: false,
             copy_id: CopyId::new(vec![]),
         }),
-    );
+    )?;
 
     let submodule_id1 = write_random_commit(tx.repo_mut()).id().clone();
 
     tree_builder.set_or_remove(
         submodule_path.to_owned(),
         Merge::normal(TreeValue::GitSubmodule(submodule_id1)),
-    );
+    )?;
 
     let tree_id1 = tree_builder.write_tree().block_on()?;
     let commit1 = commit_with_tree(repo.store(), tree_id1.clone());
@@ -1896,7 +1898,7 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
     tree_builder.set_or_remove(
         submodule_path.to_owned(),
         Merge::normal(TreeValue::GitSubmodule(submodule_id2)),
-    );
+    )?;
     let tree_id2 = tree_builder.write_tree().block_on()?;
     let commit2 = commit_with_tree(repo.store(), tree_id2.clone());
 
@@ -1913,7 +1915,7 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
             executable: false,
             copy_id: CopyId::new(vec![]),
         }),
-    );
+    )?;
     let tree_id3 = tree_builder.write_tree().block_on()?;
     let commit3_file_clash = commit_with_tree(repo.store(), tree_id3.clone());
 

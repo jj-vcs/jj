@@ -126,7 +126,7 @@ fn test_merged_tree_builder_resolves_file_conflict_override() -> TestResult {
             base_tree.path_value(path).block_on()?,
             right_tree.path_value(path).block_on()?,
         ]),
-    );
+    )?;
     let tree = tree_builder.write_tree().block_on()?;
     let expected_tree = create_single_tree(repo, &[(path, "a1\nb\nc1\n")]);
     assert_eq!(
@@ -161,7 +161,7 @@ fn test_merged_tree_builder_incremental_conflict_resolution() -> TestResult {
     builder1.set_or_remove(
         path1.to_owned(),
         expected_tree.path_value(path1).block_on()?,
-    );
+    )?;
     let partially_resolved = builder1.write_tree().block_on()?;
     assert!(partially_resolved.has_conflict());
     assert_tree_eq!(
@@ -174,7 +174,7 @@ fn test_merged_tree_builder_incremental_conflict_resolution() -> TestResult {
     builder2.set_or_remove(
         path2.to_owned(),
         expected_tree.path_value(path2).block_on()?,
-    );
+    )?;
     let fully_resolved = builder2.write_tree().block_on()?;
     assert_tree_eq!(fully_resolved, expected_tree);
     Ok(())
@@ -214,7 +214,7 @@ fn test_merged_tree_builder_conflicted_override_on_resolved_base() -> TestResult
     builder.set_or_remove(
         conflicted_path.to_owned(),
         expected_tree.path_value(conflicted_path).block_on()?,
-    );
+    )?;
     let actual_tree = builder.write_tree().block_on()?;
     assert_tree_eq!(actual_tree, expected_tree);
     assert_tree_eq!(actual_tree, actual_tree.clone().resolve().block_on()?);
@@ -243,11 +243,11 @@ fn test_merged_tree_builder_file_dir_conflict_replaced_by_dir() -> TestResult {
 
     let expected_tree = create_tree(repo, &[(foo_bar_path, "resolved")]);
     let mut builder = MergedTreeBuilder::new(merged_tree);
-    builder.set_or_remove(foo_path.to_owned(), Merge::absent());
+    builder.set_or_remove(foo_path.to_owned(), Merge::absent())?;
     builder.set_or_remove(
         foo_bar_path.to_owned(),
         expected_tree.path_value(foo_bar_path).block_on()?,
-    );
+    )?;
     let actual_tree = builder.write_tree().block_on()?;
     assert_tree_eq!(actual_tree, expected_tree);
     Ok(())

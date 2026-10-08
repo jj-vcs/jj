@@ -487,7 +487,7 @@ async fn pick_conflict_side(
             executable,
             copy_id: CopyId::placeholder(),
         }));
-        tree_builder.set_or_remove(merge_tool_file.repo_path.clone(), new_tree_value);
+        tree_builder.set_or_remove(merge_tool_file.repo_path.clone(), new_tree_value)?;
     }
     tree_builder.write_tree().await
 }
