@@ -21,6 +21,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
 
+* Fixed issue with `config-schema.json` where Taplo (TOML parsing library) would
+  flag any `aliases` defined as a table but without an explicit
+  `.enabled = true` as "valid under more than one of the schemas". This affected
+  downstream tools such as editor extensions showing errors in perfectly valid
+  config files.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights

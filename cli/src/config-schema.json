@@ -855,8 +855,8 @@
                         "properties": {
                             "enabled": {
                                 "type": "boolean",
-                                "description": "Whether this alias is enabled",
-                                "default": true
+                                "const": true,
+                                "description": "Whether this alias is enabled."
                             },
                             "definition": {
                                 "type": "array",
@@ -880,7 +880,10 @@
                                 "const": false,
                                 "description": "Disable this alias."
                             }
-                        }
+                        },
+                        "required": [
+                            "enabled"
+                        ]
                     }
                 ]
             }
