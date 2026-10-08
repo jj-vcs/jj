@@ -835,13 +835,13 @@ fn test_diffedit_old_restore_interactive_tests() -> TestResult {
     index 7898192261..0000000000
     --- a/file1
     +++ /dev/null
-    @@ -1,1 +0,0 @@
+    @@ -1,1 +0,0 @@ a
     -a
     diff --git a/file2 b/file2
     index 7898192261..6178079822 100644
     --- a/file2
     +++ b/file2
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ b
     -a
     +b
     diff --git a/file3 b/file3
@@ -849,7 +849,7 @@ fn test_diffedit_old_restore_interactive_tests() -> TestResult {
     index 0000000000..c21c9352f7
     --- /dev/null
     +++ b/file3
-    @@ -0,0 +1,1 @@
+    @@ -0,0 +1,1 @@ unrelated
     +unrelated
     [EOF]
     ");
@@ -885,7 +885,7 @@ fn test_diffedit_restore_descendants() -> TestResult {
     index 1a598a8fc9..7b6a85ab5a 100644
     --- a/file
     +++ b/file
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ println!("baz");
     -println!("bar");
     +println!("baz");
     [EOF]

@@ -181,7 +181,7 @@ fn test_show_basic() {
     index 523a4a9de8..485b56a572 100644
     --- a/file2
     +++ b/file2
-    @@ -1,2 +1,3 @@
+    @@ -1,2 +1,3 @@ foo
      foo
     -baz qux
     +bar
@@ -205,7 +205,7 @@ fn test_show_basic() {
     index 523a4a9de8..485b56a572 100644
     --- a/file2
     +++ b/file2
-    @@ -2,1 +2,2 @@
+    @@ -2,1 +2,2 @@ bar
     -baz qux
     +bar
     +baz quux
@@ -228,7 +228,7 @@ fn test_show_basic() {
     [1m<<diff git file_header::index 523a4a9de8..485b56a572 100644>>[0m
     [1m<<diff git file_header::--- a/file2>>[0m
     [1m<<diff git file_header::+++ b/file2>>[0m
-    [38;5;6m<<diff git hunk_header::@@ -1,2 +1,3 @@>>[39m
+    [38;5;6m<<diff git hunk_header::@@ -1,2 +1,3 @@ foo>>[39m
     <<diff git context:: foo>>
     [38;5;1m<<diff git removed::-baz >>[4m<<diff git removed token::qux>>[24m<<diff git removed::>>[39m
     [38;5;2m<<diff git added::+>>[4m<<diff git added token::bar>>[24m[39m
@@ -254,7 +254,7 @@ fn test_show_basic() {
     index 523a4a9de8..485b56a572 100644
     --- a/file2
     +++ b/file2
-    @@ -1,2 +1,3 @@
+    @@ -1,2 +1,3 @@ foo
      foo
     -baz qux
     +bar
@@ -569,7 +569,7 @@ fn test_show_multiple_revisions() {
     diff --git a/file1 b/file1
     --- a/file1
     +++ b/file1
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ c
     -a
     \ No newline at end of file
     +c
@@ -583,7 +583,7 @@ fn test_show_multiple_revisions() {
     new file mode 100644
     --- /dev/null
     +++ b/file2
-    @@ -0,0 +1,1 @@
+    @@ -0,0 +1,1 @@ b
     +b
     \ No newline at end of file
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
@@ -595,7 +595,7 @@ fn test_show_multiple_revisions() {
     new file mode 100644
     --- /dev/null
     +++ b/file1
-    @@ -0,0 +1,1 @@
+    @@ -0,0 +1,1 @@ a
     +a
     \ No newline at end of file
     [EOF]

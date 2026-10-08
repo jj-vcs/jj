@@ -127,7 +127,7 @@ fn test_concurrent_operations_wc_modified() {
     index 12f00e90b6..2e0996000b 100644
     --- a/file
     +++ b/file
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ modified
     -contents
     +modified
     [EOF]

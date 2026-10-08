@@ -89,7 +89,7 @@ fn test_diff() {
     index 257cc5642c..5716ca5987 100644
     --- a/a-first
     +++ b/a-first
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ bar
     -foo
     +bar
     [EOF]

@@ -87,7 +87,7 @@ fn test_resolution() -> TestResult {
     index 0000000000..88425ec521 100644
     --- a/file
     +++ b/file
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ resolution
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz 1792382a "base"
     -\\\\\\\        to: zsuskuln 45537d53 "a"
@@ -128,7 +128,7 @@ fn test_resolution() -> TestResult {
     index 0000000000..88425ec521 100644
     --- a/file
     +++ b/file
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ resolution
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz 1792382a "base"
     -\\\\\\\        to: zsuskuln 45537d53 "a"
@@ -177,7 +177,7 @@ fn test_resolution() -> TestResult {
     index 0000000000..88425ec521 100644
     --- a/file
     +++ b/file
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ resolution
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz 1792382a "base"
     -\\\\\\\        to: zsuskuln 45537d53 "a"
@@ -250,7 +250,7 @@ fn test_resolution() -> TestResult {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,8 +1,8 @@
+    @@ -1,8 +1,8 @@ conflict
      <<<<<<< conflict 1 of 1
      %%%%%%% diff from: rlvkpnrz 1792382a "base"
      \\\\\\\        to: zsuskuln 45537d53 "a"
@@ -309,7 +309,7 @@ fn test_resolution() -> TestResult {
     index 0000000000..0610716cc1 100644
     --- a/file
     +++ b/file
-    @@ -1,8 +1,7 @@
+    @@ -1,8 +1,7 @@ conflict
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz 1792382a "base"
     -\\\\\\\        to: zsuskuln 45537d53 "a"
@@ -393,7 +393,7 @@ fn test_resolution() -> TestResult {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,8 +1,8 @@
+    @@ -1,8 +1,8 @@ conflict
      <<<<<<< conflict 1 of 1
      %%%%%%% diff from: rlvkpnrz 1792382a "base"
      \\\\\\\        to: zsuskuln 45537d53 "a"
@@ -464,7 +464,7 @@ fn test_resolution() -> TestResult {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,8 +1,8 @@
+    @@ -1,8 +1,8 @@ conflict
      <<<<<<< conflict 1 of 1
      %%%%%%% diff from: rlvkpnrz 1792382a "base"
      \\\\\\\        to: zsuskuln 45537d53 "a"
@@ -1108,7 +1108,7 @@ fn test_resolve_conflicts_with_executable() -> TestResult {
     index 0000000000..95cc18629d 100755
     --- a/file1
     +++ b/file1
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ resolution1
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
     -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
@@ -1153,7 +1153,7 @@ fn test_resolve_conflicts_with_executable() -> TestResult {
     index 0000000000..775f078581 100755
     --- a/file2
     +++ b/file2
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ resolution2
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
     -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
@@ -1186,7 +1186,7 @@ fn test_resolve_conflicts_with_executable() -> TestResult {
     index 0000000000..da0f8ed91a 100755
     --- a/file1
     +++ b/file1
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ a1
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
     -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
@@ -1200,7 +1200,7 @@ fn test_resolve_conflicts_with_executable() -> TestResult {
     index 0000000000..c1827f07e1 100755
     --- a/file2
     +++ b/file2
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ a2
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
     -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
@@ -1229,7 +1229,7 @@ fn test_resolve_conflicts_with_executable() -> TestResult {
     index 0000000000..c9c6af7f78 100755
     --- a/file1
     +++ b/file1
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ b1
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
     -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
@@ -1242,7 +1242,7 @@ fn test_resolve_conflicts_with_executable() -> TestResult {
     index 0000000000..e6bfff5c1d 100755
     --- a/file2
     +++ b/file2
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ b2
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
     -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
@@ -1334,7 +1334,7 @@ fn test_resolve_change_delete_executable() -> TestResult {
     │ │  index e69de29bb2..e6bfff5c1d
     │ │  --- a/file2
     │ │  +++ b/file2
-    │ │  @@ -0,0 +1,1 @@
+    │ │  @@ -0,0 +1,1 @@ b2
     │ │  +b2
     │ │  diff --git a/file3 b/file3
     │ │  new file mode 100755
@@ -1346,7 +1346,7 @@ fn test_resolve_change_delete_executable() -> TestResult {
     │ │  index e69de29bb2..90a5159bf0 100755
     │ │  --- a/file5
     │ │  +++ b/file5
-    │ │  @@ -0,0 +1,1 @@
+    │ │  @@ -0,0 +1,1 @@ b5
     │ │  +b5
     ○ │  mzvwutvl test.user@example.com 2001-02-03 08:05:13 a e2d3924b
     ├─╯  a
@@ -1363,7 +1363,7 @@ fn test_resolve_change_delete_executable() -> TestResult {
     │    index e69de29bb2..88ba23dca8 100644
     │    --- a/file4
     │    +++ b/file4
-    │    @@ -0,0 +1,1 @@
+    │    @@ -0,0 +1,1 @@ a4
     │    +a4
     │    diff --git a/file5 b/file5
     │    deleted file mode 100755
@@ -1543,7 +1543,7 @@ fn test_pass_path_argument() -> TestResult {
     index 0000000000..88425ec521 100644
     --- a/file
     +++ b/file
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ resolution
     -<<<<<<< conflict 1 of 1
     -+++++++ zsuskuln 45537d53 "a"
     -a
@@ -1648,7 +1648,7 @@ fn test_resolve_long_conflict_markers() -> TestResult {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,8 +1,8 @@
+    @@ -1,8 +1,8 @@ A
     -<<<<<<<<<<< conflict 1 of 1
     -+++++++++++ zsuskuln 10d994ef "a"
     -<<<<<<< a
@@ -1929,7 +1929,7 @@ fn test_multiple_conflicts() -> TestResult {
     index 0000000000..a9fcc7d486 100644
     --- a/another_file
     +++ b/another_file
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ resolution another_file
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz fa081b8c "base"
     -\\\\\\\        to: zsuskuln 2c821f70 "a"
@@ -1972,7 +1972,7 @@ fn test_multiple_conflicts() -> TestResult {
     index 0000000000..7903e1c1c7 100644
     --- a/another_file
     +++ b/another_file
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ first resolution for auto-chosen file
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz fa081b8c "base"
     -\\\\\\\        to: zsuskuln 2c821f70 "a"
@@ -1986,7 +1986,7 @@ fn test_multiple_conflicts() -> TestResult {
     index 0000000000..f8c72adf17 100644
     --- a/this_file_has_a_very_long_name_to_test_padding
     +++ b/this_file_has_a_very_long_name_to_test_padding
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ second resolution for auto-chosen file
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz fa081b8c "base"
     -\\\\\\\        to: zsuskuln 2c821f70 "a"
@@ -2108,7 +2108,7 @@ fn test_multiple_conflicts_with_error() -> TestResult {
     index 0000000000..95cc18629d 100644
     --- a/file1
     +++ b/file1
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ resolution1
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz 6591ac1d "base"
     -\\\\\\\        to: zsuskuln 6c31698c "a"
@@ -2160,7 +2160,7 @@ fn test_multiple_conflicts_with_error() -> TestResult {
     index 0000000000..95cc18629d 100644
     --- a/file1
     +++ b/file1
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ resolution1
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: rlvkpnrz 6591ac1d "base"
     -\\\\\\\        to: zsuskuln 6c31698c "a"

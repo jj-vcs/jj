@@ -249,7 +249,7 @@ fn test_materialize_and_snapshot_different_conflict_markers() -> TestResult {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -2,7 +2,7 @@
+    @@ -2,7 +2,7 @@ line 1
      <<<<<<< conflict 1 of 1
      +++++++ rlvkpnrz df1cdd77 "side-a"
      line 2 - a
@@ -462,7 +462,7 @@ fn test_conflict_marker_length_stored_in_working_copy() -> TestResult {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -7,8 +7,10 @@
+    @@ -7,8 +7,10 @@ line 1
      +line 2 - left
      +line 3 - left
      +++++++++++ zsuskuln d7acaf48 "side-b"

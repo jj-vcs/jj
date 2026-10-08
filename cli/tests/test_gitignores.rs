@@ -203,7 +203,7 @@ fn test_gitignores_ignored_file_in_target_commit() {
     index 8a69467466..4d9be5127b 100644
     --- a/ignored
     +++ b/ignored
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ contents in working copy
     -committed contents
     +contents in working copy
     [EOF]
