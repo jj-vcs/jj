@@ -1475,7 +1475,7 @@ fn test_run_restore_descendants_preserves_content() {
     index 7898192261..6178079822 100644
     --- a/file
     +++ b/file
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ b
     -a
     +b
     diff --git a/ran-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt b/ran-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
@@ -1494,7 +1494,7 @@ fn test_run_restore_descendants_preserves_content() {
     index 6178079822..f2ad6c76f0 100644
     --- a/file
     +++ b/file
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ c
     -b
     +c
     diff --git a/ran-zsuskulnrvyrovkzqrwmxqlsskqntxvp.txt b/ran-zsuskulnrvyrovkzqrwmxqlsskqntxvp.txt

@@ -95,7 +95,7 @@ fn test_absorb_simple() {
     │  index 8653ca354d..88eb438902 100644
     │  --- a/file1
     │  +++ b/file1
-    │  @@ -1,5 +1,6 @@
+    │  @@ -1,5 +1,6 @@ Y
     │   1X
     │   1A
     │   1b
@@ -733,7 +733,7 @@ fn test_absorb_from_into() {
     │  index faf62af049..c2d0b12547 100644
     │  --- a/file1
     │  +++ b/file1
-    │  @@ -2,6 +2,7 @@
+    │  @@ -2,6 +2,7 @@ X
     │   X
     │   2a
     │   1b
@@ -746,7 +746,7 @@ fn test_absorb_from_into() {
     ~  index 352e9b3794..faf62af049 100644
        --- a/file1
        +++ b/file1
-       @@ -1,3 +1,7 @@
+       @@ -1,3 +1,7 @@ X
         1a
        +X
        +2a
@@ -776,7 +776,7 @@ fn test_absorb_from_into() {
     │  index faf62af049..c2d0b12547 100644
     │  --- a/file1
     │  +++ b/file1
-    │  @@ -2,6 +2,7 @@
+    │  @@ -2,6 +2,7 @@ X
     │   X
     │   2a
     │   1b
@@ -791,7 +791,7 @@ fn test_absorb_from_into() {
     │  index 0000000000..faf62af049
     │  --- /dev/null
     │  +++ b/file1
-    │  @@ -0,0 +1,7 @@
+    │  @@ -0,0 +1,7 @@ X
     │  +1a
     │  +X
     │  +2a

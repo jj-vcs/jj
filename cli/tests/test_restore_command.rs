@@ -330,7 +330,7 @@ fn test_restore_restore_descendants() {
     index 7898192261..81bf396956 100644
     --- a/file
     +++ b/file
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ ab
     -a
     +ab
     diff --git a/file2 b/file2
@@ -338,7 +338,7 @@ fn test_restore_restore_descendants() {
     index 0000000000..6178079822
     --- /dev/null
     +++ b/file2
-    @@ -0,0 +1,1 @@
+    @@ -0,0 +1,1 @@ b
     +b
     [EOF]
     ");
@@ -347,7 +347,7 @@ fn test_restore_restore_descendants() {
     index df967b96a5..81bf396956 100644
     --- a/file
     +++ b/file
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ ab
     -base
     +ab
     [EOF]

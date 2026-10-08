@@ -458,7 +458,7 @@ fn test_abandon_restore_descendants() {
     index 257cc5642c..76018072e0 100644
     --- a/file
     +++ b/file
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ baz
     -foo
     +baz
     [EOF]

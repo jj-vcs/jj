@@ -327,7 +327,7 @@ fn test_diff_basic() {
     index 257cc5642c..0000000000
     --- a/file1
     +++ /dev/null
-    @@ -1,1 +0,0 @@
+    @@ -1,1 +0,0 @@ foo
     -foo
     [EOF]
     ");
@@ -1069,28 +1069,28 @@ fn test_diff_relative_paths() {
     index 54b060eee9..1fe912cdd8 100644
     --- a/dir1/file2
     +++ b/dir1/file2
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ bar2
     -foo2
     +bar2
     diff --git a/dir1/subdir1/file3 b/dir1/subdir1/file3
     index c1ec6c6f12..f3c8b75ec6 100644
     --- a/dir1/subdir1/file3
     +++ b/dir1/subdir1/file3
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ bar3
     -foo3
     +bar3
     diff --git a/dir2/file4 b/dir2/file4
     index a0016dbc4c..17375f7a12 100644
     --- a/dir2/file4
     +++ b/dir2/file4
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ bar4
     -foo4
     +bar4
     diff --git a/file1 b/file1
     index 1715acd6a5..05c4fe6772 100644
     --- a/file1
     +++ b/file1
-    @@ -1,1 +1,1 @@
+    @@ -1,1 +1,1 @@ bar1
     -foo1
     +bar1
     [EOF]
@@ -1166,19 +1166,19 @@ fn test_diff_hunks() {
     index e69de29bb2..257cc5642c 100644
     --- a/file1
     +++ b/file1
-    @@ -0,0 +1,1 @@
+    @@ -0,0 +1,1 @@ foo
     +foo
     diff --git a/file2 b/file2
     index 257cc5642c..e69de29bb2 100644
     --- a/file2
     +++ b/file2
-    @@ -1,1 +0,0 @@
+    @@ -1,1 +0,0 @@ foo
     -foo
     diff --git a/file3 b/file3
     index 221a95a095..a543ef3892 100644
     --- a/file3
     +++ b/file3
-    @@ -1,2 +1,3 @@
+    @@ -1,2 +1,3 @@ foo
      foo
     -baz qux blah blah
     +bar
@@ -1192,19 +1192,19 @@ fn test_diff_hunks() {
     [1m<<diff git file_header::index e69de29bb2..257cc5642c 100644>>[0m
     [1m<<diff git file_header::--- a/file1>>[0m
     [1m<<diff git file_header::+++ b/file1>>[0m
-    [38;5;6m<<diff git hunk_header::@@ -0,0 +1,1 @@>>[39m
+    [38;5;6m<<diff git hunk_header::@@ -0,0 +1,1 @@ foo>>[39m
     [38;5;2m<<diff git added::+>>[4m<<diff git added token::foo>>[24m[39m
     [1m<<diff git file_header::diff --git a/file2 b/file2>>[0m
     [1m<<diff git file_header::index 257cc5642c..e69de29bb2 100644>>[0m
     [1m<<diff git file_header::--- a/file2>>[0m
     [1m<<diff git file_header::+++ b/file2>>[0m
-    [38;5;6m<<diff git hunk_header::@@ -1,1 +0,0 @@>>[39m
+    [38;5;6m<<diff git hunk_header::@@ -1,1 +0,0 @@ foo>>[39m
     [38;5;1m<<diff git removed::->>[4m<<diff git removed token::foo>>[24m[39m
     [1m<<diff git file_header::diff --git a/file3 b/file3>>[0m
     [1m<<diff git file_header::index 221a95a095..a543ef3892 100644>>[0m
     [1m<<diff git file_header::--- a/file3>>[0m
     [1m<<diff git file_header::+++ b/file3>>[0m
-    [38;5;6m<<diff git hunk_header::@@ -1,2 +1,3 @@>>[39m
+    [38;5;6m<<diff git hunk_header::@@ -1,2 +1,3 @@ foo>>[39m
     <<diff git context:: foo>>
     [38;5;1m<<diff git removed::-baz >>[4m<<diff git removed token::qux>>[24m<<diff git removed:: blah blah>>[39m
     [38;5;2m<<diff git added::+>>[4m<<diff git added token::bar>>[24m[39m
@@ -1880,7 +1880,7 @@ fn test_diff_missing_newline() {
     index 1910281566..a907ec3f43 100644
     --- a/file1
     +++ b/file1
-    @@ -1,1 +1,2 @@
+    @@ -1,1 +1,2 @@ foo
     -foo
     \ No newline at end of file
     +foo
@@ -1890,7 +1890,7 @@ fn test_diff_missing_newline() {
     index a907ec3f43..1910281566 100644
     --- a/file2
     +++ b/file2
-    @@ -1,2 +1,1 @@
+    @@ -1,2 +1,1 @@ foo
     -foo
     -bar
     \ No newline at end of file
@@ -2159,7 +2159,7 @@ fn test_diff_ignore_whitespace() {
     index f532aa68ad..033c4a6168 100644
     --- a/file1
     +++ b/file1
-    @@ -1,4 +1,6 @@
+    @@ -1,4 +1,6 @@ baz {  }
     +{
          foo {
              bar;
@@ -2174,7 +2174,7 @@ fn test_diff_ignore_whitespace() {
     index f532aa68ad..033c4a6168 100644
     --- a/file1
     +++ b/file1
-    @@ -1,4 +1,6 @@
+    @@ -1,4 +1,6 @@ baz {  }
     -foo {
     +{
     +    foo {
@@ -2420,7 +2420,7 @@ context = 0
             5: e
     === Must show 0 context
     Modified regular file file1:
-        ...
+        ...    b
        3    3: cC
         ...
     [EOF]
@@ -2465,7 +2465,7 @@ context = 0
     index 0000000000..0fec236860
     --- /dev/null
     +++ b/file1
-    @@ -0,0 +1,5 @@
+    @@ -0,0 +1,5 @@ a
     +a
     +b
     +c
@@ -2477,7 +2477,7 @@ context = 0
     index 0fec236860..b7615dae52 100644
     --- a/file1
     +++ b/file1
-    @@ -3,1 +3,1 @@
+    @@ -3,1 +3,1 @@ C
     -c
     +C
     [EOF]
@@ -2535,7 +2535,7 @@ fn test_diff_skipped_context_nondefault() {
     Modified regular file file1:
        1     : a
             1: A
-        ...
+        ...    c
        4     : d
             4: D
     === Don't skip 1 line
@@ -2562,7 +2562,7 @@ fn test_diff_skipped_context_nondefault() {
         ...
     === 1 line at end
     Modified regular file file1:
-        ...
+        ...    b
        3     : c
             3: C
        4    4: d
@@ -2642,7 +2642,7 @@ fn test_diff_leading_trailing_context() {
     index 1bf57dee4a..69b3e1865c 100644
     --- a/file1
     +++ b/file1
-    @@ -1,12 +1,12 @@
+    @@ -1,12 +1,12 @@ R
      1
      2
      3
@@ -2667,7 +2667,7 @@ fn test_diff_leading_trailing_context() {
     index 1bf57dee4a..69b3e1865c 100644
     --- a/file1
     +++ b/file1
-    @@ -3,8 +3,8 @@
+    @@ -3,8 +3,8 @@ R
      3
      4
      5
@@ -2688,7 +2688,7 @@ fn test_diff_leading_trailing_context() {
     index 1bf57dee4a..69b3e1865c 100644
     --- a/file1
     +++ b/file1
-    @@ -4,6 +4,6 @@
+    @@ -4,6 +4,6 @@ R
      4
      5
     -L
@@ -2827,7 +2827,7 @@ fn test_diff_conflict_sides_differ() {
     index 94c99a3280..0000000000 100644
     --- a/file
     +++ b/file
-    @@ -2,3 +2,12 @@
+    @@ -2,3 +2,12 @@ line 2
      line 2
     -line 3
     +<<<<<<< conflict 1 of 1
@@ -2886,7 +2886,7 @@ fn test_diff_conflict_sides_differ() {
     index 0000000000..94c99a3280 100644
     --- a/file
     +++ b/file
-    @@ -2,12 +2,3 @@
+    @@ -2,12 +2,3 @@ line 2
      line 2
     -<<<<<<< conflict 1 of 1
     -+++++++ zsuskuln 713a980c "left1"
@@ -2944,7 +2944,7 @@ fn test_diff_conflict_sides_differ() {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,5 +1,5 @@
+    @@ -1,5 +1,5 @@ left 1.1
     -line 1
     +left 1.1
      line 2
@@ -2952,14 +2952,14 @@ fn test_diff_conflict_sides_differ() {
     -+++++++ zsuskuln 713a980c "left1"
     ++++++++ royxmykx b50b218b "left2"
      left 3.1
-    @@ -7,4 +7,5 @@
+    @@ -7,4 +7,5 @@ left 3.3
      left 3.3
     +left 3.4
      %%%%%%% diff from: rlvkpnrz aa7e33ed "base"
     -\\\\\\\        to: vruxwmqv 3fe2e860 "right1"
     +\\\\\\\        to: znkkpsqq e57450eb "right2"
      -line 3
-    @@ -13,2 +14,1 @@
+    @@ -13,2 +14,1 @@ line 4
      line 4
     -line 5
     [EOF]
@@ -3127,14 +3127,14 @@ fn test_diff_conflict_bases_differ() {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,5 +1,4 @@
+    @@ -1,5 +1,4 @@ line 2
     -line 1
      line 2
      <<<<<<< conflict 1 of 1
     -+++++++ zsuskuln 9e995075 "left1"
     ++++++++ znkkpsqq 218094ec "left2"
      left 3.1
-    @@ -7,5 +6,6 @@
+    @@ -7,5 +6,6 @@ left 3.3
      left 3.3
     -%%%%%%% diff from: rlvkpnrz 44cfbde6 "base1"
     -\\\\\\\        to: royxmykx 3087be1f "right1"
@@ -3306,7 +3306,7 @@ fn test_diff_conflict_three_sides() {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -13,2 +13,6 @@
+    @@ -13,2 +13,6 @@ line 4 b.2
      line 4 b.2
     +%%%%%%% diff from: rlvkpnrz 07965fa1 "base1"
     +\\\\\\\        to: znkkpsqq f73063c9 "side3"

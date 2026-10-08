@@ -628,7 +628,7 @@ fn test_describe_with_draft_template() {
     index edd13ee535..12e5763da1 100644
     --- a/a.txt
     +++ b/a.txt
-    @@ -1,3 +1,4 @@
+    @@ -1,3 +1,4 @@ aaaa
      aaaa
     -bbbb
      cccc

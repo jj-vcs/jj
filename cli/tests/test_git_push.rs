@@ -1164,7 +1164,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Invalid character in bookmark name
-    Caused by: invalid utf-8 sequence of 1 bytes from index 138
+    Caused by: invalid utf-8 sequence of 1 bytes from index 147
     [EOF]
     [exit status: 1]
     ");

@@ -81,7 +81,7 @@ fn test_interdiff_basic() {
     index 257cc5642c..3bd1f0e297 100644
     --- a/file2
     +++ b/file2
-    @@ -1,1 +1,2 @@
+    @@ -1,1 +1,2 @@ foo
      foo
     +bar
     [EOF]
@@ -195,7 +195,7 @@ fn test_interdiff_conflicting() {
     index 0000000000..24c5735c3e 100644
     --- a/file
     +++ b/file
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ def
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: qpvuntsm d0c049cd (original parents)
     -\\\\\\\        to: zsuskuln 0b2c304e (new parents)

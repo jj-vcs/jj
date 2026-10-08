@@ -1155,7 +1155,7 @@ fn test_log_diff_predefined_formats() -> TestResult {
     [1mindex 422c2b7ab3..de980441c3 100644[0m
     [1m--- a/file1[0m
     [1m+++ b/file1[0m
-    [38;5;6m@@ -1,2 +1,3 @@[39m
+    [38;5;6m@@ -1,2 +1,3 @@ a[39m
      a
      b
     [38;5;2m+[4mc[24m[39m
@@ -1163,7 +1163,7 @@ fn test_log_diff_predefined_formats() -> TestResult {
     [1mindex 7898192261..9ddeb5c484 100644[0m
     [1m--- a/file2[0m
     [1m+++ b/file2[0m
-    [38;5;6m@@ -1,1 +1,2 @@[39m
+    [38;5;6m@@ -1,1 +1,2 @@ b[39m
     [38;5;1m-[4ma[24m[39m
     [38;5;2m+[4mb[24m[39m
     [38;5;2m+[4mc[24m[39m
@@ -1199,7 +1199,7 @@ fn test_log_diff_predefined_formats() -> TestResult {
     [1m<<log commit diff git file_header::index 422c2b7ab3..de980441c3 100644>>[0m
     [1m<<log commit diff git file_header::--- a/file1>>[0m
     [1m<<log commit diff git file_header::+++ b/file1>>[0m
-    [38;5;6m<<log commit diff git hunk_header::@@ -1,2 +1,3 @@>>[39m
+    [38;5;6m<<log commit diff git hunk_header::@@ -1,2 +1,3 @@ a>>[39m
     <<log commit diff git context:: a>>
     <<log commit diff git context:: b>>
     [38;5;2m<<log commit diff git added::+>>[4m<<log commit diff git added token::c>>[24m[39m
@@ -1207,7 +1207,7 @@ fn test_log_diff_predefined_formats() -> TestResult {
     [1m<<log commit diff git file_header::index 7898192261..9ddeb5c484 100644>>[0m
     [1m<<log commit diff git file_header::--- a/file2>>[0m
     [1m<<log commit diff git file_header::+++ b/file2>>[0m
-    [38;5;6m<<log commit diff git hunk_header::@@ -1,1 +1,2 @@>>[39m
+    [38;5;6m<<log commit diff git hunk_header::@@ -1,1 +1,2 @@ b>>[39m
     [38;5;1m<<log commit diff git removed::->>[4m<<log commit diff git removed token::a>>[24m<<log commit diff git removed::>>[39m
     [38;5;2m<<log commit diff git added::+>>[4m<<log commit diff git added token::b>>[24m<<log commit diff git added::>>[39m
     [38;5;2m<<log commit diff git added::+>>[4m<<log commit diff git added token::c>>[24m[39m
@@ -1244,7 +1244,7 @@ fn test_log_diff_predefined_formats() -> TestResult {
     index 422c2b7ab3..de980441c3 100644
     --- a/file1
     +++ b/file1
-    @@ -1,2 +1,3 @@
+    @@ -1,2 +1,3 @@ a
      a
      b
     +c
@@ -1252,7 +1252,7 @@ fn test_log_diff_predefined_formats() -> TestResult {
     index 7898192261..9ddeb5c484 100644
     --- a/file2
     +++ b/file2
-    @@ -1,1 +1,2 @@
+    @@ -1,1 +1,2 @@ b
     -a
     +b
     +c
@@ -1291,7 +1291,7 @@ fn test_log_diff_predefined_formats() -> TestResult {
     insta::assert_snapshot!(output, @"
     === color_words ===
     Modified regular file file1:
-        ...
+        ...    b
             3: c
     Modified regular file file2:
        1     : a
@@ -1303,14 +1303,14 @@ fn test_log_diff_predefined_formats() -> TestResult {
     index 422c2b7ab3..de980441c3 100644
     --- a/file1
     +++ b/file1
-    @@ -2,1 +2,2 @@
+    @@ -2,1 +2,2 @@ b
      b
     +c
     diff --git a/file2 b/file2
     index 7898192261..9ddeb5c484 100644
     --- a/file2
     +++ b/file2
-    @@ -1,1 +1,2 @@
+    @@ -1,1 +1,2 @@ b
     -a
     +b
     +c
@@ -1362,7 +1362,7 @@ fn test_log_diff_predefined_formats() -> TestResult {
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-T", template]);
     insta::assert_snapshot!(output, @"
     Modified regular file file1:
-        ...
+        ...    b
             3: c
     [EOF]
     ");
@@ -1375,7 +1375,7 @@ fn test_log_diff_predefined_formats() -> TestResult {
     index 422c2b7ab3..de980441c3 100644
     --- a/file1
     +++ b/file1
-    @@ -2,1 +2,2 @@
+    @@ -2,1 +2,2 @@ b
      b
     +c
     [EOF]

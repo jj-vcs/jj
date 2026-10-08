@@ -209,7 +209,7 @@ fn test_log_with_or_without_diff() {
     │  index 257cc5642c..3bd1f0e297 100644
     │  --- a/file1
     │  +++ b/file1
-    │  @@ -1,1 +1,2 @@
+    │  @@ -1,1 +1,2 @@ foo
     │   foo
     │  +bar
     ○  add a file
@@ -219,7 +219,7 @@ fn test_log_with_or_without_diff() {
     │  index 0000000000..257cc5642c
     │  --- /dev/null
     │  +++ b/file1
-    │  @@ -0,0 +1,1 @@
+    │  @@ -0,0 +1,1 @@ foo
     │  +foo
     ◆
     [EOF]
@@ -253,7 +253,7 @@ fn test_log_with_or_without_diff() {
     │  index 257cc5642c..3bd1f0e297 100644
     │  --- a/file1
     │  +++ b/file1
-    │  @@ -1,1 +1,2 @@
+    │  @@ -1,1 +1,2 @@ foo
     │   foo
     │  +bar
     ○  add a file
@@ -264,7 +264,7 @@ fn test_log_with_or_without_diff() {
     │  index 0000000000..257cc5642c
     │  --- /dev/null
     │  +++ b/file1
-    │  @@ -0,0 +1,1 @@
+    │  @@ -0,0 +1,1 @@ foo
     │  +foo
     ◆  0 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
@@ -310,7 +310,7 @@ fn test_log_with_or_without_diff() {
     index 257cc5642c..3bd1f0e297 100644
     --- a/file1
     +++ b/file1
-    @@ -1,1 +1,2 @@
+    @@ -1,1 +1,2 @@ foo
      foo
     +bar
     add a file
@@ -319,7 +319,7 @@ fn test_log_with_or_without_diff() {
     index 0000000000..257cc5642c
     --- /dev/null
     +++ b/file1
-    @@ -0,0 +1,1 @@
+    @@ -0,0 +1,1 @@ foo
     +foo
     [EOF]
     ");
@@ -372,7 +372,7 @@ fn test_log_with_or_without_diff() {
     ~  index 257cc5642c..3bd1f0e297 100644
        --- a/file1
        +++ b/file1
-       @@ -1,1 +1,2 @@
+       @@ -1,1 +1,2 @@ foo
         foo
        +bar
     [EOF]
@@ -384,7 +384,7 @@ fn test_log_with_or_without_diff() {
     index 257cc5642c..3bd1f0e297 100644
     --- a/file1
     +++ b/file1
-    @@ -1,1 +1,2 @@
+    @@ -1,1 +1,2 @@ foo
      foo
     +bar
     [EOF]

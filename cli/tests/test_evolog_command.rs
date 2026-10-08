@@ -165,7 +165,7 @@ fn test_evolog_with_or_without_diff() {
     index 0000000000..2ab19ae607 100644
     --- a/file1
     +++ b/file1
-    @@ -1,8 +1,1 @@
+    @@ -1,8 +1,1 @@ resolved
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: qpvuntsm c664a51b (parents of rebased revision)
     -\\\\\\\        to: zzzzzzzz 00000000 (rebase destination)
@@ -185,7 +185,7 @@ fn test_evolog_with_or_without_diff() {
     index 257cc5642c..3bd1f0e297 100644
     --- a/file1
     +++ b/file1
-    @@ -1,1 +1,2 @@
+    @@ -1,1 +1,2 @@ foo
      foo
     +bar
     diff --git a/file2 b/file2
@@ -193,7 +193,7 @@ fn test_evolog_with_or_without_diff() {
     index 0000000000..257cc5642c
     --- /dev/null
     +++ b/file2
-    @@ -0,0 +1,1 @@
+    @@ -0,0 +1,1 @@ foo
     +foo
     rlvkpnrz/3 test.user@example.com 2001-02-03 08:05:08 b955b72e (hidden)
     (empty) my description
@@ -757,7 +757,7 @@ fn test_evolog_template_predecessors_and_inter_diff() {
     │  index 0000000000..4bcfe98e64
     │  --- /dev/null
     │  +++ b/file1
-    │  @@ -0,0 +1,1 @@
+    │  @@ -0,0 +1,1 @@ d
     │  +d
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 780d27be (hidden)
        (empty) d

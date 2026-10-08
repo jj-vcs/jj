@@ -705,7 +705,8 @@ pub fn show_diff_bytes<T: AsRef<[u8]> + Eq>(
         .after
         .rsplit(path::is_separator)
         .next()
-        .and_then(SourceLanguage::from_file_name);
+        .and_then(SourceLanguage::from_file_name)
+        .or(Some(SourceLanguage::Generic));
     for format in formats {
         match format {
             // Omit diff from "short" formats. Printing dummy file path wouldn't
@@ -1507,7 +1508,8 @@ pub async fn show_color_words_diff(
         let language = right_path
             .components()
             .next_back()
-            .and_then(|name| SourceLanguage::from_file_name(name.as_internal_str()));
+            .and_then(|name| SourceLanguage::from_file_name(name.as_internal_str()))
+            .or(Some(SourceLanguage::Generic));
         let Diff {
             before: left_value,
             after: right_value,
@@ -1892,7 +1894,8 @@ pub async fn show_git_diff(
         let language = right_path
             .components()
             .next_back()
-            .and_then(|name| SourceLanguage::from_file_name(name.as_internal_str()));
+            .and_then(|name| SourceLanguage::from_file_name(name.as_internal_str()))
+            .or(Some(SourceLanguage::Generic));
         let values = values?;
 
         let left_part = git_diff_part(left_path, values.before, materialize_options).await?;

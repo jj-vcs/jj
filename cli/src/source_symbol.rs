@@ -30,6 +30,7 @@ pub(crate) enum SourceLanguage {
     CSharp,
     Dts,
     Elixir,
+    Generic,
     Go,
     Html,
     Ini,
@@ -214,6 +215,11 @@ impl SourceLanguage {
                 !line.contains(&b';') && !line.contains(&b'=') && DTS_FUNCTION_RE.is_match(line)
             }
             Self::Elixir => ELIXIR_FUNCTION_RE.is_match(line),
+            Self::Generic => {
+                // Line starting with an identifier (like GNU diff)
+                line.first()
+                    .is_some_and(|&b| b.is_ascii_alphabetic() || matches!(b, b'_' | b'$'))
+            }
             Self::Go => GO_FUNCTION_RE.is_match(line),
             Self::Html => HTML_FUNCTION_RE.is_match(line),
             Self::Ini => INI_FUNCTION_RE.is_match(line),
@@ -312,6 +318,7 @@ fn is_comment_line(language: SourceLanguage, line: &[u8]) -> bool {
         SourceLanguage::Tex => line.starts_with(b"%"),
         SourceLanguage::BibTeX
         | SourceLanguage::Dts
+        | SourceLanguage::Generic
         | SourceLanguage::Html
         | SourceLanguage::Ini
         | SourceLanguage::Markdown
@@ -330,6 +337,8 @@ pub(crate) fn source_symbol_from_line(language: SourceLanguage, line: &[u8]) -> 
         // calls/control flow inside a function. This heuristic intentionally
         // also excludes indented C++ class methods and namespace members.
         SourceLanguage::CLike | SourceLanguage::CLikeOrObjC => line,
+        // The generic pattern find a line _starting_ with an identifier.
+        SourceLanguage::Generic => line,
         _ => trimmed_line,
     };
     (!is_comment_line(language, trimmed_line) && language.is_source_symbol(line_to_match))
@@ -435,6 +444,17 @@ mod tests {
             (
                 SourceLanguage::Elixir,
                 &["defmodule Example do", "defp run(value) do", "if ready do"],
+            ),
+            (
+                SourceLanguage::Generic,
+                &[
+                    "public(arg)",
+                    "_private(arg)",
+                    "$variable = value",
+                    "    indented(arg)",
+                    "",
+                    "42 == value",
+                ],
             ),
             (
                 SourceLanguage::Go,
@@ -612,6 +632,12 @@ mod tests {
             "Elixir: \"defmodule Example do\" = true",
             "Elixir: \"defp run(value) do\" = true",
             "Elixir: \"if ready do\" = false",
+            "Generic: \"public(arg)\" = true",
+            "Generic: \"_private(arg)\" = true",
+            "Generic: \"$variable = value\" = true",
+            "Generic: \"    indented(arg)\" = false",
+            "Generic: \"\" = false",
+            "Generic: \"42 == value\" = false",
             "Go: \"func Example(value int) int {\" = true",
             "Go: \"type Example struct {\" = true",
             "Go: \"var example = func() {}\" = false",

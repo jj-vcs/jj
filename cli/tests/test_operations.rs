@@ -1784,7 +1784,7 @@ fn test_op_diff_patch() {
        index 0000000000..7898192261
        --- /dev/null
        +++ b/file
-       @@ -0,0 +1,1 @@
+       @@ -0,0 +1,1 @@ a
        +a
 
     Changed working copy default@:
@@ -1829,7 +1829,7 @@ fn test_op_diff_patch() {
        index 7898192261..6178079822 100644
        --- a/file
        +++ b/file
-       @@ -1,1 +1,1 @@
+       @@ -1,1 +1,1 @@ b
        -a
        +b
 
@@ -2902,7 +2902,7 @@ fn test_op_show_patch() {
        index 0000000000..7898192261
        --- /dev/null
        +++ b/file
-       @@ -0,0 +1,1 @@
+       @@ -0,0 +1,1 @@ a
        +a
 
     Changed working copy default@:
@@ -2949,7 +2949,7 @@ fn test_op_show_patch() {
        index 7898192261..6178079822 100644
        --- a/file
        +++ b/file
-       @@ -1,1 +1,1 @@
+       @@ -1,1 +1,1 @@ b
        -a
        +b
 
@@ -3012,7 +3012,7 @@ fn test_op_show_patch() {
     │     index 7898192261..6178079822 100644
     │     --- a/file
     │     +++ b/file
-    │     @@ -1,1 +1,1 @@
+    │     @@ -1,1 +1,1 @@ b
     │     -a
     │     +b
     │
@@ -3030,7 +3030,7 @@ fn test_op_show_patch() {
     │     index 7898192261..6178079822 100644
     │     --- a/file
     │     +++ b/file
-    │     @@ -1,1 +1,1 @@
+    │     @@ -1,1 +1,1 @@ b
     │     -a
     │     +b
     │
@@ -3059,7 +3059,7 @@ fn test_op_show_patch() {
     │     index 0000000000..7898192261
     │     --- /dev/null
     │     +++ b/file
-    │     @@ -0,0 +1,1 @@
+    │     @@ -0,0 +1,1 @@ a
     │     +a
     │
     │  Changed working copy default@:
