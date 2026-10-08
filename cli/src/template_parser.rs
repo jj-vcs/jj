@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Parser for the template language.
+
 use std::assert_matches;
 use std::collections::HashMap;
 use std::error;
@@ -41,12 +43,19 @@ use pest::iterators::Pairs;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
 use pest::pratt_parser::PrattParser;
-use pest_derive::Parser;
 use thiserror::Error;
 
-#[derive(Parser)]
-#[grammar = "template.pest"]
-struct TemplateParser;
+use self::private::Rule;
+use self::private::TemplateParser;
+
+mod private {
+    use pest_derive::Parser;
+
+    // This generates a `pub enum Rule` type.
+    #[derive(Parser)]
+    #[grammar = "template.pest"]
+    pub struct TemplateParser;
+}
 
 const STRING_LITERAL_PARSER: StringLiteralParser<Rule> = StringLiteralParser {
     content_rule: Rule::string_content,
@@ -120,8 +129,10 @@ impl Rule {
 /// Manages diagnostic messages emitted during template parsing and building.
 pub type TemplateDiagnostics = Diagnostics<TemplateParseError>;
 
+/// Result type for template parsing.
 pub type TemplateParseResult<T> = Result<T, TemplateParseError>;
 
+/// Error that occurred during template parsing.
 #[derive(Debug, Error)]
 #[error("{pest_error}")]
 pub struct TemplateParseError {
@@ -130,41 +141,71 @@ pub struct TemplateParseError {
     source: Option<Box<dyn error::Error + Send + Sync>>,
 }
 
+/// Which type of error occurred.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 pub enum TemplateParseErrorKind {
+    /// A syntax error.
     #[error("Syntax error")]
     SyntaxError,
+    /// No such keyword was found.
     #[error("Keyword `{name}` doesn't exist")]
     NoSuchKeyword {
+        /// The unknown name.
         name: String,
+        /// Similar keyword and alias names to suggest.
         candidates: Vec<String>,
     },
+    /// Unknown function.
     #[error("Function `{name}` doesn't exist")]
     NoSuchFunction {
+        /// The unknown name.
         name: String,
+        /// Similar function and alias names to suggest.
         candidates: Vec<String>,
     },
+    /// Unknown method for the type of the object it's called on.
     #[error("Method `{name}` doesn't exist for type `{type_name}`")]
     NoSuchMethod {
+        /// The name of the template type, like `Commit`.
         type_name: String,
+        /// The unknown name.
         name: String,
+        /// Similar method names of the same type to suggest.
         candidates: Vec<String>,
     },
+    /// Wrong number or kind of arguments passed to a function or method.
     #[error("Function `{name}`: {message}")]
-    InvalidArguments { name: String, message: String },
+    InvalidArguments {
+        /// The name of the function or method.
+        name: String,
+        /// What was wrong with the arguments.
+        message: String,
+    },
+    /// The same parameter name appears more than once in a lambda (`|x, x|`)
+    /// or in a function alias declaration (`f(x, x)`).
     #[error("Redefinition of function parameter")]
     RedefinedFunctionParameter,
+    /// Any other error in a syntactically valid expression, such as a type
+    /// mismatch or an out-of-range integer literal. The string is the whole
+    /// message.
     #[error("{0}")]
     Expression(String),
+    /// Wraps an error that occurred within the expansion of the named alias
+    /// (e.g. `name`, `name:x`, or `name(x, y)`). The inner error is
+    /// available via [`TemplateParseError::origin()`].
     #[error("In alias `{0}`")]
     InAliasExpansion(String),
+    /// Like `InAliasExpansion`, but for the argument substituted for the named
+    /// function alias parameter.
     #[error("In function parameter `{0}`")]
     InParameterExpansion(String),
+    /// A recursive alias was detected.
     #[error("Alias `{0}` expanded recursively")]
     RecursiveAlias(String),
 }
 
 impl TemplateParseError {
+    /// Creates a new error with the given `kind` and `span`.
     pub fn with_span(kind: TemplateParseErrorKind, span: pest::Span<'_>) -> Self {
         let message = kind.to_string();
         let pest_error = Box::new(pest::error::Error::new_from_span(
@@ -178,11 +219,14 @@ impl TemplateParseError {
         }
     }
 
+    /// Attaches the `source` error.
     pub fn with_source(mut self, source: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
         self.source = Some(source.into());
         self
     }
 
+    /// Creates a `TemplateParseErrorKind::Expression` error reporting that
+    /// the expression at `span` has type `actual` instead of `expected`.
     pub fn expected_type(expected: &str, actual: &str, span: pest::Span<'_>) -> Self {
         let message =
             format!("Expected expression of type `{expected}`, but actual type is `{actual}`");
@@ -232,6 +276,7 @@ impl TemplateParseError {
             .extend_function_candidates(aliases_map.function_names())
     }
 
+    /// Category of the underlying error.
     pub fn kind(&self) -> &TemplateParseErrorKind {
         &self.kind
     }
@@ -290,20 +335,36 @@ fn rename_rules_in_pest_error(err: pest::error::Error<Rule>) -> pest::error::Err
     })
 }
 
+/// AST expression item.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExpressionKind<'i> {
+    /// Bare name, such as a keyword, a lambda parameter, or a symbol alias.
     Identifier(&'i str),
+    /// `true` or `false`.
     Boolean(bool),
+    /// Non-negative integer literal. `-1` is parsed as
+    /// `Unary(Negate, Integer(1))`.
     Integer(i64),
+    /// `"..."` or `'...'` literal, with escape sequences already processed.
     String(String),
     /// `<name>:<value>` where `<value>` is usually `String`.
     Pattern(Box<PatternNode<'i>>),
+    /// `<op><arg>`
     Unary(UnaryOp, Box<ExpressionNode<'i>>),
+    /// `<lhs> <op> <rhs>`
     Binary(BinaryOp, Box<ExpressionNode<'i>>, Box<ExpressionNode<'i>>),
+    /// `<expr> ++ <expr> ++ ..`. A template consisting of a single expression
+    /// isn't wrapped in `Concat`, but the empty template is `Concat` with no
+    /// items.
     Concat(Vec<ExpressionNode<'i>>),
+    /// `<name>(<args>..)`
     FunctionCall(Box<FunctionCallNode<'i>>),
+    /// `<object>.<name>(<args>..)`
     MethodCall(Box<MethodCallNode<'i>>),
+    /// `|<params>..| <body>`. Only meaningful as an argument to a function or
+    /// method, as in `commits.map(|c| ...)`.
     Lambda(Box<LambdaNode<'i>>),
+    /// `{<key> => <value>, ..}`
     Map(Vec<MapNodeEntry<'i>>),
     /// Identity node to preserve the span in the source template text.
     AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
@@ -384,6 +445,7 @@ impl<'i> AliasExpandableExpression<'i> for ExpressionKind<'i> {
     }
 }
 
+/// Unary (prefix) operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
     /// `!`
@@ -392,6 +454,7 @@ pub enum UnaryOp {
     Negate,
 }
 
+/// Binary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryOp {
     /// `||`
@@ -422,23 +485,37 @@ pub enum BinaryOp {
     Rem,
 }
 
+/// AST node without type or name checking.
 pub type ExpressionNode<'i> = dsl_util::ExpressionNode<'i, ExpressionKind<'i>>;
+/// Function call in AST.
 pub type FunctionCallNode<'i> = dsl_util::FunctionCallNode<'i, ExpressionKind<'i>>;
+/// `<name>:<value>` expression in AST.
 pub type PatternNode<'i> = dsl_util::PatternNode<'i, ExpressionKind<'i>>;
 
+/// `<object>.<name>(<args>..)` in AST.
+///
+/// Chained calls nest from the left: in `a.b().c()`, the object of `c()` is
+/// `a.b()`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MethodCallNode<'i> {
+    /// The object which the method is called on.
     pub object: ExpressionNode<'i>,
+    /// Method name and arguments.
     pub function: FunctionCallNode<'i>,
 }
 
+/// `|<params>..| <body>` in AST.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LambdaNode<'i> {
+    /// Parameter names in order. They're guaranteed to be unique.
     pub params: Vec<&'i str>,
+    /// Span of the parameter list, excluding the `|` delimiters.
     pub params_span: pest::Span<'i>,
+    /// Body, which refers to the parameters as `Identifier`s.
     pub body: ExpressionNode<'i>,
 }
 
+/// `<key> => <value>` entry in a map literal.
 pub type MapNodeEntry<'i> = (ExpressionNode<'i>, ExpressionNode<'i>);
 
 fn parse_identifier_or_literal(pair: Pair<Rule>) -> ExpressionKind {
@@ -668,8 +745,11 @@ pub fn parse_template(template_text: &str) -> TemplateParseResult<ExpressionNode
     }
 }
 
+/// Map of template aliases, from declaration to unparsed definition text.
 pub type TemplateAliasesMap = AliasesMap<TemplateAliasParser, String>;
 
+/// Parser for the template symbol, pattern, and function alias declarations
+/// and definitions.
 #[derive(Clone, Debug, Default)]
 pub struct TemplateAliasParser;
 
