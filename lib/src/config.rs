@@ -288,6 +288,8 @@ pub enum ConfigSource {
     EnvBase,
     /// User configuration files.
     User,
+    /// Managed configuration files stored in version control.
+    Managed,
     /// Repo configuration files.
     Repo,
     /// Workspace configuration files.
@@ -306,6 +308,7 @@ impl Display for ConfigSource {
             System => "system",
             User => "user",
             Repo => "repo",
+            Managed => "managed",
             Workspace => "workspace",
             CommandArg => "cli",
             EnvBase | EnvOverrides => "env",
