@@ -26,12 +26,14 @@ use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use bstr::BStr;
 use bstr::BString;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream;
+use gix::error::ResultExt as _;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
 use tempfile::TempDir;
@@ -1788,6 +1790,45 @@ fn update_git_head(
     expected_ref: gix::refs::transaction::PreviousValue,
     new_oid: Option<gix::ObjectId>,
 ) -> gix::Result<()> {
+    git_repo.edit_references(git_head_edits(expected_ref, new_oid))?;
+    Ok(())
+}
+
+/// Like [`update_git_head()`], but only locks HEAD and checks it against
+/// `expected_ref`. HEAD is written by `commit_git_head_update()`; dropping the
+/// transaction instead releases the lock and leaves HEAD alone.
+fn prepare_git_head_update(
+    git_repo: &gix::Repository,
+    expected_ref: gix::refs::transaction::PreviousValue,
+    new_oid: Option<gix::ObjectId>,
+) -> gix::Result<gix::refs::file::Transaction<'_, '_>> {
+    let (ref_lock_fail, packed_refs_lock_fail) = ref_lock_timeouts(git_repo)?;
+    let transaction = git_repo
+        .refs
+        .transaction()
+        .prepare(
+            git_head_edits(expected_ref, new_oid),
+            ref_lock_fail,
+            packed_refs_lock_fail,
+        )
+        .or_erased()?;
+    Ok(transaction)
+}
+
+fn commit_git_head_update(
+    git_repo: &gix::Repository,
+    head_update: gix::refs::file::Transaction<'_, '_>,
+) -> gix::Result<()> {
+    head_update
+        .commit(git_repo.committer().transpose()?)
+        .or_erased()?;
+    Ok(())
+}
+
+fn git_head_edits(
+    expected_ref: gix::refs::transaction::PreviousValue,
+    new_oid: Option<gix::ObjectId>,
+) -> Vec<gix::refs::transaction::RefEdit> {
     let mut ref_edits = Vec::new();
     let new_target = if let Some(oid) = new_oid {
         gix::refs::Target::Object(oid)
@@ -1818,8 +1859,33 @@ fn update_git_head(
         name: "HEAD".try_into().unwrap(),
         deref: false,
     });
-    git_repo.edit_references(ref_edits)?;
-    Ok(())
+    ref_edits
+}
+
+// TODO: Use gix's own reader once it's public.
+/// Reads `core.filesRefLockTimeout` and `core.packedRefsTimeout` the way
+/// `gix::Repository::edit_references()` does for a repository opened with
+/// strict config, as jj opens every repository: from trusted config sections
+/// only, using the defaults when a key is unset and failing when a value is
+/// invalid.
+fn ref_lock_timeouts(
+    git_repo: &gix::Repository,
+) -> gix::Result<(gix::lock::acquire::Fail, gix::lock::acquire::Fail)> {
+    use gix::config::tree::Core;
+    use gix::lock::acquire::Fail;
+    let config = git_repo.config_snapshot();
+    let timeout =
+        |key: &'static gix::config::tree::keys::LockTimeout, default_ms| -> gix::Result<Fail> {
+            let value = config
+                .plumbing()
+                .integer_filter(key, gix::config::section::is_trusted);
+            let default = Fail::AfterDurationWithBackoff(Duration::from_millis(default_ms));
+            Ok(key.try_into_lock_timeout(value)?.unwrap_or(default))
+        };
+    Ok((
+        timeout(&Core::FILES_REF_LOCK_TIMEOUT, 100)?,
+        timeout(&Core::PACKED_REFS_TIMEOUT, 1000)?,
+    ))
 }
 
 #[derive(Debug, Error)]
@@ -1995,6 +2061,19 @@ impl GitResetHeadError {
 
 /// Sets Git HEAD to the parent of the given working-copy commit and resets
 /// the Git index.
+///
+/// If HEAD has to move, it is locked before anything else is written, and the
+/// new value is written last, after the fallible index reset. Writing the ref
+/// is an immediate on-disk side effect that the caller's transaction cannot
+/// roll back, whereas `mut_repo` is only updated in memory: if HEAD moved and
+/// the index reset then failed, the command would abort with the view still
+/// naming the old HEAD, and the next command in that workspace would import
+/// the new HEAD and replace the working-copy commit with a fresh one. A
+/// detached HEAD is also checked against the target recorded in the view
+/// while it is locked, so if another process has moved it, the reset fails
+/// with [`GitResetHeadError::UpdateHeadRef`] before the index or the
+/// operation state is touched. None of this makes the Git side effects atomic
+/// with the caller's transaction.
 pub async fn reset_head(
     mut_repo: &mut MutableRepo,
     workspace_name: &WorkspaceName,
@@ -2012,10 +2091,10 @@ pub async fn reset_head(
     } else {
         RefTarget::absent()
     };
-
-    // If the first parent of the working copy has changed, reset the Git HEAD.
     let old_head_target = mut_repo.git_head(workspace_name);
-    if *old_head_target != new_head_target {
+    let head_update = if *old_head_target == new_head_target {
+        None
+    } else {
         let expected_ref = if let Some(id) = old_head_target.as_normal() {
             // We have to check the actual HEAD state because we don't record a
             // symbolic ref as such.
@@ -2033,10 +2112,10 @@ pub async fn reset_head(
             gix::refs::transaction::PreviousValue::MustExist
         };
         let new_oid = new_head_target.as_normal().map(owned_oid_from_commit_id);
-        update_git_head(&git_repo, expected_ref, new_oid)
+        let head_update = prepare_git_head_update(&git_repo, expected_ref, new_oid)
             .map_err(GitResetHeadError::UpdateHeadRef)?;
-        mut_repo.set_git_head_target(workspace_name, new_head_target);
-    }
+        Some(head_update)
+    };
 
     // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
     // up.
@@ -2044,7 +2123,13 @@ pub async fn reset_head(
         clear_operation_state(&git_repo)?;
     }
 
-    reset_index(mut_repo, &git_repo, wc_commit).await
+    reset_index(mut_repo, &git_repo, wc_commit).await?;
+
+    if let Some(head_update) = head_update {
+        commit_git_head_update(&git_repo, head_update).map_err(GitResetHeadError::UpdateHeadRef)?;
+        mut_repo.set_git_head_target(workspace_name, new_head_target);
+    }
+    Ok(())
 }
 
 // TODO: Polish and upstream this to `gix`.

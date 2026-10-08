@@ -3783,6 +3783,145 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_reset_head_does_not_move_head_when_index_reset_fails() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
+
+    // unborn -> commit1 (= commit2's parent)
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
+    assert_eq!(
+        tx.repo().git_head(WorkspaceName::DEFAULT),
+        &RefTarget::normal(commit1.id().clone())
+    );
+    assert_eq!(git_repo.head_id()?, git_id(&commit1));
+
+    // Another process holds the index lock, so writing the index fails. The
+    // caller's transaction is discarded on error, taking the view update with
+    // it, so HEAD must not have been written either: a moved HEAD with an
+    // unmoved view makes the next command import the new HEAD and replace the
+    // working-copy commit with a fresh one.
+    let index_lock = git_repo.path().join("index.lock");
+    std::fs::write(&index_lock, b"").unwrap();
+
+    assert_matches!(
+        reset_head(tx.repo_mut(), &test_workspace.workspace, &commit3),
+        Err(GitResetHeadError::Git(_))
+    );
+    assert_eq!(
+        tx.repo().git_head(WorkspaceName::DEFAULT),
+        &RefTarget::normal(commit1.id().clone()),
+        "view shouldn't be updated when the index reset fails"
+    );
+    assert_eq!(
+        gix::open(&workspace_root).unwrap().head_id()?,
+        git_id(&commit1),
+        "on-disk HEAD shouldn't move when the index reset fails"
+    );
+
+    // Once the lock is gone the move goes through as usual.
+    std::fs::remove_file(&index_lock).unwrap();
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit3)?;
+    assert_eq!(
+        tx.repo().git_head(WorkspaceName::DEFAULT),
+        &RefTarget::normal(commit2.id().clone())
+    );
+    assert_eq!(
+        gix::open(&workspace_root).unwrap().head_id()?,
+        git_id(&commit2)
+    );
+    Ok(())
+}
+
+#[test]
+fn test_reset_head_leaves_git_state_alone_when_head_moved_externally() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit4 = write_random_commit_with_parents(tx.repo_mut(), &[&commit3]);
+    let commit5 = write_random_commit(tx.repo_mut());
+
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
+
+    // A `git rebase` detaches HEAD at commit5 and stops on a conflict, leaving
+    // its state in `.git/rebase-merge`.
+    testutils::git::set_head_to_id(&git_repo, git_id(&commit5));
+    let rebase_state = git_repo.path().join("rebase-merge");
+    fs::create_dir(&rebase_state)?;
+    let index_before = get_index_state(&workspace_root);
+
+    assert_matches!(
+        reset_head(tx.repo_mut(), &test_workspace.workspace, &commit4),
+        Err(GitResetHeadError::UpdateHeadRef(_))
+    );
+    assert_eq!(
+        gix::open(&workspace_root).unwrap().head_id()?,
+        git_id(&commit5)
+    );
+    assert!(rebase_state.exists(), "rebase state shouldn't be removed");
+    assert_eq!(
+        get_index_state(&workspace_root),
+        index_before,
+        "index shouldn't be rewritten"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_reset_head_refuses_invalid_ref_lock_timeout() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
+
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
+    tx.commit("test").block_on()?;
+
+    // The repository is opened with strict config, so an invalid lock timeout
+    // is an error here as it is for other ref updates, not a silent default.
+    let config_path = git_repo.path().join("config");
+    let mut config = fs::read_to_string(&config_path)?;
+    config.push_str("[core]\n\tfilesRefLockTimeout = bogus\n");
+    fs::write(&config_path, config)?;
+    // Reload to pick up the config change.
+    let repo = &test_workspace
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_workspace.repo_path());
+
+    let mut tx = repo.start_transaction();
+    assert_matches!(
+        reset_head(tx.repo_mut(), &test_workspace.workspace, &commit3),
+        Err(GitResetHeadError::UpdateHeadRef(_))
+    );
+    assert_eq!(
+        tx.repo().git_head(WorkspaceName::DEFAULT),
+        &RefTarget::normal(commit1.id().clone())
+    );
+    assert_eq!(
+        gix::open(&workspace_root).unwrap().head_id()?,
+        git_id(&commit1)
+    );
+    Ok(())
+}
+
 fn get_index_state(workspace_root: &Path) -> String {
     let git_repo = gix::open(workspace_root).unwrap();
     let index = git_repo.index().unwrap();
