@@ -20,8 +20,8 @@ use thiserror::Error;
 
 use crate::backend::Timestamp;
 use crate::index::IndexError;
-use crate::index::IndexStoreError;
 use crate::index::ReadonlyIndex;
+use crate::index_store::IndexStoreError;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store;

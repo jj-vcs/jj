@@ -63,6 +63,7 @@ pub mod graph_dominators;
 pub use jj_core::hex_util;
 pub mod id_prefix;
 pub mod index;
+pub mod index_store;
 pub mod iter_util;
 pub mod local_working_copy;
 pub mod lock;
