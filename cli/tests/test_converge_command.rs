@@ -1622,6 +1622,89 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
     Ok(())
 }
 
+// Divergent commits with the same author name and email but different
+// timestamps converge without prompting. The solution keeps the pre-metaedit
+// author.
+#[test]
+fn test_converge_same_author_different_timestamps() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "a", &[], &[("file1", "1")]);
+    create_commit_with_files(&work_dir, "b2", &["a"], &[("file2", "2")]);
+    create_commit_with_files(&work_dir, "c", &["a"], &[("file3", "3")]);
+    work_dir.run_jj(["rebase", "-r", "b2", "-o", "c"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "b1", "-r", "at_operation(@-, b2)"])
+        .success();
+
+    let author_template =
+        r#"author.name() ++ " <" ++ author.email() ++ "> " ++ author.timestamp()"#;
+    let author_before = work_dir
+        .run_jj(["log", "--no-graph", "-r", "b2", "-T", author_template])
+        .success();
+    assert_eq!(
+        author_before.stdout.raw(),
+        work_dir
+            .run_jj(["log", "--no-graph", "-r", "b1", "-T", author_template])
+            .success()
+            .stdout
+            .raw()
+    );
+
+    work_dir
+        .run_jj([
+            "metaedit",
+            "-r",
+            "b1",
+            "--author-timestamp",
+            "2020-01-02T03:04:05+00:00",
+        ])
+        .success();
+    work_dir
+        .run_jj([
+            "metaedit",
+            "-r",
+            "b2",
+            "--author-timestamp",
+            "2024-05-06T07:08:09+00:00",
+        ])
+        .success();
+
+    let output = work_dir
+        .run_jj_with(|cmd| force_interactive(cmd).args(["converge", "--no-interactive"]))
+        .success();
+    assert!(
+        !output
+            .stderr
+            .raw()
+            .contains("Could not determine automatically which author"),
+        "{output}"
+    );
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 divergent change(s) in the specified revset:
+    - Change: zsuskulnrvyr with 2 commits:
+        zsuskuln/0 a1340ffc b2 | (divergent) b2
+        zsuskuln/1 4e6863d9 b1 | (divergent) b2
+
+    Attempting to converge change zsuskulnrvyr...
+
+    Successfully converged change: created commit 6b1ce5bc4cbe.
+    [EOF]
+    ");
+
+    let author_after = work_dir
+        .run_jj(["log", "--no-graph", "-r", "b2", "-T", author_template])
+        .success();
+    assert_eq!(author_after.stdout.raw(), author_before.stdout.raw());
+    insta::assert_snapshot!(
+        author_after,
+        @"Test User <test.user@example.com> 2001-02-03 04:05:10.000 +07:00[EOF]"
+    );
+}
+
 #[must_use]
 fn get_long_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = "bookmarks ++ '  ' ++ format_short_change_id_with_change_offset(self) ++ '  ' \

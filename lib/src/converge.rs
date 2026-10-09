@@ -37,6 +37,7 @@ use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::Signature;
+use crate::backend::Timestamp;
 use crate::backend::TreeId;
 use crate::commit::Commit;
 use crate::conflict_labels::ConflictLabels;
@@ -379,7 +380,19 @@ async fn converge_author(
     let excluded_divergent_commits = HashSet::default();
     let (value_merge, base_commit) =
         create_value_merge(graph, &excluded_divergent_commits, value_fn).await?;
+    // Keep this resolution so a one-sided timestamp edit, and the same new
+    // timestamp written on every side, still win before the projection below.
     if let Some(value) = value_merge.resolve_trivial(SameChange::Accept) {
+        return Ok(ConvergedAttribute::Solved(value.clone()));
+    }
+
+    // `Signature` equality includes the timestamp, so two rewrites of the same
+    // name and email stay conflicted. Project each term onto the earliest
+    // timestamp for that name and email and try again. A real name or email
+    // conflict is still unsolved.
+    let root_author = graph.repo().store().root_commit().author().clone();
+    let projected = project_author_to_earliest_timestamp(&value_merge, &root_author);
+    if let Some(value) = projected.resolve_trivial(SameChange::Accept) {
         Ok(ConvergedAttribute::Solved(value.clone()))
     } else {
         Ok(ConvergedAttribute::Unsolved {
@@ -387,6 +400,40 @@ async fn converge_author(
             excluded_divergent_commits: HashSet::default(),
         })
     }
+}
+
+// Projects each signature onto the earliest timestamp of its name and email.
+//
+// A term equal to `root_author` is ignored when another term shares that name
+// and email. The evolution graph inserts the root commit as a synthetic
+// predecessor when a change has no in-change predecessor, and that commit's
+// author is an empty signature at the Unix epoch.
+fn project_author_to_earliest_timestamp(
+    merge: &Merge<Signature>,
+    root_author: &Signature,
+) -> Merge<Signature> {
+    let ignore_root_author = merge.iter().any(|signature| {
+        signature.name == root_author.name
+            && signature.email == root_author.email
+            && signature != root_author
+    });
+
+    let mut earliest_by_identity = HashMap::<(&str, &str), Timestamp>::new();
+    for signature in merge {
+        if ignore_root_author && signature == root_author {
+            continue;
+        }
+        earliest_by_identity
+            .entry((&signature.name, &signature.email))
+            .and_modify(|earliest| *earliest = std::cmp::min(*earliest, signature.timestamp))
+            .or_insert(signature.timestamp);
+    }
+
+    merge.map(|signature| Signature {
+        timestamp: earliest_by_identity[&(signature.name.as_str(), signature.email.as_str())],
+        name: signature.name.clone(),
+        email: signature.email.clone(),
+    })
 }
 
 async fn converge_description(
