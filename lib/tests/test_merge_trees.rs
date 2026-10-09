@@ -159,8 +159,8 @@ fn test_rebase_linearize_lossy_merge(same_change: SameChange) -> TestResult {
         .write_unwrap();
 
     match same_change {
-        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).block_on()?),
-        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).block_on()?),
+        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut.index()).block_on()?),
+        SameChange::Accept => assert!(commit_d.is_empty(repo_mut.index()).block_on()?),
     }
 
     let commit_d2 = rebase_commit(repo_mut, commit_d, vec![commit_b.id().clone()]).block_on()?;
@@ -217,8 +217,8 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) -> TestResult {
         .write_unwrap();
 
     match same_change {
-        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).block_on()?),
-        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).block_on()?),
+        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut.index()).block_on()?),
+        SameChange::Accept => assert!(commit_d.is_empty(repo_mut.index()).block_on()?),
     }
 
     let commit_c2 = repo_mut

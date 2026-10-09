@@ -38,7 +38,6 @@ use crate::index::IndexResult;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
-use crate::rewrite::merge_commit_trees;
 use crate::rewrite::merge_commit_trees_no_resolve_without_repo;
 use crate::signing::SignResult;
 use crate::signing::Verification;
@@ -164,11 +163,11 @@ impl Commit {
 
     /// Returns whether commit's content is empty. Commit description is not
     /// taken into consideration.
-    pub async fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        if let Some(empty) = is_commit_empty_by_index(repo.index(), &self.id).await? {
+    pub async fn is_empty(&self, index: &dyn Index) -> BackendResult<bool> {
+        if let Some(empty) = is_commit_empty_by_index(index, &self.id).await? {
             return Ok(empty);
         }
-        is_backend_commit_empty(repo, &self.store, &self.data).await
+        is_backend_commit_empty(index, &self.store, &self.data).await
     }
 
     pub fn has_conflict(&self) -> bool {
@@ -203,8 +202,8 @@ impl Commit {
 
     /// A commit is discardable if it has no change from its parent, and an
     /// empty description.
-    pub async fn is_discardable(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        Ok(self.description().is_empty() && self.is_empty(repo).await?)
+    pub async fn is_discardable(&self, index: &dyn Index) -> BackendResult<bool> {
+        Ok(self.description().is_empty() && self.is_empty(index).await?)
     }
 
     /// A quick way to just check if a signature is present.
@@ -265,7 +264,7 @@ pub fn conflict_label_for_commits(commits: &[Commit]) -> String {
 }
 
 pub(crate) async fn is_backend_commit_empty(
-    repo: &dyn Repo,
+    index: &dyn Index,
     store: &Arc<Store>,
     commit: &backend::Commit,
 ) -> BackendResult<bool> {
@@ -273,7 +272,10 @@ pub(crate) async fn is_backend_commit_empty(
         return Ok(commit.root_tree == *store.get_commit_async(parent_id).await?.tree_ids());
     }
     let parents = try_join_all(commit.parents.iter().map(|id| store.get_commit_async(id))).await?;
-    let parent_tree = merge_commit_trees(repo, &parents).await?;
+    let parent_tree = merge_commit_trees_no_resolve_without_repo(store, index, &parents)
+        .await?
+        .resolve()
+        .await?;
     Ok(commit.root_tree == *parent_tree.tree_ids())
 }
 
