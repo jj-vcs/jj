@@ -34,10 +34,8 @@ use crate::backend::Signature;
 use crate::backend::TreeId;
 use crate::conflict_labels::ConflictLabels;
 use crate::index::Index;
-use crate::index::IndexResult;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
-use crate::repo::Repo;
 use crate::rewrite::merge_commit_trees_no_resolve_without_repo;
 use crate::signing::SignResult;
 use crate::signing::Verification;
@@ -192,12 +190,6 @@ impl Commit {
 
     pub fn committer(&self) -> &Signature {
         &self.data.committer
-    }
-
-    ///  A commit is hidden if its commit id is not in the change id index.
-    pub async fn is_hidden(&self, repo: &dyn Repo) -> IndexResult<bool> {
-        let maybe_targets = repo.resolve_change_id(self.change_id()).await?;
-        Ok(maybe_targets.is_none_or(|targets| !targets.has_visible(&self.id)))
     }
 
     /// A commit is discardable if it has no change from its parent, and an
