@@ -22,9 +22,13 @@ use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering as AtomicOrdering;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use async_trait::async_trait;
 use bstr::BString;
 use futures::AsyncReadExt as _;
 use gix::odb::pack::FindExt as _;
@@ -41,10 +45,16 @@ use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::symlink_dir;
 use jj_lib::file_util::symlink_file;
 use jj_lib::files::FileMergeHunkLevel;
-use jj_lib::fsmonitor::FsmonitorSettings;
+use jj_lib::fsmonitor::FatalFsmonitorError;
+use jj_lib::fsmonitor::Fsmonitor;
+use jj_lib::fsmonitor::FsmonitorClock;
+use jj_lib::fsmonitor::FsmonitorError;
+use jj_lib::fsmonitor::FsmonitorFactory;
+use jj_lib::fsmonitor::FsmonitorQueryResult;
 use jj_lib::git::get_git_backend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::LocalWorkingCopy;
+use jj_lib::local_working_copy::LocalWorkingCopyFactory;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::matchers::FilesMatcher;
@@ -55,6 +65,7 @@ use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::op_store::OperationId;
 use jj_lib::protos::local_working_copy as working_copy_proto;
 use jj_lib::ref_name::WorkspaceName;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
@@ -68,6 +79,7 @@ use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy as _;
+use jj_lib::working_copy::WorkingCopyFactory as _;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use prost::Message as _;
@@ -123,6 +135,33 @@ fn check_vfat(dir: &Path) -> bool {
 
 fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
     paths.iter().map(|&path| path.to_owned()).collect()
+}
+
+/// Filesystem monitor backed by a caller-provided list of changed paths.
+#[derive(Clone, Debug)]
+struct TestFsmonitor {
+    changed_files: Vec<PathBuf>,
+}
+
+impl TestFsmonitor {
+    /// Creates a monitor which reports `changed_files` on every query.
+    pub fn new(changed_files: Vec<PathBuf>) -> Self {
+        Self { changed_files }
+    }
+}
+
+#[async_trait]
+impl Fsmonitor for TestFsmonitor {
+    async fn query_changed_files(
+        &self,
+        _working_copy_path: &Path,
+        _previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError> {
+        Ok(FsmonitorQueryResult::Incremental {
+            clock: FsmonitorClock::new("test", Vec::new()),
+            changed_files: self.changed_files.clone(),
+        })
+    }
 }
 
 #[test]
@@ -2738,7 +2777,7 @@ fn test_fsmonitor() -> TestResult {
             .map(|p| p.to_fs_path_unchecked(Path::new("")))
             .collect();
         let settings = TreeStateSettings {
-            fsmonitor_settings: FsmonitorSettings::Test { changed_files },
+            fsmonitor: Arc::new(TestFsmonitor::new(changed_files)),
             ..tree_state_settings.clone()
         };
         let mut tree_state = TreeState::load(
@@ -2748,10 +2787,8 @@ fn test_fsmonitor() -> TestResult {
             &settings,
         )
         .unwrap();
-        let (is_dirty, _) = tree_state
-            .snapshot(&empty_snapshot_options())
-            .block_on()
-            .unwrap();
+        let options = empty_snapshot_options();
+        let (is_dirty, _) = tree_state.snapshot(&options).block_on().unwrap();
         (is_dirty, tree_state)
     };
 
@@ -2762,7 +2799,12 @@ fn test_fsmonitor() -> TestResult {
     // Saving explicitly verifies that the in-memory clock was retained.
     tree_state.save()?;
     let proto = working_copy_proto::TreeState::decode(std::fs::read(&tree_state_path)?.as_slice())?;
-    assert_eq!(proto.watchman_clock, Some(old_watchman_clock));
+    let migrated_clock = proto.fsmonitor_clock.expect("clock should be migrated");
+    assert_eq!(migrated_clock.monitor_name, "watchman");
+    assert_eq!(
+        working_copy_proto::WatchmanClock::decode(migrated_clock.value.as_slice())?,
+        old_watchman_clock
+    );
 
     let (_, tree_state) = snapshot(&[foo_path]);
     insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
@@ -2780,6 +2822,14 @@ fn test_fsmonitor() -> TestResult {
         file "path/to/nested" (6209060941cd770c8d46): "nested\n"
     "#);
     tree_state.save()?;
+    let proto = working_copy_proto::TreeState::decode(std::fs::read(&tree_state_path)?.as_slice())?;
+    assert_eq!(
+        proto
+            .fsmonitor_clock
+            .expect("clock should be switched")
+            .monitor_name,
+        "test"
+    );
 
     testutils::write_working_copy_file(&workspace_root, foo_path, "updated foo\n");
     testutils::write_working_copy_file(&workspace_root, bar_path, "updated bar\n");
@@ -2801,6 +2851,195 @@ fn test_fsmonitor() -> TestResult {
         file "path/to/nested" (6209060941cd770c8d46): "nested\n"
     "#);
     tree_state.save()?;
+    Ok(())
+}
+
+#[derive(Debug)]
+struct InvalidPathFsmonitor;
+
+#[async_trait::async_trait]
+impl Fsmonitor for InvalidPathFsmonitor {
+    async fn query_changed_files(
+        &self,
+        _working_copy_path: &Path,
+        _previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError> {
+        Ok(FsmonitorQueryResult::Incremental {
+            clock: FsmonitorClock::new("invalid-path-test", b"clock".to_vec()),
+            changed_files: vec![PathBuf::from("../foo")],
+        })
+    }
+}
+
+#[test]
+fn fsmonitor_invalid_path_falls_back_to_full_scan() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root)?;
+    std::fs::create_dir(&state_path)?;
+    testutils::write_working_copy_file(&workspace_root, repo_path("foo"), "foo\n");
+    let settings = TreeStateSettings {
+        fsmonitor: Arc::new(InvalidPathFsmonitor),
+        ..TreeStateSettings::try_from_user_settings(repo.settings())?
+    };
+    let mut tree_state =
+        TreeState::init(repo.store().clone(), workspace_root, state_path, &settings)?;
+
+    tree_state.snapshot(&empty_snapshot_options()).block_on()?;
+
+    insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
+    merged tree (sides: 1)
+      tree 2a5341b103917cfdb48a
+        file "foo" (e99c2057c15160add351): "foo\n"
+    "#);
+    Ok(())
+}
+
+#[derive(Debug)]
+struct JournalFsmonitor {
+    acknowledgments: Arc<Mutex<Vec<Vec<u8>>>>,
+}
+
+#[async_trait::async_trait]
+impl Fsmonitor for JournalFsmonitor {
+    async fn query_changed_files(
+        &self,
+        _working_copy_path: &Path,
+        _previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError> {
+        Ok(FsmonitorQueryResult::Incremental {
+            clock: FsmonitorClock::new("journal-test", b"clock-2".to_vec()),
+            changed_files: vec![],
+        })
+    }
+
+    fn acknowledge_clock(&self, clock: &FsmonitorClock) -> Result<(), FsmonitorError> {
+        self.acknowledgments
+            .lock()
+            .unwrap()
+            .push(clock.value_for("journal-test").unwrap().to_vec());
+        Err(io::Error::other("journal cleanup failed").into())
+    }
+
+    fn persist_clock_upon_empty_result(&self) -> bool {
+        true
+    }
+}
+
+#[test]
+fn fsmonitor_persists_empty_query_clock_if_acknowledgment_fails() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root)?;
+    std::fs::create_dir(&state_path)?;
+    let acknowledgments = Arc::new(Mutex::new(vec![]));
+    let settings = TreeStateSettings {
+        fsmonitor: Arc::new(JournalFsmonitor {
+            acknowledgments: acknowledgments.clone(),
+        }),
+        ..TreeStateSettings::try_from_user_settings(repo.settings())?
+    };
+    let mut tree_state =
+        TreeState::init(repo.store().clone(), workspace_root, state_path, &settings)?;
+
+    let (is_dirty, _) = tree_state.snapshot(&empty_snapshot_options()).block_on()?;
+    assert!(is_dirty);
+    tree_state.save()?;
+
+    assert_eq!(*acknowledgments.lock().unwrap(), [b"clock-2".to_vec()]);
+    Ok(())
+}
+
+#[derive(Debug)]
+struct FatalFsmonitor;
+
+#[async_trait::async_trait]
+impl Fsmonitor for FatalFsmonitor {
+    async fn query_changed_files(
+        &self,
+        _working_copy_path: &Path,
+        _previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError> {
+        let error = io::Error::other("invalid monitor configuration");
+        Err(Box::new(FatalFsmonitorError::new(error)))
+    }
+}
+
+#[test]
+fn fatal_fsmonitor_error_is_not_silently_ignored() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root)?;
+    std::fs::create_dir(&state_path)?;
+    let settings = TreeStateSettings {
+        fsmonitor: Arc::new(FatalFsmonitor),
+        ..TreeStateSettings::try_from_user_settings(repo.settings())?
+    };
+    let mut tree_state =
+        TreeState::init(repo.store().clone(), workspace_root, state_path, &settings)?;
+
+    let error = tree_state
+        .snapshot(&empty_snapshot_options())
+        .block_on()
+        .unwrap_err();
+    assert_eq!(error.to_string(), "Failed to query the filesystem monitor");
+    Ok(())
+}
+
+#[derive(Debug)]
+struct TestFsmonitorFactory {
+    create_count: Arc<AtomicUsize>,
+}
+
+impl FsmonitorFactory for TestFsmonitorFactory {
+    fn create(
+        &self,
+        _settings: &jj_lib::settings::UserSettings,
+    ) -> Result<Arc<dyn Fsmonitor>, jj_lib::config::ConfigGetError> {
+        self.create_count.fetch_add(1, AtomicOrdering::Relaxed);
+        Ok(Arc::new(TestFsmonitor::new(vec![PathBuf::from("foo")])))
+    }
+}
+
+#[test]
+fn local_working_copy_factory_uses_custom_fsmonitor_factory() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root)?;
+    std::fs::create_dir(&state_path)?;
+    testutils::write_working_copy_file(&workspace_root, repo_path("foo"), "foo\n");
+    let create_count = Arc::new(AtomicUsize::new(0));
+    let factory = LocalWorkingCopyFactory::new(Box::new(TestFsmonitorFactory {
+        create_count: create_count.clone(),
+    }));
+    let working_copy = factory.init_working_copy(
+        repo.store().clone(),
+        workspace_root,
+        state_path,
+        repo.op_id().clone(),
+        WorkspaceNameBuf::from("default"),
+        repo.settings(),
+    )?;
+
+    let mut locked_working_copy = working_copy.start_mutation().block_on()?;
+    let (tree, _) = locked_working_copy
+        .snapshot(&empty_snapshot_options())
+        .block_on()?;
+
+    assert_eq!(create_count.load(AtomicOrdering::Relaxed), 1);
+    insta::assert_snapshot!(testutils::dump_tree(&tree), @r#"
+    merged tree (sides: 1)
+      tree 2a5341b103917cfdb48a
+        file "foo" (e99c2057c15160add351): "foo\n"
+    "#);
     Ok(())
 }
 
@@ -2831,7 +3070,7 @@ fn track_ignored_with_flag_and_fsmonitor() -> TestResult {
             .map(|p| p.to_fs_path_unchecked(Path::new("")))
             .collect();
         let settings = TreeStateSettings {
-            fsmonitor_settings: FsmonitorSettings::Test { changed_files },
+            fsmonitor: Arc::new(TestFsmonitor { changed_files }),
             ..tree_state_settings.clone()
         };
         let mut tree_state = TreeState::load(
@@ -2892,7 +3131,7 @@ fn fsmonitor_gitignore_rescan_subtree() -> TestResult {
             .map(|p| p.to_fs_path_unchecked(Path::new("")))
             .collect();
         let settings = TreeStateSettings {
-            fsmonitor_settings: FsmonitorSettings::Test { changed_files },
+            fsmonitor: Arc::new(TestFsmonitor { changed_files }),
             ..tree_state_settings.clone()
         };
         let mut tree_state = TreeState::load(

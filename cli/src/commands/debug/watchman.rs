@@ -21,12 +21,16 @@ use jj_lib::fsmonitor::FsmonitorSettings;
 #[cfg(feature = "watchman")]
 use jj_lib::fsmonitor::WatchmanConfig;
 #[cfg(feature = "watchman")]
+use jj_lib::fsmonitor::WatchmanFsmonitor;
+#[cfg(feature = "watchman")]
 use jj_lib::local_working_copy::LocalWorkingCopy;
 #[cfg(feature = "watchman")]
 use jj_lib::working_copy::WorkingCopy;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+#[cfg(feature = "watchman")]
+use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
 use crate::ui::Ui;
 
@@ -82,14 +86,13 @@ pub async fn cmd_debug_watchman(
                     )?;
                     watchman_config
                 }
-                other_fsmonitor => {
-                    return Err(user_error(format!(
-                        r"This command does not support the currently enabled filesystem monitor: {other_fsmonitor:?}."
-                    )));
-                }
             };
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
-            wc.query_watchman(&config).await?;
+            let fsmonitor = WatchmanFsmonitor::new(config);
+            fsmonitor
+                .query(wc.working_copy_path(), wc.fsmonitor_clock()?)
+                .await
+                .map_err(|err| internal_error_with_message("Failed to query Watchman", err))?;
             writeln!(
                 ui.stdout(),
                 "The watchman server seems to be installed and working correctly."
@@ -97,7 +100,13 @@ pub async fn cmd_debug_watchman(
             writeln!(
                 ui.stdout(),
                 "Background snapshotting is currently {}.",
-                if wc.is_watchman_trigger_registered(&config).await? {
+                if fsmonitor
+                    .is_trigger_registered(wc.working_copy_path())
+                    .await
+                    .map_err(|err| {
+                        internal_error_with_message("Failed to query Watchman", err)
+                    })?
+                {
                     "active"
                 } else {
                     "inactive"
@@ -106,12 +115,20 @@ pub async fn cmd_debug_watchman(
         }
         DebugWatchmanCommand::QueryClock => {
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
-            let (clock, _changed_files) = wc.query_watchman(&watchman_config).await?;
+            let fsmonitor = WatchmanFsmonitor::new(watchman_config);
+            let (clock, _changed_files) = fsmonitor
+                .query(wc.working_copy_path(), wc.fsmonitor_clock()?)
+                .await
+                .map_err(|err| internal_error_with_message("Failed to query Watchman", err))?;
             writeln!(ui.stdout(), "Clock: {clock:?}")?;
         }
         DebugWatchmanCommand::QueryChangedFiles => {
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
-            let (_clock, changed_files) = wc.query_watchman(&watchman_config).await?;
+            let fsmonitor = WatchmanFsmonitor::new(watchman_config);
+            let (_clock, changed_files) = fsmonitor
+                .query(wc.working_copy_path(), wc.fsmonitor_clock()?)
+                .await
+                .map_err(|err| internal_error_with_message("Failed to query Watchman", err))?;
             writeln!(ui.stdout(), "Changed files: {changed_files:?}")?;
         }
         DebugWatchmanCommand::ResetClock => {
@@ -123,7 +140,7 @@ pub async fn cmd_debug_watchman(
                     "This command requires a standard local-disk working copy",
                 ));
             };
-            locked_local_wc.reset_watchman()?;
+            locked_local_wc.reset_fsmonitor_clock()?;
             locked_ws.finish(repo.op_id().clone()).await?;
             writeln!(ui.status(), "Reset Watchman clock.")?;
         }

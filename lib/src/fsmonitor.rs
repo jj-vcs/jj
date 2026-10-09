@@ -22,10 +22,172 @@
 
 #![warn(missing_docs)]
 
+use std::error::Error;
+use std::fmt;
+use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use prost::Message as _;
 
 use crate::config::ConfigGetError;
 use crate::settings::UserSettings;
+
+/// An opaque clock identifying the state observed by a filesystem monitor.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FsmonitorClock {
+    monitor_name: String,
+    value: Vec<u8>,
+}
+
+impl FsmonitorClock {
+    /// Creates a clock value owned by the named monitor implementation.
+    pub fn new(monitor_name: impl Into<String>, value: Vec<u8>) -> Self {
+        Self {
+            monitor_name: monitor_name.into(),
+            value,
+        }
+    }
+
+    /// Returns the clock payload if it belongs to `monitor_name`.
+    pub fn value_for(&self, monitor_name: &str) -> Option<&[u8]> {
+        (self.monitor_name == monitor_name).then_some(&self.value)
+    }
+}
+
+impl From<crate::protos::local_working_copy::FsmonitorClock> for FsmonitorClock {
+    fn from(clock: crate::protos::local_working_copy::FsmonitorClock) -> Self {
+        Self::new(clock.monitor_name, clock.value)
+    }
+}
+
+impl From<FsmonitorClock> for crate::protos::local_working_copy::FsmonitorClock {
+    fn from(clock: FsmonitorClock) -> Self {
+        Self {
+            monitor_name: clock.monitor_name,
+            value: clock.value,
+        }
+    }
+}
+
+impl From<crate::protos::local_working_copy::WatchmanClock> for FsmonitorClock {
+    fn from(clock: crate::protos::local_working_copy::WatchmanClock) -> Self {
+        Self::new("watchman", clock.encode_to_vec())
+    }
+}
+
+/// The result of querying a [`Fsmonitor`].
+#[derive(Debug)]
+pub enum FsmonitorQueryResult {
+    /// No monitor state is available, so jj must scan the full working copy.
+    Unmonitored,
+    /// The monitor requires a full scan and supplies the clock it represents.
+    FullScan {
+        /// Clock to persist after the full scan succeeds.
+        clock: FsmonitorClock,
+    },
+    /// The monitor supplies a complete incremental set of changed paths.
+    Incremental {
+        /// Clock to persist after the incremental scan succeeds.
+        clock: FsmonitorClock,
+        /// Paths which may have changed since the previous clock.
+        changed_files: Vec<PathBuf>,
+    },
+}
+
+/// Error returned by a filesystem monitor.
+pub type FsmonitorError = Box<dyn Error + Send + Sync>;
+
+/// Marks a filesystem-monitor error which cannot safely be handled by falling
+/// back to a full working-copy scan.
+#[derive(Debug)]
+pub struct FatalFsmonitorError {
+    source: FsmonitorError,
+}
+
+impl FatalFsmonitorError {
+    /// Wraps an unrecoverable filesystem-monitor error.
+    pub fn new(source: impl Error + Send + Sync + 'static) -> Self {
+        Self {
+            source: Box::new(source),
+        }
+    }
+}
+
+impl fmt::Display for FatalFsmonitorError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.source.fmt(formatter)
+    }
+}
+
+impl Error for FatalFsmonitorError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(self.source.as_ref())
+    }
+}
+
+/// Supplies paths that may have changed since the previous working-copy scan.
+#[async_trait]
+pub trait Fsmonitor: std::fmt::Debug + Send + Sync {
+    /// Queries paths changed since `previous_clock`.
+    ///
+    /// Paths in an incremental result are relative to `working_copy_path`.
+    /// Ordinary errors cause a safe full-scan fallback. Return a
+    /// [`FatalFsmonitorError`] for configuration and other unrecoverable errors
+    /// which should be reported to the caller.
+    async fn query_changed_files(
+        &self,
+        working_copy_path: &Path,
+        previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError>;
+
+    /// Acknowledges that `clock` has been persisted by the working copy.
+    fn acknowledge_clock(&self, _clock: &FsmonitorClock) -> Result<(), FsmonitorError> {
+        Ok(())
+    }
+
+    /// Whether a clock returned with an empty incremental path set should be
+    /// persisted so that it can be acknowledged.
+    ///
+    /// Implementations backed by a journal should return true to allow old
+    /// journal entries to be collected. The default avoids working-copy state
+    /// writes for monitors, such as Watchman, which do not need acknowledgment.
+    fn persist_clock_upon_empty_result(&self) -> bool {
+        false
+    }
+}
+
+/// Creates the filesystem monitor used by a working copy.
+pub trait FsmonitorFactory {
+    /// Creates a filesystem monitor using the working copy's user settings.
+    fn create(&self, settings: &UserSettings) -> Result<Arc<dyn Fsmonitor>, ConfigGetError>;
+}
+
+/// Creates the filesystem monitor selected by the user's settings.
+#[derive(Debug, Default)]
+pub struct SettingsFsmonitorFactory;
+
+impl FsmonitorFactory for SettingsFsmonitorFactory {
+    fn create(&self, settings: &UserSettings) -> Result<Arc<dyn Fsmonitor>, ConfigGetError> {
+        Ok(FsmonitorSettings::from_settings(settings)?.to_fsmonitor())
+    }
+}
+
+/// Filesystem monitor which always requests a full working-copy scan.
+#[derive(Debug, Default)]
+pub struct NoFsmonitor;
+
+#[async_trait]
+impl Fsmonitor for NoFsmonitor {
+    async fn query_changed_files(
+        &self,
+        _working_copy_path: &Path,
+        _previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError> {
+        Ok(FsmonitorQueryResult::Unmonitored)
+    }
+}
 
 /// Config for Watchman filesystem monitor (<https://facebook.github.io/watchman/>).
 #[derive(Eq, PartialEq, Clone, Debug)]
@@ -39,13 +201,6 @@ pub struct WatchmanConfig {
 pub enum FsmonitorSettings {
     /// The Watchman filesystem monitor (<https://facebook.github.io/watchman/>).
     Watchman(WatchmanConfig),
-
-    /// Only used in tests.
-    Test {
-        /// The set of changed files to pretend that the filesystem monitor is
-        /// reporting.
-        changed_files: Vec<PathBuf>,
-    },
 
     /// No filesystem monitor. This is the default if nothing is configured, but
     /// also makes it possible to turn off the monitor on a case-by-case basis
@@ -74,6 +229,105 @@ impl FsmonitorSettings {
                 error: format!("Unknown fsmonitor kind: {other}").into(),
                 source_path: None,
             }),
+        }
+    }
+
+    /// Creates the filesystem-monitor implementation selected by these settings.
+    pub fn to_fsmonitor(&self) -> Arc<dyn Fsmonitor> {
+        match self {
+            Self::None => Arc::new(NoFsmonitor),
+            Self::Watchman(config) => Arc::new(WatchmanFsmonitor::new(config.clone())),
+        }
+    }
+}
+
+/// Filesystem monitor backed by Watchman.
+#[derive(Clone, Debug)]
+pub struct WatchmanFsmonitor {
+    #[cfg_attr(not(feature = "watchman"), allow(dead_code))]
+    config: WatchmanConfig,
+}
+
+impl WatchmanFsmonitor {
+    /// Creates a Watchman filesystem monitor.
+    pub fn new(config: WatchmanConfig) -> Self {
+        Self { config }
+    }
+
+    /// Queries Watchman using the generic persisted filesystem-monitor clock.
+    #[cfg(feature = "watchman")]
+    pub async fn query(
+        &self,
+        working_copy_path: &Path,
+        previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), watchman::Error> {
+        let previous_clock = previous_clock
+            .and_then(|clock| clock.value_for("watchman"))
+            .and_then(|value| crate::protos::local_working_copy::WatchmanClock::decode(value).ok())
+            .and_then(|clock| watchman::Clock::try_from(clock).ok());
+        let query = async || {
+            let monitor = watchman::Fsmonitor::init(working_copy_path, &self.config).await?;
+            monitor.query_changed_files(previous_clock).await
+        };
+        match tokio::runtime::Handle::try_current() {
+            Ok(_) => Ok(query().await?),
+            Err(_) => Ok(tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(watchman::Error::RuntimeCreationError)?
+                .block_on(query())?),
+        }
+    }
+
+    /// Returns whether the Watchman snapshot trigger is registered.
+    #[cfg(feature = "watchman")]
+    pub async fn is_trigger_registered(
+        &self,
+        working_copy_path: &Path,
+    ) -> Result<bool, watchman::Error> {
+        let query = async || {
+            let monitor = watchman::Fsmonitor::init(working_copy_path, &self.config).await?;
+            monitor.is_trigger_registered().await
+        };
+        match tokio::runtime::Handle::try_current() {
+            Ok(_) => Ok(query().await?),
+            Err(_) => Ok(tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(watchman::Error::RuntimeCreationError)?
+                .block_on(query())?),
+        }
+    }
+}
+
+#[async_trait]
+impl Fsmonitor for WatchmanFsmonitor {
+    async fn query_changed_files(
+        &self,
+        working_copy_path: &Path,
+        previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError> {
+        #[cfg(feature = "watchman")]
+        {
+            let (clock, changed_files) = self.query(working_copy_path, previous_clock).await?;
+            let clock: crate::protos::local_working_copy::WatchmanClock = clock.into();
+            let clock = FsmonitorClock::new("watchman", clock.encode_to_vec());
+            Ok(match changed_files {
+                Some(changed_files) => FsmonitorQueryResult::Incremental {
+                    clock,
+                    changed_files,
+                },
+                None => FsmonitorQueryResult::FullScan { clock },
+            })
+        }
+        #[cfg(not(feature = "watchman"))]
+        {
+            let _ = (working_copy_path, previous_clock);
+            let error = std::io::Error::other(
+                "Cannot query Watchman because jj was compiled without the watchman feature \
+                 (consider disabling `fsmonitor.backend`)",
+            );
+            Err(Box::new(FatalFsmonitorError::new(error)))
         }
     }
 }
@@ -109,10 +363,19 @@ pub mod watchman {
     #[derive(Clone, Debug)]
     pub struct Clock(InnerClock);
 
-    impl From<crate::protos::local_working_copy::WatchmanClock> for Clock {
-        fn from(clock: crate::protos::local_working_copy::WatchmanClock) -> Self {
+    /// Error returned when a Watchman clock protobuf has no clock value.
+    #[derive(Debug, Error)]
+    #[error("Watchman clock protobuf has no clock value")]
+    pub struct MissingWatchmanClockValue;
+
+    impl TryFrom<crate::protos::local_working_copy::WatchmanClock> for Clock {
+        type Error = MissingWatchmanClockValue;
+
+        fn try_from(
+            clock: crate::protos::local_working_copy::WatchmanClock,
+        ) -> Result<Self, Self::Error> {
             use crate::protos::local_working_copy::watchman_clock::WatchmanClock;
-            let watchman_clock = clock.watchman_clock.unwrap();
+            let watchman_clock = clock.watchman_clock.ok_or(MissingWatchmanClockValue)?;
             let clock = match watchman_clock {
                 WatchmanClock::StringClock(string_clock) => {
                     InnerClock::Spec(ClockSpec::StringClock(string_clock))
@@ -121,7 +384,7 @@ pub mod watchman {
                     InnerClock::Spec(ClockSpec::UnixTimestamp(unix_timestamp))
                 }
             };
-            Self(clock)
+            Ok(Self(clock))
         }
     }
 
@@ -163,6 +426,9 @@ pub mod watchman {
 
         #[error("Failed to register Watchman trigger")]
         WatchmanTriggerError(#[source] watchman_client::Error),
+
+        #[error("Failed to create a runtime for Watchman")]
+        RuntimeCreationError(#[source] std::io::Error),
     }
 
     /// Handle to the underlying Watchman instance.
