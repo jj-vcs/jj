@@ -43,7 +43,7 @@ pub(crate) mod eol;
 pub mod evolution;
 pub mod extensions_map;
 pub use jj_core::file_util;
-pub mod files;
+pub use jj_core::files;
 pub mod fileset;
 use jj_dsl::fileset_parser;
 pub mod fix;
