@@ -37,12 +37,12 @@ use jj_lib::converge::apply_solution;
 use jj_lib::converge::converge_change;
 use jj_lib::converge::find_divergent_changes;
 use jj_lib::files::FileMergeHunkLevel;
+use jj_lib::files::MergeOptions;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::SameChange;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::tree_merge::MergeOptions;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;

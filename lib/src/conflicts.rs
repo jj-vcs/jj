@@ -49,13 +49,13 @@ use crate::diff::ContentDiff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::files;
+use crate::files::MergeOptions;
 use crate::files::MergeResult;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::SameChange;
 use crate::repo_path::RepoPath;
 use crate::store::Store;
-use crate::tree_merge::MergeOptions;
 
 /// Minimum length of conflict markers.
 pub const MIN_CONFLICT_MARKER_LEN: usize = 7;

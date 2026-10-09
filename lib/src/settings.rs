@@ -37,9 +37,9 @@ use crate::config::ConfigValue;
 use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::file_util::expand_home_path;
+use crate::files::MergeOptions;
 use crate::fmt_util::binary_prefix;
 use crate::ref_name::RemoteNameBuf;
-use crate::tree_merge::MergeOptions;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {

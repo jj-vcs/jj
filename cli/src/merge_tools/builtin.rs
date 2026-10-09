@@ -22,6 +22,7 @@ use jj_lib::copies::CopyRecords;
 use jj_lib::diff::ContentDiff;
 use jj_lib::diff::DiffHunkKind;
 use jj_lib::files;
+use jj_lib::files::MergeOptions;
 use jj_lib::files::MergeResult;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
@@ -33,7 +34,6 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
-use jj_lib::tree_merge::MergeOptions;
 use thiserror::Error;
 
 use super::MergeToolFile;

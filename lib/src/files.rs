@@ -29,7 +29,6 @@ use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::merge::Merge;
 use crate::merge::SameChange;
-use crate::tree_merge::MergeOptions;
 
 /// A diff line which may contain small hunks originating from both sides.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -260,6 +259,15 @@ where
             }
         }
     })
+}
+
+/// Options for tree/file conflict resolution.
+#[derive(Clone, Debug)]
+pub struct MergeOptions {
+    /// Granularity of hunks when merging files.
+    pub hunk_level: FileMergeHunkLevel,
+    /// Whether to resolve conflict that makes the same change at all sides.
+    pub same_change: SameChange,
 }
 
 /// Granularity of hunks when merging files.

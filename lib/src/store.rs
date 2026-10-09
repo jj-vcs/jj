@@ -37,13 +37,13 @@ use crate::backend::SigningFn;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
 use crate::commit::Commit;
+use crate::files::MergeOptions;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::signing::Signer;
 use crate::tree::Tree;
-use crate::tree_merge::MergeOptions;
 
 // There are more tree objects than commits, and trees are often shared across
 // commits.

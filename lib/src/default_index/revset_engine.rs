@@ -52,6 +52,7 @@ use crate::default_index::bit_set::AncestorsBitSet;
 use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
 use crate::files;
+use crate::files::MergeOptions;
 use crate::graph::GraphNode;
 use crate::matchers::FilesMatcher;
 use crate::matchers::Matcher;
@@ -71,7 +72,6 @@ use crate::revset::RevsetFilterPredicate;
 use crate::rewrite;
 use crate::store::Store;
 use crate::str_util::StringMatcher;
-use crate::tree_merge::MergeOptions;
 use crate::tree_merge::resolve_file_values;
 use crate::union_find;
 

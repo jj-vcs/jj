@@ -41,6 +41,7 @@ use crate::conflicts::materialize_tree_value;
 use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
 use crate::files::FileMergeHunkLevel;
+use crate::files::MergeOptions;
 use crate::fileset::FilesetExpression;
 use crate::graph::GraphEdge;
 use crate::merge::SameChange;
@@ -53,7 +54,6 @@ use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetFilterPredicate;
 use crate::store::Store;
-use crate::tree_merge::MergeOptions;
 
 /// Annotation results for a specific file
 #[derive(Clone, Debug)]

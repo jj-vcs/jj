@@ -38,7 +38,6 @@ use crate::backend::MergedTreeValueExt as _;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::files;
-use crate::files::FileMergeHunkLevel;
 use crate::merge::Merge;
 use crate::merge::SameChange;
 use crate::merged_tree::all_merged_tree_entries;
@@ -49,15 +48,6 @@ use crate::repo_path::RepoPathComponentBuf;
 use crate::store::Store;
 use crate::tree::ToTreeMergeExt as _;
 use crate::tree::Tree;
-
-/// Options for tree/file conflict resolution.
-#[derive(Clone, Debug)]
-pub struct MergeOptions {
-    /// Granularity of hunks when merging files.
-    pub hunk_level: FileMergeHunkLevel,
-    /// Whether to resolve conflict that makes the same change at all sides.
-    pub same_change: SameChange,
-}
 
 /// The returned conflict will either be resolved or have the same number of
 /// sides as the input.
