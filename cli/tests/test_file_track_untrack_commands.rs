@@ -389,3 +389,69 @@ fn test_track_ignored_directory() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_derive_tracked_from_ignores() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"snapshot.derive-tracked-from-ignores = true"#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1.txt", "content1");
+    work_dir.write_file("file2.txt", "content2");
+
+    // No ignores, all files tracked
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @"
+    file1.txt
+    file2.txt
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    A file1.txt
+    A file2.txt
+    Working copy  (@) : qpvuntsm 376a8fab (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    // If a file is ignored, it gets untracked
+    work_dir.write_file(".gitignore", "file1.txt\n");
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @"
+    .gitignore
+    file2.txt
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    A .gitignore
+    A file2.txt
+    Working copy  (@) : qpvuntsm 7b2ed7a2 (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    // If a file is unignored, it gets tracked
+    work_dir.write_file(".gitignore", "\n");
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @"
+    .gitignore
+    file1.txt
+    file2.txt
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    A .gitignore
+    A file1.txt
+    A file2.txt
+    Working copy  (@) : qpvuntsm ee9547bd (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+}
