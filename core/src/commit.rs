@@ -355,7 +355,7 @@ pub async fn find_recursive_merge_commits(
     }
 }
 
-pub(crate) async fn is_backend_commit_empty(
+pub async fn is_backend_commit_empty(
     index: &dyn Index,
     store: &Arc<Store>,
     commit: &backend::Commit,
@@ -395,7 +395,7 @@ where
 
 /// Wrapper to sort `Commit` by committer timestamp.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub(crate) struct CommitByCommitterTimestamp(pub Commit);
+pub struct CommitByCommitterTimestamp(pub Commit);
 
 impl Ord for CommitByCommitterTimestamp {
     fn cmp(&self, other: &Self) -> Ordering {

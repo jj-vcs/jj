@@ -28,8 +28,10 @@
 extern crate self as jj_core;
 
 pub mod backend;
+pub mod commit;
 pub mod conflict_labels;
 pub mod content_hash;
+pub mod copies;
 pub mod dag_walk;
 pub mod dag_walk_async;
 pub mod diff;
@@ -38,16 +40,24 @@ pub mod files;
 pub mod fileset_backend;
 pub mod graph;
 pub mod hex_util;
+pub mod index;
 pub mod matchers;
 pub mod merge;
+pub mod merged_tree;
+pub mod merged_tree_builder;
 pub mod object_id;
 pub mod op_store;
 pub mod ref_name;
 pub mod repo_path;
+pub mod revset_backend;
 pub mod signing;
+pub mod store;
 pub mod str_util;
 pub mod symbol_util;
 pub mod time_util;
+pub mod tree;
+pub mod tree_builder;
+pub mod tree_merge;
 pub mod workspace_store;
 
 #[cfg(test)]

@@ -38,6 +38,7 @@ use crate::backend::MergedTreeValueExt as _;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::files;
+pub use crate::files::MergeOptions;
 use crate::merge::Merge;
 use crate::merge::SameChange;
 use crate::merged_tree::all_merged_tree_entries;

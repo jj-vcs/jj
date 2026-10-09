@@ -28,9 +28,9 @@ use crate::commit::Commit;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::repo_path::RepoPathBuf;
-use crate::revset::ResolvedExpression;
-use crate::revset::Revset;
-use crate::revset::RevsetEvaluationError;
+use crate::revset_backend::ResolvedExpression;
+use crate::revset_backend::Revset;
+use crate::revset_backend::RevsetEvaluationError;
 use crate::store::Store;
 
 /// Returned by [`Index`] backend in the event of an error.

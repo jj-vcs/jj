@@ -34,7 +34,7 @@ use crate::backend::BackendError;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::commit::Commit;
-use crate::fileset::FilesetExpression;
+use crate::fileset_backend::FilesetExpression;
 use crate::graph::GraphNode;
 use crate::store::Store;
 use crate::str_util::StringExpression;
