@@ -40,6 +40,7 @@ use jj_lib::backend::MergedTreeValue;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
+use jj_lib::commit::CommitRepoExt as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::conflict_labels::ConflictLabels;

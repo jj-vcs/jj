@@ -39,6 +39,7 @@ use crate::backend::CommitId;
 use crate::backend::Signature;
 use crate::backend::TreeId;
 use crate::commit::Commit;
+use crate::commit::CommitRepoExt as _;
 use crate::conflict_labels::ConflictLabels;
 use crate::evolution::WalkPredecessorsError;
 use crate::evolution::walk_predecessors;

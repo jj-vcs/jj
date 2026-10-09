@@ -18,6 +18,7 @@ use indoc::formatdoc;
 use jj_lib::absorb::AbsorbSource;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
+use jj_lib::commit::CommitRepoExt as _;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::merge::Diff;
 use tracing::instrument;

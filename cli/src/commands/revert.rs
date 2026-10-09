@@ -22,6 +22,7 @@ use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use jj_lib::commit::CommitRepoExt as _;
 use jj_lib::commit::conflict_label_for_commits;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;

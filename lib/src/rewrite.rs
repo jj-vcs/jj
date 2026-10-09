@@ -35,6 +35,7 @@ use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::commit::CommitIteratorExt as _;
+use crate::commit::CommitRepoExt as _;
 use crate::commit::conflict_label_for_commits;
 use crate::commit_builder::CommitBuilder;
 use crate::conflict_labels::ConflictLabels;

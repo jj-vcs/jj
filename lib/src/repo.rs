@@ -45,6 +45,7 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::commit::CommitByCommitterTimestamp;
+use crate::commit::CommitRepoExt as _;
 use crate::commit_builder::CommitBuilder;
 use crate::commit_builder::DetachedCommitBuilder;
 use crate::dag_walk;

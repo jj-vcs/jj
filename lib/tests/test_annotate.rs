@@ -24,6 +24,7 @@ use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
+use jj_lib::commit::CommitRepoExt as _;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo;

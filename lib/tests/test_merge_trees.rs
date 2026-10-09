@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use jj_lib::backend::TreeValue;
+use jj_lib::commit::CommitRepoExt as _;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::merge::Merge;

@@ -17,6 +17,7 @@ use std::collections::BTreeMap;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
+use jj_lib::commit::CommitRepoExt as _;
 use jj_lib::copies::CopyRecords;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;

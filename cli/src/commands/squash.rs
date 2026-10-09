@@ -22,6 +22,7 @@ use futures::future::try_join_all;
 use indoc::formatdoc;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
+use jj_lib::commit::CommitRepoExt as _;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;

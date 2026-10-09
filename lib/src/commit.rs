@@ -129,41 +129,6 @@ impl Commit {
         &self.data.root_tree
     }
 
-    /// Return the parent tree, merging the parent trees if there are multiple
-    /// parents.
-    pub async fn parent_tree(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
-        // Avoid merging parent trees if known to be empty. The index could be
-        // queried only when parents.len() > 1, but index query would be cheaper
-        // than extracting parent commit from the store.
-        if is_commit_empty_by_index(repo, &self.id).await? == Some(true) {
-            return Ok(self.tree());
-        }
-        let parents = self.parents().await?;
-        merge_commit_trees(repo, &parents).await
-    }
-
-    /// Returns the parent tree, merging the parent trees if there are multiple
-    /// parents, without resolving conflicts.
-    pub async fn parent_tree_no_resolve(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
-        // Avoid merging parent trees if known to be empty. The index could be
-        // queried only when parents.len() > 1, but index query would be cheaper
-        // than extracting parent commit from the store.
-        if is_commit_empty_by_index(repo, &self.id).await? == Some(true) {
-            return Ok(self.tree());
-        }
-        let parents = self.parents().await?;
-        merge_commit_trees_no_resolve(repo, &parents).await
-    }
-
-    /// Returns whether commit's content is empty. Commit description is not
-    /// taken into consideration.
-    pub async fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        if let Some(empty) = is_commit_empty_by_index(repo, &self.id).await? {
-            return Ok(empty);
-        }
-        is_backend_commit_empty(repo, &self.store, &self.data).await
-    }
-
     pub fn has_conflict(&self) -> bool {
         !self.tree_ids().is_resolved()
     }
@@ -186,18 +151,6 @@ impl Commit {
 
     pub fn committer(&self) -> &Signature {
         &self.data.committer
-    }
-
-    ///  A commit is hidden if its commit id is not in the change id index.
-    pub async fn is_hidden(&self, repo: &dyn Repo) -> IndexResult<bool> {
-        let maybe_targets = repo.resolve_change_id(self.change_id()).await?;
-        Ok(maybe_targets.is_none_or(|targets| !targets.has_visible(&self.id)))
-    }
-
-    /// A commit is discardable if it has no change from its parent, and an
-    /// empty description.
-    pub async fn is_discardable(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        Ok(self.description().is_empty() && self.is_empty(repo).await?)
     }
 
     /// A quick way to just check if a signature is present.
@@ -243,6 +196,69 @@ impl Commit {
     pub async fn parents_conflict_label(&self) -> BackendResult<String> {
         let parents = self.parents().await?;
         Ok(conflict_label_for_commits(&parents))
+    }
+}
+
+/// Methods on [`Commit`] that need access to a [`Repo`].
+#[expect(async_fn_in_trait)]
+pub trait CommitRepoExt {
+    /// Return the parent tree, merging the parent trees if there are multiple
+    /// parents.
+    async fn parent_tree(&self, repo: &dyn Repo) -> BackendResult<MergedTree>;
+
+    /// Returns the parent tree, merging the parent trees if there are multiple
+    /// parents, without resolving conflicts.
+    async fn parent_tree_no_resolve(&self, repo: &dyn Repo) -> BackendResult<MergedTree>;
+
+    /// Returns whether commit's content is empty. Commit description is not
+    /// taken into consideration.
+    async fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool>;
+
+    ///  A commit is hidden if its commit id is not in the change id index.
+    async fn is_hidden(&self, repo: &dyn Repo) -> IndexResult<bool>;
+
+    /// A commit is discardable if it has no change from its parent, and an
+    /// empty description.
+    async fn is_discardable(&self, repo: &dyn Repo) -> BackendResult<bool>;
+}
+
+impl CommitRepoExt for Commit {
+    async fn parent_tree(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
+        // Avoid merging parent trees if known to be empty. The index could be
+        // queried only when parents.len() > 1, but index query would be cheaper
+        // than extracting parent commit from the store.
+        if is_commit_empty_by_index(repo, self.id()).await? == Some(true) {
+            return Ok(self.tree());
+        }
+        let parents = self.parents().await?;
+        merge_commit_trees(repo, &parents).await
+    }
+
+    async fn parent_tree_no_resolve(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
+        // Avoid merging parent trees if known to be empty. The index could be
+        // queried only when parents.len() > 1, but index query would be cheaper
+        // than extracting parent commit from the store.
+        if is_commit_empty_by_index(repo, self.id()).await? == Some(true) {
+            return Ok(self.tree());
+        }
+        let parents = self.parents().await?;
+        merge_commit_trees_no_resolve(repo, &parents).await
+    }
+
+    async fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
+        if let Some(empty) = is_commit_empty_by_index(repo, self.id()).await? {
+            return Ok(empty);
+        }
+        is_backend_commit_empty(repo, self.store(), self.store_commit()).await
+    }
+
+    async fn is_hidden(&self, repo: &dyn Repo) -> IndexResult<bool> {
+        let maybe_targets = repo.resolve_change_id(self.change_id()).await?;
+        Ok(maybe_targets.is_none_or(|targets| !targets.has_visible(self.id())))
+    }
+
+    async fn is_discardable(&self, repo: &dyn Repo) -> BackendResult<bool> {
+        Ok(self.description().is_empty() && self.is_empty(repo).await?)
     }
 }
 

@@ -42,6 +42,7 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
+use crate::commit::CommitRepoExt as _;
 use crate::config::ConfigGetError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;

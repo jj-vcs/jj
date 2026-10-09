@@ -26,6 +26,7 @@ use crate::backend::CommitId;
 use crate::backend::Signature;
 use crate::backend::TreeId;
 use crate::commit::Commit;
+use crate::commit::CommitRepoExt as _;
 use crate::commit::is_backend_commit_empty;
 use crate::conflict_labels::ConflictLabels;
 use crate::merge::Merge;

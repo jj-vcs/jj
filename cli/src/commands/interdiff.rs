@@ -16,6 +16,7 @@ use std::slice;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
+use jj_lib::commit::CommitRepoExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;

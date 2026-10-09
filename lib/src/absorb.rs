@@ -31,6 +31,7 @@ use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
+use crate::commit::CommitRepoExt as _;
 use crate::commit::conflict_label_for_commits;
 use crate::conflicts::MaterializedFileValue;
 use crate::conflicts::MaterializedTreeValue;
