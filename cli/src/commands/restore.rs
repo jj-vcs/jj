@@ -21,6 +21,7 @@ use itertools::Itertools as _;
 use jj_lib::commit::conflict_label_for_commits;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -132,7 +133,7 @@ pub(crate) async fn cmd_restore(
             .resolve_single_rev(ui, args.changes_in.as_ref().unwrap_or(&RevisionArg::AT))
             .await?;
         from_tree = to_commit
-            .parent_tree(workspace_command.repo().as_ref())
+            .parent_tree(workspace_command.repo().index())
             .await?;
         from_commits = to_commit.parents().await?;
     }

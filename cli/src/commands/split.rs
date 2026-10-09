@@ -23,6 +23,7 @@ use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::CommitRewriter;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::EmptyBehavior;
@@ -239,7 +240,7 @@ impl SplitArgs {
             &fileset_expression,
             [
                 // We check the parent commit to account for deleted files.
-                &target_commit.parent_tree(repo.as_ref()).await?,
+                &target_commit.parent_tree(repo.index()).await?,
                 &target_commit.tree(),
             ],
         )
@@ -564,7 +565,7 @@ The changes that are not selected will replace the original commit.
             tx.format_commit_summary(target_commit)
         )
     };
-    let parent_tree = target_commit.parent_tree(tx.repo()).await?;
+    let parent_tree = target_commit.parent_tree(tx.repo().index()).await?;
     let selected_tree = diff_selector
         .select(
             ui,

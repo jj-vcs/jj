@@ -16,6 +16,7 @@ use std::slice;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
+use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -102,9 +103,9 @@ pub(crate) async fn cmd_interdiff(
         &fileset_expression,
         // We check the parent commits to account for deleted files.
         [
-            &from.parent_tree(repo.as_ref()).await?,
+            &from.parent_tree(repo.index()).await?,
             &from.tree(),
-            &to.parent_tree(repo.as_ref()).await?,
+            &to.parent_tree(repo.index()).await?,
             &to.tree(),
         ],
     )

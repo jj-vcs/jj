@@ -275,7 +275,7 @@ async fn collect_working_copy_status(
 ) -> Result<WorkingCopyStatus, CommandError> {
     let commit = commit.clone();
     let parents = commit.parents().await?;
-    let parent_tree = commit.parent_tree(repo).await?;
+    let parent_tree = commit.parent_tree(repo.index()).await?;
     let tree = commit.tree();
     let untracked_paths = snapshot_stats.untracked_paths;
 
