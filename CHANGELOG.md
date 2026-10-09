@@ -121,6 +121,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj status`, `jj absorb` and `jj squash` no longer warn that a path has no
+  matching entries when the path was deleted by the working copy or by the
+  absorb/squash source revision.
+  [#10292](https://github.com/jj-vcs/jj/issues/10292)
+
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
   such as `ssh` asking for a key passphrase or for confirmation of an unknown
   host key. Subprocesses started from a terminal now inherit its console, rather
