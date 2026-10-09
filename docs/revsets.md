@@ -348,6 +348,9 @@ revsets (expressions) as arguments.
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `roots(x)`
   function, which is equivalent to `x ~ x+`.
 
+* `oldest(x, [count])`: Oldest `count` commits in `x`, based on committer
+  timestamp. The default `count` is 1.
+
 * `latest(x, [count])`: Latest `count` commits in `x`, based on committer
   timestamp. The default `count` is 1.
 

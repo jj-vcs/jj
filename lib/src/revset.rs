@@ -250,6 +250,10 @@ pub enum RevsetExpression<St: ExpressionState> {
         candidates: Arc<Self>,
         count: usize,
     },
+    Oldest {
+        candidates: Arc<Self>,
+        count: usize,
+    },
     Latest {
         candidates: Arc<Self>,
         count: usize,
@@ -397,6 +401,13 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 
 // Compound expression
 impl<St: ExpressionState> RevsetExpression<St> {
+    pub fn oldest(self: &Arc<Self>, count: usize) -> Arc<Self> {
+        Arc::new(Self::Oldest {
+            candidates: self.clone(),
+            count,
+        })
+    }
+
     pub fn latest(self: &Arc<Self>, count: usize) -> Arc<Self> {
         Arc::new(Self::Latest {
             candidates: self.clone(),
@@ -923,6 +934,16 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
         let state = Some(RemoteRefState::New);
         Ok(RevsetExpression::remote_tags(symbol, state))
+    });
+    map.insert("oldest", |diagnostics, function, context| {
+        let ([candidates_arg], [count_opt_arg]) = function.expect_arguments()?;
+        let candidates = lower_expression(diagnostics, candidates_arg, context)?;
+        let count = if let Some(count_arg) = count_opt_arg {
+            expect_literal("integer", count_arg)?
+        } else {
+            1
+        };
+        Ok(candidates.oldest(count))
     });
     map.insert("latest", |diagnostics, function, context| {
         let ([candidates_arg], [count_opt_arg]) = function.expect_arguments()?;
@@ -1540,6 +1561,11 @@ fn try_transform_expression<St: ExpressionState, E>(
                     count: *count,
                 })
             }
+            RevsetExpression::Oldest { candidates, count } => transform_rec(candidates, pre, post)?
+                .map(|candidates| RevsetExpression::Oldest {
+                    candidates,
+                    count: *count,
+                }),
             RevsetExpression::Latest { candidates, count } => transform_rec(candidates, pre, post)?
                 .map(|candidates| RevsetExpression::Latest {
                     candidates,
@@ -1791,6 +1817,11 @@ where
             let candidates = folder.fold_expression(candidates)?;
             let count = *count;
             RevsetExpression::HasSize { candidates, count }.into()
+        }
+        RevsetExpression::Oldest { candidates, count } => {
+            let candidates = folder.fold_expression(candidates)?;
+            let count = *count;
+            RevsetExpression::Oldest { candidates, count }.into()
         }
         RevsetExpression::Latest { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
@@ -3154,6 +3185,10 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::Bisect(expression) => {
                 ResolvedExpression::Bisect(self.resolve(expression).into())
             }
+            RevsetExpression::Oldest { candidates, count } => ResolvedExpression::Oldest {
+                candidates: self.resolve(candidates).into(),
+                count: *count,
+            },
             RevsetExpression::Latest { candidates, count } => ResolvedExpression::Latest {
                 candidates: self.resolve(candidates).into(),
                 count: *count,
@@ -3299,6 +3334,7 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::MergePoint(_)
             | RevsetExpression::Bisect(_)
             | RevsetExpression::HasSize { .. }
+            | RevsetExpression::Oldest { .. }
             | RevsetExpression::Latest { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())
             }

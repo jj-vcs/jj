@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* The `oldest(x, [count])` revset function selects the oldest commits by committer
+  timestamp, complementing `latest(x, [count])`.
+
 ### Fixed bugs
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,

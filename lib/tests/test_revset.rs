@@ -3117,6 +3117,78 @@ fn test_evaluate_expression_latest() {
 }
 
 #[test]
+fn test_evaluate_expression_oldest() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let mut write_commit_with_committer_timestamp = |sec: i64| {
+        let builder = create_random_commit(mut_repo);
+        let mut committer = builder.committer().clone();
+        committer.timestamp.timestamp = MillisSinceEpoch(sec * 1000);
+        builder.set_committer(committer).write_unwrap()
+    };
+    let commit1_t3 = write_commit_with_committer_timestamp(3);
+    let commit2_t2 = write_commit_with_committer_timestamp(2);
+    let commit3_t2 = write_commit_with_committer_timestamp(2);
+    let commit4_t1 = write_commit_with_committer_timestamp(1);
+
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "oldest(~root())"),
+        vec![commit4_t1.id().clone()],
+    );
+    assert_eq!(resolve_commit_ids(mut_repo, "oldest(all(), 0)"), vec![]);
+    assert_eq!(resolve_commit_ids(mut_repo, "oldest(none())"), vec![]);
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "oldest(~root(), 1)"),
+        vec![commit4_t1.id().clone()],
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "oldest(~root(), 2)"),
+        vec![commit4_t1.id().clone(), commit2_t2.id().clone()],
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "oldest(~root(), 3)"),
+        vec![
+            commit4_t1.id().clone(),
+            commit3_t2.id().clone(),
+            commit2_t2.id().clone(),
+        ],
+    );
+    for count in [4, 5] {
+        assert_eq!(
+            resolve_commit_ids(mut_repo, &format!("oldest(~root(), {count})")),
+            vec![
+                commit4_t1.id().clone(),
+                commit3_t2.id().clone(),
+                commit2_t2.id().clone(),
+                commit1_t3.id().clone(),
+            ],
+        );
+    }
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "oldest(all())"),
+        vec![mut_repo.store().root_commit_id().clone()],
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "oldest(all(), 2)"),
+        vec![
+            commit4_t1.id().clone(),
+            mut_repo.store().root_commit_id().clone(),
+        ],
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "latest(oldest(~root(), 3), 1)"),
+        vec![commit3_t2.id().clone()],
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "~root() & oldest(all(), 2)"),
+        vec![commit4_t1.id().clone()],
+    );
+}
+
+#[test]
 fn test_evaluate_expression_fork_point() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;

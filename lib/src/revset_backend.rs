@@ -194,6 +194,10 @@ pub enum ResolvedExpression {
         candidates: Box<Self>,
         count: usize,
     },
+    Oldest {
+        candidates: Box<Self>,
+        count: usize,
+    },
     Latest {
         candidates: Box<Self>,
         count: usize,

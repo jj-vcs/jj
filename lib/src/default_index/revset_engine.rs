@@ -1060,9 +1060,21 @@ impl EvaluationContext<'_> {
                 };
                 Ok(Box::new(EagerRevset { positions }))
             }
+            ResolvedExpression::Oldest { candidates, count } => {
+                let candidate_set = self.evaluate(candidates)?;
+                Ok(Box::new(self.take_by_timestamp(
+                    &*candidate_set,
+                    *count,
+                    |timestamp, pos| Reverse((timestamp, pos)),
+                )?))
+            }
             ResolvedExpression::Latest { candidates, count } => {
                 let candidate_set = self.evaluate(candidates)?;
-                Ok(Box::new(self.take_latest_revset(&*candidate_set, *count)?))
+                Ok(Box::new(self.take_by_timestamp(
+                    &*candidate_set,
+                    *count,
+                    |timestamp, pos| (timestamp, pos),
+                )?))
             }
             ResolvedExpression::HasSize { candidates, count } => {
                 let set = self.evaluate(candidates)?;
@@ -1193,31 +1205,25 @@ impl EvaluationContext<'_> {
         Ok(EagerRevset { positions })
     }
 
-    fn take_latest_revset(
+    fn take_by_timestamp<K: Ord>(
         &self,
         candidate_set: &dyn InternalRevset,
         count: usize,
+        make_key: impl Fn(MillisSinceEpoch, GlobalCommitPosition) -> K,
     ) -> Result<EagerRevset, RevsetEvaluationError> {
         if count == 0 {
             return Ok(EagerRevset::empty());
         }
 
-        #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
-        struct Item {
-            timestamp: MillisSinceEpoch,
-            pos: GlobalCommitPosition, // tie-breaker
-        }
-
         let make_rev_item = |pos| -> Result<_, RevsetEvaluationError> {
             let entry = self.index.commits().entry_by_pos(pos?);
             let commit = self.store.get_commit(&entry.commit_id())?;
-            Ok(Reverse(Item {
-                timestamp: commit.committer().timestamp.timestamp,
-                pos: entry.position(),
-            }))
+            let pos = entry.position(); // tie-breaker for equal timestamps
+            let key = make_key(commit.committer().timestamp.timestamp, pos);
+            Ok(Reverse((key, pos)))
         };
 
-        // Maintain min-heap containing the latest (greatest) count items. For small
+        // Maintain min-heap containing the greatest count keys. For small
         // count and large candidate set, this is probably cheaper than building vec
         // and applying selection algorithm.
         let mut candidate_iter = candidate_set
@@ -1225,19 +1231,20 @@ impl EvaluationContext<'_> {
             .attach(self.index)
             .map(make_rev_item)
             .fuse();
-        let mut latest_items: BinaryHeap<_> = candidate_iter.by_ref().take(count).try_collect()?;
+        let mut selected_items: BinaryHeap<_> =
+            candidate_iter.by_ref().take(count).try_collect()?;
         for item in candidate_iter {
             let item = item?;
-            let mut earliest = latest_items.peek_mut().unwrap();
-            if earliest.0 < item.0 {
-                *earliest = item;
+            let mut smallest = selected_items.peek_mut().unwrap();
+            if smallest.0 < item.0 {
+                *smallest = item;
             }
         }
 
-        assert!(latest_items.len() <= count);
-        let mut positions = latest_items
+        assert!(selected_items.len() <= count);
+        let mut positions = selected_items
             .into_iter()
-            .map(|item| item.0.pos)
+            .map(|item| item.0.1)
             .collect_vec();
         positions.sort_unstable_by_key(|&pos| Reverse(pos));
         Ok(EagerRevset { positions })
