@@ -15,189 +15,21 @@
 #![expect(missing_docs)]
 
 use std::cmp::Ordering;
-use std::fmt::Debug;
-use std::fmt::Error;
-use std::fmt::Formatter;
-use std::hash::Hash;
-use std::hash::Hasher;
 use std::sync::Arc;
 
 use futures::future::try_join_all;
-use itertools::Itertools as _;
+pub use jj_core::commit::*;
 
 use crate::backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
-use crate::backend::ChangeId;
 use crate::backend::CommitId;
-use crate::backend::Signature;
-use crate::backend::TreeId;
-use crate::conflict_labels::ConflictLabels;
 use crate::index::IndexResult;
-use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
 use crate::rewrite::merge_commit_trees;
 use crate::rewrite::merge_commit_trees_no_resolve;
-use crate::signing::SignResult;
-use crate::signing::Verification;
 use crate::store::Store;
-
-#[derive(Clone, serde::Serialize)]
-pub struct Commit {
-    #[serde(skip)]
-    store: Arc<Store>,
-    #[serde(rename = "commit_id")]
-    id: CommitId,
-    #[serde(flatten)]
-    data: Arc<backend::Commit>,
-}
-
-impl Debug for Commit {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        f.debug_struct("Commit").field("id", &self.id).finish()
-        // We intentionally don't print the `data` field. You can debug-print
-        // `commit.store_commit()` to get those details.
-        //
-        // The reason is that `Commit` objects are debug-printed as part of many
-        // other data structures and in tracing.
-    }
-}
-
-impl PartialEq for Commit {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for Commit {}
-
-impl Ord for Commit {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.id.cmp(&other.id)
-    }
-}
-
-impl PartialOrd for Commit {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Hash for Commit {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl Commit {
-    pub fn new(store: Arc<Store>, id: CommitId, data: Arc<backend::Commit>) -> Self {
-        Self { store, id, data }
-    }
-
-    pub fn store(&self) -> &Arc<Store> {
-        &self.store
-    }
-
-    pub fn id(&self) -> &CommitId {
-        &self.id
-    }
-
-    pub fn parent_ids(&self) -> &[CommitId] {
-        &self.data.parents
-    }
-
-    pub async fn parents(&self) -> BackendResult<Vec<Self>> {
-        try_join_all(
-            self.data
-                .parents
-                .iter()
-                .map(|id| self.store.get_commit_async(id)),
-        )
-        .await
-    }
-
-    pub fn tree(&self) -> MergedTree {
-        MergedTree::new(
-            self.store.clone(),
-            self.data.root_tree.clone(),
-            ConflictLabels::from_merge(self.data.conflict_labels.clone()),
-        )
-    }
-
-    pub fn tree_ids(&self) -> &Merge<TreeId> {
-        &self.data.root_tree
-    }
-
-    pub fn has_conflict(&self) -> bool {
-        !self.tree_ids().is_resolved()
-    }
-
-    pub fn change_id(&self) -> &ChangeId {
-        &self.data.change_id
-    }
-
-    pub fn store_commit(&self) -> &Arc<backend::Commit> {
-        &self.data
-    }
-
-    pub fn description(&self) -> &str {
-        &self.data.description
-    }
-
-    pub fn author(&self) -> &Signature {
-        &self.data.author
-    }
-
-    pub fn committer(&self) -> &Signature {
-        &self.data.committer
-    }
-
-    /// A quick way to just check if a signature is present.
-    pub fn is_signed(&self) -> bool {
-        self.data.secure_sig.is_some()
-    }
-
-    /// A slow (but cached) way to get the full verification.
-    pub fn verification(&self) -> SignResult<Option<Verification>> {
-        self.data
-            .secure_sig
-            .as_ref()
-            .map(|sig| self.store.signer().verify(&self.id, &sig.data, &sig.sig))
-            .transpose()
-    }
-
-    /// A string describing the commit to be used in conflict markers. If a
-    /// description is set, it will include the first line of the description.
-    pub fn conflict_label(&self) -> String {
-        if let Some(subject) = self.description().lines().next() {
-            // Example: nlqwxzwn 7dd24e73 "first line of description"
-            format!(
-                "{} \"{}\"",
-                self.conflict_label_short(),
-                // Control characters shouldn't be written in conflict markers, and '\0' isn't
-                // supported by the Git backend, so we just remove them. Unicode characters are
-                // supported, so we don't have to remove them.
-                subject.trim().replace(char::is_control, "")
-            )
-        } else {
-            self.conflict_label_short()
-        }
-    }
-
-    /// A short string describing the commit to be used in conflict markers.
-    /// Does not include the commit description.
-    fn conflict_label_short(&self) -> String {
-        // Example: nlqwxzwn 7dd24e73
-        format!("{:.8} {:.8}", self.change_id(), self.id())
-    }
-
-    /// A string describing the commit's parents to be used in conflict markers.
-    pub async fn parents_conflict_label(&self) -> BackendResult<String> {
-        let parents = self.parents().await?;
-        Ok(conflict_label_for_commits(&parents))
-    }
-}
 
 /// Methods on [`Commit`] that need access to a [`Repo`].
 #[expect(async_fn_in_trait)]
@@ -262,17 +94,6 @@ impl CommitRepoExt for Commit {
     }
 }
 
-// If there is a single commit, returns the detailed conflict label for that
-// commit. If there are multiple commits, joins the short conflict labels of
-// each commit.
-pub fn conflict_label_for_commits(commits: &[Commit]) -> String {
-    if commits.len() == 1 {
-        commits[0].conflict_label()
-    } else {
-        commits.iter().map(Commit::conflict_label_short).join(", ")
-    }
-}
-
 pub(crate) async fn is_backend_commit_empty(
     repo: &dyn Repo,
     store: &Arc<Store>,
@@ -294,19 +115,6 @@ async fn is_commit_empty_by_index(repo: &dyn Repo, id: &CommitId) -> BackendResu
         // TODO: index error shouldn't be a "BackendError"
         .map_err(|err| BackendError::Other(err.into()))?;
     Ok(maybe_paths.map(|mut paths| paths.next().is_none()))
-}
-
-pub trait CommitIteratorExt<'c, I> {
-    fn ids(self) -> impl Iterator<Item = &'c CommitId>;
-}
-
-impl<'c, I> CommitIteratorExt<'c, I> for I
-where
-    I: Iterator<Item = &'c Commit>,
-{
-    fn ids(self) -> impl Iterator<Item = &'c CommitId> {
-        self.map(|commit| commit.id())
-    }
 }
 
 /// Wrapper to sort `Commit` by committer timestamp.

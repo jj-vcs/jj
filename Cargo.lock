@@ -2755,7 +2755,6 @@ dependencies = [
  "blake2",
  "bstr",
  "chrono",
- "clru",
  "digest 0.11.3",
  "dunce",
  "either",
