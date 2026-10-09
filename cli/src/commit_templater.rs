@@ -1348,8 +1348,11 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let repo = language.repo;
-            let out_property =
-                self_property.and_then(|commit| Ok(commit.is_hidden(repo).block_on()?));
+            let out_property = self_property.and_then(|commit| {
+                //  A commit is hidden if its commit id is not in the change id index.
+                let maybe_targets = repo.resolve_change_id(commit.change_id()).block_on()?;
+                Ok(maybe_targets.is_none_or(|targets| !targets.has_visible(commit.id())))
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
