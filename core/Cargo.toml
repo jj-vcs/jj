@@ -47,6 +47,7 @@ tracing = { workspace = true }
 [dev-dependencies]
 criterion = { workspace = true }
 eyre = { workspace = true }
+indoc = { workspace = true }
 insta = { workspace = true }
 maplit = { workspace = true }
 pollster = { workspace = true }

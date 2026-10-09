@@ -34,6 +34,7 @@ pub mod dag_walk;
 pub mod dag_walk_async;
 pub mod diff;
 pub mod file_util;
+pub mod files;
 pub mod fileset_backend;
 pub mod graph;
 pub mod hex_util;
