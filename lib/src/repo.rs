@@ -1758,7 +1758,7 @@ impl MutableRepo {
             // Call normalized_heads() prior to .view().heads().contains() because
             // the caller expects non-head revisions don't exist in the set.
             self.normalize_heads().await?;
-            if wc_commit.is_discardable(self).await?
+            if wc_commit.is_discardable(self.index()).await?
                 && !is_commit_referenced(&self.view, wc_commit.id())
                 && self.view().heads().contains(wc_commit.id())
             {

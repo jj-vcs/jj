@@ -17,6 +17,7 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
+use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -80,7 +81,7 @@ pub async fn cmd_tag_set(
             moved_count += 1;
         }
     }
-    if target_commit.is_discardable(repo).await? {
+    if target_commit.is_discardable(repo.index()).await? {
         writeln!(ui.warning_default(), "Target revision is empty.")?;
     }
 

@@ -532,7 +532,7 @@ pub async fn cmd_gerrit_upload(
 
     // Immediately error and reject any commits that shouldn't be uploaded.
     for commit in &to_upload {
-        if commit.is_empty(tx.repo_mut()).await? {
+        if commit.is_empty(tx.repo_mut().index()).await? {
             return Err(user_error(format!(
                 "Refusing to upload revision {} because it is empty",
                 short_change_hash(commit.change_id())

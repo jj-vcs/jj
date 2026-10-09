@@ -250,7 +250,7 @@ impl DetachedCommitBuilder {
         if commit.author.name == commit.committer.name
             && commit.author.email == commit.committer.email
             && predecessor
-                .is_discardable(repo)
+                .is_discardable(repo.index())
                 .block_on()
                 .unwrap_or_default()
         {
@@ -329,7 +329,7 @@ impl DetachedCommitBuilder {
 
     /// [`Commit::is_empty()`] for the new commit.
     pub async fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        is_backend_commit_empty(repo, &self.store, &self.commit).await
+        is_backend_commit_empty(repo.index(), &self.store, &self.commit).await
     }
 
     pub fn change_id(&self) -> &ChangeId {
