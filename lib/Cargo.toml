@@ -30,7 +30,6 @@ async-trait = { workspace = true }
 blake2 = { workspace = true }
 bstr = { workspace = true }
 chrono = { workspace = true }
-clru = { workspace = true }
 digest = { workspace = true }
 dunce = { workspace = true }
 either = { workspace = true }

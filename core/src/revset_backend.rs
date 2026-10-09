@@ -15,7 +15,7 @@
 //! Types for evaluating revsets: the resolved expression tree consumed by
 //! `Index` implementations, and the [`Revset`] trait describing the result.
 //! The revset language (parsing, symbol resolution, optimization) lives in
-//! `crate::revset`.
+//! `jj_lib::revset`.
 
 #![expect(missing_docs)]
 
@@ -34,7 +34,7 @@ use crate::backend::BackendError;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::commit::Commit;
-use crate::fileset::FilesetExpression;
+use crate::fileset_backend::FilesetExpression;
 use crate::graph::GraphNode;
 use crate::store::Store;
 use crate::str_util::StringExpression;
