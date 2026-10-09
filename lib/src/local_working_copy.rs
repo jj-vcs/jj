@@ -2463,13 +2463,23 @@ impl TreeState {
                     // optimization.
                     prev_created_path = RepoPathBuf::root();
 
+                    // Prune directories left empty by the deletion, but never
+                    // the working copy root: entries later in this diff may need
+                    // to materialize a root-level file there, and
+                    // `create_parent_dirs()` doesn't recreate the root. Working
+                    // copies holding `.git`/`.jj` were incidentally protected by
+                    // those entries; scratch working copies (e.g. `jj run` pool
+                    // slots) have no such anchor.
                     let mut parent_dir = disk_path.parent().unwrap();
-                    loop {
+                    while parent_dir != self.working_copy_path() {
                         if fs::remove_dir(parent_dir).is_err() {
                             break;
                         }
 
-                        parent_dir = parent_dir.parent().unwrap();
+                        let Some(parent) = parent_dir.parent() else {
+                            break;
+                        };
+                        parent_dir = parent;
                     }
                     deleted_files.insert(path);
                     return Ok(());
