@@ -108,7 +108,7 @@ pub mod submodule_store;
 pub mod subprocess_util;
 #[cfg(feature = "testing")]
 pub mod test_signing_backend;
-pub mod time_util;
+pub use jj_core::time_util;
 pub mod trailer;
 pub mod transaction;
 pub mod tree;

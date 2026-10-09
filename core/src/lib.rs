@@ -47,6 +47,7 @@ pub mod repo_path;
 pub mod signing;
 pub mod str_util;
 pub mod symbol_util;
+pub mod time_util;
 pub mod workspace_store;
 
 #[cfg(test)]
