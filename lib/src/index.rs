@@ -27,26 +27,11 @@ use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
-use crate::operation::Operation;
 use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedExpression;
 use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
 use crate::store::Store;
-
-/// Returned by [`IndexStore`] in the event of an error.
-#[derive(Debug, Error)]
-pub enum IndexStoreError {
-    /// Error reading a [`ReadonlyIndex`] from the [`IndexStore`].
-    #[error("Failed to read index")]
-    Read(#[source] Box<dyn std::error::Error + Send + Sync>),
-    /// Error writing a [`MutableIndex`] to the [`IndexStore`].
-    #[error("Failed to write index")]
-    Write(#[source] Box<dyn std::error::Error + Send + Sync>),
-}
-
-/// Result of [`IndexStore`] operations.
-pub type IndexStoreResult<T> = Result<T, IndexStoreError>;
 
 /// Returned by [`Index`] backend in the event of an error.
 #[derive(Debug, Error)]
@@ -62,38 +47,6 @@ pub enum IndexError {
 
 /// Result of [`Index`] operations.
 pub type IndexResult<T> = Result<T, IndexError>;
-
-/// Defines the interface for types that provide persistent storage for an
-/// index.
-#[async_trait(?Send)]
-pub trait IndexStore: Any + Send + Sync + Debug {
-    /// Returns a name representing the type of index that the `IndexStore` is
-    /// compatible with. For example, the `IndexStore` for the default index
-    /// returns "default".
-    fn name(&self) -> &str;
-
-    /// Returns the index at the specified operation.
-    async fn get_index_at_op(
-        &self,
-        op: &Operation,
-        store: &Arc<Store>,
-    ) -> IndexStoreResult<Box<dyn ReadonlyIndex>>;
-
-    /// Writes `index` to the index store and returns a read-only version of the
-    /// index.
-    fn write_index(
-        &self,
-        index: Box<dyn MutableIndex>,
-        op: &Operation,
-    ) -> IndexStoreResult<Box<dyn ReadonlyIndex>>;
-}
-
-impl dyn IndexStore {
-    /// Returns reference of the implementation type.
-    pub fn downcast_ref<T: IndexStore>(&self) -> Option<&T> {
-        (self as &dyn Any).downcast_ref()
-    }
-}
 
 /// Defines the interface for types that provide an index of the commits in a
 /// repository by [`CommitId`].
