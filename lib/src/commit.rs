@@ -33,12 +33,13 @@ use crate::backend::CommitId;
 use crate::backend::Signature;
 use crate::backend::TreeId;
 use crate::conflict_labels::ConflictLabels;
+use crate::index::Index;
 use crate::index::IndexResult;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
 use crate::rewrite::merge_commit_trees;
-use crate::rewrite::merge_commit_trees_no_resolve;
+use crate::rewrite::merge_commit_trees_no_resolve_without_repo;
 use crate::signing::SignResult;
 use crate::signing::Verification;
 use crate::store::Store;
@@ -131,34 +132,40 @@ impl Commit {
 
     /// Return the parent tree, merging the parent trees if there are multiple
     /// parents.
-    pub async fn parent_tree(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
+    pub async fn parent_tree(&self, index: &dyn Index) -> BackendResult<MergedTree> {
         // Avoid merging parent trees if known to be empty. The index could be
         // queried only when parents.len() > 1, but index query would be cheaper
         // than extracting parent commit from the store.
-        if is_commit_empty_by_index(repo, &self.id).await? == Some(true) {
+        if is_commit_empty_by_index(index, &self.id).await? == Some(true) {
             return Ok(self.tree());
         }
         let parents = self.parents().await?;
-        merge_commit_trees(repo, &parents).await
+        if let [parent] = &parents[..] {
+            return Ok(parent.tree());
+        }
+        merge_commit_trees_no_resolve_without_repo(self.store(), index, &parents)
+            .await?
+            .resolve()
+            .await
     }
 
     /// Returns the parent tree, merging the parent trees if there are multiple
     /// parents, without resolving conflicts.
-    pub async fn parent_tree_no_resolve(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
+    pub async fn parent_tree_no_resolve(&self, index: &dyn Index) -> BackendResult<MergedTree> {
         // Avoid merging parent trees if known to be empty. The index could be
         // queried only when parents.len() > 1, but index query would be cheaper
         // than extracting parent commit from the store.
-        if is_commit_empty_by_index(repo, &self.id).await? == Some(true) {
+        if is_commit_empty_by_index(index, &self.id).await? == Some(true) {
             return Ok(self.tree());
         }
         let parents = self.parents().await?;
-        merge_commit_trees_no_resolve(repo, &parents).await
+        merge_commit_trees_no_resolve_without_repo(self.store(), index, &parents).await
     }
 
     /// Returns whether commit's content is empty. Commit description is not
     /// taken into consideration.
     pub async fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        if let Some(empty) = is_commit_empty_by_index(repo, &self.id).await? {
+        if let Some(empty) = is_commit_empty_by_index(repo.index(), &self.id).await? {
             return Ok(empty);
         }
         is_backend_commit_empty(repo, &self.store, &self.data).await
@@ -270,9 +277,8 @@ pub(crate) async fn is_backend_commit_empty(
     Ok(commit.root_tree == *parent_tree.tree_ids())
 }
 
-async fn is_commit_empty_by_index(repo: &dyn Repo, id: &CommitId) -> BackendResult<Option<bool>> {
-    let maybe_paths = repo
-        .index()
+async fn is_commit_empty_by_index(index: &dyn Index, id: &CommitId) -> BackendResult<Option<bool>> {
+    let maybe_paths = index
         .changed_paths_in_commit(id)
         .await
         // TODO: index error shouldn't be a "BackendError"

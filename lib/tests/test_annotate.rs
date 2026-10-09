@@ -80,7 +80,7 @@ fn annotate_within(
 }
 
 fn annotate_parent_tree(repo: &dyn Repo, commit: &Commit, file_path: &RepoPath) -> String {
-    let tree = commit.parent_tree(repo).block_on().unwrap();
+    let tree = commit.parent_tree(repo.index()).block_on().unwrap();
     let text = match tree
         .path_value(file_path)
         .block_on()

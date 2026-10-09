@@ -712,7 +712,7 @@ async fn rebase_tree_onto_solution_parents(
     ));
     // Remove
     terms.push((
-        c.parent_tree_no_resolve(repo.as_ref()).await?,
+        c.parent_tree_no_resolve(repo.index()).await?,
         c.parents_conflict_label().await?,
     ));
     // Add

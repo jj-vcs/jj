@@ -2398,7 +2398,7 @@ impl TreeDiff {
             copy_records.add_records(records);
         }
         Ok(Self {
-            from_tree: commit.parent_tree(repo).await?,
+            from_tree: commit.parent_tree(repo.index()).await?,
             to_tree: commit.tree(),
             matcher,
             copy_records,

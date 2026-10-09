@@ -1136,10 +1136,10 @@ fn test_commit_is_empty(indexed: bool) -> TestResult {
     assert!(!commit3.is_empty(repo.as_ref()).block_on()?);
     assert!(commit4.is_empty(repo.as_ref()).block_on()?);
 
-    assert_tree_eq!(commit1.parent_tree(repo.as_ref()).block_on()?, root_tree);
-    assert_tree_eq!(commit2.parent_tree(repo.as_ref()).block_on()?, root_tree);
-    assert_tree_eq!(commit3.parent_tree(repo.as_ref()).block_on()?, root_tree);
-    assert_tree_eq!(commit4.parent_tree(repo.as_ref()).block_on()?, tree4);
+    assert_tree_eq!(commit1.parent_tree(repo.index()).block_on()?, root_tree);
+    assert_tree_eq!(commit2.parent_tree(repo.index()).block_on()?, root_tree);
+    assert_tree_eq!(commit3.parent_tree(repo.index()).block_on()?, root_tree);
+    assert_tree_eq!(commit4.parent_tree(repo.index()).block_on()?, tree4);
     Ok(())
 }
 

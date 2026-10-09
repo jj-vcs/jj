@@ -509,7 +509,7 @@ pub async fn rebase_to_dest_parent(
     let diffs: Vec<_> = try_join_all(sources.iter().map(async |source| -> BackendResult<_> {
         Ok(Diff::new(
             (
-                source.parent_tree(repo).await?,
+                source.parent_tree(repo.index()).await?,
                 format!(
                     "{} (original parents)",
                     source.parents_conflict_label().await?
@@ -524,7 +524,7 @@ pub async fn rebase_to_dest_parent(
     .await?;
     MergedTree::merge(Merge::from_diffs(
         (
-            destination.parent_tree(repo).await?,
+            destination.parent_tree(repo.index()).await?,
             format!(
                 "{} (new parents)",
                 destination.parents_conflict_label().await?
