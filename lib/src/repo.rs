@@ -116,7 +116,6 @@ use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionCommitError;
-use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
 use crate::workspace_store::WorkspaceStore;
@@ -232,8 +231,9 @@ impl ReadonlyRepo {
         let backend = backend_initializer(settings, &store_path)?;
         let backend_path = store_path.join("type");
         fs::write(&backend_path, backend.name()).context(&backend_path)?;
-        let merge_options =
-            MergeOptions::from_settings(settings).map_err(|err| BackendInitError(err.into()))?;
+        let merge_options = settings
+            .merge_options()
+            .map_err(|err| BackendInitError(err.into()))?;
         let store = Store::new(backend, signer, merge_options);
 
         let workspace_store_path = repo_path.join("workspace_store");
@@ -735,8 +735,9 @@ impl RepoLoader {
         repo_path: &Path,
         store_factories: &StoreFactories,
     ) -> Result<Self, StoreLoadError> {
-        let merge_options =
-            MergeOptions::from_settings(settings).map_err(|err| BackendLoadError(err.into()))?;
+        let merge_options = settings
+            .merge_options()
+            .map_err(|err| BackendLoadError(err.into()))?;
         let store = Store::new(
             store_factories.load_backend(settings, &repo_path.join("store"))?,
             signer_from_settings(settings)?,

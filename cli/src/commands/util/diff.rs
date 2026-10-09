@@ -18,7 +18,6 @@ use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
-use jj_lib::tree_merge::MergeOptions;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -59,7 +58,7 @@ pub async fn cmd_util_diff(
     let materialize_options = ConflictMaterializeOptions {
         marker_style: command.settings().get("ui.conflict-marker-style")?,
         marker_len: None,
-        merge: MergeOptions::from_settings(command.settings())?,
+        merge: command.settings().merge_options()?,
     };
 
     let paths: Diff<&str> = Diff::new(&args.path1, &args.path2);

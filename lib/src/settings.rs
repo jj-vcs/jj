@@ -39,6 +39,7 @@ use crate::config::ToConfigNamePath;
 use crate::file_util::expand_home_path;
 use crate::fmt_util::binary_prefix;
 use crate::ref_name::RemoteNameBuf;
+use crate::tree_merge::MergeOptions;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
@@ -262,6 +263,16 @@ impl UserSettings {
             behavior: self.data.signing_behavior,
             user_email: self.data.user_email.clone(),
         }
+    }
+
+    /// Loads options for tree/file conflict resolution.
+    pub fn merge_options(&self) -> Result<MergeOptions, ConfigGetError> {
+        Ok(MergeOptions {
+            // Maybe we can add hunk-level=file to disable content merging if
+            // needed. It wouldn't be translated to FileMergeHunkLevel.
+            hunk_level: self.get("merge.hunk-level")?,
+            same_change: self.get("merge.same-change")?,
+        })
     }
 }
 

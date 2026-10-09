@@ -37,7 +37,6 @@ use crate::backend::MergedTreeValue;
 use crate::backend::MergedTreeValueExt as _;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
-use crate::config::ConfigGetError;
 use crate::files;
 use crate::files::FileMergeHunkLevel;
 use crate::merge::Merge;
@@ -47,7 +46,6 @@ use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponentBuf;
-use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::tree::ToTreeMergeExt as _;
 use crate::tree::Tree;
@@ -59,18 +57,6 @@ pub struct MergeOptions {
     pub hunk_level: FileMergeHunkLevel,
     /// Whether to resolve conflict that makes the same change at all sides.
     pub same_change: SameChange,
-}
-
-impl MergeOptions {
-    /// Loads merge options from `settings`.
-    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(Self {
-            // Maybe we can add hunk-level=file to disable content merging if
-            // needed. It wouldn't be translated to FileMergeHunkLevel.
-            hunk_level: settings.get("merge.hunk-level")?,
-            same_change: settings.get("merge.same-change")?,
-        })
-    }
 }
 
 /// The returned conflict will either be resolved or have the same number of
