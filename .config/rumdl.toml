@@ -1,0 +1,247 @@
+# Rumdl enables these rules by default. We disable the ones that report findings
+# in jj's existing Markdown so adding the tool requires no formatting changes.
+# The list is long because it records each difference from rumdl's defaults, not
+# because it defines a new style. Remove exceptions as we discuss and address them;
+# rules that do not suit jj can stay disabled or use different settings.
+# See https://github.com/jj-vcs/jj/issues/10210.
+#
+# Baseline: e6dd2c0d, counted with rumdl 0.2.77 on 2026-09-26, 113 files.
+# 2,529 findings across 31 default rules. Counts are diagnostics, not lines
+# changed, and are a snapshot to recount when enabling a rule. The merge-conflict
+# rule reports 4 example pages; we disabled it for the remaining counts so those
+# pages were checked too. No files are excluded for containing conflict examples.
+
+[global]
+# Include both documentation sites and the generated CLI reference.
+include = ["**/*.md", "**/*.mdx", "**/*.md.snap"]
+# Symlinks duplicate files already covered by the scan.
+exclude = ["**/node_modules/**", "**/cli/docs/**", "**/docs/governance/GOVERNANCE.md"]
+disable = [
+    # 161 findings. Heading levels should only increment by one level at a time.
+    # https://github.com/rvben/rumdl/blob/main/docs/md001.md
+    "heading-increment",
+    # 194 findings. Use consistent style for unordered list markers.
+    # https://github.com/rvben/rumdl/blob/main/docs/md004.md
+    "ul-style",
+    # 26 findings. List indentation should be consistent.
+    # https://github.com/rvben/rumdl/blob/main/docs/md005.md
+    "list-indent",
+    # 65 findings. Unordered list indentation.
+    # https://github.com/rvben/rumdl/blob/main/docs/md007.md
+    "ul-indent",
+    # 259 findings. Multiple consecutive blank lines.
+    # https://github.com/rvben/rumdl/blob/main/docs/md012.md
+    "no-multiple-blanks",
+    # 689 findings. Line length should not be excessive.
+    # https://github.com/rvben/rumdl/blob/main/docs/md013.md
+    "line-length",
+    # 203 findings. Commands in code blocks should show output.
+    # https://github.com/rvben/rumdl/blob/main/docs/md014.md
+    "commands-show-output",
+    # 3 findings. Headings should be surrounded by blank lines.
+    # https://github.com/rvben/rumdl/blob/main/docs/md022.md
+    "blanks-around-headings",
+    # 7 findings. Trailing punctuation in heading.
+    # https://github.com/rvben/rumdl/blob/main/docs/md026.md
+    "no-trailing-punctuation",
+    # 2 findings. Multiple spaces after quote marker (>).
+    # https://github.com/rvben/rumdl/blob/main/docs/md027.md
+    "no-multiple-space-blockquote",
+    # 4 findings. Blank line inside blockquote.
+    # https://github.com/rvben/rumdl/blob/main/docs/md028.md
+    "no-blanks-blockquote",
+    # 20 findings. Ordered list marker value.
+    # https://github.com/rvben/rumdl/blob/main/docs/md029.md
+    "ol-prefix",
+    # 144 findings. Spaces after list markers should be consistent.
+    # https://github.com/rvben/rumdl/blob/main/docs/md030.md
+    "list-marker-space",
+    # 32 findings. Fenced code blocks should be surrounded by blank lines.
+    # https://github.com/rvben/rumdl/blob/main/docs/md031.md
+    "blanks-around-fences",
+    # 40 findings. Lists should be surrounded by blank lines.
+    # https://github.com/rvben/rumdl/blob/main/docs/md032.md
+    "blanks-around-lists",
+    # 42 findings. Inline HTML is not allowed.
+    # https://github.com/rvben/rumdl/blob/main/docs/md033.md
+    "no-inline-html",
+    # 33 findings. No bare URLs - wrap URLs in angle brackets.
+    # https://github.com/rvben/rumdl/blob/main/docs/md034.md
+    "no-bare-urls",
+    # 8 findings. Spaces inside code span elements.
+    # https://github.com/rvben/rumdl/blob/main/docs/md038.md
+    "no-space-in-code",
+    # 52 findings. Code blocks should have a language specified.
+    # https://github.com/rvben/rumdl/blob/main/docs/md040.md
+    "fenced-code-language",
+    # 7 findings. First line in file should be a top level heading.
+    # https://github.com/rvben/rumdl/blob/main/docs/md041.md
+    "first-line-heading",
+    # 44 findings. Code blocks should use a consistent style.
+    # https://github.com/rvben/rumdl/blob/main/docs/md046.md
+    "code-block-style",
+    # 1 findings. Files should end with a single newline character.
+    # https://github.com/rvben/rumdl/blob/main/docs/md047.md
+    "single-trailing-newline",
+    # 7 findings. Emphasis style should be consistent.
+    # https://github.com/rvben/rumdl/blob/main/docs/md049.md
+    "emphasis-style",
+    # 4 findings. Link fragments should reference valid headings.
+    # https://github.com/rvben/rumdl/blob/main/docs/md051.md
+    "link-fragments",
+    # 56 findings. Link and image reference definitions should be needed.
+    # https://github.com/rvben/rumdl/blob/main/docs/md053.md
+    "link-image-reference-definitions",
+    # 3 findings. Relative links should point to existing files.
+    # https://github.com/rvben/rumdl/blob/main/docs/md057.md
+    "existing-relative-links",
+    # 63 findings. Link text should be descriptive.
+    # https://github.com/rvben/rumdl/blob/main/docs/md059.md
+    "descriptive-link-text",
+    # 16 findings. Multiple consecutive spaces.
+    # https://github.com/rvben/rumdl/blob/main/docs/md064.md
+    "no-multiple-consecutive-spaces",
+    # 6 findings. List item spacing should be consistent.
+    # https://github.com/rvben/rumdl/blob/main/docs/md076.md
+    "list-item-spacing",
+    # 334 findings. List continuation content indentation.
+    # https://github.com/rvben/rumdl/blob/main/docs/md077.md
+    "list-continuation-indent",
+    # 4 findings. Unresolved merge conflict markers.
+    # https://github.com/rvben/rumdl/blob/main/docs/md092.md
+    "merge-conflict",
+]
+
+# Commented settings below show the disabled rules' default options, as reported
+# by rumdl config --defaults. Rules without options need only removal from disable.
+
+# [heading-increment]
+# front-matter-title = true
+
+# [ul-style]
+# style = "consistent"
+
+# [ul-indent]
+# indent = 2
+# start-indent = 2
+# start-indented = false
+# style = "text-aligned"
+
+# [no-multiple-blanks]
+# maximum = 1
+
+# [line-length]
+# abbreviations = []
+# atomic-spans = true
+# blockquotes = true
+# bracket-display-math = false
+# code-blocks = true
+# code-spans = true
+# headings = true
+# ignore-link-urls = true
+# length-mode = "visual"
+# line-length = 80
+# math-blocks = true
+# paragraphs = true
+# reflow = false
+# reflow-break-link-text = false
+# reflow-length-exemptions = false
+# reflow-mode = "default"
+# require-sentence-capital = true
+# stern = false
+# strict = false
+# tables = false
+
+# [commands-show-output]
+# show-output = true
+
+# [blanks-around-headings]
+# allowed-at-start = true
+# lines-above = 1
+# lines-below = 1
+
+# [no-trailing-punctuation]
+# punctuation = ".,;:!"
+
+# [no-multiple-space-blockquote]
+# list-items = false
+
+# [no-blanks-blockquote]
+# fix = false
+
+# [ol-prefix]
+# style = "one-or-ordered"
+
+# [list-marker-space]
+# ol-align-column = 0
+# ol-multi = 1
+# ol-single = 1
+# ul-multi = 1
+# ul-single = 1
+
+# [blanks-around-fences]
+# list-items = true
+
+# [blanks-around-lists]
+# allow-lazy-continuation = true
+
+# [no-inline-html]
+# allowed-elements = []
+# allowed-inside = []
+# br-style = "trailing-spaces"
+# disallowed-elements = []
+# drop-attributes = ["target","rel","width","height","align","class","id","style"]
+# fix = false
+# fix-mode = "conservative"
+# strip-wrapper-elements = ["p"]
+
+# [fenced-code-language]
+# allowed-languages = []
+# custom-languages = []
+# disallowed-languages = []
+# preferred-aliases = {}
+# style = "disabled"
+# unknown-language-action = "ignore"
+
+# [first-line-heading]
+# allow-preamble = false
+# fix = false
+# front-matter-title = "title"
+# level = 1
+
+# [code-block-style]
+# style = "consistent"
+
+# [emphasis-style]
+# style = "consistent"
+
+# [link-fragments]
+# anchor-style = "github"
+# check-frontmatter = false
+# ignore-case = true
+# ignore-frontmatter-fields = []
+
+# [link-image-reference-definitions]
+# ignored-definitions = []
+
+# [existing-relative-links]
+# absolute-links = "ignore"
+# check-frontmatter = false
+# compact-paths = false
+# ignore-frontmatter-fields = []
+# roots = []
+# search-paths = []
+# self-referential-links = false
+
+# [descriptive-link-text]
+# prohibited-texts = ["click here","here","link","more"]
+
+# [no-multiple-consecutive-spaces]
+# allow-sentence-double-space = false
+
+# [list-item-spacing]
+# allow-loose-continuation = false
+# style = "consistent"
+
+# [list-continuation-indent]
+# style = "any"

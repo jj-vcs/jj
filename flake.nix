@@ -87,6 +87,21 @@
       });
 
       devShells.default = let
+        # The locked nixpkgs rumdl predates the conflict-marker fix (0.2.74).
+        # Keep this version in sync with mise until nixpkgs catches up.
+        rumdl = pkgs.rumdl.overrideAttrs (final: _: {
+          version = "0.2.77";
+          src = pkgs.fetchFromGitHub {
+            owner = "rvben";
+            repo = "rumdl";
+            tag = "v${final.version}";
+            hash = "sha256-3VOOsyaTMEXNX/Mar/eaGbLpm+GEpkMi4B+9m6TDCyA=";
+          };
+          cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
+            inherit (final) src;
+            hash = "sha256-jXMF81Cj0J/R/1hn+PVS4WRVhbxQkx30TPh7ZpTCFeU=";
+          };
+        });
         packages = with pkgs; [
           rustShellToolchain
           llvmPackages.llvm # for e.g. llvm-symbolizer
@@ -99,6 +114,7 @@
           cargo-llvm-cov
 
           # Miscellaneous tools
+          rumdl
           watchman
 
           # In case you need to run `cargo run --bin gen-protos`
