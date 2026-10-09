@@ -299,6 +299,38 @@ revsets (expressions) as arguments.
   `descendants(x, depth)` returns the descendants of `x` limited to the given
   `depth`.
 
+??? note "Example (`parents`, `children`, `ancestors`, `descendants` with depth)"
+
+    ```
+    parents(D,1)  parents(D,2)    children(A,1)  children(A,2)
+
+       E             E                E             [E]
+       |   D         |  D             |   D          | [D]
+       | / |         | /|             | / |          | /|
+      [B] [C]        B  C            [B] [C]         B  C
+       | /           | /              | /            | /
+       A            [A]               A              A
+       |             |                |              |
+      root()        root()           root()         root()
+
+      {B,C}          {A}             {B,C}          {D,E}
+    ```
+
+    ```
+    ancestors(D,1)  ancestors(D,2)    descendants(A,1)  descendants(A,2)
+
+        E               E                   E                 E
+        | [D]           |  [D]              |  D              |   D
+        | /|            | / |               | /|              | / |
+        B  C           [B] [C]              B  C             [B] [C]
+        | /             | /                 | /               | /
+        A               A                  [A]               [A]
+        |               |                   |                 |
+       root()          root()              root()            root()
+
+        {D}            {B,C,D}              {A}              {A,B,C}
+    ```
+
 * `first_parent(x, [depth])`: `first_parent(x)` is similar to `parents(x)`, but
   for merges, it only returns the first parent instead of returning all parents.
   The `depth` argument also works similarly, so `first_parent(x, 2)` is
@@ -309,13 +341,64 @@ revsets (expressions) as arguments.
   commit is conventionally the branch into which changes are being merged, so
   `first_ancestors()` can be used to exclude changes made on other branches.
 
+??? note "Example (`first_parent`, `first_ancestors`)"
+
+    ```
+    first_parent(D)  first_parent(D,2)    first_ancestors(D)  first_ancestors(D,2)
+
+          E                E                    E                   E
+          |  D             |  D                 | [D]               | [D]
+          | /|             | /|                 | /|                | /|
+         [B] C             B  C                [B] C               [B] C
+          | /              | /                  | /                 | /
+          A               [A]                  [A]                  A
+          |                |                    |                   |
+         root()           root()              [root()]             root()
+
+          {B}              {A}             {root(),A,B,D}          {B,D}
+    ```
+
 * `reachable(srcs, domain)`: All commits reachable from `srcs`, traversing all
   parent and child edges, such that the entire path is within `domain`. This is
   useful for finding all related commits in a branch or feature without
   traversing outside a defined scope. For example, `reachable(@, mutable())`
   returns the stack of commits you are working on.
 
+??? note "Example (`reachable`)"
+
+    ```
+    reachable(A,A..)  reachable(C,B..)  reachable(D,B..)  reachable(E,A..)  reachable(E,B..)
+
+         E                 E                 E                [E]               [E]
+         |  D              | [D]             | [D]             |  [D]            |  D
+         | /|              | /|              | /|              | / |             | /|
+         B  C              B [C]             B [C]            [B] [C]            B  C
+         | /               | /               | /               | /               | /
+         A                 A                 A                 A                 A
+         |                 |                 |                 |                 |
+        root()            root()            root()            root()            root()
+
+         {}               {C,D}             {C,D}            {B,C,D,E}           {E}
+    ```
+
 * `connected(x)`: Same as `x::x`. Useful when `x` includes several commits.
+
+??? note "Example (`connected`)"
+
+    ```
+    connected(A)  connected(A|D)  connected(A|E)  
+
+        E             E              [E]
+        |  D          |  [D]          |  D
+        | /|          | / |           | /|
+        B  C         [B] [C]         [B] C
+        | /           | /             | /
+       [A]           [A]             [A]
+        |             |               |
+       root()        root()          root()
+
+        {A}         {A,B,C,D}        {A,B,E}
+    ```
 
 * `all()`: All visible commits and ancestors of commits explicitly mentioned.
 
@@ -390,6 +473,38 @@ revsets (expressions) as arguments.
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `roots(x)`
   function, which is equivalent to `x ~ x+`.
 
+??? note "Example (`heads`, `roots`)"
+
+    ```
+    heads(A)  heads(A|E)  heads(B|E)  heads(C|E)  heads(D|E)
+
+      E         [E]         [E]         [E]         [E]
+      |  D       |  D        |  D        |  D        | [D]
+      | /|       | /|        | /|        | /|        | /|
+      B  C       B  C        B  C        B [C]       B  C
+      | /        | /         | /         | /         | /
+     [A]         A           A           A           A
+      |          |           |           |           |
+     root()     root()      root()      root()      root()
+
+      {A}        {E}         {E}        {C,E}       {D,E}
+    ```
+
+    ```
+    roots(A)  roots(A|E)  roots(B|E)  roots(C|E)  roots(D|E)
+
+      E          E           E          [E]         [E]
+      |  D       |  D        |  D        |  D        | [D]
+      | /|       | /|        | /|        | /|        | /|
+      B  C       B  C       [B] C        B [C]       B  C
+      | /        | /         | /         | /         | /
+     [A]        [A]          A           A           A
+      |          |           |           |           |
+     root()     root()      root()      root()      root()
+
+      {A}        {A}         {B}        {C,E}       {D,E}
+    ```
+
 * `latest(x, [count])`: Latest `count` commits in `x`, based on committer
   timestamp. The default `count` is 1.
 
@@ -406,9 +521,61 @@ revsets (expressions) as arguments.
   where `x_{1..N}` are commits in `x`. If `x` resolves to a single commit,
   `merge_point(x)` resolves to `x`.
 
+??? note "Example (`fork_point`, `merge_point`)"
+
+    ```
+    fork_point(A)  fork_point(A|E)  fork_point(B|C)  fork_point(C|D)  fork_point(D|E)
+
+         E              E                E                E                E
+         |  D           |  D             |  D             |  D             |  D
+         | /|           | /|             | /|             | /|             | /|
+         B  C           B  C             B  C             B [C]           [B] C
+         | /            | /              | /              | /              | /
+        [A]            [A]              [A]               A                A
+         |              |                |                |                |
+        root()         root()           root()           root()           root()
+
+         {A}            {A}              {A}              {C}              {B}
+    ```
+
+    ```
+    merge_point(A)  merge_point(A|E)  merge_point(B|C)  merge_point(C|D)  merge_point(D|E)
+
+          E              [E]                E                 E                 E
+          |  D            |  D              | [D]             | [D]             |  D
+          | /|            | /|              | /|              | /|              | /|
+          B  C            B  C              B  C              B  C              B  C
+          | /             | /               | /               | /               | /
+         [A]              A                 A                 A                 A
+          |               |                 |                 |                 |
+         root()          root()            root()            root()            root()
+
+          {A}             {E}               {D}               {D}               {}
+    ```
+
 * `bisect(x)`: Finds commits in the input set for which about half of the input
   set are descendants. The current implementation deals somewhat poorly with
   non-linear history.
+
+??? note "Example (`bisect`)"
+
+    ```
+      ..E      bisect(..E)            ..D       bisect(..D)
+
+      [E]          E
+       |           |
+      [D]          D                  E             E
+       |           |                  |  [D]        |  D
+      [C]   -->   [C]                 | / |         | /|
+       |           |                 [B] [C]  -->  [B] C
+      [B]          B                  | /           | /
+       |           |                 [A]            A
+      [A]          A                  |             |
+       |           |                 root()        root()
+      root()      root()
+
+    {A,B,C,D,E}    {C}              {A,B,C,D}       {B}
+    ```
 
 * `exactly(x, count)`: Evaluates `x`, and errors if it is not of exactly size
   `count`. Otherwise, returns `x`. This is useful in particular with `count=1`
@@ -417,6 +584,23 @@ revsets (expressions) as arguments.
 * `merges()`: Merge commits.
 
 * `forks()`: Fork commits, i.e. those with more than 1 child.
+
+??? note "Example (`merges`, `forks`)"
+
+    ```
+    merges()        forks()
+
+      E               E
+      | [D]           |  D
+      | /|            | /|
+      B  C           [B] C
+      | /             | /
+      A              [A]
+      |               |
+     root()          root()
+
+      {D}            {A,B}
+    ```
 
 * `description(pattern)`: Commits that have a description matching the given
   [string pattern](#string-patterns).
@@ -515,65 +699,6 @@ revsets (expressions) as arguments.
   visible_heads())`.
 
 [operation]: glossary.md#operation
-
-??? examples
-
-    Given this history:
-    ```
-    E
-    | D
-    |/|
-    B C
-    |/
-    A
-    |
-    root()
-    ```
-
-    **function** `reachable()`
-
-    `reachable(srcs, domain)` finds all commits reachable from `srcs` by
-    following parent or child edges, but limited to commits within `domain`.
-
-    * `reachable(E, A..)` ⇒ `{E,D,C,B}` — All commits after A are reachable
-    * `reachable(E, B..)` ⇒ `{E}` — E is isolated: its only edge (to B) leaves the domain
-    * `reachable(C, B..)` ⇒ `{D,C}` — C and D are connected; the C→A edge leaves the domain
-    * `reachable(D, B..)` ⇒ `{D,C}` — Same result: D reaches C, but D→B leaves the domain
-    * `reachable(A, A..)` ⇒ `{}` (empty set) — A is not in domain `A..`, so it's ignored
-
-    **function** `connected()`
-
-    * `connected(E|A)` ⇒ `{E,B,A}`
-    * `connected(D|A)` ⇒ `{D,C,B,A}`
-    * `connected(A)` ⇒ `{A}`
-
-    **function** `heads()`
-
-    * `heads(E|D)` ⇒ `{E,D}`
-    * `heads(E|C)` ⇒ `{E,C}`
-    * `heads(E|B)` ⇒ `{E}`
-    * `heads(E|A)` ⇒ `{E}`
-    * `heads(A)` ⇒ `{A}`
-
-    **function** `roots()`
-
-    * `roots(E|D)` ⇒ `{E,D}`
-    * `roots(E|C)` ⇒ `{E,C}`
-    * `roots(E|B)` ⇒ `{B}`
-    * `roots(E|A)` ⇒ `{A}`
-    * `roots(A)` ⇒ `{A}`
-
-    **function** `fork_point()`
-
-    * `fork_point(E|D)` ⇒ `{B}`
-    * `fork_point(E|C)` ⇒ `{A}`
-    * `fork_point(E|B)` ⇒ `{B}`
-    * `fork_point(E|A)` ⇒ `{A}`
-    * `fork_point(D|C)` ⇒ `{C}`
-    * `fork_point(D|B)` ⇒ `{B}`
-    * `fork_point(B|C)` ⇒ `{A}`
-    * `fork_point(A)` ⇒ `{A}`
-    * `fork_point(none())` ⇒ `{}`
 
 ## String patterns
 
