@@ -649,12 +649,16 @@ impl CommandHelper {
                 // operation, then merge the divergent operations. The wc_commit_id of the
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
+                let pre_snapshot_commit_id = workspace_command.get_wc_commit_id().cloned();
                 let stale_stats = workspace_command
                     .snapshot_working_copy(ui, git_import_export_lock)
                     .await
                     .map_err(|err| err.into_command_error())?;
 
                 let stale_wc_commit = workspace_command.get_wc_commit().await?.unwrap();
+                // A changed commit ID means the snapshot preserved un-snapshotted edits.
+                let recovered_local_changes =
+                    pre_snapshot_commit_id.as_ref() != Some(stale_wc_commit.id());
 
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
@@ -723,6 +727,20 @@ impl CommandHelper {
                             "Updated working copy to fresh commit {}",
                             short_commit_hash(desired_wc_commit.id())
                         )?;
+                        // The checkout above overwrote the working copy on disk, so files appear
+                        // to change or disappear even though nothing was lost: the un-snapshotted
+                        // changes were preserved in `stale_wc_commit`. Point the user at that
+                        // commit so the update doesn't look like data loss.
+                        if recovered_local_changes {
+                            let stale_commit = short_commit_hash(stale_wc_commit.id());
+                            writedoc!(
+                                ui.hint_default(),
+                                "
+                                Working-copy changes were saved in commit {stale_commit}.
+                                Inspect the saved commit with `jj show {stale_commit}`.
+                                ",
+                            )?;
+                        }
                     }
                 }
 
