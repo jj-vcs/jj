@@ -68,7 +68,7 @@ pub(crate) async fn cmd_file_delete(
 
     let mut tree_builder = MergedTreeBuilder::new(commit.tree());
     for (path, _value) in tree.entries_matching(matcher.as_ref()) {
-        tree_builder.set_or_remove(path, Merge::absent());
+        tree_builder.set_or_remove(path, Merge::absent())?;
     }
     let new_tree = tree_builder.write_tree().await?;
 

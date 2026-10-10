@@ -63,7 +63,7 @@ pub(crate) async fn cmd_file_untrack(
     let mut tree_builder = MergedTreeBuilder::new(wc_commit.tree());
     let wc_tree = wc_commit.tree();
     for (path, _value) in wc_tree.entries_matching(matcher.as_ref()) {
-        tree_builder.set_or_remove(path, Merge::absent());
+        tree_builder.set_or_remove(path, Merge::absent())?;
     }
     let new_tree = tree_builder.write_tree().await?;
     let new_commit = tx

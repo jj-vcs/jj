@@ -416,7 +416,7 @@ async fn apply_diff_builtin(
     // First, revert all changed files to their left versions
     for path in &changed_files {
         let left_value = left_tree.path_value(path).await?;
-        tree_builder.set_or_remove(path.clone(), left_value);
+        tree_builder.set_or_remove(path.clone(), left_value)?;
     }
 
     // Then apply only the selected changes
@@ -501,7 +501,7 @@ async fn apply_changes(
             // Either a file mode change was selected to delete an existing file, so we
             // should remove it from the tree,
             if file_mode_change_selected {
-                tree_builder.set_or_remove(path, Merge::absent());
+                tree_builder.set_or_remove(path, Merge::absent())?;
             }
             // or the file's creation has been split out of the change, in which case we
             // don't need to change the tree.
@@ -515,7 +515,7 @@ async fn apply_changes(
                 if file_mode_change_selected {
                     // File contents haven't changed, but file mode needs to be updated on the tree.
                     let value = override_file_executable_bit(select_left(&path).await?, executable);
-                    tree_builder.set_or_remove(path, value);
+                    tree_builder.set_or_remove(path, value)?;
                 } else {
                     // Neither file mode, nor contents changed => Do nothing.
                 }
@@ -525,7 +525,7 @@ async fn apply_changes(
                 new_description: Some(_),
             } => {
                 let value = override_file_executable_bit(select_right(&path).await?, executable);
-                tree_builder.set_or_remove(path, value);
+                tree_builder.set_or_remove(path, value)?;
             }
             scm_record::SelectedContents::Binary {
                 old_description: _,
@@ -533,11 +533,11 @@ async fn apply_changes(
             } => {
                 // File contents emptied out, but file mode is not absent => write empty file.
                 let value = write_file(&path, &[], executable).await?;
-                tree_builder.set_or_remove(path, value);
+                tree_builder.set_or_remove(path, value)?;
             }
             scm_record::SelectedContents::Text { contents } => {
                 let value = write_file(&path, contents.as_bytes(), executable).await?;
-                tree_builder.set_or_remove(path, value);
+                tree_builder.set_or_remove(path, value)?;
             }
         }
     }
