@@ -435,18 +435,6 @@ impl<T> Merge<T> {
         trivial_merge(&self.values, same_change)
     }
 
-    /// Pads this merge with to the specified number of sides with the specified
-    /// value. No-op if the requested size is not larger than the current size.
-    pub fn pad_to(&mut self, num_sides: usize, value: &T)
-    where
-        T: Clone,
-    {
-        if num_sides <= self.num_sides() {
-            return;
-        }
-        self.values.resize(num_sides * 2 - 1, value.clone());
-    }
-
     /// Returns a slice containing the terms. The items will alternate between
     /// positive and negative terms, starting with positive (since there's one
     /// more of those).
@@ -1178,16 +1166,6 @@ mod tests {
         assert_eq!(x, c(&[4, 5, 6]));
         assert_eq!(x.swap_remove(0, 1), (5, 6));
         assert_eq!(x, c(&[4]));
-    }
-
-    #[test]
-    fn test_pad_to() {
-        let mut x = c(&[1]);
-        x.pad_to(3, &2);
-        assert_eq!(x, c(&[1, 2, 2, 2, 2]));
-        // No change if the requested size is smaller
-        x.pad_to(1, &3);
-        assert_eq!(x, c(&[1, 2, 2, 2, 2]));
     }
 
     #[test]
