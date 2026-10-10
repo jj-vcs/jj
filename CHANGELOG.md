@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj workspace forget` now hints, when you forget the workspace you're currently
+  in, that its working copy is left on disk as an unregistered checkout — and that
+  a later workspace reusing the same name (e.g. `jj workspace add <path>` deriving
+  the name from the path) would silently shadow it.
+
 ### Fixed bugs
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
