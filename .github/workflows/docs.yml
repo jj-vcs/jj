@@ -32,6 +32,13 @@ jobs:
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           version: "0.5.1"
+      - name: Add unreleased changes from changelog/ to CHANGELOG.md
+        # Only for the prerelease docs. The notes are compiled into a dated
+        # version section when a release is made. The Unreleased section
+        # replaces the note saying where unreleased changes are.
+        run: |
+          uv run changelog release Unreleased
+          uv run changelog remove-unreleased-note
       - name: Install dependencies, compile and deploy docs
         run: |
           git config user.name 'jj-docs[bot]'

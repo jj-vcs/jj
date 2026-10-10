@@ -105,6 +105,19 @@ your company's interests, do feel free to approve it.
 This project follows [Google's Open Source Community
 Guidelines](https://opensource.google/conduct/).
 
+### Changelog notes
+
+If your PR makes a user-visible change, add a changelog note by running this
+command anywhere in the repository (it needs [`uv`](#install-uv)) and answer the
+questions:
+
+```shell
+uv run changelog new
+```
+
+This creates a Markdown file in the `changelog/` directory. Include it in the
+commit that makes the change.
+
 ### Deprecations and Removals
 
 If your PR removes or renames an option, a command, or config option don't

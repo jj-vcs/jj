@@ -2,55 +2,36 @@
 
 ## Update changelog and Cargo versions
 
-Send a PR similar to <https://github.com/jj-vcs/jj/pull/7954>. Feel free to
-copy-edit the changelog in order to:
+Send a PR similar to <https://github.com/jj-vcs/jj/pull/7954>. Start by
+compiling the changelog notes in `changelog/` into a new section of
+`CHANGELOG.md`:
 
-* Populate "Release highlights" if relevant
+```shell
+uv run changelog release 0.<number>.0
+```
+
+This adds a `## [0.<number>.0] - <date>` section above the previous release
+(the date defaults to today in UTC; pass `--date YYYY-MM-DD` to override it),
+fills in its "Contributors" section, adds the link comparing the previous
+version tag with the new one at the bottom of `CHANGELOG.md`, and deletes the
+notes. To see the section without changing anything, run
+`uv run changelog preview`.
+
+The contributors are the authors of the commits between the previous version's
+tag and `main` on GitHub, excluding bots. Listing them requires the
+[GitHub CLI](https://cli.github.com/): install it and run `gh auth login`, or
+pass `--no-contributors` and add the section by hand.
+
+Then copy-edit the new section in order to:
+
+* Add a `### Release highlights` section if relevant, at the top (below
+  "Security fixes", if any)
+* Add GitHub usernames to contributors listed by name only (their commits'
+  email addresses aren't linked to a GitHub account), if you can find them
 * Put more important items first so the reader doesn't miss them
 * Make items consistent when it comes to language and formatting
-* Catch any misplaced changelog items by looking at the CHANGELOG diff.
-
-To get the CHANGELOG diff, you can run
-
-```shell
-jj log -r 'heads(tags())'  # Check that this shows the previous version
-jj diff --from 'heads(tags())' --to main CHANGELOG.md
-```
-
-Make sure to add a corresponding reference link at the bottom of the
-CHANGELOG for the new version's tag. It should be the GitHub URL comparing
-the previous version tag with the new version tag
-(e.g. `https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0`). Also update the
-`[unreleased]` link accordingly, comparing the newest version against `HEAD`.
-
-Producing the list of contributors is a bit annoying. The current suggestion is
-to run something like this:
-
-```shell
-root=$(jj log -G -r 'heads(tags(glob:"v*.*.*") & ::trunk())' -T commit_id)
-filter='
-map(.commits[] | select(.author.login | (. != null and endswith("[bot]") | not)))
-  | unique_by(if .author.login != null then .author.login else .author.email end)
-  | map(if .author.login != null
-        then "* \(.commit.author.name) (@\(.author.login))"
-        else "* \(.commit.author.name)"
-        end)
-  | .[]
-'
-gh api "/repos/jj-vcs/jj/compare/$root...main" --paginate | jq -sr "$filter" | sort -f
-```
-
-<https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#compare-two-commits>
-
-Alternatively, the list can be produced locally:
-
-```shell
-jj log -G -r 'heads(tags())..main' -T '"* " ++ author ++ "\n"' | sort -fu
-```
-
-Then try to find the right GitHub username for each person and copy their name
-and username from the GitHub page for the person
-(e.g. <https://github.com/martinvonz>).
+* Catch any misplaced changelog items, such as a breaking change that was
+  filed as a new feature
 
 Get the PR through review and get it merged as usual.
 
