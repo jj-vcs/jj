@@ -47,6 +47,7 @@ pub use jj_core::file_util;
 pub use jj_core::files;
 pub mod fileset;
 use jj_dsl::fileset_parser;
+pub mod filtered_tree_writer;
 pub mod fix;
 pub mod fmt_util;
 pub mod fsmonitor;

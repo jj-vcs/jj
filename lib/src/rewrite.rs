@@ -41,13 +41,11 @@ use crate::index::Index;
 use crate::index::IndexResult;
 use crate::index::ResolvedChangeTargets;
 use crate::iter_util::fallible_any;
-use crate::matchers::FilesMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
-use crate::merged_tree_builder::MergedTreeBuilder;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
@@ -87,30 +85,6 @@ pub async fn restore_tree(
         // Optimization for a common case
         return Ok(source.clone());
     }
-    let mut diff_stream = source.diff_stream(destination, matcher);
-    let mut paths = Vec::new();
-    while let Some(entry) = diff_stream.next().await {
-        // TODO: We should be able to not traverse deeper in the diff if the matcher
-        // matches an entire subtree.
-        paths.push(entry.path);
-    }
-    let matcher = FilesMatcher::new(paths);
-
-    let select_matching =
-        async |tree: &MergedTree, labels: ConflictLabels| -> BackendResult<MergedTree> {
-            let empty_tree_ids = Merge::repeated(
-                tree.store().empty_tree_id().clone(),
-                tree.tree_ids().num_sides(),
-            );
-            let labeled_empty_tree = MergedTree::new(tree.store().clone(), empty_tree_ids, labels);
-            let mut builder = MergedTreeBuilder::new(labeled_empty_tree);
-            for (path, value) in tree.entries_matching(&matcher) {
-                // TODO: if https://github.com/jj-vcs/jj/issues/4152 is implemented, we will need
-                // to expand resolved conflicts into `Merge::repeated(value, num_sides)`.
-                builder.set_or_remove(path, value?);
-            }
-            builder.write_tree().await
-        };
 
     const RESTORE_BASE_LABEL: &str = "base files for restore";
 
@@ -123,6 +97,11 @@ pub async fn restore_tree(
             format!("{RESTORE_BASE_LABEL} (from {label})")
         }
     }));
+    let base_tree = MergedTree::new(
+        destination.store().clone(),
+        destination.tree_ids().clone(),
+        base_labels,
+    );
 
     // Merging the trees this way ensures that when restoring a conflicted file into
     // a conflicted commit, we preserve the labels of both commits even if the
@@ -141,11 +120,11 @@ pub async fn restore_tree(
             format!("{destination_label} (restore destination)"),
         ),
         (
-            select_matching(destination, base_labels).await?,
+            base_tree.filtered(matcher).await?,
             format!("{RESTORE_BASE_LABEL} (from {destination_label})"),
         ),
         (
-            select_matching(source, source.labels().clone()).await?,
+            source.filtered(matcher).await?,
             format!("restored files (from {source_label})"),
         ),
     ]))

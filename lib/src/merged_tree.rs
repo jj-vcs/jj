@@ -47,6 +47,7 @@ use crate::copies::CopiesTreeDiffStream;
 use crate::copies::CopyHistoryDiffStream;
 use crate::copies::CopyHistoryTreeDiffEntry;
 use crate::copies::CopyRecords;
+use crate::filtered_tree_writer::FilteredTreeWriter;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::merge::Diff;
@@ -308,6 +309,14 @@ impl MergedTree {
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
         DiffStreamForFileSystem::new(self.diff_stream_internal(other, matcher)).boxed()
+    }
+
+    /// Returns a slice of this tree filtered by the matcher. The returned tree
+    /// has been written to the backend; it is not a lazily calculated  view of
+    /// the original tree. The arity and conflict labels will be the same as
+    /// this tree's.
+    pub async fn filtered(&self, matcher: &dyn Matcher) -> BackendResult<Self> {
+        FilteredTreeWriter::new(self, matcher).write().await
     }
 
     /// Like `diff_stream()` but takes the given copy records into account.
