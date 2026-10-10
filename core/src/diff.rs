@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Generic diffing of byte strings, with support for tokenizing the inputs
+//! into lines or words.
 
 use std::collections::BTreeMap;
 use std::hash::BuildHasher;
@@ -29,6 +30,7 @@ use itertools::Itertools as _;
 use smallvec::SmallVec;
 use smallvec::smallvec;
 
+/// Splits `text` into lines, including the trailing newline of each line.
 pub fn find_line_ranges(text: &[u8]) -> Vec<Range<usize>> {
     text.split_inclusive(|b| *b == b'\n')
         .scan(0, |total, line| {
@@ -49,6 +51,8 @@ fn is_word_byte(b: u8) -> bool {
     )
 }
 
+/// Finds the ranges of words in `text`. Bytes outside these ranges aren't
+/// part of any word.
 pub fn find_word_ranges(text: &[u8]) -> Vec<Range<usize>> {
     let mut word_ranges = vec![];
     let mut word_start_pos = 0;
@@ -69,6 +73,7 @@ pub fn find_word_ranges(text: &[u8]) -> Vec<Range<usize>> {
     word_ranges
 }
 
+/// Finds the ranges of non-word bytes in `text`, one range per byte.
 pub fn find_nonword_ranges(text: &[u8]) -> Vec<Range<usize>> {
     text.iter()
         .positions(|b| !is_word_byte(*b))
@@ -608,6 +613,10 @@ pub struct ContentDiff<'input> {
 }
 
 impl<'input> ContentDiff<'input> {
+    /// Compares `inputs` token by token, where `tokenizer` returns the token
+    /// ranges in each input and `compare` determines whether two tokens are
+    /// equal. The first input is the base that the others are compared
+    /// against.
     pub fn for_tokenizer<T: AsRef<[u8]> + ?Sized + 'input>(
         inputs: impl IntoIterator<Item = &'input T>,
         tokenizer: impl Fn(&[u8]) -> Vec<Range<usize>>,
@@ -742,6 +751,9 @@ impl<'input> ContentDiff<'input> {
         diff
     }
 
+    /// Creates a diff without comparing the contents of `inputs`, so the
+    /// inputs are considered entirely different unless there are fewer than
+    /// two inputs. Use [`Self::refine_changed_regions()`] to compare them.
     pub fn unrefined<T: AsRef<[u8]> + ?Sized + 'input>(
         inputs: impl IntoIterator<Item = &'input T>,
     ) -> Self {
@@ -866,11 +878,14 @@ impl<'input> ContentDiff<'input> {
 /// Hunk texts.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DiffHunk<'input> {
+    /// Whether the contents are the same in all inputs.
     pub kind: DiffHunkKind,
+    /// The contents of the hunk in each input.
     pub contents: DiffHunkContentVec<'input>,
 }
 
 impl<'input> DiffHunk<'input> {
+    /// Creates a hunk where the contents are the same in all inputs.
     pub fn matching<T: AsRef<[u8]> + ?Sized + 'input>(
         contents: impl IntoIterator<Item = &'input T>,
     ) -> Self {
@@ -880,6 +895,7 @@ impl<'input> DiffHunk<'input> {
         }
     }
 
+    /// Creates a hunk where the contents differ between inputs.
     pub fn different<T: AsRef<[u8]> + ?Sized + 'input>(
         contents: impl IntoIterator<Item = &'input T>,
     ) -> Self {
@@ -890,13 +906,17 @@ impl<'input> DiffHunk<'input> {
     }
 }
 
+/// Whether a diff hunk is the same in all inputs.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DiffHunkKind {
+    /// The hunk is the same in all inputs.
     Matching,
+    /// The hunk differs between inputs.
     Different,
 }
 
-// Inline up to two sides
+/// The contents of a diff hunk in each input. Up to two sides are stored
+/// inline.
 pub type DiffHunkContentVec<'input> = SmallVec<[&'input BStr; 2]>;
 
 /// Iterator over matching and different texts.
@@ -933,11 +953,14 @@ impl<'input> Iterator for DiffHunkIterator<'_, 'input> {
 /// Hunk ranges in bytes.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DiffHunkRange {
+    /// Whether the contents are the same in all inputs.
     pub kind: DiffHunkKind,
+    /// The byte range of the hunk in each input.
     pub ranges: DiffHunkRangeVec,
 }
 
-// Inline up to two sides
+/// The byte range of a diff hunk in each input. Up to two sides are stored
+/// inline.
 pub type DiffHunkRangeVec = SmallVec<[Range<usize>; 2]>;
 
 /// Iterator over matching and different ranges in bytes.
