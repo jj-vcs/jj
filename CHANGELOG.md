@@ -16,6 +16,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj bookmark forget` now accepts and completes remote bookmarks such as
+  `bookmark@remote`.
+  Forgetting one removes the locally stored remote bookmark and its tracking
+  state without deleting the bookmark on the remote. A later fetch can recreate
+  it.
+
 ### Fixed bugs
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,

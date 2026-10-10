@@ -1150,7 +1150,7 @@ fn test_bookmark_forget_glob() {
     let output = work_dir.run_jj(["bookmark", "forget", "glob:'foo-[1-3'"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Failed to parse name pattern: Invalid string pattern
+    Error: Failed to parse name pattern or remote symbol: Invalid string pattern
     Caused by:
     1:  --> 1:1
       |
@@ -1283,7 +1283,7 @@ fn test_bookmark_delete_glob() -> TestResult {
     let output = work_dir.run_jj(["bookmark", "forget", "whatever:bookmark"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Failed to parse name pattern: Invalid string pattern
+    Error: Failed to parse name pattern or remote symbol: Invalid string pattern
     Caused by:
     1:  --> 1:1
       |
@@ -1336,10 +1336,25 @@ fn test_bookmark_forget_export() {
     foo: rlvkpnrz 43444d88 (empty) (no description set)
     [EOF]
     ");
+    let local_bookmarks = get_bookmark_output(&work_dir).success().stdout;
 
     // Exporting the bookmark to git creates a local-git tracking bookmark
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
+    let exported_bookmarks = get_bookmark_output(&work_dir).success().stdout;
+    for command in ["export", "import"] {
+        work_dir.run_jj(["bookmark", "forget", "foo@git"]).success();
+        assert_eq!(
+            get_bookmark_output(&work_dir).success().stdout,
+            local_bookmarks
+        );
+        work_dir.run_jj(["git", command]).success();
+        assert_eq!(
+            get_bookmark_output(&work_dir).success().stdout,
+            exported_bookmarks
+        );
+    }
+
     let output = work_dir.run_jj(["bookmark", "forget", "--include-remotes", "foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1515,6 +1530,142 @@ fn test_bookmark_forget_fetched_bookmark() {
     feature1@origin: tyvxnvqr 9175cb32 (empty) another message
     [EOF]
     ");
+
+    // TEST 5: Forgetting the local bookmark and its only remote bookmark
+    // explicitly is equivalent to --include-remotes.
+    work_dir
+        .run_jj(["bookmark", "forget", "feature1", "feature1@origin"])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+    let output = work_dir.run_jj(["git", "export"]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["git", "import"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    "#);
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+    work_dir
+        .run_jj(["git", "fetch", "--remote=origin"])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r#"
+    feature1: tyvxnvqr 9175cb32 (empty) another message
+      @origin: tyvxnvqr 9175cb32 (empty) another message
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_bookmark_forget_absent_tracked_remote() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::init_bare(test_env.env_root().join("git-repo"));
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "../git-repo"])
+        .success();
+    work_dir.run_jj(["describe", "-m", "message"]).success();
+    work_dir.run_jj(["bookmark", "create", "foo"]).success();
+    let local_bookmarks = get_bookmark_output(&work_dir).success().stdout;
+
+    work_dir
+        .run_jj(["bookmark", "track", "foo@origin"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "forget", "foo@origin"])
+        .success();
+    assert_eq!(
+        get_bookmark_output(&work_dir).success().stdout,
+        local_bookmarks
+    );
+
+    work_dir
+        .run_jj(["git", "push", "--tracked", "--remote=origin"])
+        .success();
+    assert!(git_repo.try_find_reference("refs/heads/foo")?.is_none());
+    Ok(())
+}
+
+#[test]
+fn test_bookmark_forget_remote_preserves_local_and_other_remotes() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::init_bare(test_env.env_root().join("git-repo"));
+    let git::CommitResult { commit_id, .. } = git::add_commit(
+        &git_repo,
+        "refs/heads/foo",
+        "file",
+        b"content",
+        "message",
+        &[],
+    );
+    for remote in ["origin", "upstream"] {
+        work_dir
+            .run_jj(["git", "remote", "add", remote, "../git-repo"])
+            .success();
+    }
+    work_dir.run_jj(["git", "fetch", "--all-remotes"]).success();
+    work_dir
+        .run_jj(["bookmark", "track", "foo@origin", "foo@upstream"])
+        .success();
+    work_dir
+        .run_jj(["new", "foo", "-m", "local change"])
+        .success();
+    work_dir.run_jj(["bookmark", "set", "foo"]).success();
+    let local_target = work_dir
+        .run_jj(["log", "--no-graph", "-r=foo", "-T=commit_id"])
+        .success()
+        .stdout;
+
+    work_dir
+        .run_jj(["bookmark", "forget", "foo@origin"])
+        .success();
+    let output = work_dir
+        .run_jj([
+            "bookmark",
+            "list",
+            "--all-remotes",
+            "-T",
+            r#"if(remote, if(tracked, "tracked ", "untracked ")) ++ name ++ if(remote, "@" ++ remote) ++ "\n""#,
+        ])
+        .success();
+    assert_eq!(output.stdout.raw(), "foo\ntracked foo@upstream\n");
+    assert_eq!(
+        work_dir
+            .run_jj(["log", "--no-graph", "-r=foo@upstream", "-T=commit_id"])
+            .success()
+            .stdout
+            .raw(),
+        commit_id.to_string()
+    );
+    assert_eq!(
+        work_dir
+            .run_jj(["log", "--no-graph", "-r=foo", "-T=commit_id"])
+            .success()
+            .stdout,
+        local_target
+    );
+
+    work_dir
+        .run_jj(["git", "fetch", "--remote=origin"])
+        .success();
+    assert_eq!(
+        work_dir
+            .run_jj(["log", "--no-graph", "-r=foo@origin", "-T=commit_id"])
+            .success()
+            .stdout
+            .raw(),
+        commit_id.to_string()
+    );
+    assert_eq!(
+        work_dir
+            .run_jj(["log", "--no-graph", "-r=foo", "-T=commit_id"])
+            .success()
+            .stdout,
+        local_target
+    );
 }
 
 #[test]

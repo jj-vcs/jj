@@ -208,15 +208,11 @@ fn untracked_refs(kind: &str, help_template: &str) -> Vec<CompletionCandidate> {
     })
 }
 
-pub fn bookmarks() -> Vec<CompletionCandidate> {
-    refs("bookmark", BOOKMARK_HELP_TEMPLATE)
-}
-
 pub fn tags() -> Vec<CompletionCandidate> {
-    refs("tag", TAG_HELP_TEMPLATE)
+    refs("tag", TAG_HELP_TEMPLATE, true)
 }
 
-fn refs(kind: &str, help_template: &str) -> Vec<CompletionCandidate> {
+fn refs(kind: &str, help_template: &str, hide_remote_part: bool) -> Vec<CompletionCandidate> {
     with_jj(|jj, _settings| {
         let output = jj
             .build()
@@ -234,10 +230,18 @@ fn refs(kind: &str, help_template: &str) -> Vec<CompletionCandidate> {
             .map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        Ok((&stdout
+        Ok(stdout
             .lines()
             .map(split_help_text)
-            .chunk_by(|(name, _)| name.split_once('@').map(|t| t.0).unwrap_or(name)))
+            .chunk_by(|&(bookmark, _)| {
+                if hide_remote_part {
+                    bookmark
+                        .split_once('@')
+                        .map_or(bookmark, |(name, _remote)| name)
+                } else {
+                    bookmark
+                }
+            })
             .into_iter()
             .map(|(name, mut refs)| {
                 let help = refs.find_map(|(_, help)| help);
@@ -273,6 +277,14 @@ pub fn local_tags() -> Vec<CompletionCandidate> {
             .map(|(name, help)| CompletionCandidate::new(name).help(help))
             .collect())
     })
+}
+
+pub fn local_and_remote_bookmarks() -> Vec<CompletionCandidate> {
+    refs("bookmark", BOOKMARK_HELP_TEMPLATE, false)
+}
+
+pub fn bookmark_names() -> Vec<CompletionCandidate> {
+    refs("bookmark", BOOKMARK_HELP_TEMPLATE, true)
 }
 
 pub fn git_remotes() -> Vec<CompletionCandidate> {

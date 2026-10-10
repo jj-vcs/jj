@@ -87,7 +87,7 @@ pub struct GitFetchArgs {
         group = "specific",
         value_name = "BRANCH"
     )]
-    #[arg(add = ArgValueCandidates::new(complete::bookmarks))]
+    #[arg(add = ArgValueCandidates::new(complete::bookmark_names))]
     branches: Option<Vec<String>>,
 
     /// Fetch only some of the tags (can be repeated)
