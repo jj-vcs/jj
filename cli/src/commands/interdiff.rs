@@ -12,23 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::slice;
+use std::collections::HashSet;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
+use jj_lib::backend::CommitId;
+use jj_lib::commit::Commit;
+use jj_lib::copies::CopyRecords;
+use jj_lib::merge::Diff;
+use jj_lib::merge::Merge;
+use jj_lib::rewrite::merge_commit_trees;
+use jj_lib::rewrite::rebase_to_dest_parent;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
+use crate::diff_util::DUMMY_DESCRIPTION_PATH;
 use crate::diff_util::DiffFormatArgs;
+use crate::diff_util::check_diff_revset_has_no_gaps;
+use crate::formatter::FormatterExt as _;
 use crate::ui::Ui;
 
-/// Show differences between the diffs of two revisions
+/// Show differences between the diffs of two revsets
 ///
-/// This is like running `jj diff -r` on each change, then comparing those
+/// This is like running `jj diff -r` on each side, then comparing those
 /// results. It answers: "How do the modifications introduced by revision A
 /// differ from the modifications introduced by revision B?"
 ///
@@ -53,22 +66,29 @@ use crate::ui::Ui;
 /// Technically, this works by rebasing `--from` onto `--to`'s parents and
 /// comparing the result to `--to`.
 ///
-/// To see the changes throughout the whole evolution of a change instead of
-/// between just two revisions, use `jj evolog -p` instead.
+/// `--from` and `--to` may also resolve to multiple revisions; each side is
+/// then treated as if its revisions were squashed into a single revision
+/// first. For example, if revisions `A::B` were rebased and modified to `C::D`,
+/// then `jj interdiff --from A::B --to C::D` shows how the changes evolved.
+/// Multiple heads and/or roots are supported, but gaps in the revsets are not
+/// supported (e.g. `--from 'A|C'` in a linear chain `A::C`).
+///
+/// To see the changes throughout the whole evolution of a single change
+/// instead, use `jj evolog --patch`.
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(ArgGroup::new("to_diff").args(&["from", "to"]).multiple(true).required(true)))]
 #[command(mut_arg("ignore_all_space", |a| a.short('w')))]
 #[command(mut_arg("ignore_space_change", |a| a.short('b')))]
 pub(crate) struct InterdiffArgs {
-    /// The first revision to compare (default: @)
+    /// The first revision(s) to compare (default: @)
     #[arg(long, short, value_name = "REVSET")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
-    from: Option<RevisionArg>,
+    from: Option<Vec<RevisionArg>>,
 
-    /// The second revision to compare (default: @)
+    /// The second revision(s) to compare (default: @)
     #[arg(long, short, value_name = "REVSET")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
-    to: Option<RevisionArg>,
+    to: Option<Vec<RevisionArg>>,
 
     /// Restrict the diff to these paths
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
@@ -86,41 +106,98 @@ pub(crate) async fn cmd_interdiff(
     args: &InterdiffArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
-    let from = workspace_command
-        .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))
-        .await?;
-    let to = workspace_command
-        .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))
-        .await?;
+    let from = resolve_revset(ui, &workspace_command, args.from.as_deref()).await?;
+    let to = resolve_revset(ui, &workspace_command, args.to.as_deref()).await?;
     let repo = workspace_command.repo();
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
 
-    print_unmatched_explicit_paths(
-        ui,
-        &workspace_command,
-        &fileset_expression,
-        // We check the parent commits to account for deleted files.
-        [
-            &from.parent_tree(repo.as_ref()).await?,
-            &from.tree(),
-            &to.parent_tree(repo.as_ref()).await?,
-            &to.tree(),
-        ],
-    )
-    .await?;
+    let (from_roots, from_heads) = roots_and_heads(&from);
+    let (to_roots, to_heads) = roots_and_heads(&to);
+    // We check the parent commits to account for deleted files.
+    let mut trees = vec![];
+    for commit in itertools::chain(&from_roots, &to_roots) {
+        trees.push(commit.parent_tree(repo.as_ref()).await?);
+    }
+    for commit in itertools::chain(&from_heads, &to_heads) {
+        trees.push(commit.tree());
+    }
+    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, &trees).await?;
 
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
     ui.request_pager();
+
+    // Handle revsets here using the roots and heads computed above.
+    // `DiffRenderer::show_inter_diff` compares predecessors to a single commit.
+    let mut formatter = ui.stdout_formatter();
+    let mut formatter = formatter.as_mut().labeled("diff");
+    let from_description = concatenated_commit_descriptions(&from);
+    let to_description = concatenated_commit_descriptions(&to);
+    let from_tree = rebase_to_dest_parent(repo.as_ref(), &from, &to_roots).await?;
+    let to_tree = merge_commit_trees(repo.as_ref(), &to_heads).await?;
+    let copy_records = CopyRecords::default(); // TODO: See `DiffRenderer::show_inter_diff`.
+    diff_renderer.show_text_diff(
+        *formatter,
+        Diff::new(DUMMY_DESCRIPTION_PATH, DUMMY_DESCRIPTION_PATH),
+        Diff::new(&from_description, &to_description),
+    )?;
     diff_renderer
-        .show_inter_diff(
+        .show_diff_trees(
             ui,
-            ui.stdout_formatter().as_mut(),
-            slice::from_ref(&from),
-            &to,
+            *formatter,
+            Diff::new(&from_tree, &to_tree),
             matcher.as_ref(),
+            &copy_records,
             ui.term_width(),
         )
         .await?;
+
     Ok(())
+}
+
+async fn resolve_revset(
+    ui: &mut Ui,
+    workspace_command: &WorkspaceCommandHelper,
+    arg: Option<&[RevisionArg]>,
+) -> Result<Vec<Commit>, CommandError> {
+    let arg = arg.unwrap_or(std::slice::from_ref(&RevisionArg::AT));
+    let evaluator = workspace_command.parse_union_revsets(ui, arg)?;
+    check_diff_revset_has_no_gaps(workspace_command, evaluator.expression()).await?;
+    let commits: Vec<Commit> = evaluator.evaluate_to_commits()?.try_collect().await?;
+    if commits.is_empty() {
+        return Err(user_error(format!(
+            "Revset `{}` didn't resolve to any revisions",
+            itertools::join(arg, " | ")
+        )));
+    }
+    Ok(commits)
+}
+
+/// Concatenates the descriptions of `commits` for rendering a description diff.
+fn concatenated_commit_descriptions(commits: &[Commit]) -> Merge<String> {
+    // TODO: Concatenated descriptions are not necessarily ideal here; they won't
+    // show reordered commits nicely. However, once we implement color-moved
+    // (#76), that should get us most of the value.
+    //
+    // See: https://github.com/jj-vcs/jj/issues/76
+    Merge::resolved(itertools::join(commits.iter().map(|c| c.description()), ""))
+}
+
+/// Partitions `commits` into the roots and heads of the set: the roots are
+/// the commits which have no parents in the set, and the heads are the
+/// commits which are not a parent of any commit in the set.
+fn roots_and_heads(commits: &[Commit]) -> (Vec<Commit>, Vec<Commit>) {
+    let ids: HashSet<&CommitId> = commits.iter().map(|c| c.id()).collect();
+    let parent_ids: HashSet<&CommitId> = commits.iter().flat_map(|c| c.parent_ids()).collect();
+    let roots = commits
+        .iter()
+        .filter(|c| !c.parent_ids().iter().any(|id| ids.contains(id)))
+        .cloned()
+        .collect();
+    let heads = commits
+        .iter()
+        .filter(|c| !parent_ids.contains(c.id()))
+        .cloned()
+        .collect();
+    (roots, heads)
 }
