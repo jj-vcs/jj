@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! A commit loaded from the [`Store`], with convenient accessors.
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -42,6 +42,10 @@ use crate::signing::SignResult;
 use crate::signing::Verification;
 use crate::store::Store;
 
+/// A commit object read from the backend, along with its ID and the store it
+/// came from.
+///
+/// Equality, ordering, and hashing are based on the commit ID only.
 #[derive(Clone, serde::Serialize)]
 pub struct Commit {
     #[serde(skip)]
@@ -90,22 +94,27 @@ impl Hash for Commit {
 }
 
 impl Commit {
+    /// Creates a commit object from its backend representation.
     pub fn new(store: Arc<Store>, id: CommitId, data: Arc<backend::Commit>) -> Self {
         Self { store, id, data }
     }
 
+    /// The store this commit was loaded from.
     pub fn store(&self) -> &Arc<Store> {
         &self.store
     }
 
+    /// The commit ID.
     pub fn id(&self) -> &CommitId {
         &self.id
     }
 
+    /// The IDs of the commit's parents.
     pub fn parent_ids(&self) -> &[CommitId] {
         &self.data.parents
     }
 
+    /// Loads the commit's parents from the store.
     pub async fn parents(&self) -> BackendResult<Vec<Self>> {
         try_join_all(
             self.data
@@ -116,6 +125,7 @@ impl Commit {
         .await
     }
 
+    /// The commit's (possibly conflicted) root tree.
     pub fn tree(&self) -> MergedTree {
         MergedTree::new(
             self.store.clone(),
@@ -124,6 +134,7 @@ impl Commit {
         )
     }
 
+    /// The IDs of the terms of the commit's root tree.
     pub fn tree_ids(&self) -> &Merge<TreeId> {
         &self.data.root_tree
     }
@@ -138,13 +149,7 @@ impl Commit {
             return Ok(self.tree());
         }
         let parents = self.parents().await?;
-        if let [parent] = &parents[..] {
-            return Ok(parent.tree());
-        }
-        merge_commit_trees_no_resolve_without_repo(self.store(), index, &parents)
-            .await?
-            .resolve()
-            .await
+        merge_commit_trees(self.store(), index, &parents).await
     }
 
     /// Returns the parent tree, merging the parent trees if there are multiple
@@ -157,7 +162,7 @@ impl Commit {
             return Ok(self.tree());
         }
         let parents = self.parents().await?;
-        merge_commit_trees_no_resolve_without_repo(self.store(), index, &parents).await
+        merge_commit_trees_no_resolve(self.store(), index, &parents).await
     }
 
     /// Returns whether commit's content is empty. Commit description is not
@@ -169,26 +174,32 @@ impl Commit {
         is_backend_commit_empty(index, &self.store, &self.data).await
     }
 
+    /// Returns whether the commit's root tree has conflicts.
     pub fn has_conflict(&self) -> bool {
         !self.tree_ids().is_resolved()
     }
 
+    /// The commit's change ID.
     pub fn change_id(&self) -> &ChangeId {
         &self.data.change_id
     }
 
+    /// The backend representation of the commit.
     pub fn store_commit(&self) -> &Arc<backend::Commit> {
         &self.data
     }
 
+    /// The commit description.
     pub fn description(&self) -> &str {
         &self.data.description
     }
 
+    /// The commit's author.
     pub fn author(&self) -> &Signature {
         &self.data.author
     }
 
+    /// The commit's committer.
     pub fn committer(&self) -> &Signature {
         &self.data.committer
     }
@@ -245,9 +256,11 @@ impl Commit {
     }
 }
 
-// If there is a single commit, returns the detailed conflict label for that
-// commit. If there are multiple commits, joins the short conflict labels of
-// each commit.
+/// A string describing `commits` to be used in conflict markers.
+///
+/// If there is a single commit, returns the detailed conflict label for that
+/// commit. If there are multiple commits, joins the short conflict labels of
+/// each commit.
 pub fn conflict_label_for_commits(commits: &[Commit]) -> String {
     if commits.len() == 1 {
         commits[0].conflict_label()
@@ -256,9 +269,25 @@ pub fn conflict_label_for_commits(commits: &[Commit]) -> String {
     }
 }
 
+/// Merges `commits`, resolving conflicts if possible.
+#[instrument(skip(index))]
+pub async fn merge_commit_trees(
+    store: &Arc<Store>,
+    index: &dyn Index,
+    commits: &[Commit],
+) -> BackendResult<MergedTree> {
+    if let [commit] = commits {
+        return Ok(commit.tree());
+    }
+    merge_commit_trees_no_resolve(store, index, commits)
+        .await?
+        .resolve()
+        .await
+}
+
 /// Merges `commits` without attempting to resolve file conflicts.
 #[instrument(skip(index))]
-pub async fn merge_commit_trees_no_resolve_without_repo(
+pub async fn merge_commit_trees_no_resolve(
     store: &Arc<Store>,
     index: &dyn Index,
     commits: &[Commit],
@@ -355,7 +384,9 @@ pub async fn find_recursive_merge_commits(
     }
 }
 
-pub(crate) async fn is_backend_commit_empty(
+/// Returns whether the backend commit's tree is the same as its parent tree
+/// (the merged parent trees if there are multiple parents).
+pub async fn is_backend_commit_empty(
     index: &dyn Index,
     store: &Arc<Store>,
     commit: &backend::Commit,
@@ -364,10 +395,7 @@ pub(crate) async fn is_backend_commit_empty(
         return Ok(commit.root_tree == *store.get_commit_async(parent_id).await?.tree_ids());
     }
     let parents = try_join_all(commit.parents.iter().map(|id| store.get_commit_async(id))).await?;
-    let parent_tree = merge_commit_trees_no_resolve_without_repo(store, index, &parents)
-        .await?
-        .resolve()
-        .await?;
+    let parent_tree = merge_commit_trees(store, index, &parents).await?;
     Ok(commit.root_tree == *parent_tree.tree_ids())
 }
 
@@ -380,7 +408,9 @@ async fn is_commit_empty_by_index(index: &dyn Index, id: &CommitId) -> BackendRe
     Ok(maybe_paths.map(|mut paths| paths.next().is_none()))
 }
 
+/// Extension methods for iterators over [`Commit`]s.
 pub trait CommitIteratorExt<'c, I> {
+    /// Maps the commits to their IDs.
     fn ids(self) -> impl Iterator<Item = &'c CommitId>;
 }
 
@@ -395,7 +425,7 @@ where
 
 /// Wrapper to sort `Commit` by committer timestamp.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub(crate) struct CommitByCommitterTimestamp(pub Commit);
+pub struct CommitByCommitterTimestamp(pub Commit);
 
 impl Ord for CommitByCommitterTimestamp {
     fn cmp(&self, other: &Self) -> Ordering {

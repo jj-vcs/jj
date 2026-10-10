@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! A single (non-conflicted) tree loaded from the [`Store`].
 
 use std::borrow::Borrow;
 use std::fmt::Debug;
@@ -40,6 +40,10 @@ use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
 use crate::store::Store;
 
+/// A tree object read from the backend, along with its ID, its directory
+/// path, and the store it came from.
+///
+/// Equality and hashing are based on the tree ID and directory path only.
 #[derive(Clone)]
 pub struct Tree {
     store: Arc<Store>,
@@ -73,6 +77,7 @@ impl Hash for Tree {
 }
 
 impl Tree {
+    /// Creates a tree object from its backend representation.
     pub fn new(store: Arc<Store>, dir: RepoPathBuf, id: TreeId, data: Arc<backend::Tree>) -> Self {
         Self {
             store,
@@ -82,6 +87,7 @@ impl Tree {
         }
     }
 
+    /// Creates an empty tree at directory `dir`.
     pub fn empty(store: Arc<Store>, dir: RepoPathBuf) -> Self {
         let id = store.empty_tree_id().clone();
         Self {
@@ -92,26 +98,33 @@ impl Tree {
         }
     }
 
+    /// The store this tree was loaded from.
     pub fn store(&self) -> &Arc<Store> {
         &self.store
     }
 
+    /// The directory path of this tree within the repository.
     pub fn dir(&self) -> &RepoPath {
         &self.dir
     }
 
+    /// The tree ID.
     pub fn id(&self) -> &TreeId {
         &self.id
     }
 
+    /// The backend representation of the tree.
     pub fn data(&self) -> &backend::Tree {
         &self.data
     }
 
+    /// Iterates over the entries directly in this tree, without descending
+    /// into subtrees.
     pub fn entries_non_recursive(&self) -> TreeEntriesNonRecursiveIterator<'_> {
         self.data.entries()
     }
 
+    /// Iterates recursively over the non-tree entries matching `matcher`.
     pub fn entries_matching<'matcher>(
         &self,
         matcher: &'matcher dyn Matcher,
@@ -119,10 +132,13 @@ impl Tree {
         TreeEntriesIterator::new(self.clone(), matcher)
     }
 
+    /// Looks up the value of the entry named `basename` directly in this tree.
     pub fn value(&self, basename: &RepoPathComponent) -> Option<&TreeValue> {
         self.data.value(basename)
     }
 
+    /// Looks up the value at `path`, which is relative to this tree. Must be
+    /// called on the root tree.
     pub async fn path_value(&self, path: &RepoPath) -> BackendResult<Option<TreeValue>> {
         assert_eq!(self.dir(), RepoPath::root());
         match path.split() {
@@ -134,6 +150,8 @@ impl Tree {
         }
     }
 
+    /// Loads the subtree named `name` directly in this tree. Returns `None` if
+    /// there's no such entry or if it's not a tree.
     pub async fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>> {
         if let Some(sub_tree) = self.data.value(name) {
             match sub_tree {
@@ -173,6 +191,8 @@ impl Tree {
     }
 }
 
+/// Iterator over the non-tree entries in a tree and its subtrees, filtered by
+/// a [`Matcher`]. Returned by [`Tree::entries_matching()`].
 pub struct TreeEntriesIterator<'matcher> {
     stack: Vec<TreeEntriesDirItem>,
     matcher: &'matcher dyn Matcher,

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Types and utilities for representing and transforming commit graphs.
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -29,13 +29,17 @@ use futures::stream;
 /// clone. There should be a pure `(&N) -> &ID` function.
 pub type GraphNode<N, ID = N> = (N, Vec<GraphEdge<ID>>);
 
+/// An edge to a target node in a graph.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct GraphEdge<N> {
+    /// The node the edge points to.
     pub target: N,
+    /// The kind of edge.
     pub edge_type: GraphEdgeType,
 }
 
 impl<N> GraphEdge<N> {
+    /// Creates an edge of type [`GraphEdgeType::Missing`].
     pub fn missing(target: N) -> Self {
         Self {
             target,
@@ -43,6 +47,7 @@ impl<N> GraphEdge<N> {
         }
     }
 
+    /// Creates an edge of type [`GraphEdgeType::Direct`].
     pub fn direct(target: N) -> Self {
         Self {
             target,
@@ -50,6 +55,7 @@ impl<N> GraphEdge<N> {
         }
     }
 
+    /// Creates an edge of type [`GraphEdgeType::Indirect`].
     pub fn indirect(target: N) -> Self {
         Self {
             target,
@@ -57,6 +63,7 @@ impl<N> GraphEdge<N> {
         }
     }
 
+    /// Maps the target node using `f`, keeping the edge type.
     pub fn map<M>(self, f: impl FnOnce(N) -> M) -> GraphEdge<M> {
         GraphEdge {
             target: f(self.target),
@@ -64,23 +71,31 @@ impl<N> GraphEdge<N> {
         }
     }
 
+    /// Returns whether this is a [`GraphEdgeType::Missing`] edge.
     pub fn is_missing(&self) -> bool {
         self.edge_type == GraphEdgeType::Missing
     }
 
+    /// Returns whether this is a [`GraphEdgeType::Direct`] edge.
     pub fn is_direct(&self) -> bool {
         self.edge_type == GraphEdgeType::Direct
     }
 
+    /// Returns whether this is a [`GraphEdgeType::Indirect`] edge.
     pub fn is_indirect(&self) -> bool {
         self.edge_type == GraphEdgeType::Indirect
     }
 }
 
+/// The kind of a [`GraphEdge`].
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum GraphEdgeType {
+    /// The target node is not part of the graph.
     Missing,
+    /// The target node is a direct parent of the source node.
     Direct,
+    /// The target node is an ancestor of the source node, reachable only
+    /// through nodes that are not part of the graph.
     Indirect,
 }
 

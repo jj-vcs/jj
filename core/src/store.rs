@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! A wrapper around the [`Backend`] that provides convenient types and caching.
 
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -37,13 +37,13 @@ use crate::backend::SigningFn;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
 use crate::commit::Commit;
-use crate::files::MergeOptions;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::signing::Signer;
 use crate::tree::Tree;
+use crate::tree_merge::MergeOptions;
 
 // There are more tree objects than commits, and trees are often shared across
 // commits.
@@ -69,6 +69,7 @@ impl Debug for Store {
 }
 
 impl Store {
+    /// Creates a store wrapping `backend`.
     pub fn new(
         backend: Box<dyn Backend>,
         signer: Signer,
@@ -83,6 +84,7 @@ impl Store {
         })
     }
 
+    /// The underlying backend.
     pub fn backend(&self) -> &dyn Backend {
         self.backend.as_ref()
     }
@@ -92,6 +94,7 @@ impl Store {
         self.backend.downcast_ref()
     }
 
+    /// The signer used for signing and verifying commits.
     pub fn signer(&self) -> &Signer {
         &self.signer
     }
@@ -101,6 +104,8 @@ impl Store {
         &self.merge_options
     }
 
+    /// Returns the copy records between `root` and `head`. See
+    /// [`Backend::get_copy_records()`].
     pub fn get_copy_records(
         &self,
         paths: Option<&[RepoPathBuf]>,
@@ -110,47 +115,60 @@ impl Store {
         self.backend.get_copy_records(paths, root, head)
     }
 
+    /// The length of commit IDs in bytes.
     pub fn commit_id_length(&self) -> usize {
         self.backend.commit_id_length()
     }
 
+    /// The length of change IDs in bytes.
     pub fn change_id_length(&self) -> usize {
         self.backend.change_id_length()
     }
 
+    /// The root commit's ID.
     pub fn root_commit_id(&self) -> &CommitId {
         self.backend.root_commit_id()
     }
 
+    /// The root commit's change ID.
     pub fn root_change_id(&self) -> &ChangeId {
         self.backend.root_change_id()
     }
 
+    /// The empty tree's ID.
     pub fn empty_tree_id(&self) -> &TreeId {
         self.backend.empty_tree_id()
     }
 
+    /// The number of concurrent requests the backend can handle well. See
+    /// [`Backend::concurrency()`].
     pub fn concurrency(&self) -> usize {
         self.backend.concurrency()
     }
 
+    /// Returns a resolved empty tree.
     pub fn empty_merged_tree(self: &Arc<Self>) -> MergedTree {
         let empty_tree_id = self.backend.empty_tree_id().clone();
         MergedTree::resolved(self.clone(), empty_tree_id)
     }
 
+    /// Returns the ID of a resolved empty tree.
     pub fn empty_merged_tree_id(&self) -> Merge<TreeId> {
         Merge::resolved(self.backend.empty_tree_id().clone())
     }
 
+    /// Returns the root commit.
     pub fn root_commit(self: &Arc<Self>) -> Commit {
         self.get_commit(self.backend.root_commit_id()).unwrap()
     }
 
+    /// Reads a commit, blocking until it's loaded. Prefer
+    /// [`Self::get_commit_async()`] in async code.
     pub fn get_commit(self: &Arc<Self>, id: &CommitId) -> BackendResult<Commit> {
         self.get_commit_async(id).block_on()
     }
 
+    /// Reads a commit, using the cache if possible.
     pub async fn get_commit_async(self: &Arc<Self>, id: &CommitId) -> BackendResult<Commit> {
         let data = self.get_backend_commit(id).await?;
         Ok(Commit::new(self.clone(), id.clone(), data))
@@ -170,6 +188,8 @@ impl Store {
         Ok(data)
     }
 
+    /// Writes a commit to the backend, optionally signing it. The commit must
+    /// have at least one parent.
     pub async fn write_commit(
         self: &Arc<Self>,
         commit: backend::Commit,
@@ -187,6 +207,7 @@ impl Store {
         Ok(Commit::new(self.clone(), commit_id, data))
     }
 
+    /// Reads the tree at directory `dir`, using the cache if possible.
     pub async fn get_tree(self: &Arc<Self>, dir: RepoPathBuf, id: &TreeId) -> BackendResult<Tree> {
         let data = self.get_backend_tree(&dir, id).await?;
         Ok(Tree::new(self.clone(), dir, id.clone(), data))
@@ -211,6 +232,7 @@ impl Store {
         Ok(data)
     }
 
+    /// Writes a tree for the directory at `path` to the backend.
     pub async fn write_tree(
         self: &Arc<Self>,
         path: &RepoPath,
@@ -226,6 +248,7 @@ impl Store {
         Ok(Tree::new(self.clone(), path.to_owned(), tree_id, data))
     }
 
+    /// Returns a reader for the contents of a file.
     pub async fn read_file(
         &self,
         path: &RepoPath,
@@ -234,6 +257,7 @@ impl Store {
         self.backend.read_file(path, id).await
     }
 
+    /// Writes the contents of a file to the backend.
     pub async fn write_file(
         &self,
         path: &RepoPath,
@@ -242,10 +266,12 @@ impl Store {
         self.backend.write_file(path, contents).await
     }
 
+    /// Reads the target of a symlink.
     pub async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
         self.backend.read_symlink(path, id).await
     }
 
+    /// Writes a symlink with the given target to the backend.
     pub async fn write_symlink(&self, path: &RepoPath, contents: &str) -> BackendResult<SymlinkId> {
         self.backend.write_symlink(path, contents).await
     }
