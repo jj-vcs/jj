@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -24,6 +25,7 @@ use jj_lib::diff::DiffHunkKind;
 use jj_lib::files;
 use jj_lib::files::MergeOptions;
 use jj_lib::files::MergeResult;
+use jj_lib::matchers::FilesMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
@@ -409,20 +411,8 @@ async fn apply_diff_builtin(
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File<'_>],
 ) -> BackendResult<MergedTree> {
-    // Start with the right tree to match external tool behavior.
-    // This ensures unmatched paths keep their values from the right tree.
-    let mut tree_builder = MergedTreeBuilder::new(right_tree.clone());
-
-    // First, revert all changed files to their left versions
-    for path in &changed_files {
-        let left_value = left_tree.path_value(path).await?;
-        tree_builder.set_or_remove(path.clone(), left_value);
-    }
-
-    // Then apply only the selected changes
-    apply_changes(
-        &mut tree_builder,
-        changed_files,
+    let selected_values = select_changes(
+        changed_files.clone(),
         files,
         async |path| left_tree.path_value(path).await,
         async |path| right_tree.path_value(path).await,
@@ -461,22 +451,68 @@ async fn apply_diff_builtin(
         },
     )
     .await?;
-    tree_builder.write_tree().await
+
+    // The selected values may be conflicts derived from either the left or the
+    // right tree, so we apply each of them on top of the tree it was derived
+    // from. Changed paths that didn't get a value derived from the right tree
+    // are then taken from the left tree by merging in the diff between the
+    // right and left trees at those paths. Unmatched paths keep their values
+    // from the right tree to match external tool behavior.
+    let mut left_tree_builder = MergedTreeBuilder::new(left_tree.clone());
+    let mut right_tree_builder = MergedTreeBuilder::new(right_tree.clone());
+    let mut right_paths = HashSet::new();
+    for (path, selected_value) in selected_values {
+        match selected_value {
+            SelectedValue::Left(value) => left_tree_builder.set_or_remove(path, value),
+            SelectedValue::Right(value) => {
+                right_paths.insert(path.clone());
+                right_tree_builder.set_or_remove(path, value);
+            }
+        }
+    }
+    let left_paths_matcher = FilesMatcher::new(
+        changed_files
+            .iter()
+            .filter(|path| !right_paths.contains(*path)),
+    );
+    let new_left_tree = left_tree_builder.write_tree().await?;
+    let new_right_tree = right_tree_builder.write_tree().await?;
+    MergedTree::merge(Merge::from_vec(vec![
+        (new_right_tree, "right side of diff".to_owned()),
+        (
+            right_tree.filtered(&left_paths_matcher).await?,
+            "right side of diff".to_owned(),
+        ),
+        (
+            new_left_tree.filtered(&left_paths_matcher).await?,
+            "changes selected from left side of diff".to_owned(),
+        ),
+    ]))
+    .await
 }
 
-async fn apply_changes(
-    tree_builder: &mut MergedTreeBuilder,
+/// A value selected in the builtin tool, together with which tree it was
+/// derived from. Resolved values can be applied to either tree.
+enum SelectedValue {
+    Left(MergedTreeValue),
+    Right(MergedTreeValue),
+}
+
+/// Returns the values selected for the `changed_files`. Paths for which the
+/// left value was selected without changes are omitted.
+async fn select_changes(
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File<'_>],
     select_left: impl AsyncFn(&RepoPath) -> BackendResult<MergedTreeValue>,
     select_right: impl AsyncFn(&RepoPath) -> BackendResult<MergedTreeValue>,
     write_file: impl AsyncFn(&RepoPath, &[u8], bool) -> BackendResult<MergedTreeValue>,
-) -> BackendResult<()> {
+) -> BackendResult<Vec<(RepoPathBuf, SelectedValue)>> {
     assert_eq!(
         changed_files.len(),
         files.len(),
         "result had a different number of files"
     );
+    let mut selected_values = vec![];
     // TODO: Write files concurrently
     for (path, file) in changed_files.into_iter().zip(files) {
         let file_mode_change_selected = file
@@ -501,7 +537,7 @@ async fn apply_changes(
             // Either a file mode change was selected to delete an existing file, so we
             // should remove it from the tree,
             if file_mode_change_selected {
-                tree_builder.set_or_remove(path, Merge::absent());
+                selected_values.push((path, SelectedValue::Left(Merge::absent())));
             }
             // or the file's creation has been split out of the change, in which case we
             // don't need to change the tree.
@@ -515,7 +551,7 @@ async fn apply_changes(
                 if file_mode_change_selected {
                     // File contents haven't changed, but file mode needs to be updated on the tree.
                     let value = override_file_executable_bit(select_left(&path).await?, executable);
-                    tree_builder.set_or_remove(path, value);
+                    selected_values.push((path, SelectedValue::Left(value)));
                 } else {
                     // Neither file mode, nor contents changed => Do nothing.
                 }
@@ -525,7 +561,7 @@ async fn apply_changes(
                 new_description: Some(_),
             } => {
                 let value = override_file_executable_bit(select_right(&path).await?, executable);
-                tree_builder.set_or_remove(path, value);
+                selected_values.push((path, SelectedValue::Right(value)));
             }
             scm_record::SelectedContents::Binary {
                 old_description: _,
@@ -533,15 +569,15 @@ async fn apply_changes(
             } => {
                 // File contents emptied out, but file mode is not absent => write empty file.
                 let value = write_file(&path, &[], executable).await?;
-                tree_builder.set_or_remove(path, value);
+                selected_values.push((path, SelectedValue::Left(value)));
             }
             scm_record::SelectedContents::Text { contents } => {
                 let value = write_file(&path, contents.as_bytes(), executable).await?;
-                tree_builder.set_or_remove(path, value);
+                selected_values.push((path, SelectedValue::Left(value)));
             }
         }
     }
-    Ok(())
+    Ok(selected_values)
 }
 
 fn override_file_executable_bit(
@@ -736,9 +772,7 @@ async fn apply_merge_builtin(
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File<'_>],
 ) -> BackendResult<MergedTree> {
-    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
-    apply_changes(
-        &mut tree_builder,
+    let selected_values = select_changes(
         changed_files,
         files,
         async |path| tree.path_value(path).await,
@@ -759,6 +793,10 @@ async fn apply_merge_builtin(
         },
     )
     .await?;
+    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
+    for (path, SelectedValue::Left(value) | SelectedValue::Right(value)) in selected_values {
+        tree_builder.set_or_remove(path, value);
+    }
     tree_builder.write_tree().await
 }
 
@@ -770,7 +808,6 @@ mod tests {
     use jj_lib::conflict_labels::ConflictLabels;
     use jj_lib::conflicts::extract_as_single_hunk;
     use jj_lib::matchers::EverythingMatcher;
-    use jj_lib::matchers::FilesMatcher;
     use jj_lib::repo::Repo as _;
     use pollster::FutureExt as _;
     use proptest::prelude::*;
@@ -1924,18 +1961,7 @@ mod tests {
         ]
         "#);
         let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        // TODO: we should ensure that `jj diffedit` preserves labels when restoring a
-        // conflict. It also should work when restoring conflicts of differing arities.
-        let left_tree_without_labels = MergedTree::new(
-            left_tree.store().clone(),
-            left_tree.tree_ids().clone(),
-            ConflictLabels::unlabeled(),
-        );
-        assert_tree_eq!(
-            left_tree_without_labels,
-            no_changes_tree,
-            "no-changes tree was different"
-        );
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
