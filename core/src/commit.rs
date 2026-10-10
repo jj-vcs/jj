@@ -141,7 +141,7 @@ impl Commit {
         if let [parent] = &parents[..] {
             return Ok(parent.tree());
         }
-        merge_commit_trees_no_resolve_without_repo(self.store(), index, &parents)
+        merge_commit_trees_no_resolve(self.store(), index, &parents)
             .await?
             .resolve()
             .await
@@ -157,7 +157,7 @@ impl Commit {
             return Ok(self.tree());
         }
         let parents = self.parents().await?;
-        merge_commit_trees_no_resolve_without_repo(self.store(), index, &parents).await
+        merge_commit_trees_no_resolve(self.store(), index, &parents).await
     }
 
     /// Returns whether commit's content is empty. Commit description is not
@@ -258,7 +258,7 @@ pub fn conflict_label_for_commits(commits: &[Commit]) -> String {
 
 /// Merges `commits` without attempting to resolve file conflicts.
 #[instrument(skip(index))]
-pub async fn merge_commit_trees_no_resolve_without_repo(
+pub async fn merge_commit_trees_no_resolve(
     store: &Arc<Store>,
     index: &dyn Index,
     commits: &[Commit],
@@ -364,7 +364,7 @@ pub async fn is_backend_commit_empty(
         return Ok(commit.root_tree == *store.get_commit_async(parent_id).await?.tree_ids());
     }
     let parents = try_join_all(commit.parents.iter().map(|id| store.get_commit_async(id))).await?;
-    let parent_tree = merge_commit_trees_no_resolve_without_repo(store, index, &parents)
+    let parent_tree = merge_commit_trees_no_resolve(store, index, &parents)
         .await?
         .resolve()
         .await?;

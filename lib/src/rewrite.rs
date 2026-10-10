@@ -34,7 +34,6 @@ use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::commit::CommitIteratorExt as _;
 use crate::commit::conflict_label_for_commits;
-use crate::commit::merge_commit_trees_no_resolve_without_repo;
 use crate::commit_builder::CommitBuilder;
 use crate::conflict_labels::ConflictLabels;
 use crate::index::Index;
@@ -72,7 +71,7 @@ pub async fn merge_commit_trees_no_resolve(
     repo: &dyn Repo,
     commits: &[Commit],
 ) -> BackendResult<MergedTree> {
-    merge_commit_trees_no_resolve_without_repo(repo.store(), repo.index(), commits).await
+    crate::commit::merge_commit_trees_no_resolve(repo.store(), repo.index(), commits).await
 }
 
 /// Restore matching paths from the source into the destination.
