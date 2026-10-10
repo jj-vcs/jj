@@ -17,6 +17,7 @@ use std::io;
 use clap_complete::ArgValueCandidates;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
+use jj_lib::lock::FileLock;
 use tracing::instrument;
 
 use super::ConfigTargetArgs;
@@ -75,6 +76,11 @@ pub async fn cmd_config_set(
         check_wc_author(ui, command, &args.value, AuthorChange::Email).await?;
     }
 
+    // Serialize the read-modify-write against concurrent writers (e.g.
+    // background `jj config set` invocations) so no update is lost.
+    let _lock = FileLock::lock(file.path().with_extension("lock"))
+        .map_err(|err| user_error_with_message("Failed to take lock on the config file", err))?;
+    file.reload()?;
     file.set_value(&args.name, &args.value)
         .map_err(|err| user_error_with_message(format!("Failed to set {}", args.name), err))?;
     file.save()?;
