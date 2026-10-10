@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Diff hunk headers now include symbol context even for unsupported languages.
 
+* `jj run` supports `--keep-changes` flag to keep changes made by a command
+  even if it fails. This can be wanted behavior when using tools like `Prek`
+  or `pre-commit`. `
+
 ### Fixed bugs
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,

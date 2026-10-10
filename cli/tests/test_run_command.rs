@@ -547,6 +547,61 @@ fn test_run_ignore_errors_all_fail() {
     assert_eq!(get_log_output(&work_dir), log_before);
 }
 
+#[test]
+fn test_run_keep_changes() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    test_env.add_paths_to_normalize(fake_formatter.clone(), "$FAKE_FORMATTER_PATH");
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("A.txt", "AB");
+    work_dir.run_jj(&["commit", "-m", "A"]).success();
+
+    let log_before = get_log_output(&work_dir);
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "--keep-changes",
+        "-r",
+        "@-",
+        "--",
+        &fake_formatter_path,
+        "--fail",
+        "--stdout",
+        "foo",
+        "--tee",
+        "A",
+    ]);
+
+    insta::with_settings!({
+        filters => [
+            ("exit code", "exit status"), // Windows
+        ],
+    }, {
+        insta::assert_snapshot!(output, @"
+        foo[EOF]
+        ------- stderr -------
+        Rewrote 1 commits.
+        Rebased 1 descendant commits.
+        Working copy  (@) now at: rlvkpnrz 9585832d (empty) (no description set)
+        Parent commit (@-)      : qpvuntsm 053eefff A
+        Added 1 files, modified 0 files, removed 0 files
+        Error: the command '$FAKE_FORMATTER_PATH --fail --stdout foo --tee A' failed with exit status: 1
+        Hint: Failed revision: qpvuntsm f8092578 A
+        [EOF]
+        [exit status: 1]
+        "
+
+    );});
+
+    // Rewriting the commit preserves its change ID, and the command's changes are
+    // retained despite its failure.
+    assert_eq!(get_log_output(&work_dir), log_before);
+    assert_eq!(work_dir.read_file("A"), "foo");
+}
+
 /// `jj run --passthrough` must fail fast: once a command exits non-zero it
 /// should stop, not keep running the command against every remaining revision.
 /// `--passthrough` forces a single job, so the revisions run sequentially and
