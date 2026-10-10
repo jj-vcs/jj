@@ -2507,6 +2507,9 @@ its possible targets are included.</p>
   that are also common ancestors of all commits in <code>x</code>. It is equivalent to
   the revset <code>heads(::x_1 &amp; ::x_2 &amp; ... &amp; ::x_N)</code>, where <code>x_{1..N}</code> are commits
   in <code>x</code>. If <code>x</code> resolves to a single commit, <code>fork_point(x)</code> resolves to <code>x</code>.</p>
+<p><code>fork_point(x | y)</code> is what <code>git merge-base x y</code> calculates (but unlike <code>git
+merge-base --fork-point</code>, the <code>fork_point()</code> function does <em>not</em> take a
+bookmark's history into account).</p>
 </li>
 <li>
 <p><code>merge_point(x)</code>: The merge point of all commits in <code>x</code>. Similar to the fork
