@@ -185,6 +185,13 @@ pub(crate) struct SplitArgs {
     #[arg(long)]
     editor: bool,
 
+    /// Do not open an editor for descriptions
+    ///
+    /// The selected commit uses `--message` when supplied, or keeps the original
+    /// description. The other split commit is left empty.
+    #[arg(long, conflicts_with = "editor")]
+    no_editor: bool,
+
     /// Split the revision into two parallel revisions instead of a parent and
     /// child
     #[arg(long, short)]
@@ -284,7 +291,6 @@ pub(crate) async fn cmd_split(
         new_parent_ids,
         new_child_ids,
     } = args.resolve(ui, &workspace_command).await?;
-    let text_editor = workspace_command.text_editor()?;
     let mut tx = workspace_command.start_transaction();
 
     // Prompt the user to select the changes they want for the first commit.
@@ -355,8 +361,13 @@ pub(crate) async fn cmd_split(
         commit_builder
     };
 
-    let use_editor = args.message_paragraphs.is_none() || args.editor;
+    if args.no_editor {
+        second_commit_builder.set_description("");
+    }
+
+    let use_editor = !args.no_editor && (args.message_paragraphs.is_none() || args.editor);
     if use_editor {
+        let text_editor = tx.base_workspace_helper().text_editor()?;
         // Trailers should have been added if the description wasn't empty.
         if first_commit_builder.description().is_empty() {
             let description = add_trailers(ui, &tx, &first_commit_builder).await?;
