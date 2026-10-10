@@ -124,15 +124,20 @@ pub trait Index: Send + Sync {
     ) -> Result<Box<dyn Revset>, RevsetEvaluationError>;
 }
 
-#[expect(missing_docs)]
+/// An immutable snapshot of the commit index.
 pub trait ReadonlyIndex: Any + Send + Sync {
+    /// Returns this as a generic [`Index`].
     fn as_index(&self) -> &dyn Index;
 
+    /// Returns an index of the change IDs of the commits reachable from
+    /// `heads`.
     fn change_id_index(
         &self,
         heads: &mut dyn Iterator<Item = &CommitId>,
     ) -> IndexResult<Box<dyn ChangeIdIndex>>;
 
+    /// Returns a mutable copy of this index that new commits can be added
+    /// to.
     fn start_modification(&self) -> Box<dyn MutableIndex>;
 }
 
@@ -143,18 +148,23 @@ impl dyn ReadonlyIndex {
     }
 }
 
-#[expect(missing_docs)]
+/// A commit index that new commits can be added to.
 #[async_trait]
 pub trait MutableIndex: Any {
+    /// Returns this as a generic [`Index`].
     fn as_index(&self) -> &dyn Index;
 
+    /// Returns an index of the change IDs of the commits reachable from
+    /// `heads`.
     fn change_id_index(
         &self,
         heads: &mut dyn Iterator<Item = &CommitId>,
     ) -> IndexResult<Box<dyn ChangeIdIndex + '_>>;
 
+    /// Adds `commit` to the index. Its parents must already be indexed.
     async fn add_commit(&mut self, commit: &Commit) -> IndexResult<()>;
 
+    /// Adds the commits in `other` that are not already in this index.
     fn merge_in(&mut self, other: &dyn ReadonlyIndex) -> IndexResult<()>;
 }
 
