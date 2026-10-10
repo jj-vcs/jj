@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Contains factories for the different backends and [`StoreFactories`] wich allows you to
+//! Contains factories for the different backends and [`StoreFactories`] which allows you to
 //! register them.
 
 use std::collections::HashMap;
@@ -39,38 +39,64 @@ use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::submodule_store::SubmoduleStore;
 use crate::workspace_store::WorkspaceStore;
 
+/// A initializer which creates a `Backend` for the given `UserSettings`.
 pub type BackendInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendInitError> + 'a;
+
+/// A initializer which creates a `WorkspaceStore` for the given `USerSettings`.
 pub type WorkspaceStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn WorkspaceStore>, BackendInitError> + 'a;
+
+/// A initializer which creates a `OpStore` for the given `UserSettings`, `path` and
+/// `RootOperationData`.
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
     + 'a;
+
+/// A initializer which creates a `OpHeadsStore` for the given `UserSettings`, `path` and
+/// `RootOperationData`.
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpHeadsStoreInitializer<'a> = 
     dyn Fn(&UserSettings, &Path, &OperationId)
     -> Result<Box<dyn OpHeadsStore>, BackendInitError>
     + 'a;
+
+/// A initializer which creates a `IndexStore` for the given `UserSettings` and `path`.
 pub type IndexStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendInitError> + 'a;
+
+/// A initializer which creates a `SubmoduleStore` for the given `UserSettings` and `path`.
 pub type SubmoduleStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendInitError> + 'a;
 
+/// A factory which creates a `Backend` for the given `Usersettings` and `path`.
 type BackendFactory =
     Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendLoadError>>;
+
+/// A factory which creates a `OpStore` for the given `Usersettings`, `path` and
+/// `RootOperationData`.
 type OpStoreFactory = Box<
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
 >;
+
+/// A factory which creates a `WorkspaceStore` for the given `Usersettings` and `path`.
 type WorkspaceStoreFactory =
     Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn WorkspaceStore>, BackendLoadError>>;
+
+/// A factory which creates a `OpHeadsStore` for the given `Usersettings` and `path`.
 type OpHeadsStoreFactory =
     Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
+
+/// A factory which creates a `IndexStore` for the given `Usersettings` and `path`.
 type IndexStoreFactory =
     Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendLoadError>>;
+
+/// A factory which creates a `SubmoduleStore` for the given `Usersettings` and `path`.    
 type SubmoduleStoreFactory =
     Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendLoadError>>;
 
+/// Merge `ext` into `base` and its factories panicking when a factory already exists in `base`.
 pub fn merge_factories_map<F>(base: &mut HashMap<String, F>, ext: HashMap<String, F>) {
     for (name, factory) in ext {
         match base.entry(name) {
@@ -84,6 +110,7 @@ pub fn merge_factories_map<F>(base: &mut HashMap<String, F>, ext: HashMap<String
     }
 }
 
+/// `StoreFactories` holds different factories and hands out access to them.
 pub struct StoreFactories {
     backend_factories: HashMap<String, BackendFactory>,
     workspace_store_factories: HashMap<String, WorkspaceStoreFactory>,
@@ -93,25 +120,35 @@ pub struct StoreFactories {
     submodule_store_factories: HashMap<String, SubmoduleStoreFactory>,
 }
 
+/// An error which occurs when trying to load a specific factory from `StoreFactories`.
 #[derive(Debug, Error)]
 pub enum StoreLoadError {
+    /// Unsupported type.
     #[error("Unsupported {store} backend type '{store_type}'")]
     UnsupportedType {
+        /// The store which we tried to load.
         store: &'static str,
+        /// The store type, e.g `Backend`.
         store_type: String,
     },
+    /// Failed to read the store from disk.
     #[error("Failed to read {store} backend type")]
     ReadError {
+        /// The store which we tried to read.
         store: &'static str,
+        /// The error source.
         source: PathError,
     },
+    /// The backend failed to load.
     #[error(transparent)]
     Backend(#[from] BackendLoadError),
+    /// The signer failed to initialize.
     #[error(transparent)]
     Signing(#[from] SignInitError),
 }
 
 impl StoreFactories {
+    /// Create a `StoreFactories` without any values.
     pub fn empty() -> Self {
         Self {
             backend_factories: HashMap::new(),
@@ -123,6 +160,7 @@ impl StoreFactories {
         }
     }
 
+    /// Merge `ext` into `Self` retaining only unique values.
     pub fn merge(&mut self, ext: Self) {
         let Self {
             backend_factories,
@@ -147,10 +185,12 @@ impl StoreFactories {
         );
     }
 
+    /// Register a new `Backend` with the given `name` and `factory`.
     pub fn add_backend(&mut self, name: &str, factory: BackendFactory) {
         self.backend_factories.insert(name.to_string(), factory);
     }
 
+    /// Load a registered `Backend` for the given `settings` and `store_path`.
     pub fn load_backend(
         &self,
         settings: &UserSettings,
@@ -166,11 +206,13 @@ impl StoreFactories {
         Ok(backend_factory(settings, store_path)?)
     }
 
+    /// Register a `WorkspaceStore` with the given `name` and `factory`.
     pub fn add_workspace_store(&mut self, name: &str, factory: WorkspaceStoreFactory) {
         self.workspace_store_factories
             .insert(name.to_string(), factory);
     }
 
+    /// Load a registered `WorkspaceStore` for the given `settings` and `store_path`.
     pub fn load_workspace_store(
         &self,
         settings: &UserSettings,
@@ -194,10 +236,12 @@ impl StoreFactories {
         Ok(workspace_store_factory(settings, store_path)?)
     }
 
+    /// Register a `OpStore` with the given `name` and `factory`.
     pub fn add_op_store(&mut self, name: &str, factory: OpStoreFactory) {
         self.op_store_factories.insert(name.to_string(), factory);
     }
 
+    /// Load a registered `OpStore` for the given `settings`, `store_path` and `root_data`.
     pub fn load_op_store(
         &self,
         settings: &UserSettings,
@@ -214,11 +258,13 @@ impl StoreFactories {
         Ok(op_store_factory(settings, store_path, root_data)?)
     }
 
+    /// Register a `OpHeadsStore` for the given `name` and `factory`.
     pub fn add_op_heads_store(&mut self, name: &str, factory: OpHeadsStoreFactory) {
         self.op_heads_store_factories
             .insert(name.to_string(), factory);
     }
 
+    /// Load a registered `OpHeadsStore` for the given `settings` and `store_path`.
     pub fn load_op_heads_store(
         &self,
         settings: &UserSettings,
@@ -235,10 +281,12 @@ impl StoreFactories {
         Ok(op_heads_store_factory(settings, store_path)?)
     }
 
+    /// Register a `IndexStore` with the given `name` and `factory`.
     pub fn add_index_store(&mut self, name: &str, factory: IndexStoreFactory) {
         self.index_store_factories.insert(name.to_string(), factory);
     }
 
+    /// Load a registered `IndexStore` for the given `settings` and `store_path`.
     pub fn load_index_store(
         &self,
         settings: &UserSettings,
@@ -255,11 +303,13 @@ impl StoreFactories {
         Ok(index_store_factory(settings, store_path)?)
     }
 
+    /// Register a `SubmoduleStore` with the given `name` and `factory`.
     pub fn add_submodule_store(&mut self, name: &str, factory: SubmoduleStoreFactory) {
         self.submodule_store_factories
             .insert(name.to_string(), factory);
     }
 
+    /// Load a registered `SubmoduleStore` for the given `settings` and `store_path`.
     pub fn load_submodule_store(
         &self,
         settings: &UserSettings,
@@ -278,6 +328,7 @@ impl StoreFactories {
     }
 }
 
+/// Read the `.jj/{store}/type` for the given `store` and `path`.
 pub fn read_store_type(
     store: &'static str,
     path: impl AsRef<Path>,
