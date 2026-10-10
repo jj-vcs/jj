@@ -91,6 +91,7 @@ pub mod rewrite;
 pub mod secret_backend;
 pub mod secure_config;
 pub mod settings;
+pub mod store_factories;
 pub use jj_core::signing;
 pub mod signing_factory;
 pub use jj_core::tree_merge;
