@@ -35,7 +35,7 @@ use super::entry::GlobalCommitPosition;
 use super::readonly::ReadonlyIndexLoadError;
 use crate::backend::BackendResult;
 use crate::commit::Commit;
-use crate::commit::merge_commit_trees_no_resolve_without_repo;
+use crate::commit::merge_commit_trees_no_resolve;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::file_util::persist_content_addressed_temp_file;
@@ -577,7 +577,7 @@ pub(super) async fn collect_changed_paths(
     // even if we have to visit all files.
     tracing::trace!(?commit, parents_count = parents.len(), "calculating diffs");
     let store = commit.store();
-    let from_tree = merge_commit_trees_no_resolve_without_repo(store, index, &parents).await?;
+    let from_tree = merge_commit_trees_no_resolve(store, index, &parents).await?;
     let to_tree = commit.tree();
     let tree_diff = from_tree.diff_stream(&to_tree, &EverythingMatcher);
     let paths = tree_diff
