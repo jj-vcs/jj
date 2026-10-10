@@ -937,13 +937,13 @@ fn test_log_contained_in() {
     separate(" ",
       description.first_line(),
       bookmarks,
-      if(self.contained_in("{revset}"), "[contained_in]"),
+      if(self.contained_in({revset}), "[contained_in]"),
     ) ++ "\n"
     "#
         )
     };
 
-    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("subject(A)::")]);
+    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("'subject(A)::'")]);
     insta::assert_snapshot!(output, @"
     @  D
     │ ○  C [contained_in]
@@ -958,7 +958,7 @@ fn test_log_contained_in() {
         "log",
         "-r::",
         "-T",
-        &template_for_revset(r#"visible_heads()"#),
+        &template_for_revset("'visible_heads()'"),
     ]);
     insta::assert_snapshot!(output, @"
     @  D [contained_in]
@@ -970,15 +970,32 @@ fn test_log_contained_in() {
     [EOF]
     ");
 
+    let output = work_dir.run_jj([
+        "log",
+        "-r::",
+        "-T",
+        // Build the revset query dynamically from the current commit.
+        &template_for_revset("commit_id"),
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  D [contained_in]
+    │ ○  C [contained_in]
+    │ ○  B main [contained_in]
+    │ ○  A [contained_in]
+    ├─╯
+    ◆  [contained_in]
+    [EOF]
+    ");
+
     // Suppress error that could be detected earlier
-    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("unknown_fn()")]);
+    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("'unknown_fn()'")]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Failed to parse template: In revset expression
     Caused by:
     1:  --> 5:28
       |
-    5 |       if(self.contained_in("unknown_fn()"), "[contained_in]"),
+    5 |       if(self.contained_in('unknown_fn()'), "[contained_in]"),
       |                            ^------------^
       |
       = In revset expression
@@ -992,7 +1009,12 @@ fn test_log_contained_in() {
     [exit status: 1]
     "#);
 
-    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("author(x:'y')")]);
+    let output = work_dir.run_jj([
+        "log",
+        "-r::",
+        "-T",
+        &template_for_revset(r#""author(x:'y')""#),
+    ]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Failed to parse template: In revset expression
@@ -1015,18 +1037,48 @@ fn test_log_contained_in() {
     [exit status: 1]
     "#);
 
-    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("maine")]);
+    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("'maine'")]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Failed to parse template: Failed to evaluate revset
     Caused by:
     1:  --> 5:28
       |
-    5 |       if(self.contained_in("maine"), "[contained_in]"),
+    5 |       if(self.contained_in('maine'), "[contained_in]"),
       |                            ^-----^
       |
       = Failed to evaluate revset
     2: Revision `maine` doesn't exist
+    Hint: Did you mean `main`?
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    let output = work_dir.run_jj([
+        "log",
+        // Configure a bad alias to ensure aliases are expanded in diagnostics.
+        "--config=template-aliases.bad_revset='\"maine\"'",
+        "-r::",
+        "-T",
+        &template_for_revset("bad_revset"),
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse template: In alias `bad_revset`
+    Caused by:
+    1:  --> 5:28
+      |
+    5 |       if(self.contained_in(bad_revset), "[contained_in]"),
+      |                            ^--------^
+      |
+      = In alias `bad_revset`
+    2:  --> 1:1
+      |
+    1 | "maine"
+      | ^-----^
+      |
+      = Failed to evaluate revset
+    3: Revision `maine` doesn't exist
     Hint: Did you mean `main`?
     [EOF]
     [exit status: 1]
@@ -1852,6 +1904,143 @@ fn test_log_format_trailers() {
         "-r@",
     ]);
     insta::assert_snapshot!(output, @"false[EOF]");
+}
+
+#[test]
+fn test_log_revset() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["desc", "-m=first commit"]).success();
+    work_dir.run_jj(["desc", "-m=second commit"]).success();
+    work_dir.run_jj(["desc", "-m=third commit"]).success();
+    let change_id = work_dir
+        .run_jj(["log", "--no-graph", "-r=@", "-T=change_id"])
+        .success()
+        .stdout
+        .raw()
+        .trim()
+        .to_owned();
+
+    for revision in 0..3 {
+        work_dir
+            .run_jj([
+                "bookmark",
+                "create",
+                &format!("-r={change_id}/{revision}"),
+                &format!("bookmark-{revision}"),
+            ])
+            .success();
+    }
+
+    work_dir
+        .run_jj(["abandon", &format!("{change_id}/2")])
+        .success();
+
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        r#"
+            separate(
+                " ",
+                commit_id.short(),
+                change_id.short(),
+                "Build-time evaluation: " ++ revset("000000000000").first().change_id().short()
+            ) ++ "\n"
+        "#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  776560591705 qpvuntsmwlqt Build-time evaluation: zzzzzzzzzzzz
+    │ ○  6c3346980c51 qpvuntsmwlqt Build-time evaluation: zzzzzzzzzzzz
+    ├─╯
+    ◆  000000000000 zzzzzzzzzzzz Build-time evaluation: zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        r#"
+            separate(
+                " ",
+                commit_id.short(),
+                change_id.short(),
+                "Own: " ++ bookmarks,
+                "Others: " ++ revset("change_id(" ++ change_id ++ ")").map(|c| c.bookmarks().map(|b| b.name())).join(", ")
+            ) ++ "\n"
+        "#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  776560591705 qpvuntsmwlqt Own: bookmark-0 Others: bookmark-0, bookmark-1
+    │ ○  6c3346980c51 qpvuntsmwlqt Own: bookmark-1 Others: bookmark-0, bookmark-1
+    ├─╯
+    ◆  000000000000 zzzzzzzzzzzz Own:  Others:
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "-T=revset()"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to parse template: Function `revset`: Expected 1 arguments
+    Caused by:  --> 1:8
+      |
+    1 | revset()
+      |        ^
+      |
+      = Function `revset`: Expected 1 arguments
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-T=revset('non-existent()')"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to parse template: In revset expression
+    Caused by:
+    1:  --> 1:8
+      |
+    1 | revset('non-existent()')
+      |        ^--------------^
+      |
+      = In revset expression
+    2:  --> 1:13
+      |
+    1 | non-existent()
+      |             ^---
+      |
+      = expected <EOI>, `@`, `:`, `-`, `+`, `::`, `..`, `|`, `&`, or `~`
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj([
+        "log",
+        // Configure a bad alias to ensure aliases are expanded in diagnostics.
+        "--config=template-aliases.bad_revset='\"maine\"'",
+        "-T=revset(bad_revset)",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse template: In alias `bad_revset`
+    Caused by:
+    1:  --> 1:8
+      |
+    1 | revset(bad_revset)
+      |        ^--------^
+      |
+      = In alias `bad_revset`
+    2:  --> 1:1
+      |
+    1 | "maine"
+      | ^-----^
+      |
+      = Failed to evaluate revset
+    3: Revision `maine` doesn't exist
+    [EOF]
+    [exit status: 1]
+    "#);
 }
 
 #[test]

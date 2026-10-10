@@ -136,6 +136,11 @@ The following functions are defined.
   Surround **non-empty** content with texts such as parentheses.
 * `config(name: Stringify) -> Option<ConfigValue>`: Look up configuration
    value by `name`.
+* `revset(revset: Stringify) -> List<Commit>`: Evaluates [a revset](revsets.md).
+
+  The revset is evaluated once during template parsing if its value evaluates to
+  a constant string. Queries built from values that aren't yet known during
+  parsing, for example `self.change_id()`, are evaluated per call at runtime.
 * `git_web_url([remote: String]) -> String`: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
   empty string on failure. SSH host alias resolution is currently unsupported.
@@ -287,7 +292,7 @@ This type cannot be printed. The following methods are defined.
   of this commit. May not be available for some commits.
 * `.immutable() -> Boolean`: True if the commit is included in [the set of
   immutable commits](config.md#set-of-immutable-commits).
-* `.contained_in(revset: StringLiteral) -> Boolean`: True if the commit is included in
+* `.contained_in(revset: Stringify) -> Boolean`: True if the commit is included in
   [the provided revset](revsets.md).
 * `.conflict() -> Boolean`: True if the commit contains merge conflicts.
 * `.empty() -> Boolean`: True if the commit modifies no files.
@@ -693,8 +698,7 @@ A single-quoted string literal has no escape syntax. `'` can't be expressed
 inside a single-quoted string literal.
 
 String literals have their own type so that the value can be validated at parse
-time. For example, `contained_in(revset)` requires a literal so the revset can
-be parsed and checked before the template is evaluated.
+time.
 
 ### `StringPattern` type
 

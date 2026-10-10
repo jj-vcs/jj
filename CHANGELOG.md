@@ -16,6 +16,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `Commit.contained_in()` now accepts a `Stringify` instead of a `StringLiteral`.
+  This enables dynamic query building during templating.
+
+* Templates now have a top-level `revset(revset: Stringify) -> List<Commit>`
+  function for evaluating revsets during templating.
+
 ### Fixed bugs
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
