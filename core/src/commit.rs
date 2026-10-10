@@ -138,13 +138,7 @@ impl Commit {
             return Ok(self.tree());
         }
         let parents = self.parents().await?;
-        if let [parent] = &parents[..] {
-            return Ok(parent.tree());
-        }
-        merge_commit_trees_no_resolve(self.store(), index, &parents)
-            .await?
-            .resolve()
-            .await
+        merge_commit_trees(self.store(), index, &parents).await
     }
 
     /// Returns the parent tree, merging the parent trees if there are multiple
@@ -256,6 +250,22 @@ pub fn conflict_label_for_commits(commits: &[Commit]) -> String {
     }
 }
 
+/// Merges `commits`, resolving conflicts if possible.
+#[instrument(skip(index))]
+pub async fn merge_commit_trees(
+    store: &Arc<Store>,
+    index: &dyn Index,
+    commits: &[Commit],
+) -> BackendResult<MergedTree> {
+    if let [commit] = commits {
+        return Ok(commit.tree());
+    }
+    merge_commit_trees_no_resolve(store, index, commits)
+        .await?
+        .resolve()
+        .await
+}
+
 /// Merges `commits` without attempting to resolve file conflicts.
 #[instrument(skip(index))]
 pub async fn merge_commit_trees_no_resolve(
@@ -364,10 +374,7 @@ pub async fn is_backend_commit_empty(
         return Ok(commit.root_tree == *store.get_commit_async(parent_id).await?.tree_ids());
     }
     let parents = try_join_all(commit.parents.iter().map(|id| store.get_commit_async(id))).await?;
-    let parent_tree = merge_commit_trees_no_resolve(store, index, &parents)
-        .await?
-        .resolve()
-        .await?;
+    let parent_tree = merge_commit_trees(store, index, &parents).await?;
     Ok(commit.root_tree == *parent_tree.tree_ids())
 }
 
