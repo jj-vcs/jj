@@ -104,7 +104,9 @@ primary = {
   // "@" operator cannot be nested
   | symbol ~ at_op ~ symbol
   | symbol ~ at_op
-  | symbol
+  // Lookahead prevents reparsing of <...> in case of input shaped as `a:<...>`, since
+  // that must have already failed, given the pattern rule was already tried above.
+  | !(strict_identifier ~ pattern_kind_op ~ ("(" | "@" | symbol)) ~ symbol
   | at_op
 }
 
