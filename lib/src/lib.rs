@@ -82,6 +82,7 @@ pub mod protos;
 pub use jj_core::ref_name;
 pub use jj_core::refs;
 pub mod repo;
+pub mod repo_factory;
 pub use jj_core::repo_path;
 pub mod revset;
 pub mod rewrite;
