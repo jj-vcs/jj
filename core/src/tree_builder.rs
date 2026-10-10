@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Builder for writing a new tree based on an existing one.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -37,6 +37,7 @@ enum Override {
     Replace(TreeValue),
 }
 
+/// Builds a new tree by applying file changes on top of a base tree.
 #[derive(Debug)]
 pub struct TreeBuilder {
     store: Arc<Store>,
@@ -45,6 +46,7 @@ pub struct TreeBuilder {
 }
 
 impl TreeBuilder {
+    /// Creates a builder with `base_tree_id` as the starting point.
     pub fn new(store: Arc<Store>, base_tree_id: TreeId) -> Self {
         let overrides = BTreeMap::new();
         Self {
@@ -54,20 +56,25 @@ impl TreeBuilder {
         }
     }
 
+    /// The store the tree will be written to.
     pub fn store(&self) -> &Store {
         self.store.as_ref()
     }
 
+    /// Sets the value at `path`, which must not be the root.
     pub fn set(&mut self, path: RepoPathBuf, value: TreeValue) {
         assert!(!path.is_root());
         self.overrides.insert(path, Override::Replace(value));
     }
 
+    /// Removes the entry at `path`, which must not be the root.
     pub fn remove(&mut self, path: RepoPathBuf) {
         assert!(!path.is_root());
         self.overrides.insert(path, Override::Tombstone);
     }
 
+    /// Sets the value at `path` if `value` is `Some`, otherwise removes it.
+    /// `path` must not be the root.
     pub fn set_or_remove(&mut self, path: RepoPathBuf, value: Option<TreeValue>) {
         assert!(!path.is_root());
         if let Some(value) = value {
@@ -77,6 +84,8 @@ impl TreeBuilder {
         }
     }
 
+    /// Writes the modified trees to the store and returns the ID of the new
+    /// root tree. Directories that become empty are removed.
     pub async fn write_tree(self) -> BackendResult<TreeId> {
         if self.overrides.is_empty() {
             return Ok(self.base_tree_id);
