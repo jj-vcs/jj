@@ -12,16 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 #[cfg(feature = "git")]
 use jj_lib::git::GitSubprocessOptions;
+use jj_lib::op_heads_store;
+use jj_lib::op_store::OpStoreError;
 use jj_lib::ref_name::WorkspaceNameBuf;
-#[cfg(feature = "git")]
+use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
+use jj_lib::ui_path::RepoPathUiConverter;
+use jj_lib::working_copy::SnapshotOptions;
+use jj_lib::workspace::Workspace;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::merge_operations;
+use crate::cli_util::print_snapshot_stats;
+use crate::cli_util::short_commit_hash;
+use crate::cli_util::start_repo_transaction;
 use crate::command_error::CommandError;
 use crate::command_error::print_error_sources;
 use crate::command_error::user_error;
@@ -123,25 +134,46 @@ pub async fn cmd_workspace_remove(
         workspaces_to_remove.push((ws_path, ws_workspace));
     }
 
-    // Snapshot each workspace before its directory goes away, so that tracked
-    // working-copy changes that were never committed survive as a commit.
-    // Untracked and ignored files are not part of the snapshot and are lost
-    // along with the directory.
-    let mut op_id = workspace_command.repo().op_id().clone();
+    let auto_tracking_matcher = workspace_command.auto_tracking_matcher(ui)?;
+    let snapshot_options =
+        workspace_command.snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)?;
+
+    let head_repo = workspace_command.repo().clone();
     let mut paths_to_remove = Vec::new();
-    for (abs_path, ws_workspace) in workspaces_to_remove {
-        let op = ws_workspace.repo_loader().load_operation(&op_id).await?;
-        let ws_repo = ws_workspace.repo_loader().load_at(&op).await?;
-        let mut ws_helper = command.for_workable_repo(ui, ws_workspace, ws_repo)?;
-        ws_helper.maybe_snapshot(ui).await?;
-        // Continue from the operation the snapshot created, so that the next
-        // snapshot and the removal itself build on it.
-        op_id = ws_helper.repo().op_id().clone();
+    for (abs_path, mut ws_workspace) in workspaces_to_remove {
+        snapshot_at_workspace_op(
+            ui,
+            command,
+            &head_repo,
+            &mut ws_workspace,
+            &snapshot_options,
+        )
+        .await?;
         paths_to_remove.push(abs_path);
     }
 
+    // A snapshot of a stale working copy diverges from the head operation, so
+    // the operation heads have to be merged back together before the workspaces
+    // can be removed.
+    let loader = head_repo.loader();
+    let op = op_heads_store::resolve_op_heads(
+        loader.op_heads_store().as_ref(),
+        loader.op_store(),
+        async |op_heads| {
+            merge_operations(
+                None,
+                loader,
+                op_heads,
+                Some(workspace_command.workspace_name()),
+                Some("reconcile working-copy snapshots"),
+                command.string_args(),
+            )
+            .await
+        },
+    )
+    .await?;
+
     let workspace = command.load_workspace()?;
-    let op = workspace.repo_loader().load_operation(&op_id).await?;
     let repo = workspace.repo_loader().load_at(&op).await?;
     workspace_command = command.for_workable_repo(ui, workspace, repo)?;
 
@@ -185,5 +217,83 @@ pub async fn cmd_workspace_remove(
         }
     }
 
+    Ok(())
+}
+
+/// Snapshots the working-copy files of `workspace` into a new commit, so that
+/// they aren't lost when the workspace directory is removed.
+///
+/// The snapshot operation is written on top of the operation the working copy
+/// was last updated to, which may leave divergent operation heads behind.
+#[instrument(skip_all)]
+async fn snapshot_at_workspace_op(
+    ui: &Ui,
+    command: &CommandHelper,
+    head_repo: &Arc<ReadonlyRepo>,
+    workspace: &mut Workspace,
+    options: &SnapshotOptions<'_>,
+) -> Result<(), CommandError> {
+    let workspace_name = workspace.workspace_name().to_owned();
+    let workspace_root = workspace.workspace_root().to_owned();
+    // Snapshot onto the operation this working copy was last updated to. The
+    // working copy may be stale, in which case the commit it was updated to has
+    // since been rewritten, and snapshotting onto the head operation would
+    // apply the on-disk changes to the wrong commit.
+    let wc_op_id = workspace.working_copy().operation_id().clone();
+    let repo = match workspace.repo_loader().load_operation(&wc_op_id).await {
+        Ok(wc_op) => workspace.repo_loader().load_at(&wc_op).await?,
+        Err(err @ OpStoreError::ObjectNotFound { .. }) => {
+            writeln!(
+                ui.warning_default(),
+                "Failed to read the operation workspace {} was updated to; snapshotting onto its \
+                 current working-copy commit instead. Error message from read attempt: {err}",
+                workspace_name.as_symbol(),
+            )?;
+            head_repo.clone()
+        }
+        Err(err) => return Err(err.into()),
+    };
+    let Some(wc_commit_id) = repo.view().get_wc_commit_id(&workspace_name) else {
+        return Ok(());
+    };
+    let wc_commit = repo.store().get_commit_async(wc_commit_id).await?;
+
+    let mut locked_ws = workspace.start_working_copy_mutation().await?;
+    let (new_tree, stats) = {
+        let progress = crate::progress::snapshot_progress(ui);
+        let options = SnapshotOptions {
+            progress: progress.as_ref().map(|x| x as _),
+            ..options.clone()
+        };
+        locked_ws.locked_wc().snapshot(&options).await?
+    };
+    let path_converter = RepoPathUiConverter::Fs {
+        cwd: command.cwd().to_owned(),
+        base: workspace_root,
+    };
+    print_snapshot_stats(ui, &stats, &path_converter)?;
+    if new_tree.tree_ids_and_labels() == wc_commit.tree().tree_ids_and_labels() {
+        return Ok(());
+    }
+
+    // The new commit isn't checked out because the workspace directory is about
+    // to be removed. It's written as a child of the working-copy commit instead
+    // of rewriting it, so that the preserved changes don't disappear if that
+    // commit is immutable or has descendants.
+    let mut tx = start_repo_transaction(&repo, &workspace_name, command.string_args());
+    tx.set_is_snapshot(true);
+    let new_commit = tx
+        .repo_mut()
+        .new_commit(vec![wc_commit.id().clone()], new_tree)
+        .set_description("RECOVERY COMMIT FROM `jj workspace remove`\n")
+        .write()
+        .await?;
+    tx.commit("snapshot working copy").await?;
+    writeln!(
+        ui.status(),
+        "Preserved working-copy changes of workspace {} in commit {}.",
+        workspace_name.as_symbol(),
+        short_commit_hash(new_commit.id()),
+    )?;
     Ok(())
 }
