@@ -2110,6 +2110,26 @@ fn test_check_out_existing_file_replaced_with_directory() -> TestResult {
     Ok(())
 }
 
+#[cfg(windows)]
+#[test]
+fn test_check_out_windows_reserved_path() -> TestResult {
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let path = repo_path("NUL");
+    assert!(path.has_windows_unsupported_component());
+    let tree = create_tree(repo, &[(path, "contents")]);
+    let commit = commit_with_tree(repo.store(), tree.clone());
+
+    let stats = test_workspace
+        .workspace
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()?;
+    assert_eq!(stats.skipped_files, 1);
+    let (snapshot, _) = test_workspace.snapshot_with_options(&empty_snapshot_options())?;
+    assert_tree_eq!(snapshot, tree);
+    Ok(())
+}
+
 #[test]
 fn test_check_out_existing_directory_symlink() -> TestResult {
     if !check_symlink_support()? {

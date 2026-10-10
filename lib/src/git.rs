@@ -2101,9 +2101,27 @@ async fn reset_index(
         } else {
             // If the parent tree is resolved, we can use gix's `index_from_tree` method.
             // This is more efficient than iterating over the tree and adding each entry.
-            git_repo
-                .index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))
-                .map_err(GitResetHeadError::from_git)?
+            match git_repo.index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))
+            {
+                Ok(index) => index,
+                Err(err) if cfg!(windows) => {
+                    let has_reserved_path = parent_tree.entries().try_fold(
+                        false,
+                        |found, (path, entry)| -> Result<_, GitResetHeadError> {
+                            entry?;
+                            Ok(found || path.has_windows_unsupported_component())
+                        },
+                    )?;
+                    if has_reserved_path {
+                        // gix rejects Windows device names while constructing
+                        // an index from a tree. Omit those paths instead.
+                        build_index_from_merged_tree(git_repo, &parent_tree)?
+                    } else {
+                        return Err(GitResetHeadError::from_git(err));
+                    }
+                }
+                Err(err) => return Err(GitResetHeadError::from_git(err)),
+            }
         }
     } else {
         build_index_from_merged_tree(git_repo, &parent_tree)?
@@ -2145,6 +2163,9 @@ fn build_index_from_merged_tree(
 
     let mut push_index_entry =
         |path: &RepoPath, maybe_entry: &Option<TreeValue>, stage: gix::index::entry::Stage| {
+            if cfg!(windows) && path.has_windows_unsupported_component() {
+                return;
+            }
             let Some(entry) = maybe_entry else {
                 return;
             };
