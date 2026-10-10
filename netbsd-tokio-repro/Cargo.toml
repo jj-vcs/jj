@@ -1,0 +1,9 @@
+[package]
+name = "netbsd-tokio-repro"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "=1.53.2", features = ["macros", "process", "rt-multi-thread"] }
+
+[workspace]

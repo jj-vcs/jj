@@ -1,0 +1,26 @@
+name: Temporary NetBSD Tokio child-stdio repro
+
+on:
+  push:
+    branches:
+      - kg290/netbsd-tokio-repro
+
+permissions:
+  contents: read
+
+jobs:
+  repro:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run minimal Tokio child-stdio repro on NetBSD 11
+        uses: vmactions/netbsd-vm@v1.4.6
+        with:
+          release: "11"
+          usesh: true
+          prepare: |
+            /usr/sbin/pkg_add -u rust
+          run: |
+            export PATH="/usr/pkg/bin:/usr/pkg/sbin:$PATH"
+            cd "$GITHUB_WORKSPACE/netbsd-tokio-repro"
+            cargo run
