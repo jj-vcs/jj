@@ -260,6 +260,17 @@ impl GitSubprocessContext {
     ) -> Result<GitPushStats, GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
+        if let Some(color) = callback.use_sideband_colors() {
+            // stderr is piped, so Git can't detect the consumer's terminal.
+            command.args([
+                "-c",
+                if color {
+                    "color.remote=always"
+                } else {
+                    "color.remote=never"
+                },
+            ]);
+        }
         // Currently jj does not support commit hooks, so we prevent git from running
         // them
         //
@@ -741,6 +752,14 @@ fn parse_git_push_output(output: Output) -> Result<GitPushStats, GitSubprocessEr
 pub trait GitSubprocessCallback {
     /// Whether to request progress information.
     fn needs_progress(&self) -> bool;
+
+    /// Whether Git should highlight keywords in remote sideband messages on push.
+    ///
+    /// `None` preserves Git's color configuration. This does not affect color
+    /// codes sent by the remote.
+    fn use_sideband_colors(&self) -> Option<bool> {
+        None
+    }
 
     /// Progress of local and remote operations.
     fn progress(&mut self, progress: &GitProgress) -> io::Result<()>;
