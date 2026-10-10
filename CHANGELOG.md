@@ -19,6 +19,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Diff hunk headers now include symbol context even for unsupported languages.
 
 ### Fixed bugs
+* `jj run` now captures subprocess output through temporary files on NetBSD,
+  where Tokio cannot poll child output pipes.
+  [#10342](https://github.com/jj-vcs/jj/issues/10342)
+
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
