@@ -1245,6 +1245,14 @@ fn print_error(
     Ok(())
 }
 
+/// Prints a non-fatal command error as a warning, including its sources and hints.
+pub(crate) fn print_command_warning(ui: &Ui, error: &CommandError) -> io::Result<()> {
+    writeln!(ui.warning_default(), "{}", error.error)?;
+    print_error_sources(ui, error.error.source())?;
+    print_error_hints(ui, &error.hints)?;
+    Ok(())
+}
+
 /// Prints error sources one by one from the given `source` inclusive.
 pub fn print_error_sources(ui: &Ui, source: Option<&dyn error::Error>) -> io::Result<()> {
     let Some(err) = source else {

@@ -3216,9 +3216,12 @@ $ jj run -j 4 -- pre-commit run .github/pre-commit.yaml
    This option permits running on immutable commits without passing `--ignore-immutable`.
 * `--ignore-errors` — Continue with remaining revisions when a command's exit code indicates failure
 
-   Any changes made by a failed command will not be saved, but changes from successful commands are still applied atomically at the end.
+   Any changes made by a failed command will not be saved (unless --keep-changes is specified), but changes from successful commands are still applied atomically at the end.
 
-   The exit code from any failed command will not impact the exit code of `jj run` itself.
+   If a command fails, keep its changes and continue with the remaining revisions. `jj run` exits with an error if any command failed, unless --ignore-errors is also specified.
+* `--keep-changes` — Keep any changes made by the command, even on failure
+
+   Any changes made by a failed command will be kept as if the command succeeded. However, the exit code of the failed command will still impact the exit code of `jj run`.
 * `--sparse-patterns <SPARSE_PATTERNS>` — How to handle sparse patterns when running the command. This is controlled per `jj run` invocation.
 
    If sparse patterns were inherited in a run and a subsequent run is passed `--sparse-args full`, but no `--clean`, then the command will run in fully materialized workspace together with all artifacts left from the previous run.

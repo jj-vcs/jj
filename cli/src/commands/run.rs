@@ -70,6 +70,7 @@ use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
 use crate::command_error::CommandErrorKind;
+use crate::command_error::print_command_warning;
 use crate::commands::workspace::SparseInheritance;
 use crate::ui::Ui;
 
@@ -89,6 +90,8 @@ enum RunError {
     },
     #[error("the command '{}' failed with {}", .0, .1)]
     CommandFailure(String, ExitStatus),
+    #[error("the command '{}' failed {} time(s).", .0, .1)]
+    MultipleCommandsFailure(String, u64),
     #[error(transparent)]
     IoError(#[from] io::Error),
     #[error("failed to create path {}: {}", .0.to_string_lossy(), .1)]
@@ -437,6 +440,7 @@ async fn run_inner(
     jobs: usize,
     passthrough: bool,
     ignore_errors: bool,
+    keep_changes: bool,
 ) -> Result<(), RunError> {
     let base_ignores = tx.base_workspace_helper().base_ignores().unwrap().clone();
     let mut command_futures: JoinSet<Result<RunJob, RunError>> = JoinSet::new();
@@ -453,7 +457,10 @@ async fn run_inner(
             let commit = commit.clone();
             let spec = spec.clone();
             command_futures.spawn_on(
-                async move { rewrite_commit(base_ignores, pool, commit, spec, passthrough).await },
+                async move {
+                    rewrite_commit(base_ignores, pool, commit, spec, passthrough, keep_changes)
+                        .await
+                },
                 handle,
             );
         }
@@ -474,7 +481,7 @@ async fn run_inner(
             );
             break;
         }
-        if failed && !ignore_errors {
+        if failed && !ignore_errors && !keep_changes {
             // Kill any running processes and wait for them to exit so we don't
             // leave zombie processes, which may not get cleaned up by Tokio
             // before our process exits
@@ -493,6 +500,7 @@ async fn rewrite_commit(
     commit: Commit,
     spec: Arc<CommandSpec>,
     passthrough: bool,
+    keep_changes: bool,
 ) -> Result<RunJob, RunError> {
     let mut workspace = pool.acquire(&commit, base_ignores.clone()).await?;
     let working_copy_dir = workspace.working_copy_dir.clone();
@@ -582,7 +590,7 @@ async fn rewrite_commit(
         );
     }
 
-    if !output.status.success() {
+    if !output.status.success() && !keep_changes {
         // Remove non-ignored untracked files left by the command. Ignored paths
         // are absent from `untracked_paths` and survive for build-artifact reuse.
         // This keeps the slot free of stale files that would cause silent
@@ -602,7 +610,7 @@ async fn rewrite_commit(
     // so the slot is reusable even when the command failed.
     workspace.persist()?;
 
-    let new_tree = if output.status.success() {
+    let new_tree = if output.status.success() || keep_changes {
         // Keep the snapshot as-is. The command may have left (or introduced) a
         // conflict, and jj stores conflicts in the tree, so preserve the whole
         // `MergedTree` rather than assuming it resolved to a single tree.
@@ -715,13 +723,23 @@ pub struct RunArgs {
     /// Continue with remaining revisions when a command's exit code indicates
     /// failure
     ///
-    /// Any changes made by a failed command will not be saved, but changes from
-    /// successful commands are still applied atomically at the end.
+    /// Any changes made by a failed command will not be saved (unless --keep-changes
+    /// is specified), but changes from successful commands are still applied atomically
+    /// at the end.
     ///
-    /// The exit code from any failed command will not impact the exit code of
-    /// `jj run` itself.
+    /// If a command fails, keep its changes and continue with the remaining
+    /// revisions. `jj run` exits with an error if any command failed, unless
+    /// --ignore-errors is also specified.
     #[arg(long)]
     ignore_errors: bool,
+
+    /// Keep any changes made by the command, even on failure
+    ///
+    /// Any changes made by a failed command will be kept as if the command
+    /// succeeded. However, the exit code of the failed command will still impact
+    /// the exit code of `jj run`.
+    #[arg(long)]
+    keep_changes: bool,
 
     /// How to handle sparse patterns when running the command. This is
     /// controlled per `jj run` invocation.
@@ -863,6 +881,8 @@ pub async fn cmd_run(
     });
     let mut rewritten_commits = HashMap::new();
 
+    let mut command_error_count = 0;
+
     // Drive the producer (run_inner) and consumer (receive loop) concurrently
     // so that each subprocess's output is emitted as soon as it finishes rather
     // than after all subprocesses complete.
@@ -878,6 +898,7 @@ pub async fn cmd_run(
                 jobs.get(),
                 args.passthrough,
                 args.ignore_errors,
+                args.keep_changes,
             )
             .await
             .map_err(CommandError::from)
@@ -913,7 +934,12 @@ pub async fn cmd_run(
                                 write!(formatter, "Failed revision: ")?;
                                 tx.write_commit_summary(formatter, &commit)
                             });
-                            return Err(error);
+                            if !args.keep_changes {
+                                return Err(error);
+                            }
+
+                            print_command_warning(ui, &error)?;
+                            command_error_count += 1;
                         }
                     }
                     if let Some(new_tree) = res.new_tree
@@ -930,6 +956,12 @@ pub async fn cmd_run(
     // The operation was a no-op, bail.
     if args.ignore_changes || rewritten_commits.is_empty() {
         tx.finish(ui, "run: nothing changed").await?;
+
+        if command_error_count > 0 {
+            return Err(
+                RunError::MultipleCommandsFailure(spec.to_string(), command_error_count).into(),
+            );
+        }
         return Ok(());
     }
 
@@ -995,5 +1027,10 @@ pub async fn cmd_run(
     tx.finish(ui, format!("run: rewrite {count} commits"))
         .await?;
 
+    if command_error_count > 0 {
+        return Err(
+            RunError::MultipleCommandsFailure(spec.to_string(), command_error_count).into(),
+        );
+    }
     Ok(())
 }
