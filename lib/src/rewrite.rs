@@ -26,7 +26,6 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use tracing::instrument;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
@@ -52,16 +51,8 @@ use crate::revset::RevsetExpression;
 use crate::revset::RevsetStreamExt as _;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.
-#[instrument(skip(repo))]
 pub async fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendResult<MergedTree> {
-    if let [commit] = commits {
-        Ok(commit.tree())
-    } else {
-        merge_commit_trees_no_resolve(repo, commits)
-            .await?
-            .resolve()
-            .await
-    }
+    crate::commit::merge_commit_trees(repo.store(), repo.index(), commits).await
 }
 
 /// Merges `commits` without attempting to resolve file conflicts.
