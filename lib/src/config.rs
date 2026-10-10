@@ -20,6 +20,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::fs;
 use std::io;
+use std::io::Write as _;
 use std::ops::Range;
 use std::path::Path;
 use std::path::PathBuf;
@@ -31,6 +32,7 @@ use std::sync::LazyLock;
 use itertools::Itertools as _;
 use serde::Deserialize;
 use serde::de::IntoDeserializer as _;
+use tempfile::NamedTempFile;
 use thiserror::Error;
 use toml_edit::Document;
 use toml_edit::DocumentMut;
@@ -43,6 +45,8 @@ pub use crate::config_resolver::migrate;
 pub use crate::config_resolver::resolve;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+#[cfg(not(windows))]
+use crate::file_util::persist_temp_file;
 
 /// Config value or table node.
 pub type ConfigItem = toml_edit::Item;
@@ -591,11 +595,37 @@ impl ConfigFile {
         }
     }
 
+    /// Reloads the file content, discarding any unsaved modification.
+    pub fn reload(&mut self) -> Result<(), ConfigLoadError> {
+        let source = self.layer.source;
+        let path = self.path().to_path_buf();
+        *self = Self::load_or_empty(source, path)?;
+        Ok(())
+    }
+
     /// Writes serialized data to the source file.
     pub fn save(&self) -> Result<(), ConfigFileSaveError> {
-        fs::write(self.path(), self.layer.data.to_string())
-            .context(self.path())
-            .map_err(ConfigFileSaveError)
+        // Write through a temporary file so a concurrent reader never sees a
+        // partially written file.
+        let dir = self.path().parent().expect("config path must be a file");
+        let temp_file = NamedTempFile::new_in(dir)
+            .context(dir)
+            .map_err(ConfigFileSaveError)?;
+        temp_file
+            .as_file()
+            .write_all(self.layer.data.to_string().as_bytes())
+            .context(temp_file.path())
+            .map_err(ConfigFileSaveError)?;
+        #[cfg(windows)]
+        let result = persist_config_temp_file(
+            temp_file,
+            self.path(),
+            crate::lock::backoff::BackoffIterator::new(),
+        );
+        #[cfg(not(windows))]
+        let result = persist_temp_file(temp_file, self.path());
+        result.context(self.path()).map_err(ConfigFileSaveError)?;
+        Ok(())
     }
 
     /// Source file path.
@@ -630,6 +660,36 @@ impl ConfigFile {
         name: impl ToConfigNamePath,
     ) -> Result<Option<ConfigValue>, ConfigUpdateError> {
         Arc::make_mut(&mut self.layer).delete_value(name)
+    }
+}
+
+#[cfg(windows)]
+fn persist_config_temp_file(
+    mut temp_file: NamedTempFile,
+    path: &Path,
+    mut retry_delays: impl Iterator<Item = std::time::Duration>,
+) -> io::Result<fs::File> {
+    const ERROR_ACCESS_DENIED: i32 = 5;
+    const ERROR_SHARING_VIOLATION: i32 = 32;
+    temp_file.as_file().sync_data()?;
+    loop {
+        match temp_file.persist(path) {
+            Ok(file) => return Ok(file),
+            Err(error) => {
+                if !matches!(
+                    error.error.raw_os_error(),
+                    Some(ERROR_ACCESS_DENIED | ERROR_SHARING_VIOLATION)
+                ) || fs::metadata(path).is_ok_and(|metadata| metadata.permissions().readonly())
+                {
+                    return Err(error.error);
+                }
+                let Some(delay) = retry_delays.next() else {
+                    return Err(error.error);
+                };
+                temp_file = error.file;
+                std::thread::sleep(delay);
+            }
+        }
     }
 }
 
@@ -915,12 +975,99 @@ static DEFAULT_CONFIG_LAYERS: LazyLock<[Arc<ConfigLayer>; 1]> = LazyLock::new(||
 #[cfg(test)]
 mod tests {
     use std::assert_matches;
+    #[cfg(windows)]
+    use std::os::windows::fs::OpenOptionsExt as _;
 
     use indoc::indoc;
     use pretty_assertions::assert_eq;
 
     use super::*;
     use crate::tests::TestResult;
+
+    #[cfg(windows)]
+    #[test]
+    fn test_persist_config_temp_file_concurrent_reader() -> TestResult {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("config.toml");
+        fs::write(&path, "value = 1\n")?;
+        let reader = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&path)?;
+        let mut temp_file = NamedTempFile::new_in(dir.path())?;
+        temp_file.write_all(b"value = 2\n")?;
+        let mut retries = 0;
+        let retry_delays = std::iter::once_with(|| {
+            retries += 1;
+            drop(reader);
+            std::time::Duration::ZERO
+        });
+        persist_config_temp_file(temp_file, &path, retry_delays)?;
+        assert_eq!(retries, 1);
+        assert_eq!(fs::read_to_string(&path)?, "value = 2\n");
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_persist_config_temp_file_retry_exhausted() -> TestResult {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("config.toml");
+        fs::write(&path, "value = 1\n")?;
+        let reader = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&path)?;
+        let mut temp_file = NamedTempFile::new_in(dir.path())?;
+        temp_file.write_all(b"value = 2\n")?;
+        let error =
+            persist_config_temp_file(temp_file, &path, std::iter::once(std::time::Duration::ZERO))
+                .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        drop(reader);
+        assert_eq!(fs::read_to_string(&path)?, "value = 1\n");
+        assert_eq!(fs::read_dir(dir.path())?.count(), 1);
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_persist_config_temp_file_readonly() -> TestResult {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("config.toml");
+        fs::write(&path, "value = 1\n")?;
+        let original_permissions = fs::metadata(&path)?.permissions();
+        let mut permissions = original_permissions.clone();
+        permissions.set_readonly(true);
+        fs::set_permissions(&path, permissions)?;
+        let mut temp_file = NamedTempFile::new_in(dir.path())?;
+        temp_file.write_all(b"value = 2\n")?;
+        let retry_delays = std::iter::from_fn(|| -> Option<std::time::Duration> {
+            panic!("a readonly file must not be retried")
+        });
+        let error = persist_config_temp_file(temp_file, &path, retry_delays).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(fs::read_to_string(&path)?, "value = 1\n");
+        assert_eq!(fs::read_dir(dir.path())?.count(), 1);
+        fs::set_permissions(&path, original_permissions)?;
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_persist_config_temp_file_other_error() -> TestResult {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("missing").join("config.toml");
+        let mut temp_file = NamedTempFile::new_in(dir.path())?;
+        temp_file.write_all(b"value = 2\n")?;
+        let retry_delays = std::iter::from_fn(|| -> Option<std::time::Duration> {
+            panic!("a missing directory must not be retried")
+        });
+        let error = persist_config_temp_file(temp_file, &path, retry_delays).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::NotFound);
+        assert_eq!(fs::read_dir(dir.path())?.count(), 0);
+        Ok(())
+    }
 
     #[test]
     fn test_config_layer_set_value() -> TestResult {
