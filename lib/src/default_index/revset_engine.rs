@@ -45,7 +45,7 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MillisSinceEpoch;
 use crate::commit::Commit;
-use crate::commit::merge_commit_trees_no_resolve_without_repo;
+use crate::commit::merge_commit_trees_no_resolve;
 use crate::conflict_labels::ConflictLabels;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_tree_value;
@@ -1439,7 +1439,7 @@ async fn has_diff_from_parent(
     }
 
     // Conflict resolution is expensive, try that only for matched files.
-    let from_tree = merge_commit_trees_no_resolve_without_repo(store, index, &parents).await?;
+    let from_tree = merge_commit_trees_no_resolve(store, index, &parents).await?;
     let to_tree = commit.tree();
     // TODO: handle copy tracking
     let mut tree_diff = from_tree.diff_stream(&to_tree, matcher);
@@ -1465,7 +1465,7 @@ async fn matches_diff_from_parent(
 ) -> BackendResult<bool> {
     let parents = commit.parents().await?;
     // Conflict resolution is expensive, try that only for matched files.
-    let from_tree = merge_commit_trees_no_resolve_without_repo(store, index, &parents).await?;
+    let from_tree = merge_commit_trees_no_resolve(store, index, &parents).await?;
     let to_tree = commit.tree();
     // TODO: handle copy tracking
     let mut tree_diff = from_tree.diff_stream(&to_tree, files_matcher);
