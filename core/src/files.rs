@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Line-based diffing and merging of file contents.
 
 use std::borrow::Borrow;
 use std::collections::VecDeque;
@@ -33,23 +33,28 @@ use crate::merge::SameChange;
 /// A diff line which may contain small hunks originating from both sides.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct DiffLine<'a> {
+    /// The line numbers on each side.
     pub line_number: DiffLineNumber,
+    /// The hunks in the line and which side each belongs to.
     pub hunks: Vec<(DiffLineHunkSide, &'a BStr)>,
 }
 
 impl DiffLine<'_> {
+    /// Returns whether the line has content on the left side.
     pub fn has_left_content(&self) -> bool {
         self.hunks
             .iter()
             .any(|&(side, _)| side != DiffLineHunkSide::Right)
     }
 
+    /// Returns whether the line has content on the right side.
     pub fn has_right_content(&self) -> bool {
         self.hunks
             .iter()
             .any(|&(side, _)| side != DiffLineHunkSide::Left)
     }
 
+    /// Returns whether the line is the same on both sides.
     pub fn is_unmodified(&self) -> bool {
         self.hunks
             .iter()
@@ -64,20 +69,27 @@ impl DiffLine<'_> {
     }
 }
 
+/// 1-based line numbers on each side of a diff.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DiffLineNumber {
+    /// The line number on the left side.
     pub left: u32,
+    /// The line number on the right side.
     pub right: u32,
 }
 
 /// Which side a `DiffLine` hunk belongs to?
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DiffLineHunkSide {
+    /// The hunk is the same on both sides.
     Both,
+    /// The hunk is only on the left side.
     Left,
+    /// The hunk is only on the right side.
     Right,
 }
 
+/// Iterator that splits two-sided diff hunks into [`DiffLine`]s.
 pub struct DiffLineIterator<'a, I> {
     diff_hunks: iter::Fuse<I>,
     current_line: DiffLine<'a>,
@@ -208,8 +220,11 @@ where
 /// Diff hunk that may be unresolved conflicts.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConflictDiffHunk<'input> {
+    /// Whether the left and right contents are the same.
     pub kind: DiffHunkKind,
+    /// The contents on the left side.
     pub lefts: Merge<&'input BStr>,
+    /// The contents on the right side.
     pub rights: Merge<&'input BStr>,
 }
 
