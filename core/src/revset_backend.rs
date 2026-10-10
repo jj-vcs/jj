@@ -17,8 +17,6 @@
 //! The revset language (parsing, symbol resolution, optimization) lives in
 //! `crate::revset`.
 
-#![expect(missing_docs)]
-
 use std::any::Any;
 use std::fmt;
 use std::ops::Range;
@@ -43,8 +41,10 @@ use crate::time_util::DatePattern;
 /// Error occurred during revset evaluation.
 #[derive(Debug, Error)]
 pub enum RevsetEvaluationError {
+    /// Error from the commit backend.
     #[error("Unexpected error from commit backend")]
     Backend(#[from] BackendError),
+    /// Any other error.
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
 }
@@ -52,6 +52,7 @@ pub enum RevsetEvaluationError {
 impl RevsetEvaluationError {
     // TODO: Create a higher-level error instead of putting non-BackendErrors in a
     // BackendError
+    /// Converts this error into a [`BackendError`].
     pub fn into_backend_error(self) -> BackendError {
         match self {
             Self::Backend(err) => err,
@@ -60,10 +61,13 @@ impl RevsetEvaluationError {
     }
 }
 
+/// Generation range that includes all generations.
 // assumes index has less than u64::MAX entries.
 pub const GENERATION_RANGE_FULL: Range<u64> = 0..u64::MAX;
+/// Generation range that includes no generations.
 pub const GENERATION_RANGE_EMPTY: Range<u64> = 0..0;
 
+/// Parents range that includes all parents.
 pub const PARENTS_RANGE_FULL: Range<u32> = 0..u32::MAX;
 
 /// A custom revset filter expression, defined by an extension.
@@ -80,12 +84,17 @@ impl dyn RevsetFilterExtension {
 }
 
 #[derive(Eq, Copy, Clone, Debug, PartialEq)]
+/// Which side of a diff a line must be on to match.
 pub enum DiffMatchSide {
+    /// Lines on either side (added or removed lines).
     Either,
+    /// Lines on the left side (removed lines).
     Left,
+    /// Lines on the right side (added lines).
     Right,
 }
 
+/// Predicate that can be tested against individual commits.
 #[derive(Clone, Debug)]
 pub enum RevsetFilterPredicate {
     /// Commits with number of parents in the range.
@@ -110,8 +119,11 @@ pub enum RevsetFilterPredicate {
     File(FilesetExpression),
     /// Commits containing diffs matching the `text` pattern within the `files`.
     DiffLines {
+        /// Pattern to match changed lines against.
         text: StringExpression,
+        /// Files to search for changed lines in.
         files: FilesetExpression,
+        /// Which side of the diff the lines must be on.
         side: DiffMatchSide,
     },
     /// Commits with conflicts
@@ -122,18 +134,25 @@ pub enum RevsetFilterPredicate {
     Extension(Arc<dyn RevsetFilterExtension>),
 }
 
+/// Resolved predicate expression, used to filter candidate commits.
 #[derive(Clone, Debug)]
 pub enum ResolvedPredicateExpression {
     /// Pure filter predicate.
     Filter(RevsetFilterPredicate),
+    /// Commits whose change ID is divergent, i.e. has multiple visible
+    /// commits.
     Divergent {
+        /// Visible heads, used to determine which commits are visible.
         visible_heads: Vec<CommitId>,
     },
     /// Set expression to be evaluated as filter. This is typically a subtree
     /// node of `Union` with a pure filter predicate.
     Set(Box<ResolvedExpression>),
+    /// Commits not matching the predicate.
     NotIn(Box<Self>),
+    /// Commits matching either predicate.
     Union(Box<Self>, Box<Self>),
+    /// Commits matching both predicates.
     Intersection(Box<Self>, Box<Self>),
 }
 
@@ -146,70 +165,114 @@ pub enum ResolvedPredicateExpression {
 // TODO: rename to BackendExpression?
 #[derive(Clone, Debug)]
 pub enum ResolvedExpression {
+    /// The specified commits.
     Commits(Vec<CommitId>),
+    /// Ancestors of `heads`, including `heads` themselves.
     Ancestors {
+        /// Commits to start traversing from.
         heads: Box<Self>,
+        /// Range of generations to include, where `heads` are generation 0.
         generation: Range<u64>,
+        /// Range of parent indices to follow (e.g. `0..1` for first parents).
         parents_range: Range<u32>,
     },
     /// Commits that are ancestors of `heads` but not ancestors of `roots`.
     Range {
+        /// Commits whose ancestors are excluded.
         roots: Box<Self>,
+        /// Commits whose ancestors are included.
         heads: Box<Self>,
+        /// Range of generations to include, where `heads` are generation 0.
         generation: Range<u64>,
-        // Parents range is only used for traversing heads, not roots
+        /// Range of parent indices to follow when traversing from `heads`.
+        /// Not used for traversing from `roots`.
         parents_range: Range<u32>,
     },
     /// Commits that are descendants of `roots` and ancestors of `heads`.
     DagRange {
+        /// Commits whose descendants are included.
         roots: Box<Self>,
+        /// Commits whose ancestors are included.
         heads: Box<Self>,
+        /// Range of generations to include, where `roots` are generation 0.
         generation_from_roots: Range<u64>,
     },
     /// Commits reachable from `sources` within `domain`.
     Reachable {
+        /// Commits to start traversing from.
         sources: Box<Self>,
+        /// Commits that may be traversed.
         domain: Box<Self>,
     },
+    /// Commits in the set that are not ancestors of other commits in the set.
     Heads(Box<Self>),
     /// Heads of the set of commits which are ancestors of `heads` but are not
     /// ancestors of `roots`, and which also are contained in `filter`.
     HeadsRange {
+        /// Commits whose ancestors are excluded.
         roots: Box<Self>,
+        /// Commits whose ancestors are included.
         heads: Box<Self>,
+        /// Range of parent indices to follow when traversing from `heads`.
         parents_range: Range<u32>,
+        /// Predicate the resulting heads must match, if any.
         filter: Option<ResolvedPredicateExpression>,
     },
+    /// Commits in the set that are not descendants of other commits in the
+    /// set.
     Roots(Box<Self>),
+    /// Ancestors of `heads` that have more than one child.
     Forks {
+        /// Commits whose ancestors are considered.
         heads: Box<Self>,
     },
+    /// Common ancestors of all commits in the set that are not ancestors of
+    /// other common ancestors.
     ForkPoint(Box<Self>),
+    /// Common descendants of all commits in `roots` that are not descendants
+    /// of other common descendants.
     MergePoint {
+        /// Commits whose common descendants are searched for.
         roots: Box<Self>,
+        /// Visible heads, used to limit the descendants to visible commits.
         visible_heads: Box<Self>,
     },
+    /// A commit roughly in the middle of the set, for bisection.
     Bisect(Box<Self>),
+    /// The `candidates` set, or an error if it doesn't have exactly `count`
+    /// commits.
     HasSize {
+        /// Commits to count.
         candidates: Box<Self>,
+        /// Expected number of commits.
         count: usize,
     },
+    /// The `count` commits in `candidates` with the latest committer
+    /// timestamps.
     Latest {
+        /// Commits to select from.
         candidates: Box<Self>,
+        /// Maximum number of commits to select.
         count: usize,
     },
+    /// The first set if it's non-empty, otherwise the second set.
     Coalesce(Box<Self>, Box<Self>),
+    /// Commits in either set.
     Union(Box<Self>, Box<Self>),
     /// Intersects `candidates` with `predicate` by filtering.
     FilterWithin {
+        /// Commits to filter.
         candidates: Box<Self>,
+        /// Predicate the commits must match.
         predicate: ResolvedPredicateExpression,
     },
     /// Intersects expressions by merging.
     Intersection(Box<Self>, Box<Self>),
+    /// Commits in the first set but not in the second set.
     Difference(Box<Self>, Box<Self>),
 }
 
+/// Result of evaluating a revset expression.
 pub trait Revset: fmt::Debug {
     /// Streams in topological order with children before parents.
     // TODO: Relax to BoxStream?
@@ -255,7 +318,9 @@ pub trait Revset: fmt::Debug {
 pub type RevsetContainingFn<'a> =
     dyn Fn(&CommitId) -> LocalBoxFuture<'a, Result<bool, RevsetEvaluationError>> + 'a;
 
+/// Extension methods for streams of commit IDs from a [`Revset`].
 pub trait RevsetStreamExt {
+    /// Loads the commits from the store.
     fn commits(
         self,
         store: &Arc<Store>,
