@@ -32,6 +32,10 @@ and this project adheres to
 * Templates now have a top-level `revset(revset: Stringify) -> List<Commit>`
   function for evaluating revsets during templating.
 
+* `jj run` supports `--keep-changes` flag to keep changes made by a command
+  even if it fails. This can be wanted behavior when using tools like `Prek`
+  or `pre-commit`. `
+
 ### Fixed bugs
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,

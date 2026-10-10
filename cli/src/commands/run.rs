@@ -432,6 +432,7 @@ async fn run_inner(
     jobs: usize,
     passthrough: bool,
     ignore_errors: bool,
+    keep_changes: bool,
 ) -> Result<(), RunError> {
     let base_ignores = tx.base_workspace_helper().base_ignores().unwrap().clone();
     let mut command_futures: JoinSet<Result<RunJob, RunError>> = JoinSet::new();
@@ -448,7 +449,10 @@ async fn run_inner(
             let commit = commit.clone();
             let spec = spec.clone();
             command_futures.spawn_on(
-                async move { rewrite_commit(base_ignores, pool, commit, spec, passthrough).await },
+                async move {
+                    rewrite_commit(base_ignores, pool, commit, spec, passthrough, keep_changes)
+                        .await
+                },
                 handle,
             );
         }
@@ -488,6 +492,7 @@ async fn rewrite_commit(
     commit: Commit,
     spec: Arc<CommandSpec>,
     passthrough: bool,
+    keep_changes: bool,
 ) -> Result<RunJob, RunError> {
     let mut workspace = pool.acquire(&commit, base_ignores.clone()).await?;
     let working_copy_dir = workspace.working_copy_dir.clone();
@@ -597,7 +602,7 @@ async fn rewrite_commit(
     // so the slot is reusable even when the command failed.
     workspace.persist()?;
 
-    let new_tree = if output.status.success() {
+    let new_tree = if output.status.success() || keep_changes {
         // Keep the snapshot as-is. The command may have left (or introduced) a
         // conflict, and jj stores conflicts in the tree, so preserve the whole
         // `MergedTree` rather than assuming it resolved to a single tree.
@@ -717,6 +722,14 @@ pub struct RunArgs {
     /// `jj run` itself.
     #[arg(long)]
     ignore_errors: bool,
+
+    /// Keep any changes made by the command, even on failure
+    ///
+    /// Any changes made by a failed command will be kept as if the command
+    /// succeeded. However, the exit code of the failed command will still impact
+    /// the exit code of `jj run`.
+    #[arg(long)]
+    keep_changes: bool,
 
     /// How to handle sparse patterns when running the command. This is
     /// controlled per `jj run` invocation.
@@ -854,6 +867,8 @@ pub async fn cmd_run(
     });
     let mut rewritten_commits = HashMap::new();
 
+    let mut last_error = None;
+
     // Drive the producer (run_inner) and consumer (receive loop) concurrently
     // so that each subprocess's output is emitted as soon as it finishes rather
     // than after all subprocesses complete.
@@ -869,6 +884,7 @@ pub async fn cmd_run(
                 jobs.get(),
                 args.passthrough,
                 args.ignore_errors,
+                args.keep_changes,
             )
             .await
             .map_err(CommandError::from)
@@ -904,7 +920,10 @@ pub async fn cmd_run(
                                 write!(formatter, "Failed revision: ")?;
                                 tx.write_commit_summary(formatter, &commit)
                             });
-                            return Err(error);
+                            if !args.keep_changes {
+                                return Err(error);
+                            }
+                            last_error = Some(error);
                         }
                     }
                     if let Some(new_tree) = res.new_tree
@@ -986,5 +1005,8 @@ pub async fn cmd_run(
     tx.finish(ui, format!("run: rewrite {count} commits"))
         .await?;
 
+    if let Some(error) = last_error {
+        return Err(error);
+    }
     Ok(())
 }
