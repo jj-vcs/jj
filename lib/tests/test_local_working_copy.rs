@@ -294,8 +294,15 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) -> TestResult {
     if backend == TestRepoBackend::Git {
         kinds.push(Kind::GitSubmodule);
     }
-    let mut left_tree_builder = MergedTreeBuilder::new(store.empty_merged_tree());
-    let mut right_tree_builder = MergedTreeBuilder::new(store.empty_merged_tree());
+    // Some of the paths are 2-sided conflicts, so the builders need a base tree
+    // with the same number of sides.
+    let base_tree = MergedTree::new(
+        store.clone(),
+        Merge::repeated(store.empty_tree_id().clone(), 2),
+        ConflictLabels::unlabeled(),
+    );
+    let mut left_tree_builder = MergedTreeBuilder::new(base_tree.clone());
+    let mut right_tree_builder = MergedTreeBuilder::new(base_tree);
     let mut files = vec![];
     for left_kind in &kinds {
         for right_kind in &kinds {
