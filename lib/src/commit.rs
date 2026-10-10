@@ -20,10 +20,12 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::mem;
 use std::sync::Arc;
 
 use futures::future::try_join_all;
 use itertools::Itertools as _;
+use tracing::instrument;
 
 use crate::backend;
 use crate::backend::BackendError;
@@ -36,7 +38,6 @@ use crate::conflict_labels::ConflictLabels;
 use crate::index::Index;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
-use crate::rewrite::merge_commit_trees_no_resolve_without_repo;
 use crate::signing::SignResult;
 use crate::signing::Verification;
 use crate::store::Store;
@@ -252,6 +253,105 @@ pub fn conflict_label_for_commits(commits: &[Commit]) -> String {
         commits[0].conflict_label()
     } else {
         commits.iter().map(Commit::conflict_label_short).join(", ")
+    }
+}
+
+/// Merges `commits` without attempting to resolve file conflicts.
+#[instrument(skip(index))]
+pub async fn merge_commit_trees_no_resolve_without_repo(
+    store: &Arc<Store>,
+    index: &dyn Index,
+    commits: &[Commit],
+) -> BackendResult<MergedTree> {
+    if let [commit] = commits {
+        return Ok(commit.tree());
+    }
+    let commit_ids = commits
+        .iter()
+        .map(|commit| commit.id().clone())
+        .collect_vec();
+    let commit_id_merge = find_recursive_merge_commits(store, index, commit_ids).await?;
+    let tree_merge: Merge<(MergedTree, String)> = commit_id_merge
+        .try_map_async(async |commit_id| {
+            let commit = store.get_commit_async(commit_id).await?;
+            Ok::<_, BackendError>((commit.tree(), commit.conflict_label()))
+        })
+        .await?;
+    Ok(MergedTree::merge_no_resolve(tree_merge))
+}
+
+/// Find the commits to use as input to the recursive merge algorithm.
+pub async fn find_recursive_merge_commits(
+    store: &Arc<Store>,
+    index: &dyn Index,
+    commit_ids: Vec<CommitId>,
+) -> BackendResult<Merge<CommitId>> {
+    #[derive(Debug)]
+    struct WorkItem {
+        commit_ids: Vec<CommitId>,
+        result: Merge<CommitId>,
+        pos: usize,
+    }
+
+    impl WorkItem {
+        fn new(commit_ids: Vec<CommitId>) -> Self {
+            let result = Merge::resolved(commit_ids[0].clone());
+            Self {
+                commit_ids,
+                result,
+                pos: 1,
+            }
+        }
+
+        fn merge_next(&mut self, ancestor: Merge<CommitId>) {
+            let dummy = Merge::resolved(CommitId::new(vec![]));
+            let result = mem::replace(&mut self.result, dummy);
+            let other = Merge::resolved(self.commit_ids[self.pos].clone());
+            self.result = Merge::from_vec(vec![result, ancestor, other]).flatten();
+            self.pos += 1;
+        }
+    }
+
+    let maybe_resolved = |commit_ids: Vec<CommitId>| match commit_ids.len() {
+        0 => Ok(Merge::resolved(store.root_commit_id().clone())),
+        1 => Ok(Merge::resolved(commit_ids.into_iter().next().unwrap())),
+        _ => Err(commit_ids),
+    };
+
+    // Execute recursion without using the call stack:
+    // ```
+    // let mut result = Merge::resolved(commit_ids[0].clone());
+    // for pos in 1..commit_ids.len() {
+    //     let ancestor_ids = index.common_ancestors(&commit_ids[0..pos], &commit_ids[pos..][..1])?;
+    //     let ancestor = find_recursive_merge_commits(store, index, ancestor_ids)?;
+    //     let other = Merge::resolved(commit_ids[pos].clone());
+    //     result = Merge::from_vec(vec![result, ancestor, other]).flatten();
+    // }
+    // ```
+    let mut stack = Vec::new();
+    match maybe_resolved(commit_ids) {
+        Ok(result) => return Ok(result),
+        Err(commit_ids) => stack.push(WorkItem::new(commit_ids)),
+    }
+    loop {
+        let top = stack.last_mut().unwrap();
+        if top.pos < top.commit_ids.len() {
+            let ancestor_ids = index
+                .common_ancestors(&top.commit_ids[0..top.pos], &top.commit_ids[top.pos..][..1])
+                .await
+                // TODO: indexing error shouldn't be a "BackendError"
+                .map_err(|err| BackendError::Other(err.into()))?;
+            match maybe_resolved(ancestor_ids) {
+                Ok(ancestor) => top.merge_next(ancestor),
+                Err(ancestor_ids) => stack.push(WorkItem::new(ancestor_ids)),
+            }
+        } else {
+            let ancestor = stack.pop().unwrap();
+            let Some(top) = stack.last_mut() else {
+                return Ok(ancestor.result);
+            };
+            top.merge_next(ancestor.result);
+        }
     }
 }
 
