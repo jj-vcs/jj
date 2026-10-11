@@ -362,7 +362,7 @@ fn test_git_import_export_stats_color() -> TestResult {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     [1m[38;5;3mWarning: [39mFailed to export some bookmarks:[0m
-      [38;5;5m"un:exportable"@git[39m: Failed to set: The ref name or path is not a valid ref name: Reference name contains invalid byte: ":": Validation
+      [38;5;5m"un:exportable"@git[39m: Failed to set: The ref name or path is not a valid ref name: Reference name contains invalid byte: ":"
     [1m[38;5;6mHint: [0m[39mGit doesn't allow a branch/tag name that looks like a parent directory of[39m
     [39manother (e.g. `foo` and `foo/bar`). Try to rename the bookmarks/tags that failed[39m
     [39mto export or their "parent" bookmarks/tags.[39m

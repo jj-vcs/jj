@@ -435,7 +435,7 @@ fn test_git_init_external_non_existent_git_directory() {
     Caused by:
     1: Failed to open git repository
     2: "$TEST_ENV/repo" does not appear to be a git repository
-    3: Missing HEAD at '.git/HEAD'
+    3: Missing HEAD at ".git/HEAD"
     [EOF]
     [exit status: 1]
     "#);
@@ -1231,7 +1231,7 @@ fn test_git_init_with_invalid_gitlink() {
     Caused by:
     1: Failed to open git repository
     2: "$TEST_ENV/repo/.git" does not appear to be a git repository
-    3: Format should be 'gitdir: <path>', but got, "input"="invalid"
+    3: Format should be 'gitdir: <path>', but got, input="invalid"
     [EOF]
     [exit status: 1]
     "#);
@@ -1243,7 +1243,7 @@ fn test_git_init_with_invalid_gitlink() {
     Caused by:
     1: Failed to open git repository
     2: "$TEST_ENV/repo/.git" does not appear to be a git repository
-    3: Format should be 'gitdir: <path>', but got, "input"="invalid"
+    3: Format should be 'gitdir: <path>', but got, input="invalid"
     [EOF]
     [exit status: 1]
     "#);
