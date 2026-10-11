@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Added `jj file move [-s REVSETS] ORIG_NAME NEW_NAME` to move or rename a file
+  or directory in the given revisions (default: `@`) and all their descendants.
+  Descendants are reparented rather than rebased, so the move never introduces
+  conflicts.
+
 ### Fixed bugs
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
