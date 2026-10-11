@@ -855,20 +855,17 @@ impl<'matcher> TreeWalkVisitor<'matcher> for TreeDiffVisitor<'matcher> {
                 continue;
             }
 
+            if file_matches || self.matcher.matches(&path) {
+                queue.emit(path.clone(), Diff::new(before.cloned(), after.cloned()));
+            }
+
             // If the path was a tree on either side of the diff, read those trees.
             if tree_matches {
                 let before_tree_future =
                     Self::trees(self.store.clone(), path.clone(), before.cloned());
                 let after_tree_future =
                     Self::trees(self.store.clone(), path.clone(), after.cloned());
-                queue.schedule(
-                    path.clone(),
-                    try_join(before_tree_future, after_tree_future),
-                );
-            }
-
-            if file_matches || self.matcher.matches(&path) {
-                queue.emit(path, Diff::new(before.cloned(), after.cloned()));
+                queue.schedule(path, try_join(before_tree_future, after_tree_future));
             }
         }
     }
