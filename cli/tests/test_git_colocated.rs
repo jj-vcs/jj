@@ -1121,6 +1121,107 @@ fn test_git_colocated_external_checkout() -> TestResult {
 }
 
 #[test]
+fn test_git_colocated_import_after_recorded_head_lost() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["commit", "-m=A"]).success();
+    work_dir.write_file("file2", "more");
+    work_dir
+        .run_jj(["describe", "-m=work in progress"])
+        .success();
+    let before = work_dir
+        .run_jj(["log", "-r@", "--no-graph", "-T", "change_id"])
+        .success();
+
+    // The state left behind when the recorded target is lost while the
+    // workspace and its working-copy commit survive: an operation written by a
+    // client too old to know per-workspace Git HEADs drops every workspace's
+    // entry but the default one, whose target survives through the deprecated
+    // single `git_head` field. On-disk HEAD stays where our own export left
+    // it: at the working-copy commit's parent.
+    testutils::strip_git_heads_from_head_view(&work_dir.root().join(".jj/repo"));
+
+    // Nothing moved, so the import must re-record the target without replacing
+    // the working-copy commit (and without the "Reset the working copy parent"
+    // message a real external checkout prints).
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    A file2
+    Working copy  (@) : rlvkpnrz a8691208 work in progress
+    Parent commit (@-): qpvuntsm ff26c357 A
+    [EOF]
+    ");
+    let after = work_dir
+        .run_jj(["log", "-r@", "--no-graph", "-T", "change_id"])
+        .success();
+    assert_eq!(after.stdout.raw(), before.stdout.raw());
+
+    // The recorded target is restored: the next command has nothing to import.
+    let output = work_dir.run_jj(["log", "-r@", "--no-graph", "-T", "description"]);
+    insta::assert_snapshot!(output, @"
+    work in progress
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
+fn test_git_colocated_import_after_recorded_head_lost_keeps_git_merge() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file", "1");
+    work_dir.run_jj(["describe", "-m1"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "2");
+    work_dir.run_jj(["describe", "-m2"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "main"])
+        .success();
+    work_dir.run_jj(["new", "root()+"]).success();
+    work_dir.write_file("file", "3");
+    work_dir.run_jj(["describe", "-m3"]).success();
+    work_dir.run_jj(["new"]).success();
+
+    // Start a merge in Git and expect a conflict. HEAD stays at the
+    // working-copy commit's parent.
+    let output = std::process::Command::new("git")
+        .current_dir(work_dir.root())
+        .args([
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test user",
+            "merge",
+            "main",
+        ])
+        .output()?;
+    assert!(!output.status.success());
+    let merge_head = work_dir.root().join(".git").join("MERGE_HEAD");
+    assert!(std::fs::exists(&merge_head)?);
+
+    testutils::strip_git_heads_from_head_view(&work_dir.root().join(".jj/repo"));
+
+    // Re-recording the target must leave the merge in progress alone.
+    work_dir.run_jj(["status"]).success();
+    assert!(std::fs::exists(&merge_head)?);
+    let output = std::process::Command::new("git")
+        .current_dir(work_dir.root())
+        .args(["status", "--porcelain=v1"])
+        .output()?;
+    assert!(output.status.success());
+    insta::assert_snapshot!(String::from_utf8(output.stdout)?, @"UU file");
+    Ok(())
+}
+
+#[test]
 #[cfg_attr(windows, ignore = "uses POSIX sh")]
 fn test_git_colocated_concurrent_checkout() -> TestResult {
     let test_env = TestEnvironment::default();
