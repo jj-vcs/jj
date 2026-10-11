@@ -27,6 +27,9 @@ and this project adheres to
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
 
+* `jj git fetch` no longer creates additional refs based on non-standard Git
+  `remote.<name>.fetch` configuration.
+
 * Fixed issue with `config-schema.json` where Taplo (TOML parsing library) would
   flag any `aliases` defined as a table but without an explicit
   `.enabled = true` as "valid under more than one of the schemas". This affected

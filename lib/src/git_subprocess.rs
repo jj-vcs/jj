@@ -184,6 +184,8 @@ impl GitSubprocessContext {
         if let Some(d) = depth {
             command.arg(format!("--depth={d}"));
         }
+        // Only the refspecs arguments should be respected
+        command.arg("--refmap=");
         // Tags should be fetched explicitly by the refspecs
         command.arg("--no-tags");
         command.arg("--").arg(remote_name.as_str());

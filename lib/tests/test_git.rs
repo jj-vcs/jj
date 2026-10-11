@@ -5005,6 +5005,55 @@ fn test_fetch_export_annotated_tags() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_fetch_ignores_configured_refspecs() -> TestResult {
+    let test_data = GitRepoData::create();
+
+    let mut remote = test_data.git_repo.find_remote("origin")?;
+    remote.replace_refspecs(
+        [
+            "+refs/heads/*:refs/unusual/bookmarks/*",
+            "+refs/tags/*:refs/unusual/tags/*",
+        ],
+        gix::remote::Direction::Fetch,
+    )?;
+    let mut config = test_data.git_repo.config_snapshot().clone();
+    remote.save_as_to("origin", &mut config)?;
+    git::save_git_config(&config)?;
+
+    empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    empty_git_commit(&test_data.origin_repo, "refs/tags/v1", &[]);
+
+    let mut tx = test_data.repo.start_transaction();
+    fetch_import_all(tx.repo_mut(), "origin".as_ref());
+    assert!(
+        tx.repo()
+            .get_remote_bookmark(remote_symbol("main", "origin"))
+            .is_present()
+    );
+    assert!(
+        tx.repo()
+            .get_remote_tag(remote_symbol("v1", "origin"))
+            .is_present()
+    );
+
+    // Extra refs shouldn't be created by the configured refspecs
+    assert!(
+        test_data
+            .git_repo
+            .try_find_reference("refs/unusual/bookmarks/main")?
+            .is_none()
+    );
+    assert!(
+        test_data
+            .git_repo
+            .try_find_reference("refs/unusual/tags/v1")?
+            .is_none(),
+    );
+
+    Ok(())
+}
+
 struct PushTestSetup {
     source_repo_dir: PathBuf,
     jj_repo: Arc<ReadonlyRepo>,
