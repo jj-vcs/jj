@@ -1430,6 +1430,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#changelog-entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changelog entries
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#community-guidelines" class="md-nav__link">
     <span class="md-ellipsis">
       Community Guidelines
@@ -2310,6 +2319,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#changelog-entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changelog entries
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#community-guidelines" class="md-nav__link">
     <span class="md-ellipsis">
       Community Guidelines
@@ -2787,6 +2805,27 @@ is no need to approve your coworkers' PRs, since the author should await an
 approval from someone else anyway. It is of course still appreciated if you
 review and comment on their PRs. Also, if the PR seems completely unrelated to
 your company's interests, do feel free to approve it.</p>
+<h3 id="changelog-entries">Changelog entries<a class="headerlink" href="#changelog-entries" title="Permanent link">&para;</a></h3>
+<p>When creating PRs, please update <a href="https://github.com/jj-vcs/jj/blob/main/CHANGELOG.md"><code>CHANGELOG.md</code></a> with the new
+changes under the "Unreleased" section. Make sure to highlight any breaking
+changes or deprecations under the appropriate subsections. If you fixed a bug
+that has a corresponding issue, link the issue with Markdown link format, so
+that the changelog page on the generated docs can point to the actual issue.
+Generally a maintainer will update "Release highlights" during a release as
+needed, but feel free to add your change there if it makes sense. The order in
+each subsection does not really matter, so you can add your entry to the
+beginning or the end.</p>
+<p>Not every change requires a changelog entry. Generally, changelog entries are
+useful for two reasons:</p>
+<ol>
+<li>Teach existing users about changes that affect their behavior. For example
+   new features or fixed bugs would be good to know, as well as deprecations.</li>
+<li>Attract new users. Maybe there was some limitation (lack of support for
+   something they needed), or maybe a shiny new feature really spoke to them.</li>
+</ol>
+<p>By this reasoning, it's not necessary to mention changes that people will simply
+notice when they run into them (or not notice at all), such as a reworded error
+message, backend refactors, or documentation updates.</p>
 <h3 id="community-guidelines">Community Guidelines<a class="headerlink" href="#community-guidelines" title="Permanent link">&para;</a></h3>
 <p>This project follows <a href="https://opensource.google/conduct/">Google's Open Source Community
 Guidelines</a>.</p>
