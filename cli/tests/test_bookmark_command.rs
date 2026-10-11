@@ -1395,7 +1395,7 @@ fn test_bookmark_forget_fetched_bookmark() {
         &[],
     );
 
-    // Fetch normally
+    // Fetch normally and export the fetched refs
     work_dir
         .run_jj(["git", "fetch", "--remote=origin"])
         .success();
@@ -1404,6 +1404,7 @@ fn test_bookmark_forget_fetched_bookmark() {
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
+    work_dir.run_jj(["git", "export"]).success();
 
     // TEST 1: with export-import
     // Forget the bookmark with --include-remotes
