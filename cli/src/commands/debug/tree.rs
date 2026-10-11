@@ -15,6 +15,9 @@
 use std::fmt::Debug;
 use std::io::Write as _;
 
+use futures::StreamExt as _;
+use futures::stream;
+use futures::stream::BoxStream;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::MergedTreeValue;
 use jj_lib::backend::TreeId;
@@ -54,7 +57,7 @@ pub async fn cmd_debug_tree(
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
-    let entries: Box<dyn Iterator<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)>> =
+    let mut entries: BoxStream<(RepoPathBuf, BackendResult<MergedTreeValue>)> =
         if let Some(tree_id_hex) = &args.id {
             let tree_id =
                 TreeId::try_from_hex(tree_id_hex).ok_or_else(|| user_error("Invalid tree id"))?;
@@ -67,18 +70,19 @@ pub async fn cmd_debug_tree(
             let tree = store.get_tree(dir, &tree_id).await?;
             // We can't use `MergedTree` here, since it only supports iterating from the
             // root, but we support a `--dir` option to read trees at any path.
-            Box::new(
+            stream::iter(
                 tree.entries_matching(matcher.as_ref())
                     .map(|(path, value)| (path, Ok(Merge::normal(value)))),
             )
+            .boxed()
         } else {
             let commit = workspace_command
                 .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))
                 .await?;
             let tree = commit.tree();
-            Box::new(tree.entries_matching(matcher.as_ref()))
+            tree.entries_stream_matching(matcher.as_ref())
         };
-    for (path, value) in entries {
+    while let Some((path, value)) = entries.next().await {
         let ui_path = workspace_command.format_file_path(&path);
         writeln!(ui.stdout(), "{ui_path}: {value:?}")?;
     }

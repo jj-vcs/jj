@@ -13,10 +13,14 @@
 // limitations under the License.
 
 use std::io::Write as _;
+use std::pin::pin;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
-use itertools::Itertools as _;
+use futures::Stream;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
+use futures::stream;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -112,7 +116,14 @@ pub(crate) async fn cmd_file_show(
                 path: path.to_owned(),
                 value,
             };
-            write_tree_entries(ui, &workspace_command, &template, &tree, [Ok(entry)]).await?;
+            write_tree_entries(
+                ui,
+                &workspace_command,
+                &template,
+                &tree,
+                stream::iter([Ok(entry)]),
+            )
+            .await?;
             return Ok(());
         }
     }
@@ -124,9 +135,8 @@ pub(crate) async fn cmd_file_show(
         &workspace_command,
         &template,
         &tree,
-        tree.entries_matching(matcher.as_ref())
-            .map(|(path, value)| Ok((path, value?)))
-            .map_ok(|(path, value)| TreeEntry { path, value }),
+        tree.entries_stream_matching(matcher.as_ref())
+            .map(|(path, value)| value.map(|value| TreeEntry { path, value })),
     )
     .await?;
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree]).await?;
@@ -150,11 +160,11 @@ async fn write_tree_entries(
     workspace_command: &WorkspaceCommandHelper,
     template: &TemplateRenderer<'_, TreeEntry>,
     tree: &MergedTree,
-    entries: impl IntoIterator<Item = BackendResult<TreeEntry>>,
+    entries: impl Stream<Item = BackendResult<TreeEntry>>,
 ) -> Result<(), CommandError> {
     let repo = workspace_command.repo();
-    for entry in entries {
-        let entry = entry?;
+    let mut entries = pin!(entries);
+    while let Some(entry) = entries.try_next().await? {
         template.format(&entry, ui.stdout_formatter().as_mut())?;
         let materialized =
             materialize_tree_value(repo.store(), &entry.path, entry.value, tree.labels()).await?;
