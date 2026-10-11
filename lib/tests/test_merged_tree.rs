@@ -95,6 +95,20 @@ fn entries_stream_equals_iter(tree: &MergedTree, matcher: &dyn Matcher) {
     assert_eq!(stream_entries, iter_entries);
 }
 
+fn conflicts_stream_equals_iter(tree: &MergedTree, matcher: &dyn Matcher) {
+    let iter_conflicts = tree
+        .conflicts_matching(matcher)
+        .map(|(path, value)| (path, value.unwrap()))
+        .collect_vec();
+    tree.store().clear_caches();
+    let stream_conflicts: Vec<_> = tree
+        .conflicts_stream_matching(matcher)
+        .map(|(path, value)| (path, value.unwrap()))
+        .collect()
+        .block_on();
+    assert_eq!(stream_conflicts, iter_conflicts);
+}
+
 /// Test that a tree built with no changes on top of an add/add conflict gets
 /// resolved.
 #[test]
@@ -541,6 +555,7 @@ fn test_conflict_iterator() -> TestResult {
         .conflicts()
         .map(|(path, conflict)| (path, conflict.unwrap()))
         .collect_vec();
+    conflicts_stream_equals_iter(&tree, &EverythingMatcher);
     let conflict_at = |path: &RepoPath| {
         Merge::from_removes_adds(
             vec![base1.path_value(path).block_on().unwrap()],
@@ -573,10 +588,12 @@ fn test_conflict_iterator() -> TestResult {
     );
 
     // We can filter conflicts using a matcher
+    let matcher = PrefixMatcher::new([file_conflict_path, dir_file_path]);
     let conflicts = tree
-        .conflicts_matching(&PrefixMatcher::new([file_conflict_path, dir_file_path]))
+        .conflicts_matching(&matcher)
         .map(|(path, conflict)| (path, conflict.unwrap()))
         .collect_vec();
+    conflicts_stream_equals_iter(&tree, &matcher);
     assert_eq!(
         conflicts,
         vec![
@@ -588,12 +605,18 @@ fn test_conflict_iterator() -> TestResult {
         ]
     );
 
+    // A resolved tree has no conflicts
+    let resolved_tree = MergedTree::resolved(repo.store().clone(), side1.id().clone());
+    assert_eq!(resolved_tree.conflicts().count(), 0);
+    conflicts_stream_equals_iter(&resolved_tree, &EverythingMatcher);
+
     // After we resolve conflicts, there are only non-trivial conflicts left
     let tree = tree.resolve().block_on()?;
     let conflicts = tree
         .conflicts()
         .map(|(path, conflict)| (path, conflict.unwrap()))
         .collect_vec();
+    conflicts_stream_equals_iter(&tree, &EverythingMatcher);
     assert_eq!(
         conflicts,
         vec![
@@ -664,6 +687,7 @@ fn test_conflict_iterator_higher_arity() -> TestResult {
         .conflicts()
         .map(|(path, conflict)| (path, conflict.unwrap()))
         .collect_vec();
+    conflicts_stream_equals_iter(&tree, &EverythingMatcher);
     let conflict_at = |path: &RepoPath| {
         Merge::from_removes_adds(
             vec![
