@@ -14,7 +14,6 @@
 
 //! A lazily merged view of a set of trees.
 
-use std::collections::BTreeMap;
 use std::fmt;
 use std::iter;
 use std::pin::Pin;
@@ -27,7 +26,6 @@ use std::vec;
 use either::Either;
 use futures::Stream;
 use futures::StreamExt as _;
-use futures::future::BoxFuture;
 use futures::future::try_join;
 use futures::stream::BoxStream;
 use itertools::EitherOrBoth;
@@ -61,6 +59,9 @@ use crate::tree::ToTreeMergeExt as _;
 use crate::tree::Tree;
 use crate::tree::TreeMergeExt as _;
 use crate::tree_merge::merge_trees;
+use crate::tree_walk::OrderedTreeWalk;
+use crate::tree_walk::TreeWalkQueue;
+use crate::tree_walk::TreeWalkVisitor;
 
 /// Presents a view of a merged set of trees at the root directory, as well as
 /// conflict labels.
@@ -733,33 +734,17 @@ impl Iterator for TreeDiffIterator<'_> {
 
 /// Stream of differences between two trees.
 pub struct TreeDiffStreamImpl<'matcher> {
-    store: Arc<Store>,
-    matcher: &'matcher dyn Matcher,
-    /// Pairs of tree values that may or may not be ready to emit, sorted in the
-    /// order we want to emit them. If either side is a tree, there will be
-    /// a corresponding entry in `pending_trees`. The item is ready to emit
-    /// unless there's a smaller or equal path in `pending_trees`.
-    items: BTreeMap<RepoPathBuf, BackendResult<Diff<MergedTreeValue>>>,
-    // TODO: Is it better to combine this and `items` into a single map?
-    #[expect(clippy::type_complexity)]
-    pending_trees:
-        BTreeMap<RepoPathBuf, BoxFuture<'matcher, BackendResult<(Merge<Tree>, Merge<Tree>)>>>,
-    /// The maximum number of trees to request concurrently. However, we do the
-    /// accounting per path, so there will often be twice as many pending
-    /// `Backend::read_tree()` calls - for the "before" and "after" sides. For
-    /// conflicts, there will be even more.
-    max_concurrent_reads: usize,
-    /// The maximum number of items in `items`. However, we will always add the
-    /// full differences from a particular pair of trees, so it may temporarily
-    /// go over the limit (until we emit those items). It may also go over the
-    /// limit because we have a file item that's blocked by pending subdirectory
-    /// items.
-    max_queued_items: usize,
+    walk: OrderedTreeWalk<'matcher, TreeDiffVisitor<'matcher>>,
 }
 
 impl<'matcher> TreeDiffStreamImpl<'matcher> {
     /// Creates a iterator over the differences between two trees. Generally
     /// prefer `MergedTree::diff_stream()` of calling this directly.
+    ///
+    /// `max_concurrent_reads` is the maximum number of paths to read trees for
+    /// concurrently. There will often be twice as many pending
+    /// `Backend::read_tree()` calls - for the "before" and "after" sides. For
+    /// conflicts, there will be even more.
     pub fn new(
         tree1: &MergedTree,
         tree2: &MergedTree,
@@ -768,33 +753,46 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
     ) -> Self {
         assert!(Arc::ptr_eq(tree1.store(), tree2.store()));
         let store = tree1.store().clone();
-        let mut stream = Self {
-            store: store.clone(),
-            matcher,
-            items: BTreeMap::new(),
-            pending_trees: BTreeMap::new(),
-            max_concurrent_reads,
-            max_queued_items: 10000,
-        };
+        let mut queue = TreeWalkQueue::new(max_concurrent_reads);
         let dir = RepoPathBuf::root();
         let merged_tree1 = tree1.to_merged_tree_value();
         let merged_tree2 = tree2.to_merged_tree_value();
         let root_diff = Diff::new(merged_tree1.clone(), merged_tree2.clone());
         if root_diff.is_changed() {
             if matcher.matches(&dir) {
-                stream.items.insert(dir.clone(), Ok(root_diff));
+                queue.emit(dir.clone(), root_diff);
             }
             if !matcher.visit(&dir).is_nothing() {
-                let root_tree_fut = Box::pin(try_join(
-                    Self::trees(store.clone(), dir.clone(), merged_tree1),
-                    Self::trees(store, dir.clone(), merged_tree2),
-                ));
-                stream.pending_trees.insert(dir, root_tree_fut);
+                let root_trees_fut = try_join(
+                    TreeDiffVisitor::trees(store.clone(), dir.clone(), merged_tree1),
+                    TreeDiffVisitor::trees(store.clone(), dir.clone(), merged_tree2),
+                );
+                queue.schedule(dir, root_trees_fut);
             }
         }
-        stream
+        let visitor = TreeDiffVisitor { store, matcher };
+        Self {
+            walk: OrderedTreeWalk::new(visitor, queue),
+        }
     }
+}
 
+impl Stream for TreeDiffStreamImpl<'_> {
+    type Item = TreeDiffEntry;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.walk
+            .poll_next_unpin(cx)
+            .map(|entry| entry.map(|(path, values)| TreeDiffEntry { path, values }))
+    }
+}
+
+struct TreeDiffVisitor<'matcher> {
+    store: Arc<Store>,
+    matcher: &'matcher dyn Matcher,
+}
+
+impl TreeDiffVisitor<'_> {
     async fn single_tree(
         store: &Arc<Store>,
         dir: RepoPathBuf,
@@ -820,9 +818,19 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
             Ok(Merge::resolved(Tree::empty(store, dir)))
         }
     }
+}
 
-    fn add_dir_diff_items(&mut self, dir: &RepoPath, trees1: &Merge<Tree>, trees2: &Merge<Tree>) {
-        for (basename, diff) in merged_tree_entry_diff(trees1, trees2) {
+impl<'matcher> TreeWalkVisitor<'matcher> for TreeDiffVisitor<'matcher> {
+    type Work = (Merge<Tree>, Merge<Tree>);
+    type Item = Diff<MergedTreeValue>;
+
+    fn visit(
+        &self,
+        dir: &RepoPath,
+        (trees1, trees2): Self::Work,
+        queue: &mut TreeWalkQueue<'matcher, Self::Work, Self::Item>,
+    ) {
+        for (basename, diff) in merged_tree_entry_diff(&trees1, &trees2) {
             let path = dir.join(basename);
             let tree_before = diff.before.is_tree();
             let tree_after = diff.after.is_tree();
@@ -853,81 +861,15 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
                     Self::trees(self.store.clone(), path.clone(), before.cloned());
                 let after_tree_future =
                     Self::trees(self.store.clone(), path.clone(), after.cloned());
-                let both_trees_future = try_join(before_tree_future, after_tree_future);
-                self.pending_trees
-                    .insert(path.clone(), Box::pin(both_trees_future));
+                queue.schedule(
+                    path.clone(),
+                    try_join(before_tree_future, after_tree_future),
+                );
             }
 
             if file_matches || self.matcher.matches(&path) {
-                self.items
-                    .insert(path, Ok(Diff::new(before.cloned(), after.cloned())));
+                queue.emit(path, Diff::new(before.cloned(), after.cloned()));
             }
-        }
-    }
-
-    fn poll_tree_futures(&mut self, cx: &mut Context<'_>) {
-        loop {
-            let mut tree_diffs = vec![];
-            let mut some_pending = false;
-            let mut all_pending = true;
-            for (dir, future) in self
-                .pending_trees
-                .iter_mut()
-                .take(self.max_concurrent_reads)
-            {
-                if let Poll::Ready(tree_diff) = future.as_mut().poll(cx) {
-                    all_pending = false;
-                    tree_diffs.push((dir.clone(), tree_diff));
-                } else {
-                    some_pending = true;
-                }
-            }
-
-            for (dir, tree_diff) in tree_diffs {
-                drop(self.pending_trees.remove_entry(&dir).unwrap());
-                match tree_diff {
-                    Ok((trees1, trees2)) => {
-                        self.add_dir_diff_items(&dir, &trees1, &trees2);
-                    }
-                    Err(err) => {
-                        self.items.insert(dir, Err(err));
-                    }
-                }
-            }
-
-            // If none of the futures have been polled and returned `Poll::Pending`, we must
-            // not return. If we did, nothing would call the waker so we might never get
-            // polled again.
-            if all_pending || (some_pending && self.items.len() >= self.max_queued_items) {
-                return;
-            }
-        }
-    }
-}
-
-impl Stream for TreeDiffStreamImpl<'_> {
-    type Item = TreeDiffEntry;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // Go through all pending tree futures and poll them.
-        self.poll_tree_futures(cx);
-
-        // Now emit the first file, or the first tree that completed with an error
-        if let Some((path, _)) = self.items.first_key_value() {
-            // Check if there are any pending trees before this item that we need to finish
-            // polling before we can emit this item.
-            if let Some((dir, _)) = self.pending_trees.first_key_value()
-                && dir < path
-            {
-                return Poll::Pending;
-            }
-
-            let (path, values) = self.items.pop_first().unwrap();
-            Poll::Ready(Some(TreeDiffEntry { path, values }))
-        } else if self.pending_trees.is_empty() {
-            Poll::Ready(None)
-        } else {
-            Poll::Pending
         }
     }
 }
