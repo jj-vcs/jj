@@ -547,8 +547,24 @@ impl Ord for RepoPath {
         // If there were leading/trailing slash, components-based Ord would
         // disagree with str-based Eq.
         debug_assert!(is_valid_repo_path_str(&self.value));
-        self.components().cmp(other.components())
+        // Comparing components is equivalent to comparing the strings with '/'
+        // sorting before all other bytes. This is much faster than splitting
+        // into components.
+        let a = self.value.as_bytes();
+        let b = other.value.as_bytes();
+        let common_len = iter::zip(a, b).take_while(|(a, b)| a == b).count();
+        match (a.get(common_len), b.get(common_len)) {
+            (Some(&a), Some(&b)) => separator_first_key(a).cmp(&separator_first_key(b)),
+            (Some(_), None) => Ordering::Greater,
+            (None, Some(_)) => Ordering::Less,
+            (None, None) => Ordering::Equal,
+        }
     }
+}
+
+/// Maps a byte in a path to a key that sorts '/' before all other bytes.
+fn separator_first_key(byte: u8) -> u16 {
+    if byte == b'/' { 0 } else { u16::from(byte) + 1 }
 }
 
 impl Ord for RepoPathBuf {
@@ -838,6 +854,22 @@ mod tests {
         assert!(repo_path("dis") > repo_path("dir/file"));
         assert!(repo_path("xyz") > repo_path("dir/file"));
         assert!(repo_path("dir1/xyz") < repo_path("dir2/abc"));
+    }
+
+    #[test]
+    fn test_order_matches_components() {
+        let paths = [
+            "", "\0", "a", "a\0", "a\0/b", "a!", "a!/b", "a.", "a/\0", "a/b", "a/b/c", "a/bc",
+            "a0", "a0/b", "ab", "ab/c", "b", "\u{e9}", "\u{e9}/a",
+        ]
+        .map(repo_path);
+        for (a, b) in paths.iter().cartesian_product(&paths) {
+            assert_eq!(
+                a.cmp(b),
+                a.components().cmp(b.components()),
+                "{a:?} vs {b:?}"
+            );
+        }
     }
 
     #[test]
