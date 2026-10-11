@@ -898,12 +898,7 @@ pub(crate) fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> 
              syntax and how to quote symbols."
                 .into(),
         ),
-        RevsetParseErrorKind::NotPrefixOperator {
-            op: _,
-            similar_op,
-            description,
-        }
-        | RevsetParseErrorKind::NotPostfixOperator {
+        RevsetParseErrorKind::NotPostfixOperator {
             op: _,
             similar_op,
             description,
