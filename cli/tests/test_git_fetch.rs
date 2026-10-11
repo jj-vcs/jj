@@ -122,20 +122,30 @@ fn clone_git_remote_into(
 #[test]
 fn test_git_fetch_with_default_config() {
     let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
     let work_dir = test_env.work_dir("repo");
     add_git_remote(&test_env, &work_dir, "origin");
 
-    // If supported, this should show fetched refs without actually updating
-    // refs on disk.
+    // No refs should be exported to Git.
     let output = work_dir.run_jj(["git", "fetch", "--no-integrate-operation"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: --no-integrate-operation is not respected
+    Fetching from Git remotes: origin
+    bookmark: origin@origin [new] untracked
+    Operation left uncommitted because --no-integrate-operation was requested: 5500d10ac059
     [EOF]
-    [exit status: 2]
+    ");
+    // No remote refs to import.
+    let output = work_dir.run_jj(["util", "snapshot"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    No snapshot needed.
+    [EOF]
     ");
 
+    // Remote refs can be fetched again.
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1531,7 +1541,7 @@ fn test_git_fetch_undo() {
     let output = target_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 450e0713ac6d (2001-02-03 08:05:20) fetch from git remote(s) origin
+    Undid operation: 23c6d6089da4 (2001-02-03 08:05:20) fetch from git remote(s) origin
     Restored to operation: f9f128e730c0 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
@@ -2172,12 +2182,12 @@ fn test_git_fetch_remotely_rewritten() {
     insta::assert_snapshot!(output, @"
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3ee37bc8
     │  (empty) bookmarked
-    │  -- operation bc9504529c2b fetch from git remote(s) origin
+    │  -- operation c25ac3fc51ad fetch from git remote(s) origin
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 eedc2709 (hidden)
        (empty) bookmarked
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
     │  (empty) modified
-    │  -- operation bc9504529c2b fetch from git remote(s) origin
+    │  -- operation c25ac3fc51ad fetch from git remote(s) origin
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original
     [EOF]
@@ -2212,12 +2222,12 @@ fn test_git_fetch_remotely_rewritten() {
     insta::assert_snapshot!(output, @"
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3ee37bc8
     │  (empty) bookmarked
-    │  -- operation bc9504529c2b fetch from git remote(s) origin
+    │  -- operation c25ac3fc51ad fetch from git remote(s) origin
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 eedc2709 (hidden)
        (empty) bookmarked
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
     │  (empty) modified
-    │  -- operation bc9504529c2b fetch from git remote(s) origin
+    │  -- operation c25ac3fc51ad fetch from git remote(s) origin
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original
     [EOF]
@@ -2388,17 +2398,17 @@ fn test_git_fetch_remotely_rewritten_descendants() {
     insta::assert_snapshot!(output, @"
     ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:16 book2@origin 3faff772
     │  (empty) bookmarked 2
-    │  -- operation c59a4ba1a1a9 fetch from git remote(s) origin
+    │  -- operation 3a6ebafd42f1 fetch from git remote(s) origin
     ○  mzvwutvl/1 test.user@example.com 2001-02-03 08:05:11 cce448c2 (hidden)
        (empty) bookmarked 2
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:16 book1@origin ad5c5f3c
     │  (empty) bookmarked 1
-    │  -- operation 2cce05945865 fetch from git remote(s) origin
+    │  -- operation f7a9e010b837 fetch from git remote(s) origin
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 2a6bbeb4 (hidden)
        (empty) bookmarked 1
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:16 a843bfad
     │  (empty) modified
-    │  -- operation 2cce05945865 fetch from git remote(s) origin
+    │  -- operation f7a9e010b837 fetch from git remote(s) origin
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original
     [EOF]

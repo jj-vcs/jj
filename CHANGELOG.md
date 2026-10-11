@@ -12,6 +12,9 @@ and this project adheres to
 
 ### Breaking changes
 
+* In non-colocated workspaces, `jj git fetch` no longer updates remote-tracking
+  Git refs. Use `jj git export` to export remote bookmarks to Git.
+
 ### Deprecations
 
 ### New features
@@ -47,6 +50,10 @@ and this project adheres to
   `.enabled = true` as "valid under more than one of the schemas". This affected
   downstream tools such as editor extensions showing errors in perfectly valid
   config files.
+
+* Fix a race condition in colocated workspaces where concurrent `jj git fetch`
+  and `jj` commands could import partially fetched refs, causing divergence.
+  [#7349](https://github.com/jj-vcs/jj/issues/7349)
 
 ## [0.46.0] - 2026-10-07
 

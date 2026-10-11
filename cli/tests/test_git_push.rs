@@ -2184,6 +2184,7 @@ fn test_git_push_conflicting_bookmarks() -> TestResult {
     };
 
     // Forget remote ref, move local ref, then fetch to create conflict.
+    work_dir.run_jj(["git", "export"]).success();
     git_repo
         .find_reference("refs/remotes/origin/bookmark2")?
         .delete()?;
@@ -2197,10 +2198,12 @@ fn test_git_push_conflicting_bookmarks() -> TestResult {
     work_dir.run_jj(["git", "fetch"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     bookmark1: qpvuntsm 9b2e76de (empty) description 1
+      @git: qpvuntsm 9b2e76de (empty) description 1
       @origin: qpvuntsm 9b2e76de (empty) description 1
     bookmark2 (conflicted):
-      + yostqsxw ebedbe63 (empty) description 3
+      + znkkpsqq 7b393945 (empty) description 3
       + zsuskuln 38a20473 (empty) description 2
+      @git (behind by 1 commits): zsuskuln 38a20473 (empty) description 2
       @origin (behind by 1 commits): zsuskuln 38a20473 (empty) description 2
     [EOF]
     ");
@@ -2240,7 +2243,7 @@ fn test_git_push_conflicting_bookmarks() -> TestResult {
     Warning: Bookmark bookmark2 is conflicted
     Hint: Run `jj bookmark list` to inspect, and use `jj bookmark set` to fix it up.
     Changes to push to origin:
-      bookmark: bookmark1 [move forward from 9b2e76de3920 to 749c2e6d999f]
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 142ce0a84c92]
     [EOF]
     ");
 
@@ -2252,7 +2255,7 @@ fn test_git_push_conflicting_bookmarks() -> TestResult {
     Warning: Bookmark bookmark2 is conflicted
     Hint: Run `jj bookmark list` to inspect, and use `jj bookmark set` to fix it up.
     Changes to push to origin:
-      bookmark: bookmark1 [move forward from 749c2e6d999f to 9bb0f427b517]
+      bookmark: bookmark1 [move forward from 142ce0a84c92 to 820a8b0ea8c9]
     [EOF]
     ");
     Ok(())

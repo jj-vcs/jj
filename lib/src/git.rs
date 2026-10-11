@@ -94,6 +94,8 @@ pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &RemoteName = RemoteName::new("git");
 pub const RESERVED_REMOTE_REF_NAMESPACE: &str = "refs/remotes/git/";
 /// Git ref prefix where remote bookmarks are stored.
 const REMOTE_BOOKMARK_REF_NAMESPACE: &str = "refs/remotes/";
+/// Git ref prefix where remote refs will be temporarily fetched.
+const FETCH_BOOKMARK_REF_NAMESPACE: &str = "refs/jj/remote-bookmarks/";
 /// Git ref prefix where remote tags will be temporarily fetched.
 const REMOTE_TAG_REF_NAMESPACE: &str = "refs/jj/remote-tags/";
 /// Ref name used as a placeholder to unset HEAD without a commit.
@@ -375,15 +377,20 @@ pub fn parse_git_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSym
     }
 }
 
-fn parse_remote_tag_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
-    let remote_and_name = full_name.as_str().strip_prefix(REMOTE_TAG_REF_NAMESPACE)?;
+fn parse_fetched_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
+    let (kind, remote_and_name) = [
+        (GitRefKind::Bookmark, FETCH_BOOKMARK_REF_NAMESPACE),
+        (GitRefKind::Tag, REMOTE_TAG_REF_NAMESPACE),
+    ]
+    .into_iter()
+    .find_map(|(kind, prefix)| Some((kind, full_name.as_str().strip_prefix(prefix)?)))?;
     let (remote, name) = remote_and_name.split_once('/')?;
     if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         return None;
     }
     let name = RefName::new(name);
     let remote = RemoteName::new(remote);
-    Some((GitRefKind::Tag, RemoteRefSymbol { name, remote }))
+    Some((kind, RemoteRefSymbol { name, remote }))
 }
 
 fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<GitRefNameBuf> {
@@ -1002,16 +1009,6 @@ fn diff_fetched_refs_to_import(
     git_repo: &gix::Repository,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> Result<RefsToImport, GitImportError> {
-    let mut known_git_refs = view
-        .git_refs()
-        .iter()
-        .filter_map(|(full_name, target)| {
-            // TODO: or clean up invalid ref in case it was stored due to historical bug?
-            let (kind, symbol) =
-                parse_git_ref(full_name).expect("stored git ref should be parsable");
-            git_ref_filter(kind, symbol).then_some((full_name.as_ref(), target))
-        })
-        .collect();
     let mut known_remote_bookmarks = view
         .all_remote_bookmarks()
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
@@ -1025,22 +1022,21 @@ fn diff_fetched_refs_to_import(
 
     // TODO: Refactor git_ref_filter in a way that uninteresting refs don't have
     // to be scanned. For example, if the caller imports bookmark changes from a
-    // specific remote, we only need to walk refs/remotes/{remote}/.
-    let mut changed_git_refs = Vec::new();
+    // specific remote, we only need to walk refs/jj/remote-{kind}/{remote}.
     let mut changed_remote_bookmarks = Vec::new();
     let mut changed_remote_tags = Vec::new();
     let mut failed_ref_names = Vec::new();
     let actual = git_repo.references().map_err(GitImportError::from_git)?;
-    collect_changed_refs_to_import(
-        actual.remote_branches().map_err(GitImportError::from_git)?,
-        &mut known_git_refs,
+    collect_changed_fetched_refs_to_import(
+        actual
+            .prefixed(FETCH_BOOKMARK_REF_NAMESPACE)
+            .map_err(GitImportError::from_git)?,
         &mut known_remote_bookmarks,
-        &mut changed_git_refs,
         &mut changed_remote_bookmarks,
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
-    collect_changed_remote_tags_to_import(
+    collect_changed_fetched_refs_to_import(
         actual
             .prefixed(REMOTE_TAG_REF_NAMESPACE)
             .map_err(GitImportError::from_git)?,
@@ -1049,9 +1045,6 @@ fn diff_fetched_refs_to_import(
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
-    for full_name in known_git_refs.into_keys() {
-        changed_git_refs.push((full_name.to_owned(), RefTarget::absent()));
-    }
     for (RemoteRefKey(symbol), old) in known_remote_bookmarks {
         if old.is_present() {
             changed_remote_bookmarks.push(GitImportRefUpdate::new(
@@ -1072,13 +1065,12 @@ fn diff_fetched_refs_to_import(
     }
 
     // Stabilize merge order and output.
-    changed_git_refs.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(name2));
     changed_remote_bookmarks
         .sort_unstable_by(|update1, update2| update1.symbol.cmp(&update2.symbol));
     changed_remote_tags.sort_unstable_by(|update1, update2| update1.symbol.cmp(&update2.symbol));
     failed_ref_names.sort_unstable();
     Ok(RefsToImport {
-        changed_git_refs,
+        changed_git_refs: vec![],
         changed_remote_bookmarks,
         changed_remote_tags,
         failed_ref_names,
@@ -1142,8 +1134,8 @@ fn collect_changed_refs_to_import(
 }
 
 /// Similar to [`collect_changed_refs_to_import()`], but doesn't track Git ref
-/// changes. Remote tags should be managed solely by jj.
-fn collect_changed_remote_tags_to_import(
+/// changes. Fetched refs should be managed solely by jj.
+fn collect_changed_fetched_refs_to_import(
     actual_git_refs: gix::reference::iter::Iter,
     known_remote_refs: &mut HashMap<RemoteRefKey<'_>, &RemoteRef>,
     changed_remote_refs: &mut Vec<GitImportRefUpdate>,
@@ -1159,7 +1151,7 @@ fn collect_changed_remote_tags_to_import(
             continue;
         };
         let full_name = GitRefName::new(full_name);
-        let Some((kind, symbol)) = parse_remote_tag_ref(full_name) else {
+        let Some((kind, symbol)) = parse_fetched_ref(full_name) else {
             // Skip invalid ref names.
             continue;
         };
@@ -2730,19 +2722,20 @@ fn remove_remote_git_refs(git_repo: &mut gix::Repository, remote: &RemoteName) -
         "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/",
         remote = remote.as_str()
     );
+    let fetch_bookmark_prefix = format!(
+        "{FETCH_BOOKMARK_REF_NAMESPACE}{remote}/",
+        remote = remote.as_str()
+    );
     let tag_prefix = format!(
         "{REMOTE_TAG_REF_NAMESPACE}{remote}/",
         remote = remote.as_str()
     );
-    let edits: Vec<_> = itertools::chain(
-        git_repo
-            .references()?
-            .prefixed(bookmark_prefix.as_str())?
+    let refs = git_repo.references()?;
+    let edits: Vec<_> = itertools::chain!(
+        refs.prefixed(bookmark_prefix.as_str())?.map_ok(remove_ref),
+        refs.prefixed(fetch_bookmark_prefix.as_str())?
             .map_ok(remove_ref),
-        git_repo
-            .references()?
-            .prefixed(tag_prefix.as_str())?
-            .map_ok(remove_ref),
+        refs.prefixed(tag_prefix.as_str())?.map_ok(remove_ref),
     )
     .try_collect()?;
     git_repo.edit_references(edits)?;
@@ -2858,15 +2851,20 @@ fn rename_remote_git_refs(
     };
 
     let (old_bookmark_prefix, new_bookmark_prefix) = to_prefixes(REMOTE_BOOKMARK_REF_NAMESPACE);
+    let (old_fetch_bookmark_prefix, new_fetch_bookmark_prefix) =
+        to_prefixes(FETCH_BOOKMARK_REF_NAMESPACE);
     let (old_tag_prefix, new_tag_prefix) = to_prefixes(REMOTE_TAG_REF_NAMESPACE);
-    let edits: Vec<_> = itertools::chain(
-        git_repo
-            .references()?
-            .prefixed(old_bookmark_prefix.as_str())?
+    let refs = git_repo.references()?;
+    let edits: Vec<_> = itertools::chain!(
+        refs.prefixed(old_bookmark_prefix.as_str())?
             .map_ok(|old_ref| to_rename_edits(&old_bookmark_prefix, &new_bookmark_prefix, old_ref)),
-        git_repo
-            .references()?
-            .prefixed(old_tag_prefix.as_str())?
+        refs.prefixed(old_fetch_bookmark_prefix.as_str())?
+            .map_ok(|old_ref| to_rename_edits(
+                &old_fetch_bookmark_prefix,
+                &new_fetch_bookmark_prefix,
+                old_ref
+            )),
+        refs.prefixed(old_tag_prefix.as_str())?
             .map_ok(|old_ref| to_rename_edits(&old_tag_prefix, &new_tag_prefix, old_ref)),
     )
     .flatten_ok()
@@ -3019,8 +3017,8 @@ fn expand_fetch_refspecs(
                 RefSpec::forced(
                     format!("refs/heads/{glob}"),
                     format!(
-                        "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/{glob}",
-                        remote = remote.as_str()
+                        "{FETCH_BOOKMARK_REF_NAMESPACE}{remote}/{glob}",
+                        remote = remote.as_str(),
                     ),
                 )
             }),
@@ -3527,7 +3525,7 @@ pub fn push_refs(
     let pushed_bookmark_updates = || {
         iter::zip(&targets.bookmarks, &ref_updates[..targets.bookmarks.len()])
             .filter(|(_, ref_update)| pushed.contains(&*ref_update.qualified_name))
-            .map(|((name, update), _)| (&**name, update))
+            .map(|((name, update), ref_update)| (&**name, update, ref_update))
     };
     let pushed_tag_updates = || {
         iter::zip(&targets.tags, &ref_updates[targets.bookmarks.len()..])
@@ -3542,12 +3540,20 @@ pub fn push_refs(
             build_pushed_bookmarks_to_export(mut_repo.view(), remote, pushed_bookmark_updates());
         export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, refs)
     };
-    // Update remote tags so we can look up annotated tag oid without fetching.
-    // Since remote tags should never be imported without fetching from the
-    // remote, update failure isn't a hard error.
+    // Update fetched refs to reduce path conflicts on subsequent fetches and
+    // allow looking up annotated tag oid without fetching. Since these refs
+    // should never be imported without fetching from the remote, update failure
+    // isn't a hard error.
+    for (name, _, ref_update) in pushed_bookmark_updates() {
+        let symbol = name.to_remote_symbol(remote);
+        let edit = to_fetched_ref_update(GitRefKind::Bookmark, symbol, ref_update.targets.after);
+        if let Err(err) = git_repo.edit_reference(edit) {
+            tracing::warn!(?symbol, ?err, "failed to update fetched bookmark ref");
+        }
+    }
     for (name, _, ref_update) in pushed_tag_updates() {
         let symbol = name.to_remote_symbol(remote);
-        let edit = to_remote_tag_ref_update(symbol, ref_update.targets.after);
+        let edit = to_fetched_ref_update(GitRefKind::Tag, symbol, ref_update.targets.after);
         if let Err(err) = git_repo.edit_reference(edit) {
             tracing::warn!(?symbol, ?err, "failed to update remote tag ref");
         }
@@ -3559,7 +3565,9 @@ pub fn push_refs(
             .binary_search_by_key(&name, |(symbol, _)| &symbol.name)
             .is_err()
     };
-    for (name, update) in pushed_bookmark_updates().filter(|(name, _)| is_exported_bookmark(name)) {
+    for (name, update, _) in
+        pushed_bookmark_updates().filter(|(name, _, _)| is_exported_bookmark(name))
+    {
         let new_remote_ref = RemoteRef {
             target: RefTarget::resolved(update.after.clone()),
             state: RemoteRefState::Tracked,
@@ -3644,11 +3652,13 @@ pub fn push_updates(
 fn build_pushed_bookmarks_to_export<'a>(
     view: &View,
     remote: &RemoteName,
-    pushed_updates: impl IntoIterator<Item = (&'a RefName, &'a Diff<Option<CommitId>>)>,
+    pushed_updates: impl IntoIterator<
+        Item = (&'a RefName, &'a Diff<Option<CommitId>>, &'a GitRefUpdate),
+    >,
 ) -> RefsToExport {
     let mut to_update = Vec::new();
     let mut to_delete = Vec::new();
-    for (name, update) in pushed_updates {
+    for (name, update, _) in pushed_updates {
         let symbol = name.to_remote_symbol(remote);
         // Unsupported ref names will be reported later by export_refs_to_git()
         let known = to_git_ref_name(GitRefKind::Bookmark, symbol)
@@ -3677,12 +3687,13 @@ fn build_pushed_bookmarks_to_export<'a>(
     }
 }
 
-/// Constructs `RefEdit` to update pushed remote tag ref.
-fn to_remote_tag_ref_update(
+/// Constructs `RefEdit` to update pushed ref in the fetch namespace.
+fn to_fetched_ref_update(
+    kind: GitRefKind,
     symbol: RemoteRefSymbol<'_>,
     new_oid: Option<gix::ObjectId>,
 ) -> gix::refs::transaction::RefEdit {
-    // No constraint on existing ref because remote tag ref shouldn't be moved
+    // No constraint on existing ref because fetched ref shouldn't be moved
     // externally, and should always point to the actual remote ref.
     let expected = gix::refs::transaction::PreviousValue::Any;
     let change = match new_oid {
@@ -3696,8 +3707,12 @@ fn to_remote_tag_ref_update(
             log: gix::refs::transaction::RefLog::AndReference,
         },
     };
+    let namespace = match kind {
+        GitRefKind::Bookmark => FETCH_BOOKMARK_REF_NAMESPACE,
+        GitRefKind::Tag => REMOTE_TAG_REF_NAMESPACE,
+    };
     let name = format!(
-        "{REMOTE_TAG_REF_NAMESPACE}{remote}/{name}",
+        "{namespace}{remote}/{name}",
         remote = symbol.remote.as_str(),
         name = symbol.name.as_str()
     );
