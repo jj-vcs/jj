@@ -23,14 +23,14 @@ fn test_syntax_error() {
     let output = work_dir.run_jj(["log", "-r", ":x"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Failed to parse revset: `:` is not a prefix operator
+    Error: Failed to parse revset: Syntax error
     Caused by:  --> 1:1
       |
     1 | :x
-      | ^
+      | ^---
       |
-      = `:` is not a prefix operator
-    Hint: Did you mean `::` for ancestors?
+      = expected <expression>
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
     [EOF]
     [exit status: 1]
     ");
