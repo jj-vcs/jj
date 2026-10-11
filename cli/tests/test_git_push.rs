@@ -3192,21 +3192,23 @@ fn test_git_push_unmapped_refs() {
       bookmark: bookmark2 [add to aa5df56a071b]
     Warning: The following bookmarks couldn't be updated locally:
       bookmark2@origin: Failed to set: Could not commit reference, reference="refs/remotes/origin/bookmark2": Directory not empty: Directory not empty: Directory not empty
+    Warning: Failed to export some bookmarks:
+      bookmark2@origin: Failed to set: Could not commit reference, reference="refs/remotes/origin/bookmark2": Directory not empty: Directory not empty: Directory not empty
+    Hint: Git doesn't allow a branch/tag name that looks like a parent directory of
+    another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks/tags that failed
+    to export or their "parent" bookmarks/tags.
     Error: Failed to push some bookmarks
     [EOF]
     [exit status: 1]
     "#);
 
-    // Since export failed, bookmark2@origin isn't created. If it were created,
-    // this command would import "deletion" of bookmark2@origin as an external
-    // change, and abandon commit2.
+    // Since the export failed, this command imports the "deletion" of
+    // bookmark2@origin as an external change and abandons commit2. Ideally, we
+    // should block imports until the refs are updated externally.
     insta::assert_snapshot!(get_bookmark_output(&local_dir), @"
     bookmark1: rlvkpnrz 5792bfac (empty) commit1
       @git: rlvkpnrz 5792bfac (empty) commit1
       @origin: rlvkpnrz 5792bfac (empty) commit1
-    bookmark2: zsuskuln aa5df56a (empty) commit2
-      @git: zsuskuln aa5df56a (empty) commit2
-      @origin (not created yet)
     [EOF]
     ");
 }
