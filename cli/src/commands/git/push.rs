@@ -613,7 +613,7 @@ pub async fn cmd_git_push(
         remote_push_options: args.option.clone(),
     };
     let mut all_ok = true;
-    let mut some_exported = false;
+    let mut some_pushed = false;
 
     for (remote, ref_updates) in &by_remote {
         if let Some(mut formatter) = ui.status_formatter() {
@@ -641,7 +641,7 @@ pub async fn cmd_git_push(
         print_push_stats(ui, &push_stats)?;
 
         all_ok &= push_stats.all_ok();
-        some_exported |= push_stats.some_exported();
+        some_pushed |= !push_stats.pushed.is_empty();
     }
 
     if args.dry_run {
@@ -651,7 +651,7 @@ pub async fn cmd_git_push(
 
     // TODO: On partial success, locally-created --change/--named bookmarks will
     // be committed. It's probably better to remove failed local bookmarks.
-    if all_ok || some_exported {
+    if all_ok || some_pushed {
         let description = {
             let remotes = match &*by_remote {
                 [(remote, _)] => format!("git remote {remote}", remote = remote.as_symbol()),

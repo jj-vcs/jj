@@ -215,12 +215,6 @@ impl GitPushStats {
             && self.remote_rejected.is_empty()
             && self.unexported_bookmarks.is_empty()
     }
-
-    /// Returns true if there are at least one bookmark that was successfully
-    /// pushed to the remote and exported to the local Git repo.
-    pub fn some_exported(&self) -> bool {
-        self.pushed.len() > self.unexported_bookmarks.len()
-    }
 }
 
 /// Newtype to look up `HashMap` entry by key of shorter lifetime.
@@ -3560,15 +3554,7 @@ pub fn push_refs(
         }
     }
 
-    debug_assert!(unexported_bookmarks.is_sorted_by_key(|(symbol, _)| symbol));
-    let is_exported_bookmark = |name: &RefName| {
-        unexported_bookmarks
-            .binary_search_by_key(&name, |(symbol, _)| &symbol.name)
-            .is_err()
-    };
-    for (name, update, _) in
-        pushed_bookmark_updates().filter(|(name, _, _)| is_exported_bookmark(name))
-    {
+    for (name, update, _) in pushed_bookmark_updates() {
         let new_remote_ref = RemoteRef {
             target: RefTarget::resolved(update.after.clone()),
             state: RemoteRefState::Tracked,
