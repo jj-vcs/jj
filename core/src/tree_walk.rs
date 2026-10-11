@@ -14,18 +14,22 @@
 
 //! Utilities for walking trees concurrently.
 
-#![cfg_attr(not(test), expect(dead_code))]
-
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 use std::task::ready;
 
 use futures::FutureExt as _;
+use futures::Stream;
 use futures::StreamExt as _;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
+
+use crate::backend::BackendResult;
+use crate::repo_path::RepoPath;
+use crate::repo_path::RepoPathBuf;
 
 /// A set of futures keyed by priority. At most `limit` of the futures are
 /// polled concurrently. The others are queued, and the ones with the smallest
@@ -94,6 +98,136 @@ where
     }
 }
 
+/// Decides what an `OrderedTreeWalk` emits and which paths it schedules work
+/// for.
+pub(crate) trait TreeWalkVisitor<'a> {
+    /// The output of the work scheduled for a path, such as the trees read for
+    /// a directory.
+    type Work: Send + 'a;
+    /// The items emitted by the walk.
+    type Item;
+
+    /// Processes the completed work for `path`. Any items emitted and work
+    /// scheduled must be for paths below `path`.
+    fn visit(
+        &self,
+        path: &RepoPath,
+        work: Self::Work,
+        queue: &mut TreeWalkQueue<'a, Self::Work, Self::Item>,
+    );
+}
+
+/// The pending work and items of an `OrderedTreeWalk`.
+pub(crate) struct TreeWalkQueue<'a, W, I> {
+    work: PrioritizedFutures<'a, RepoPathBuf, BackendResult<W>>,
+    /// Items that may or may not be ready to emit. An item is ready to emit
+    /// unless there's pending work for a smaller path.
+    items: BTreeMap<RepoPathBuf, BackendResult<I>>,
+}
+
+impl<'a, W, I> TreeWalkQueue<'a, W, I>
+where
+    W: 'a,
+{
+    /// Creates an empty queue that runs at most `max_concurrent_work`
+    /// scheduled futures concurrently.
+    pub fn new(max_concurrent_work: usize) -> Self {
+        Self {
+            work: PrioritizedFutures::new(max_concurrent_work),
+            items: BTreeMap::new(),
+        }
+    }
+
+    /// Adds an item to emit at `path`. There must not already be an item for
+    /// the same path.
+    pub fn emit(&mut self, path: RepoPathBuf, item: I) {
+        let old = self.items.insert(path, Ok(item));
+        debug_assert!(old.is_none(), "Duplicate item");
+    }
+
+    /// Schedules work for `path`. Paths earlier in the walk are prioritized.
+    /// If the work fails, the error is emitted at `path`.
+    pub fn schedule(
+        &mut self,
+        path: RepoPathBuf,
+        work: impl Future<Output = BackendResult<W>> + Send + 'a,
+    ) {
+        self.work.push(path, work);
+    }
+
+    /// Whether the first item can be emitted, i.e. no pending work can result
+    /// in an earlier item.
+    fn first_item_ready(&self) -> bool {
+        match (self.items.keys().next(), self.work.first_key()) {
+            (Some(item_path), Some(work_path)) => item_path <= work_path,
+            (Some(_), None) => true,
+            (None, _) => false,
+        }
+    }
+}
+
+/// Stream that walks trees concurrently and emits items in path order. This
+/// means that items in a directory are emitted before items in later sibling
+/// directories, and that an item for a directory is emitted before items
+/// within it.
+///
+/// Work is scheduled for paths in order, so the walk makes progress on early
+/// paths without first having to read all directories at each level.
+pub(crate) struct OrderedTreeWalk<'a, V: TreeWalkVisitor<'a>> {
+    visitor: V,
+    queue: TreeWalkQueue<'a, V::Work, V::Item>,
+    /// The maximum number of items in the queue. We stop polling scheduled
+    /// work while we're at the limit. However, we may temporarily go over the
+    /// limit because a visitor can emit any number of items, and because items
+    /// may be waiting for work for earlier paths.
+    max_queued_items: usize,
+}
+
+impl<'a, V: TreeWalkVisitor<'a>> OrderedTreeWalk<'a, V> {
+    /// Creates a walk that starts with the given queue.
+    pub fn new(visitor: V, queue: TreeWalkQueue<'a, V::Work, V::Item>) -> Self {
+        Self {
+            visitor,
+            queue,
+            max_queued_items: 10000,
+        }
+    }
+}
+
+impl<'a, V> Stream for OrderedTreeWalk<'a, V>
+where
+    V: TreeWalkVisitor<'a> + Unpin,
+{
+    type Item = (RepoPathBuf, BackendResult<V::Item>);
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        loop {
+            let ready = this.queue.first_item_ready();
+            // If we can't emit an item, we must poll the scheduled work. Otherwise, nothing
+            // would wake us up when the work completes.
+            if (!ready || this.queue.items.len() < this.max_queued_items)
+                && let Poll::Ready(Some((path, result))) = this.queue.work.poll_next(cx)
+            {
+                match result {
+                    Ok(work) => this.visitor.visit(&path, work, &mut this.queue),
+                    Err(err) => {
+                        this.queue.items.insert(path, Err(err));
+                    }
+                }
+                continue;
+            }
+            return if ready {
+                Poll::Ready(this.queue.items.pop_first())
+            } else if this.queue.work.is_empty() {
+                Poll::Ready(None)
+            } else {
+                Poll::Pending
+            };
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -103,6 +237,8 @@ mod tests {
     use futures::task::noop_waker_ref;
 
     use super::*;
+    use crate::backend::BackendError;
+    use crate::repo_path::RepoPathComponent;
 
     /// Returns a future that records `key` in `started` when first polled and
     /// then completes when the returned sender is used.
@@ -178,5 +314,200 @@ mod tests {
         assert_eq!(poll_next(&mut futures), Poll::Ready(None));
         assert!(futures.is_empty());
         assert_eq!(*started.lock().unwrap(), BTreeSet::from([1, 2, 3, 4, 5]));
+    }
+
+    type DirResult = BackendResult<Vec<TestEntry>>;
+
+    /// An entry in a directory walked by `TestVisitor`.
+    #[derive(Debug)]
+    enum TestEntry {
+        File(&'static str),
+        /// A directory whose entries are read from the receiver.
+        Dir(&'static str, oneshot::Receiver<DirResult>),
+    }
+
+    /// Returns a directory entry whose entries are provided by sending them to
+    /// the returned sender.
+    fn dir(name: &'static str) -> (oneshot::Sender<DirResult>, TestEntry) {
+        let (sender, receiver) = oneshot::channel();
+        (sender, TestEntry::Dir(name, receiver))
+    }
+
+    /// Emits an item for each file and schedules reading each directory.
+    /// Records the paths it visits.
+    struct TestVisitor {
+        visited: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl TreeWalkVisitor<'static> for TestVisitor {
+        type Work = Vec<TestEntry>;
+        type Item = ();
+
+        fn visit(
+            &self,
+            dir: &RepoPath,
+            entries: Self::Work,
+            queue: &mut TreeWalkQueue<'static, Self::Work, Self::Item>,
+        ) {
+            self.visited
+                .lock()
+                .unwrap()
+                .push(dir.as_internal_file_string().to_owned());
+            for entry in entries {
+                match entry {
+                    TestEntry::File(name) => {
+                        queue.emit(dir.join(RepoPathComponent::new(name).unwrap()), ());
+                    }
+                    TestEntry::Dir(name, receiver) => {
+                        let path = dir.join(RepoPathComponent::new(name).unwrap());
+                        queue.schedule(path, async { receiver.await.unwrap() });
+                    }
+                }
+            }
+        }
+    }
+
+    /// Returns a walk of a root directory whose entries are provided by
+    /// sending them to the returned sender, and the list of visited paths.
+    fn new_walk(
+        max_concurrent_work: usize,
+    ) -> (
+        oneshot::Sender<DirResult>,
+        OrderedTreeWalk<'static, TestVisitor>,
+        Arc<Mutex<Vec<String>>>,
+    ) {
+        let (sender, receiver) = oneshot::channel();
+        let mut queue = TreeWalkQueue::new(max_concurrent_work);
+        queue.schedule(RepoPathBuf::root(), async { receiver.await.unwrap() });
+        let visited = Arc::new(Mutex::new(vec![]));
+        let visitor = TestVisitor {
+            visited: visited.clone(),
+        };
+        (sender, OrderedTreeWalk::new(visitor, queue), visited)
+    }
+
+    fn poll_walk(
+        walk: &mut OrderedTreeWalk<'static, TestVisitor>,
+    ) -> Poll<Option<(String, Result<(), String>)>> {
+        walk.poll_next_unpin(&mut Context::from_waker(noop_waker_ref()))
+            .map(|item| {
+                item.map(|(path, result)| {
+                    let path = path.as_internal_file_string().to_owned();
+                    (path, result.map_err(|err| err.to_string()))
+                })
+            })
+    }
+
+    fn ok_item(path: &str) -> Poll<Option<(String, Result<(), String>)>> {
+        Poll::Ready(Some((path.to_owned(), Ok(()))))
+    }
+
+    #[test]
+    fn test_walk_out_of_order_completion() {
+        let (root, mut walk, visited) = new_walk(2);
+        assert_eq!(poll_walk(&mut walk), Poll::Pending);
+
+        let (b, b_entry) = dir("b");
+        let (c, c_entry) = dir("c");
+        root.send(Ok(vec![
+            TestEntry::File("a"),
+            b_entry,
+            TestEntry::File("b.txt"),
+            c_entry,
+            TestEntry::File("d"),
+        ]))
+        .unwrap();
+        // Items before pending work are emitted
+        assert_eq!(poll_walk(&mut walk), ok_item("a"));
+        assert_eq!(poll_walk(&mut walk), Poll::Pending);
+
+        // Items from a later directory wait for the work for earlier directories
+        c.send(Ok(vec![TestEntry::File("x")])).unwrap();
+        assert_eq!(poll_walk(&mut walk), Poll::Pending);
+        assert_eq!(*visited.lock().unwrap(), ["", "c"]);
+
+        // Items within a directory are emitted before later siblings of the directory
+        b.send(Ok(vec![TestEntry::File("y")])).unwrap();
+        assert_eq!(poll_walk(&mut walk), ok_item("b/y"));
+        assert_eq!(poll_walk(&mut walk), ok_item("b.txt"));
+        assert_eq!(poll_walk(&mut walk), ok_item("c/x"));
+        assert_eq!(poll_walk(&mut walk), ok_item("d"));
+        assert_eq!(poll_walk(&mut walk), Poll::Ready(None));
+        assert_eq!(*visited.lock().unwrap(), ["", "c", "b"]);
+    }
+
+    #[test]
+    fn test_walk_error() {
+        let (root, mut walk, _visited) = new_walk(2);
+        let (b, b_entry) = dir("b");
+        root.send(Ok(vec![
+            TestEntry::File("a"),
+            b_entry,
+            TestEntry::File("c"),
+        ]))
+        .unwrap();
+        b.send(Err(BackendError::Other("read failed".into())))
+            .unwrap();
+
+        // The error is emitted in order at the path of the failed work
+        assert_eq!(poll_walk(&mut walk), ok_item("a"));
+        assert_eq!(
+            poll_walk(&mut walk),
+            Poll::Ready(Some(("b".to_owned(), Err("read failed".to_owned()))))
+        );
+        assert_eq!(poll_walk(&mut walk), ok_item("c"));
+        assert_eq!(poll_walk(&mut walk), Poll::Ready(None));
+    }
+
+    #[test]
+    fn test_walk_back_pressure() {
+        let (root, mut walk, visited) = new_walk(2);
+        walk.max_queued_items = 2;
+        let (d, d_entry) = dir("d");
+        root.send(Ok(vec![
+            TestEntry::File("a"),
+            TestEntry::File("b"),
+            TestEntry::File("c"),
+            d_entry,
+        ]))
+        .unwrap();
+        d.send(Ok(vec![TestEntry::File("x")])).unwrap();
+
+        // The work for "d" has completed, but it's not visited while the queue is
+        // full
+        assert_eq!(poll_walk(&mut walk), ok_item("a"));
+        assert_eq!(*visited.lock().unwrap(), [""]);
+        assert_eq!(poll_walk(&mut walk), ok_item("b"));
+        assert_eq!(*visited.lock().unwrap(), [""]);
+
+        // Once the queue is below the limit, the work is visited
+        assert_eq!(poll_walk(&mut walk), ok_item("c"));
+        assert_eq!(*visited.lock().unwrap(), ["", "d"]);
+        assert_eq!(poll_walk(&mut walk), ok_item("d/x"));
+        assert_eq!(poll_walk(&mut walk), Poll::Ready(None));
+    }
+
+    #[test]
+    fn test_walk_back_pressure_with_blocked_items() {
+        let (root, mut walk, _visited) = new_walk(2);
+        walk.max_queued_items = 2;
+        let (a, a_entry) = dir("a");
+        root.send(Ok(vec![
+            a_entry,
+            TestEntry::File("b"),
+            TestEntry::File("c"),
+            TestEntry::File("d"),
+        ]))
+        .unwrap();
+        assert_eq!(poll_walk(&mut walk), Poll::Pending);
+
+        // The queue is full, but no item can be emitted until the work for "a"
+        // completes, so that work must still be polled
+        a.send(Ok(vec![TestEntry::File("x")])).unwrap();
+        assert_eq!(poll_walk(&mut walk), ok_item("a/x"));
+        assert_eq!(poll_walk(&mut walk), ok_item("b"));
+        assert_eq!(poll_walk(&mut walk), ok_item("c"));
+        assert_eq!(poll_walk(&mut walk), ok_item("d"));
+        assert_eq!(poll_walk(&mut walk), Poll::Ready(None));
     }
 }
