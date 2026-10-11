@@ -81,6 +81,20 @@ fn diff_stream_sequential_equals_concurrent(
     assert_eq!(diff_with_concurrency(1), diff_with_concurrency(10));
 }
 
+fn entries_stream_equals_iter(tree: &MergedTree, matcher: &dyn Matcher) {
+    let iter_entries = tree
+        .entries_matching(matcher)
+        .map(|(path, value)| (path, value.unwrap()))
+        .collect_vec();
+    tree.store().clear_caches();
+    let stream_entries: Vec<_> = tree
+        .entries_stream_matching(matcher)
+        .map(|(path, value)| (path, value.unwrap()))
+        .collect()
+        .block_on();
+    assert_eq!(stream_entries, iter_entries);
+}
+
 /// Test that a tree built with no changes on top of an add/add conflict gets
 /// resolved.
 #[test]
@@ -120,6 +134,7 @@ fn test_path_value_and_entries() -> TestResult {
     let conflicted_file_path = repo_path("dir2/conflicted");
     let missing_path = repo_path("dir2/missing_file");
     let modify_delete_path = repo_path("dir2/modify_delete");
+    let deleted_path = repo_path("dir2/deleted");
     let file_dir_conflict_path = repo_path("file_dir");
     let file_dir_conflict_sub_path = repo_path("file_dir/file");
     let tree1 = create_single_tree(
@@ -128,6 +143,7 @@ fn test_path_value_and_entries() -> TestResult {
             (resolved_file_path, "unchanged"),
             (conflicted_file_path, "1"),
             (modify_delete_path, "1"),
+            (deleted_path, "unchanged"),
             (file_dir_conflict_path, "1"),
         ],
     );
@@ -137,6 +153,7 @@ fn test_path_value_and_entries() -> TestResult {
             (resolved_file_path, "unchanged"),
             (conflicted_file_path, "2"),
             (modify_delete_path, "2"),
+            (deleted_path, "unchanged"),
             (file_dir_conflict_path, "2"),
         ],
     );
@@ -145,7 +162,7 @@ fn test_path_value_and_entries() -> TestResult {
         &[
             (resolved_file_path, "unchanged"),
             (conflicted_file_path, "3"),
-            // No modify_delete_path in this tree
+            // No modify_delete_path or deleted_path in this tree
             (file_dir_conflict_sub_path, "1"),
         ],
     );
@@ -220,8 +237,8 @@ fn test_path_value_and_entries() -> TestResult {
         .entries()
         .map(|(path, result)| (path, result.unwrap()))
         .collect_vec();
-    // missing_path, resolved_dir_path, and file_dir_conflict_sub_path should not
-    // appear
+    // missing_path, deleted_path, resolved_dir_path, and file_dir_conflict_sub_path
+    // should not appear
     let expected_entries = [
         resolved_file_path,
         conflicted_file_path,
@@ -238,13 +255,15 @@ fn test_path_value_and_entries() -> TestResult {
     })
     .collect_vec();
     assert_eq!(actual_entries, expected_entries);
+    entries_stream_equals_iter(&merged_tree, &EverythingMatcher);
 
+    let matcher = FilesMatcher::new([
+        &resolved_file_path,
+        &modify_delete_path,
+        &file_dir_conflict_sub_path,
+    ]);
     let actual_entries = merged_tree
-        .entries_matching(&FilesMatcher::new([
-            &resolved_file_path,
-            &modify_delete_path,
-            &file_dir_conflict_sub_path,
-        ]))
+        .entries_matching(&matcher)
         .map(|(path, result)| (path, result.unwrap()))
         .collect_vec();
     let expected_entries = [resolved_file_path, modify_delete_path]
@@ -258,6 +277,7 @@ fn test_path_value_and_entries() -> TestResult {
         })
         .collect_vec();
     assert_eq!(actual_entries, expected_entries);
+    entries_stream_equals_iter(&merged_tree, &matcher);
     Ok(())
 }
 

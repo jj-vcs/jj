@@ -270,6 +270,31 @@ impl MergedTree {
         TreeEntriesIterator::new(self, matcher)
     }
 
+    /// Like `entries()` but reads trees concurrently.
+    pub fn entries_stream(&self) -> TreeEntriesStream<'static> {
+        self.entries_stream_matching(&EverythingMatcher)
+    }
+
+    /// Like `entries_stream()` but restricted by a matcher.
+    pub fn entries_stream_matching<'matcher>(
+        &self,
+        matcher: &'matcher dyn Matcher,
+    ) -> TreeEntriesStream<'matcher> {
+        let mut queue = TreeWalkQueue::new(self.store().concurrency());
+        let root = RepoPathBuf::root();
+        let root_trees_fut = read_trees(
+            self.store.clone(),
+            root.clone(),
+            self.to_merged_tree_value(),
+        );
+        queue.schedule(root, root_trees_fut);
+        let visitor = TreeEntriesVisitor {
+            store: self.store.clone(),
+            matcher,
+        };
+        OrderedTreeWalk::new(visitor, queue).boxed()
+    }
+
     /// Stream of the differences between this tree and another tree.
     fn diff_stream_internal<'matcher>(
         &self,
@@ -378,6 +403,10 @@ pub struct TreeDiffEntry {
     /// The resolved tree values if available.
     pub values: BackendResult<Diff<MergedTreeValue>>,
 }
+
+/// Type alias for the result from `MergedTree::entries_stream()`.
+pub type TreeEntriesStream<'matcher> =
+    BoxStream<'matcher, (RepoPathBuf, BackendResult<MergedTreeValue>)>;
 
 /// Type alias for the result from `MergedTree::diff_stream()`. We use a
 /// `Stream` instead of an `Iterator` so high-latency backends (e.g. cloud-based
@@ -515,6 +544,51 @@ impl Iterator for TreeEntriesIterator<'_> {
             }
         }
         None
+    }
+}
+
+/// Reads the trees for `value`, which must be a tree.
+async fn read_trees(
+    store: Arc<Store>,
+    dir: RepoPathBuf,
+    value: MergedTreeValue,
+) -> BackendResult<Merge<Tree>> {
+    let trees = value
+        .to_tree_merge(&store, &dir)
+        .await?
+        .expect("Should be tree merge");
+    Ok(trees)
+}
+
+/// Visits the entries in a tree, reading subtrees concurrently.
+struct TreeEntriesVisitor<'matcher> {
+    store: Arc<Store>,
+    matcher: &'matcher dyn Matcher,
+}
+
+impl<'matcher> TreeWalkVisitor<'matcher> for TreeEntriesVisitor<'matcher> {
+    type Work = Merge<Tree>;
+    type Item = MergedTreeValue;
+
+    fn visit(
+        &self,
+        dir: &RepoPath,
+        trees: Self::Work,
+        queue: &mut TreeWalkQueue<'matcher, Self::Work, Self::Item>,
+    ) {
+        for (name, value) in all_tree_entries(&trees) {
+            let path = dir.join(name);
+            if value.is_tree() {
+                // TODO: Handle the other cases (specific files and trees)
+                if self.matcher.visit(&path).is_nothing() {
+                    continue;
+                }
+                let trees_fut = read_trees(self.store.clone(), path.clone(), value.cloned());
+                queue.schedule(path, trees_fut);
+            } else if value.is_present() && self.matcher.matches(&path) {
+                queue.emit(path, value.cloned());
+            }
+        }
     }
 }
 
