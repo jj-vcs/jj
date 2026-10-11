@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -81,7 +82,8 @@ pub(crate) async fn cmd_file_list(
 
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
-    for (path, value) in tree.entries_matching(matcher.as_ref()) {
+    let mut entries = tree.entries_stream_matching(matcher.as_ref());
+    while let Some((path, value)) = entries.next().await {
         let entry = TreeEntry {
             path,
             value: value?,

@@ -712,12 +712,14 @@ impl CommandHelper {
                             &desired_wc_commit,
                         )
                         .await?;
-                        workspace_command.print_updated_working_copy_stats(
-                            ui,
-                            Some(&stale_wc_commit),
-                            &desired_wc_commit,
-                            &stats,
-                        )?;
+                        workspace_command
+                            .print_updated_working_copy_stats(
+                                ui,
+                                Some(&stale_wc_commit),
+                                &desired_wc_commit,
+                                &stats,
+                            )
+                            .await?;
                         writeln!(
                             ui.status(),
                             "Updated working copy to fresh commit {}",
@@ -2292,9 +2294,10 @@ to the current parents may contain changes from multiple commits.
         )
         .await?;
         self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
+            .await
     }
 
-    fn print_updated_working_copy_stats(
+    async fn print_updated_working_copy_stats(
         &self,
         ui: &Ui,
         maybe_old_commit: Option<&Commit>,
@@ -2320,7 +2323,7 @@ to the current parents may contain changes from multiple commits.
             && let Some(mut formatter) = ui.status_formatter()
             && new_commit.has_conflict()
         {
-            let conflicts = new_commit.tree().conflicts().collect_vec();
+            let conflicts = new_commit.tree().conflicts_stream().collect().await;
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"

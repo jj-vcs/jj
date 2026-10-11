@@ -16,6 +16,7 @@ use std::io;
 use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_tree_value;
 use jj_lib::repo::Repo as _;
@@ -100,7 +101,8 @@ pub(crate) async fn cmd_file_search(
     .map_err(cli_error)?;
     let pattern_matcher = pattern.to_matcher();
     // TODO: Read files concurrently (depending on backend)
-    for (path, value) in tree.entries_matching(file_matcher.as_ref()) {
+    let mut entries = tree.entries_stream_matching(file_matcher.as_ref());
+    while let Some((path, value)) = entries.next().await {
         let value = value?;
         let materialized =
             materialize_tree_value(store.as_ref(), &path, value, tree.labels()).await?;

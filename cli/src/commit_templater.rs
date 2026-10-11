@@ -1455,9 +1455,10 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let out_property = self_property.and_then(move |commit| {
                 let tree = commit.tree();
                 let entries: Vec<_> = tree
-                    .entries_matching(&*matcher)
+                    .entries_stream_matching(&*matcher)
                     .map(|(path, value)| value.map(|value| TreeEntry { path, value }))
-                    .try_collect()?;
+                    .try_collect()
+                    .block_on()?;
                 Ok(entries)
             });
             Ok(out_property.into_dyn_wrapped())
@@ -1470,9 +1471,10 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let out_property = self_property.and_then(|commit| {
                 let tree = commit.tree();
                 let entries: Vec<_> = tree
-                    .conflicts()
+                    .conflicts_stream()
                     .map(|(path, value)| value.map(|value| TreeEntry { path, value }))
-                    .try_collect()?;
+                    .try_collect()
+                    .block_on()?;
                 Ok(entries)
             });
             Ok(out_property.into_dyn_wrapped())
