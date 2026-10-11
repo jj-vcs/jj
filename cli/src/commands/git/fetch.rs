@@ -23,7 +23,6 @@ use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitSettings;
 use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
-use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git::get_git_backend;
 use jj_lib::git::load_default_fetch_bookmarks;
 use jj_lib::ref_name::RefName;
@@ -184,9 +183,9 @@ pub async fn cmd_git_fetch(
         Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
         None => is_specific.then(StringExpression::none),
     };
-    let mut expansions = Vec::with_capacity(matching_remotes.len());
+    let mut remote_ref_exprs = Vec::with_capacity(matching_remotes.len());
     if args.tracked {
-        for remote in &matching_remotes {
+        for &remote in &matching_remotes {
             let bookmark = StringExpression::union_all(
                 tx.repo()
                     .view()
@@ -204,12 +203,11 @@ pub async fn cmd_git_fetch(
                     .collect(),
             );
             let ref_expr = GitFetchRefExpression { bookmark, tag };
-            let expanded = expand_fetch_refspecs(remote, ref_expr)?;
-            expansions.push((remote, expanded));
+            remote_ref_exprs.push((remote, ref_expr));
         }
     } else {
         let git_repo = get_git_backend(tx.repo_mut().store())?.git_repo();
-        for remote in &matching_remotes {
+        for &remote in &matching_remotes {
             let bookmark = if let Some(expr) = &common_bookmark_expr {
                 expr.clone()
             } else if let Some(expr) = parse_remote_fetch_bookmarks(ui, &remote_settings, remote)? {
@@ -227,8 +225,7 @@ pub async fn cmd_git_fetch(
                 StringExpression::all()
             };
             let ref_expr = GitFetchRefExpression { bookmark, tag };
-            let expanded = expand_fetch_refspecs(remote, ref_expr)?;
-            expansions.push((remote, expanded));
+            remote_ref_exprs.push((remote, ref_expr));
         }
     }
 
@@ -246,9 +243,9 @@ pub async fn cmd_git_fetch(
         .join(", ");
     writeln!(ui.status(), "Fetching from Git remotes: {remote_names}")?;
 
-    for (remote, expanded) in expansions {
+    for (remote, ref_expr) in &remote_ref_exprs {
         let mut callback = GitSubprocessUi::new(ui);
-        git_fetch.fetch(remote, expanded, &mut callback, None)?;
+        git_fetch.fetch(remote, ref_expr, &mut callback, None)?;
     }
 
     let import_stats = git_fetch.import_refs().await?;

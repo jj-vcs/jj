@@ -1122,6 +1122,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     let output = target_dir.run_jj(["git", "fetch", "--branch", "'^:a*'"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     Error: Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `:`, `^`, `?`, `[`, `]`
     [EOF]
     [exit status: 1]
@@ -1129,6 +1130,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     let output = target_dir.run_jj(["git", "fetch", "--branch", "exact:a*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     Error: Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `:`, `^`, `?`, `[`, `]`
     [EOF]
     [exit status: 1]
@@ -1454,6 +1456,7 @@ fn test_git_fetch_unsupported_branch_patterns() {
     let output = work_dir.run_jj(["git", "fetch", "--branch=x&y|z"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     Error: Cannot use `&` in sub expression
     Hint: Specify patterns in `(positive | ...) & ~(negative | ...)` form.
     [EOF]
@@ -1464,6 +1467,7 @@ fn test_git_fetch_unsupported_branch_patterns() {
     let output = work_dir.run_jj(["git", "fetch", "--branch=~'[xy]'"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     Error: Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `:`, `^`, `?`, `[`, `]`
     [EOF]
     [exit status: 1]

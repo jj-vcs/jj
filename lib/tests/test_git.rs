@@ -62,7 +62,6 @@ use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
-use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git::load_default_fetch_bookmarks;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
@@ -256,18 +255,17 @@ fn fetch_all_with(fetcher: &mut GitFetch, remote: &RemoteName) -> Result<(), Git
         bookmark: StringExpression::all(),
         tag: StringExpression::all(),
     };
-    fetch_with(fetcher, remote, ref_expr)
+    fetch_with(fetcher, remote, &ref_expr)
 }
 
 /// Fetches the specified refs without importing.
 fn fetch_with(
     fetcher: &mut GitFetch,
     remote: &RemoteName,
-    ref_expr: GitFetchRefExpression,
+    ref_expr: &GitFetchRefExpression,
 ) -> Result<(), GitFetchError> {
-    let refspecs = expand_fetch_refspecs(remote, ref_expr).expect("ref patterns should be valid");
     let depth = None;
-    fetcher.fetch(remote, refspecs, &mut NullCallback, depth)
+    fetcher.fetch(remote, ref_expr, &mut NullCallback, depth)
 }
 
 fn push_status_rejected_references(push_stats: GitPushStats) -> Vec<GitRefNameBuf> {
@@ -4428,7 +4426,7 @@ fn test_fetch_empty_refspecs() -> TestResult {
         bookmark: StringExpression::none(),
         tag: StringExpression::none(),
     };
-    fetch_with(&mut fetcher, "origin".as_ref(), ref_expr)?;
+    fetch_with(&mut fetcher, "origin".as_ref(), &ref_expr)?;
     fetcher.import_refs().block_on()?;
     assert_eq!(
         tx.repo_mut()
@@ -4692,7 +4690,7 @@ fn test_fetch_multiple_branches() -> TestResult {
         ]),
         tag: StringExpression::none(),
     };
-    fetch_with(&mut fetcher, "origin".as_ref(), ref_expr)?;
+    fetch_with(&mut fetcher, "origin".as_ref(), &ref_expr)?;
     let stats = fetcher.import_refs().block_on()?;
 
     assert_eq!(
@@ -4717,7 +4715,7 @@ fn test_fetch_prune_deleted_refs_with_explicit_patterns() -> TestResult {
             bookmark: StringExpression::exact("main"),
             tag: StringExpression::exact("v1"),
         };
-        fetch_with(&mut fetcher, "origin".as_ref(), ref_expr)?;
+        fetch_with(&mut fetcher, "origin".as_ref(), &ref_expr)?;
         fetcher.import_refs().block_on()?;
         Ok(())
     };
@@ -5003,7 +5001,7 @@ fn test_fetch_with_explicit_tag_patterns() -> TestResult {
             bookmark: StringExpression::all(),
             tag,
         };
-        fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
+        fetch_with(&mut fetcher, "origin".as_ref(), &ref_expr).unwrap();
         fetcher.import_refs().block_on().unwrap()
     };
 
@@ -5085,7 +5083,7 @@ fn test_fetch_export_annotated_tags() -> TestResult {
             bookmark: StringExpression::none(),
             tag: StringExpression::all(),
         };
-        fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
+        fetch_with(&mut fetcher, "origin".as_ref(), &ref_expr).unwrap();
         fetcher.import_refs().block_on().unwrap()
     };
 
