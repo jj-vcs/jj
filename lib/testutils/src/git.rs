@@ -209,7 +209,11 @@ pub fn checkout_tree_index(repo: &gix::Repository, tree_id: gix::ObjectId) {
         &gix::progress::Discard,
         &gix::progress::Discard,
         &gix::interrupt::IS_INTERRUPTED,
-        gix::worktree::state::checkout::Options::default(),
+        gix::worktree::state::checkout::Options::new(gix::filter::plumbing::Pipeline::new(
+            Default::default(),
+            repo.object_hash(),
+            Default::default(),
+        )),
     )
     .unwrap();
 }

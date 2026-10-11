@@ -2694,7 +2694,7 @@ fn git_worktree_ids(repo: &gix::Repository) -> Vec<String> {
         .worktrees()
         .unwrap()
         .iter()
-        .map(|proxy| proxy.id().to_string())
+        .map(|proxy| proxy.id().unwrap().to_string())
         .collect::<Vec<_>>();
     ids.sort();
     ids

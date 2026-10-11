@@ -60,15 +60,16 @@ erased-serde = "0.4.10"
 etcetera = "0.11.0"
 eyre = "0.6"
 futures = "0.3.32"
-gix = { version = "0.88.0", default-features = false, features = [
+gix = { version = "0.89.0", default-features = false, features = [
     "attributes",
+    "auto-chain-error",
     "blob-diff",
     "index",
     "max-performance-safe",
     "sha1",
     "sha256",
 ] }
-gix-ignore = { version = "0.23.0" }
+gix-ignore = { version = "0.24.0" }
 globset = "0.4.18"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
 indexmap = { version = "2.14.0", features = ["serde"] }

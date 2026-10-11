@@ -62,14 +62,19 @@ impl GitIgnoreFile {
         // shouldn't be set. add_patterns_buffer() expects filesystem path pairs
         // e.g. ignore_path = "/repo/bar/.gitignore" and root = "/repo".
         let root = None;
-        matcher.add_patterns_buffer(
-            input,
-            ignore_path,
-            root,
-            gix_ignore::search::Ignore {
-                support_precious: false,
-            },
-        );
+        matcher
+            .add_patterns_buffer(
+                input,
+                ignore_path,
+                root,
+                gix_ignore::search::Ignore {
+                    support_precious: false,
+                },
+            )
+            .map_err(|source| GitIgnoreError::ReadFile {
+                path: ignore_path.to_owned(),
+                source,
+            })?;
 
         let parent = if self.matcher.patterns.is_empty() {
             self.parent.clone() // omit the empty root

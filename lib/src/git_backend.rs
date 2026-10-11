@@ -538,6 +538,7 @@ impl GitBackend {
                 self.git_repo()
                     .command_context()
                     .map_err(|err| BackendError::Other(Box::new(err)))?,
+                self.git_repo().object_hash(),
                 Default::default(),
             ),
             Vec::new(),
@@ -682,7 +683,7 @@ fn commit_from_git_without_root_parent(
     git_object: &gix::Object,
     is_shallow: bool,
 ) -> BackendResult<Commit> {
-    let decode_err = |err: gix::Exn<gix::error::Message>| to_read_object_err(err, id);
+    let decode_err = |err: gix::Error| to_read_object_err(err, id);
     let commit = git_object
         .try_to_commit_ref()
         .map_err(|err| to_read_object_err(err, id))?;
@@ -936,7 +937,12 @@ fn recreate_no_gc_refs(
         // will always have a unique name. Doing that with the current
         // ref-per-head strategy would increase the number of the no-gc refs.
         // https://github.com/jj-vcs/jj/pull/2659#issuecomment-1837057782
-        let loose_ref_path = git_repo.path().join(git_ref.name.to_path());
+        let loose_ref_path = git_repo.path().join(
+            git_ref
+                .name
+                .to_path()
+                .map_err(|err| BackendError::Other(err.into()))?,
+        );
         if let Ok(metadata) = loose_ref_path.metadata() {
             let mtime = metadata.modified().expect("unsupported platform?");
             if mtime > keep_newer {

@@ -4633,35 +4633,31 @@ fn test_load_default_fetch_bookmarks_invalid_configuration() -> TestResult {
         RemoteNameBuf(
             "first",
         ),
-        fetch ref-spec under `remote.first` was invalid, "input"="first"
-        |
-        └─ Could not parse refspec, "input"="+refs/heads/bad*pattern*:refs/remotes/heads/bad*pattern*", "key"="remote.<name>.fetch"
-        |
-        └─ refspec patterns may only contain a single '*' character, "input"="refs/heads/bad*pattern*",
+        fetch ref-spec under `remote.first` was invalid, input="first"
+        
+        Caused by:
+            0: Could not parse refspec, input="+refs/heads/bad*pattern*:refs/remotes/heads/bad*pattern*", key="remote.<name>.fetch"
+            1: refspec patterns may only contain a single '*' character, input="refs/heads/bad*pattern*",
     )
     InvalidRemoteConfiguration(
         RemoteNameBuf(
             "second",
         ),
-        fetch ref-spec under `remote.second` was invalid, "input"="second"
-        |
-        └─ Could not parse refspec, "input"="+refs/heads/badpattern?:refs/remotes/heads/badpattern?", "key"="remote.<name>.fetch"
-        |
-        └─ Reference name contains invalid byte: "?"
-        |
-        └─ Reference name contains invalid byte: "?",
+        fetch ref-spec under `remote.second` was invalid, input="second"
+        
+        Caused by:
+            0: Could not parse refspec, input="+refs/heads/badpattern?:refs/remotes/heads/badpattern?", key="remote.<name>.fetch"
+            1: Reference name contains invalid byte: "?",
     )
     InvalidRemoteConfiguration(
         RemoteNameBuf(
             "third",
         ),
-        fetch ref-spec under `remote.third` was invalid, "input"="third"
-        |
-        └─ Could not parse refspec, "input"="+refs/heads/bad[pat]:refs/remotes/heads/bad[pat]", "key"="remote.<name>.fetch"
-        |
-        └─ Reference name contains invalid byte: "["
-        |
-        └─ Reference name contains invalid byte: "[",
+        fetch ref-spec under `remote.third` was invalid, input="third"
+        
+        Caused by:
+            0: Could not parse refspec, input="+refs/heads/bad[pat]:refs/remotes/heads/bad[pat]", key="remote.<name>.fetch"
+            1: Reference name contains invalid byte: "[",
     )
     "#);
     Ok(())
@@ -6613,7 +6609,7 @@ fn test_shallow_commits_lack_parents() -> TestResult {
         for commit in shallow_commits {
             writeln!(buf, "{commit}").unwrap();
         }
-        fs::write(shallow_file, buf).unwrap();
+        fs::write(shallow_file.unwrap(), buf).unwrap();
         // Reload the repo to invalidate mtime-based in-memory cache
         test_env.load_repo_at_head(&settings, test_repo.repo_path())
     };
