@@ -16,6 +16,7 @@
 
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::collections::VecDeque;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
@@ -27,6 +28,7 @@ use futures::StreamExt as _;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 
+use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
@@ -117,12 +119,24 @@ pub(crate) trait TreeWalkVisitor<'a> {
     );
 }
 
+/// A run of items in path order.
+type ItemRun<I> = VecDeque<(RepoPathBuf, BackendResult<I>)>;
+
 /// The pending work and items of an `OrderedTreeWalk`.
 pub(crate) struct TreeWalkQueue<'a, W, I> {
     work: PrioritizedFutures<'a, RepoPathBuf, BackendResult<W>>,
-    /// Items that may or may not be ready to emit. An item is ready to emit
-    /// unless there's pending work for a smaller path.
-    items: BTreeMap<RepoPathBuf, BackendResult<I>>,
+    /// Runs of items that may or may not be ready to emit, keyed by the path of
+    /// the run's original first item. No work is scheduled for paths between
+    /// the items of a run, so the runs don't overlap and the first item of the
+    /// first run is ready to emit unless there's pending work for a smaller
+    /// path. Storing runs instead of individual items keeps the map small,
+    /// which makes it cheap to insert into.
+    runs: BTreeMap<RepoPathBuf, ItemRun<I>>,
+    /// The run that `emit()` appends to. It's moved into `runs` when work is
+    /// scheduled or the visitor is done.
+    open_run: ItemRun<I>,
+    /// The number of items in `runs` and `open_run`.
+    num_items: usize,
 }
 
 impl<'a, W, I> TreeWalkQueue<'a, W, I>
@@ -134,15 +148,23 @@ where
     pub fn new(max_concurrent_work: usize) -> Self {
         Self {
             work: PrioritizedFutures::new(max_concurrent_work),
-            items: BTreeMap::new(),
+            runs: BTreeMap::new(),
+            open_run: VecDeque::new(),
+            num_items: 0,
         }
     }
 
-    /// Adds an item to emit at `path`. There must not already be an item for
-    /// the same path.
+    /// Adds an item to emit at `path`. Items and work must be added in path
+    /// order. An item for a path must be added before work for the same path.
     pub fn emit(&mut self, path: RepoPathBuf, item: I) {
-        let old = self.items.insert(path, Ok(item));
-        debug_assert!(old.is_none(), "Duplicate item");
+        debug_assert!(
+            self.open_run
+                .back()
+                .is_none_or(|(last_path, _)| *last_path < path),
+            "Items must be emitted in path order"
+        );
+        self.open_run.push_back((path, Ok(item)));
+        self.num_items += 1;
     }
 
     /// Schedules work for `path`. Paths earlier in the walk are prioritized.
@@ -152,17 +174,59 @@ where
         path: RepoPathBuf,
         work: impl Future<Output = BackendResult<W>> + Send + 'a,
     ) {
+        debug_assert!(
+            self.open_run
+                .back()
+                .is_none_or(|(last_path, _)| *last_path <= path),
+            "Work must be scheduled in path order"
+        );
+        self.close_run();
         self.work.push(path, work);
+    }
+
+    /// Moves the open run into `runs`.
+    fn close_run(&mut self) {
+        if let Some((first_path, _)) = self.open_run.front() {
+            let first_path = first_path.clone();
+            let run = std::mem::take(&mut self.open_run);
+            let old = self.runs.insert(first_path, run);
+            debug_assert!(old.is_none(), "Duplicate item");
+        }
+    }
+
+    /// Adds an error for failed work at `path`.
+    fn insert_error(&mut self, path: RepoPathBuf, err: BackendError) {
+        self.close_run();
+        self.runs
+            .entry(path.clone())
+            .or_default()
+            .push_front((path, Err(err)));
+        self.num_items += 1;
     }
 
     /// Whether the first item can be emitted, i.e. no pending work can result
     /// in an earlier item.
     fn first_item_ready(&self) -> bool {
-        match (self.items.keys().next(), self.work.first_key()) {
+        let first_item_path = self
+            .runs
+            .first_key_value()
+            .map(|(_, run)| &run.front().unwrap().0);
+        match (first_item_path, self.work.first_key()) {
             (Some(item_path), Some(work_path)) => item_path <= work_path,
             (Some(_), None) => true,
             (None, _) => false,
         }
+    }
+
+    /// Removes the first item.
+    fn pop_first_item(&mut self) -> Option<(RepoPathBuf, BackendResult<I>)> {
+        let mut entry = self.runs.first_entry()?;
+        let item = entry.get_mut().pop_front().unwrap();
+        if entry.get().is_empty() {
+            entry.remove();
+        }
+        self.num_items -= 1;
+        Some(item)
     }
 }
 
@@ -185,7 +249,8 @@ pub(crate) struct OrderedTreeWalk<'a, V: TreeWalkVisitor<'a>> {
 
 impl<'a, V: TreeWalkVisitor<'a>> OrderedTreeWalk<'a, V> {
     /// Creates a walk that starts with the given queue.
-    pub fn new(visitor: V, queue: TreeWalkQueue<'a, V::Work, V::Item>) -> Self {
+    pub fn new(visitor: V, mut queue: TreeWalkQueue<'a, V::Work, V::Item>) -> Self {
+        queue.close_run();
         Self {
             visitor,
             queue,
@@ -197,6 +262,7 @@ impl<'a, V: TreeWalkVisitor<'a>> OrderedTreeWalk<'a, V> {
 impl<'a, V> Stream for OrderedTreeWalk<'a, V>
 where
     V: TreeWalkVisitor<'a> + Unpin,
+    V::Item: Unpin,
 {
     type Item = (RepoPathBuf, BackendResult<V::Item>);
 
@@ -206,19 +272,20 @@ where
             let ready = this.queue.first_item_ready();
             // If we can't emit an item, we must poll the scheduled work. Otherwise, nothing
             // would wake us up when the work completes.
-            if (!ready || this.queue.items.len() < this.max_queued_items)
+            if (!ready || this.queue.num_items < this.max_queued_items)
                 && let Poll::Ready(Some((path, result))) = this.queue.work.poll_next(cx)
             {
                 match result {
-                    Ok(work) => this.visitor.visit(&path, work, &mut this.queue),
-                    Err(err) => {
-                        this.queue.items.insert(path, Err(err));
+                    Ok(work) => {
+                        this.visitor.visit(&path, work, &mut this.queue);
+                        this.queue.close_run();
                     }
+                    Err(err) => this.queue.insert_error(path, err),
                 }
                 continue;
             }
             return if ready {
-                Poll::Ready(this.queue.items.pop_first())
+                Poll::Ready(this.queue.pop_first_item())
             } else if this.queue.work.is_empty() {
                 Poll::Ready(None)
             } else {
@@ -237,7 +304,6 @@ mod tests {
     use futures::task::noop_waker_ref;
 
     use super::*;
-    use crate::backend::BackendError;
     use crate::repo_path::RepoPathComponent;
 
     /// Returns a future that records `key` in `started` when first polled and
