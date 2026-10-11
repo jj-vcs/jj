@@ -1288,10 +1288,10 @@ pub enum FailedRefExportReason {
     ModifiedInJjDeletedInGit,
     /// Failed to delete the ref from the Git repo
     #[error("Failed to delete")]
-    FailedToDelete(#[source] Box<dyn std::error::Error + Send + Sync>),
+    FailedToDelete(#[source] gix::Error),
     /// Failed to set the ref in the Git repo
     #[error("Failed to set")]
-    FailedToSet(#[source] Box<dyn std::error::Error + Send + Sync>),
+    FailedToSet(#[source] gix::Error),
 }
 
 /// Describes changes made by [`export_refs()`].
@@ -1680,7 +1680,7 @@ fn delete_git_ref(
 ) -> Result<(), FailedRefExportReason> {
     let Some(git_ref) = git_repo
         .try_find_reference(git_ref_name.as_str())
-        .map_err(|err| FailedRefExportReason::FailedToDelete(err.into()))?
+        .map_err(FailedRefExportReason::FailedToDelete)?
     else {
         // The ref is already deleted
         return Ok(());
@@ -1689,7 +1689,7 @@ fn delete_git_ref(
         // The ref has not been updated by git, so go ahead and delete it
         git_ref
             .delete()
-            .map_err(|err| FailedRefExportReason::FailedToDelete(err.into()))
+            .map_err(FailedRefExportReason::FailedToDelete)
     } else {
         // The ref was updated by git
         Err(FailedRefExportReason::DeletedInJjModifiedInGit)
@@ -1713,9 +1713,9 @@ fn create_git_ref(
     };
     let Some(git_ref) = git_repo
         .try_find_reference(git_ref_name.as_str())
-        .map_err(|err| FailedRefExportReason::FailedToSet(err.into()))?
+        .map_err(FailedRefExportReason::FailedToSet)?
     else {
-        return Err(FailedRefExportReason::FailedToSet(set_err.into()));
+        return Err(FailedRefExportReason::FailedToSet(set_err));
     };
     // The ref was added in jj and in git. We're good if and only if git
     // pointed it to our desired target.
@@ -1746,7 +1746,7 @@ fn move_git_ref(
     // The reference was probably updated in git
     let Some(git_ref) = git_repo
         .try_find_reference(git_ref_name.as_str())
-        .map_err(|err| FailedRefExportReason::FailedToSet(err.into()))?
+        .map_err(FailedRefExportReason::FailedToSet)?
     else {
         // The reference was deleted in git and moved in jj
         return Err(FailedRefExportReason::ModifiedInJjDeletedInGit);
@@ -1761,10 +1761,10 @@ fn move_git_ref(
             gix::refs::transaction::PreviousValue::MustExistAndMatch(git_ref.inner.target);
         git_repo
             .reference(git_ref_name.as_str(), new_oid, constraint, "export from jj")
-            .map_err(|err| FailedRefExportReason::FailedToSet(err.into()))?;
+            .map_err(FailedRefExportReason::FailedToSet)?;
         Ok(())
     } else {
-        Err(FailedRefExportReason::FailedToSet(set_err.into()))
+        Err(FailedRefExportReason::FailedToSet(set_err))
     }
 }
 
@@ -2374,17 +2374,11 @@ pub enum GitRemoteManagementError {
     #[error("Error saving Git configuration")]
     GitConfigSaveError(#[source] std::io::Error),
     #[error("Unexpected Git error when managing remotes")]
-    InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
+    InternalGitError(#[from] gix::Error),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
     #[error(transparent)]
     RefExpansionError(#[from] GitRefExpansionError),
-}
-
-impl GitRemoteManagementError {
-    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        Self::InternalGitError(source.into())
-    }
 }
 
 fn default_fetch_refspec(remote: &RemoteName) -> String {
@@ -2454,12 +2448,8 @@ fn save_remote(
     //
     // Note that this will produce useless empty sections if we ever
     // support remote configuration keys other than `fetch` and `url`.
-    config
-        .new_section("remote", remote_name.as_str())
-        .map_err(GitRemoteManagementError::from_git)?;
-    remote
-        .save_as_to(remote_name.as_str(), config)
-        .map_err(GitRemoteManagementError::from_git)?;
+    config.new_section("remote", remote_name.as_str())?;
+    remote.save_as_to(remote_name.as_str(), config)?;
     Ok(())
 }
 
@@ -2586,7 +2576,7 @@ pub fn try_find_active_remote<'a>(
 ) -> Result<Option<gix::Remote<'a>>, GitRemoteManagementError> {
     try_find_active_remote_inner(git_repo, name)
         .transpose()
-        .map_err(GitRemoteManagementError::from_git)
+        .map_err(GitRemoteManagementError::InternalGitError)
 }
 
 fn try_find_active_remote_inner<'a>(
@@ -2623,8 +2613,7 @@ pub fn add_remote(
     }
 
     let mut remote = git_repo
-        .remote_at(url)
-        .map_err(GitRemoteManagementError::from_git)?
+        .remote_at(url)?
         .with_refspecs(
             [default_fetch_refspec(remote_name).as_bytes()],
             gix::remote::Direction::Fetch,
@@ -2632,9 +2621,7 @@ pub fn add_remote(
         .expect("default refspec to be valid");
 
     if let Some(push_url) = push_url {
-        remote = remote
-            .with_push_url(push_url)
-            .map_err(GitRemoteManagementError::from_git)?;
+        remote = remote.with_push_url(push_url)?;
     }
 
     let mut config = git_repo.config_snapshot().clone();
@@ -2663,8 +2650,7 @@ pub fn remove_remote(
     remove_remote_git_config_sections(&mut config, remote_name)?;
     save_git_config(&config).map_err(GitRemoteManagementError::GitConfigSaveError)?;
 
-    remove_remote_git_refs(&mut git_repo, remote_name)
-        .map_err(GitRemoteManagementError::from_git)?;
+    remove_remote_git_refs(&mut git_repo, remote_name)?;
 
     if remote_name != REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         remove_remote_refs(mut_repo, remote_name);
@@ -2673,10 +2659,7 @@ pub fn remove_remote(
     Ok(())
 }
 
-fn remove_remote_git_refs(
-    git_repo: &mut gix::Repository,
-    remote: &RemoteName,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+fn remove_remote_git_refs(git_repo: &mut gix::Repository, remote: &RemoteName) -> gix::Result<()> {
     let bookmark_prefix = format!(
         "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/",
         remote = remote.as_str()
@@ -2763,8 +2746,7 @@ pub fn rename_remote(
     remove_remote_git_config_sections(&mut config, old_remote_name)?;
     save_git_config(&config).map_err(GitRemoteManagementError::GitConfigSaveError)?;
 
-    rename_remote_git_refs(&mut git_repo, old_remote_name, new_remote_name)
-        .map_err(GitRemoteManagementError::from_git)?;
+    rename_remote_git_refs(&mut git_repo, old_remote_name, new_remote_name)?;
 
     if old_remote_name != REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         rename_remote_refs(mut_repo, old_remote_name, new_remote_name);
@@ -2777,7 +2759,7 @@ fn rename_remote_git_refs(
     git_repo: &mut gix::Repository,
     old_remote_name: &RemoteName,
     new_remote_name: &RemoteName,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+) -> gix::Result<()> {
     let to_prefixes = |namespace: &str| {
         (
             format!("{namespace}{remote}/", remote = old_remote_name.as_str()),
@@ -2850,18 +2832,14 @@ pub fn set_remote_urls(
             remote_name.to_owned(),
         ));
     };
-    let mut remote = result.map_err(GitRemoteManagementError::from_git)?;
+    let mut remote = result?;
 
     if let Some(url) = new_url {
-        remote = remote
-            .with_url(url)
-            .map_err(GitRemoteManagementError::from_git)?;
+        remote = remote.with_url(url)?;
     }
 
     if let Some(url) = new_push_url {
-        remote = remote
-            .with_push_url(url)
-            .map_err(GitRemoteManagementError::from_git)?;
+        remote = remote.with_push_url(url)?;
     }
 
     let mut config = git_repo.config_snapshot().clone();
