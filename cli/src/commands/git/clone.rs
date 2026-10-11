@@ -25,7 +25,6 @@ use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitSettings;
-use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
@@ -391,16 +390,7 @@ async fn fetch_new_remote(
     let mut tx = workspace_command.start_transaction();
     let (default_branch, import_stats) = {
         let mut git_fetch = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
-
-        let fetch_refspecs = expand_fetch_refspecs(remote_name, ref_expr.clone())?;
-
-        git_fetch.fetch(
-            remote_name,
-            fetch_refspecs,
-            &mut GitSubprocessUi::new(ui),
-            depth,
-        )?;
-
+        git_fetch.fetch(remote_name, ref_expr, &mut GitSubprocessUi::new(ui), depth)?;
         let import_stats = git_fetch.import_refs().await?;
 
         let default_branch = git_fetch.get_default_branch(remote_name)?;

@@ -2889,6 +2889,8 @@ pub enum GitFetchError {
     NoSuchRemote(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
+    #[error(transparent)]
+    RefExpansion(#[from] GitRefExpansionError),
     #[error("Failed to update refs: {}", .0.iter().map(|n| n.as_symbol()).join(", "))]
     RejectedUpdates(Vec<GitRefNameBuf>),
     #[error("Failed to prune stale refs")]
@@ -2924,15 +2926,6 @@ pub struct GitFetchRefExpression {
     pub tag: StringExpression,
 }
 
-/// Represents the refspecs to fetch from a remote
-#[derive(Debug)]
-pub struct ExpandedFetchRefSpecs {
-    /// Matches (positive) `refspecs`, but not `negative_refspecs`.
-    expr: GitFetchRefExpression,
-    refspecs: Vec<RefSpec>,
-    negative_refspecs: Vec<NegativeRefSpec>,
-}
-
 #[derive(Error, Debug)]
 pub enum GitRefExpansionError {
     #[error(transparent)]
@@ -2945,10 +2938,10 @@ pub enum GitRefExpansionError {
 }
 
 /// Expand a list of branch string patterns to refspecs to fetch
-pub fn expand_fetch_refspecs(
+fn expand_fetch_refspecs(
     remote: &RemoteName,
-    expr: GitFetchRefExpression,
-) -> Result<ExpandedFetchRefSpecs, GitRefExpansionError> {
+    expr: &GitFetchRefExpression,
+) -> Result<(Vec<RefSpec>, Vec<NegativeRefSpec>), GitRefExpansionError> {
     let (positive_bookmarks, negative_bookmarks) =
         split_into_positive_negative_patterns(&expr.bookmark)?;
     let (positive_tags, negative_tags) = split_into_positive_negative_patterns(&expr.tag)?;
@@ -2993,11 +2986,7 @@ pub fn expand_fetch_refspecs(
     )
     .try_collect()?;
 
-    Ok(ExpandedFetchRefSpecs {
-        expr,
-        refspecs,
-        negative_refspecs,
-    })
+    Ok((refspecs, negative_refspecs))
 }
 
 fn pattern_to_refspec_glob(pattern: &StringPattern) -> Result<Cow<'_, str>, GitRefExpansionError> {
@@ -3269,11 +3258,7 @@ impl<'a> GitFetch<'a> {
     pub fn fetch(
         &mut self,
         remote_name: &RemoteName,
-        ExpandedFetchRefSpecs {
-            expr,
-            refspecs: mut remaining_refspecs,
-            negative_refspecs,
-        }: ExpandedFetchRefSpecs,
+        expr: &GitFetchRefExpression,
         callback: &mut dyn GitSubprocessCallback,
         depth: Option<NonZeroU32>,
     ) -> Result<(), GitFetchError> {
@@ -3284,6 +3269,7 @@ impl<'a> GitFetch<'a> {
             return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
         }
 
+        let (mut remaining_refspecs, negative_refspecs) = expand_fetch_refspecs(remote_name, expr)?;
         if remaining_refspecs.is_empty() {
             // Don't fall back to the base refspecs.
             return Ok(());
