@@ -5879,7 +5879,7 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
         git_id(&commit1)
     );
 
-    // Check that the repo view got updated only for the exported refs
+    // Check that the repo view got updated
     let view = tx.repo().view();
     assert_eq!(
         *view.get_git_ref("refs/remotes/origin/bookmark1".as_ref()),
@@ -5897,8 +5897,11 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
         &RefTarget::absent()
     );
     assert_eq!(
-        view.get_remote_bookmark(remote_symbol("bookmark2", "origin")),
-        &RemoteRef::absent()
+        *view.get_remote_bookmark(remote_symbol("bookmark2", "origin")),
+        RemoteRef {
+            target: RefTarget::normal(commit2b.id().clone()),
+            state: RemoteRefState::Tracked,
+        }
     );
     Ok(())
 }
