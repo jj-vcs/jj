@@ -5321,6 +5321,15 @@ by <code>jj resolve</code>. For example:</p>
 <span class="c1"># Specify merge-args inline</span>
 <span class="n">merge-editor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;meld&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;$left&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;$base&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;$right&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-o&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;$output&quot;</span><span class="p">]</span>
 </code></pre></div>
+<p>The following built-in tools are always available:</p>
+<ul>
+<li><code>:builtin</code> launches a TUI tool for 3-way merges (the default).</li>
+<li><code>:editor</code> opens the conflicted file with conflict markers in your text editor
+  (<code>ui.editor</code>). Unlike the other tools, it supports conflicts with any number
+  of sides. Conflict markers left in the file are kept as a partially resolved
+  conflict.</li>
+<li><code>:ours</code> and <code>:theirs</code> pick side #1 or side #2 of the conflict respectively.</li>
+</ul>
 <p>The following tools can be used out of the box, as long as they are installed:</p>
 <ul>
 <li>"kdiff3"</li>

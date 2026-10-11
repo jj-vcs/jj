@@ -11143,7 +11143,8 @@ J           J
 </ul>
 <h2 id="jj-resolve"><code>jj resolve</code><a class="headerlink" href="#jj-resolve" title="Permanent link">&para;</a></h2>
 <p>Resolve conflicted files with an external merge tool</p>
-<p>Only conflicts that can be resolved with a 3-way merge are supported. See docs for merge tool configuration instructions. External merge tools will be invoked for each conflicted file one-by-one until all conflicts are resolved. To stop resolving conflicts, exit the merge tool without making any changes.</p>
+<p>Only conflicts that can be resolved with a 3-way merge are supported by most merge tools. See docs for merge tool configuration instructions. External merge tools will be invoked for each conflicted file one-by-one until all conflicts are resolved. To stop resolving conflicts, exit the merge tool without making any changes.</p>
+<p>The built-in <code>:editor</code> tool opens the conflicted file with conflict markers in your text editor (<code>ui.editor</code>). Conflicts with any number of sides are supported, and conflict markers left in the file are kept as a partially resolved conflict.</p>
 <p>Note that conflicts can also be resolved without using this command. You may edit the conflict markers in the conflicted file directly with a text editor.</p>
 <p><strong>Usage:</strong> <code>jj resolve [OPTIONS] [FILESETS]...</code></p>
 <h6 id="arguments_53"><strong>Arguments:</strong><a class="headerlink" href="#arguments_53" title="Permanent link">&para;</a></h6>
@@ -11161,7 +11162,7 @@ J           J
 </li>
 <li>
 <p><code>--tool &lt;NAME&gt;</code> — Specify 3-way merge tool to be used</p>
-<p>The built-in merge tools <code>:ours</code> and <code>:theirs</code> can be used to choose side #1 and side #2 of the conflict respectively.</p>
+<p>The built-in merge tool <code>:editor</code> opens the conflict markers in your text editor. The built-in merge tools <code>:ours</code> and <code>:theirs</code> can be used to choose side #1 and side #2 of the conflict respectively.</p>
 </li>
 </ul>
 <h2 id="jj-restore"><code>jj restore</code><a class="headerlink" href="#jj-restore" title="Permanent link">&para;</a></h2>

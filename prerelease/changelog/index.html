@@ -7798,7 +7798,14 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Diff hunk headers now include symbol context even for unsupported languages.</li>
+<li>
+<p>Diff hunk headers now include symbol context even for unsupported languages.</p>
+</li>
+<li>
+<p><code>jj resolve</code> gained a built-in <code>:editor</code> merge tool that opens the conflicted
+  file with conflict markers in your text editor. Unlike the other merge tools,
+  it supports conflicts with more than two sides.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
