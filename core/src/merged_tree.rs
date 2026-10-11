@@ -212,6 +212,33 @@ impl MergedTree {
         ConflictIterator::new(self, matcher)
     }
 
+    /// Like `conflicts()` but reads trees concurrently.
+    pub fn conflicts_stream(&self) -> TreeConflictsStream<'static> {
+        self.conflicts_stream_matching(&EverythingMatcher)
+    }
+
+    /// Like `conflicts_stream()` but restricted by a matcher.
+    pub fn conflicts_stream_matching<'matcher>(
+        &self,
+        matcher: &'matcher dyn Matcher,
+    ) -> TreeConflictsStream<'matcher> {
+        let mut queue = TreeWalkQueue::new(self.store().concurrency());
+        if !self.tree_ids.is_resolved() {
+            let root = RepoPathBuf::root();
+            let root_trees_fut = read_trees(
+                self.store.clone(),
+                root.clone(),
+                self.to_merged_tree_value(),
+            );
+            queue.schedule(root, root_trees_fut);
+        }
+        let visitor = ConflictsVisitor {
+            store: self.store.clone(),
+            matcher,
+        };
+        OrderedTreeWalk::new(visitor, queue).boxed()
+    }
+
     /// Whether this tree has conflicts.
     pub fn has_conflict(&self) -> bool {
         !self.tree_ids.is_resolved()
@@ -403,6 +430,10 @@ pub struct TreeDiffEntry {
     /// The resolved tree values if available.
     pub values: BackendResult<Diff<MergedTreeValue>>,
 }
+
+/// Type alias for the result from `MergedTree::conflicts_stream()`.
+pub type TreeConflictsStream<'matcher> =
+    BoxStream<'matcher, (RepoPathBuf, BackendResult<MergedTreeValue>)>;
 
 /// Type alias for the result from `MergedTree::entries_stream()`.
 pub type TreeEntriesStream<'matcher> =
@@ -622,6 +653,47 @@ impl ConflictsDirItem {
         }
         entries.reverse();
         Self { entries }
+    }
+}
+
+/// Visits the conflicted entries in a tree, reading subtrees concurrently.
+struct ConflictsVisitor<'matcher> {
+    store: Arc<Store>,
+    matcher: &'matcher dyn Matcher,
+}
+
+impl<'matcher> TreeWalkVisitor<'matcher> for ConflictsVisitor<'matcher> {
+    type Work = Merge<Tree>;
+    type Item = MergedTreeValue;
+
+    fn visit(
+        &self,
+        dir: &RepoPath,
+        trees: Self::Work,
+        queue: &mut TreeWalkQueue<'matcher, Self::Work, Self::Item>,
+    ) {
+        if trees.is_resolved() {
+            return;
+        }
+        for (basename, value) in all_tree_entries(&trees) {
+            if value.is_resolved() {
+                continue;
+            }
+            let path = dir.join(basename);
+            if value.is_tree() {
+                // If all sides are trees or missing, descend into the merged tree
+                if self.matcher.visit(&path).is_nothing() {
+                    continue;
+                }
+                let trees_fut = read_trees(self.store.clone(), path.clone(), value.cloned());
+                queue.schedule(path, trees_fut);
+            } else if self.matcher.matches(&path) {
+                // Otherwise this is a conflict between files, trees, etc. If they could be
+                // automatically resolved, they should have been when the top-level tree
+                // conflict was written, so we assume that they can't be.
+                queue.emit(path, value.cloned());
+            }
+        }
     }
 }
 
