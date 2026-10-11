@@ -2912,6 +2912,8 @@ pub enum GitFetchError {
     RemoteName(#[from] GitRemoteNameError),
     #[error("Failed to update refs: {}", .0.iter().map(|n| n.as_symbol()).join(", "))]
     RejectedUpdates(Vec<GitRefNameBuf>),
+    #[error("Failed to prune stale refs")]
+    FailedToPrune(#[source] gix::Error),
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
 }
@@ -3308,7 +3310,6 @@ impl<'a> GitFetch<'a> {
             return Ok(());
         }
 
-        let mut branches_to_prune = Vec::new();
         // git unfortunately errors out if one of the many refspecs is not found
         //
         // our approach is to filter out failures and retry,
@@ -3329,13 +3330,17 @@ impl<'a> GitFetch<'a> {
                 GitFetchStatus::NoRemoteRef(failing_refspec) => failing_refspec,
             };
             tracing::debug!(failing_refspec, "failed to fetch ref");
-            remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
-
-            if let Some(branch_name) = failing_refspec.strip_prefix("refs/heads/") {
-                branches_to_prune.push(format!(
-                    "{remote_name}/{branch_name}",
-                    remote_name = remote_name.as_str()
-                ));
+            for refspec in
+                remaining_refspecs.extract_if(.., |r| r.source.as_ref() == Some(&failing_refspec))
+            {
+                // Even with --prune, an explicit ref won't be deleted during fetch.
+                if let Some(git_ref) = self
+                    .git_repo
+                    .try_find_reference(&refspec.destination)
+                    .map_err(GitFetchError::FailedToPrune)?
+                {
+                    git_ref.delete().map_err(GitFetchError::FailedToPrune)?;
+                }
             }
         };
 
@@ -3345,10 +3350,6 @@ impl<'a> GitFetch<'a> {
             let names = updates.rejected.into_iter().map(|(name, _)| name).collect();
             return Err(GitFetchError::RejectedUpdates(names));
         }
-
-        // Even if git fetch has --prune, if a branch is not found it will not be
-        // pruned on fetch
-        self.git_ctx.spawn_branch_prune(&branches_to_prune)?;
 
         self.fetched.push(FetchedRefs {
             remote: remote_name.to_owned(),

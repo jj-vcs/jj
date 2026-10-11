@@ -4710,6 +4710,84 @@ fn test_fetch_multiple_branches() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_fetch_prune_deleted_refs_with_explicit_patterns() -> TestResult {
+    let test_data = GitRepoData::create();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
+    let import_options = default_import_options();
+    let fetch_import = |mut_repo: &mut MutableRepo| -> TestResult {
+        let mut fetcher = GitFetch::new(mut_repo, subprocess_options.clone(), &import_options)?;
+        let ref_expr = GitFetchRefExpression {
+            bookmark: StringExpression::exact("main"),
+            tag: StringExpression::exact("v1"),
+        };
+        fetch_with(&mut fetcher, "origin".as_ref(), ref_expr)?;
+        fetcher.import_refs().block_on()?;
+        Ok(())
+    };
+
+    empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    empty_git_commit(&test_data.origin_repo, "refs/tags/v1", &[]);
+    // Keep the remote nonempty after deleting refs
+    empty_git_commit(&test_data.origin_repo, "refs/heads/keep", &[]);
+
+    let mut tx = test_data.repo.start_transaction();
+    fetch_import(tx.repo_mut())?;
+
+    assert!(
+        tx.repo()
+            .get_remote_bookmark(remote_symbol("main", "origin"))
+            .is_present()
+    );
+    assert!(
+        tx.repo()
+            .get_remote_tag(remote_symbol("v1", "origin"))
+            .is_present()
+    );
+    assert!(
+        test_data
+            .git_repo
+            .try_find_reference("refs/remotes/origin/main")?
+            .is_some(),
+    );
+    assert!(
+        test_data
+            .git_repo
+            .try_find_reference("refs/jj/remote-tags/origin/v1")?
+            .is_some()
+    );
+
+    delete_git_ref(&test_data.origin_repo, "refs/heads/main");
+    delete_git_ref(&test_data.origin_repo, "refs/tags/v1");
+    fetch_import(tx.repo_mut())?;
+
+    // Deleted bookmarks and tags should be pruned
+    assert!(
+        tx.repo()
+            .get_remote_bookmark(remote_symbol("main", "origin"))
+            .is_absent()
+    );
+    assert!(
+        tx.repo()
+            .get_remote_tag(remote_symbol("v1", "origin"))
+            .is_absent()
+    );
+    assert!(
+        test_data
+            .git_repo
+            .try_find_reference("refs/remotes/origin/main")?
+            .is_none(),
+    );
+    assert!(
+        test_data
+            .git_repo
+            .try_find_reference("refs/jj/remote-tags/origin/v1")?
+            .is_none()
+    );
+
+    Ok(())
+}
+
 #[test_case("foo/bar", "foo"; "nested to parent")]
 #[test_case("foo", "foo/bar"; "parent to nested")]
 fn test_fetch_prune_renamed_bookmark_with_path_conflict(

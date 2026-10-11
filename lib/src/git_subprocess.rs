@@ -201,28 +201,6 @@ impl GitSubprocessContext {
         parse_git_fetch_output(&output)
     }
 
-    /// Prune particular branches
-    pub(crate) fn spawn_branch_prune(
-        &self,
-        branches_to_prune: &[String],
-    ) -> Result<(), GitSubprocessError> {
-        if branches_to_prune.is_empty() {
-            return Ok(());
-        }
-        tracing::debug!(?branches_to_prune, "pruning branches");
-        let mut command = self.create_command();
-        command.stdout(Stdio::null());
-        command.args(["branch", "--remotes", "--delete", "--"]);
-        command.args(branches_to_prune);
-
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
-
-        // we name the type to make sure that it is not meant to be used
-        let () = parse_git_branch_prune_output(output)?;
-
-        Ok(())
-    }
-
     /// How we retrieve the remote's default branch:
     ///
     /// `git remote show <remote_name>`
@@ -548,23 +526,6 @@ fn parse_ref_updates(stdout: &[u8]) -> Result<GitRefUpdates, GitSubprocessError>
         }
     }
     Ok(GitRefUpdates { updated, rejected })
-}
-
-fn parse_git_branch_prune_output(output: Output) -> Result<(), GitSubprocessError> {
-    if output.status.success() {
-        return Ok(());
-    }
-
-    // There are some git errors we want to parse out
-    if let Some(option) = parse_unknown_option(&output.stderr) {
-        return Err(GitSubprocessError::UnsupportedGitOption(option));
-    }
-
-    if parse_no_remote_tracking_branch(&output.stderr).is_some() {
-        return Ok(());
-    }
-
-    Err(external_git_error(&output.stderr))
 }
 
 fn parse_git_worktree_output(output: Output) -> Result<(), GitSubprocessError> {
