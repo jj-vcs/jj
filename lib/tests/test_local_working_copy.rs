@@ -27,6 +27,7 @@ use std::time::SystemTime;
 
 use bstr::BString;
 use futures::AsyncReadExt as _;
+use futures::StreamExt as _;
 use gix::odb::pack::FindExt as _;
 use indoc::indoc;
 use itertools::Itertools as _;
@@ -1469,7 +1470,10 @@ fn test_snapshot_special_file() -> TestResult {
         .block_on()?;
     // Only the regular files should be in the tree
     assert_eq!(
-        tree.entries().map(|(path, _value)| path).collect_vec(),
+        tree.entries_stream()
+            .map(|(path, _value)| path)
+            .collect::<Vec<_>>()
+            .block_on(),
         to_owned_path_vec(&[file1_path, file2_path])
     );
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
@@ -1484,7 +1488,10 @@ fn test_snapshot_special_file() -> TestResult {
     let tree = test_workspace.snapshot()?;
     // Only the regular file should be in the tree
     assert_eq!(
-        tree.entries().map(|(path, _value)| path).collect_vec(),
+        tree.entries_stream()
+            .map(|(path, _value)| path)
+            .collect::<Vec<_>>()
+            .block_on(),
         to_owned_path_vec(&[file2_path])
     );
     let ws = &mut test_workspace.workspace;
@@ -1534,7 +1541,10 @@ fn test_snapshot_non_utf8_path() -> TestResult {
     // Only the path with a valid UTF-8 name should be in the tree. The
     // directory isn't descended into, so it's reported as a single path.
     assert_eq!(
-        tree.entries().map(|(path, _value)| path).collect_vec(),
+        tree.entries_stream()
+            .map(|(path, _value)| path)
+            .collect::<Vec<_>>()
+            .block_on(),
         to_owned_path_vec(&[file_path])
     );
     assert_eq!(
@@ -1571,7 +1581,11 @@ fn test_gitignores() -> TestResult {
     testutils::write_working_copy_file(&workspace_root, subdir_modified_path, "1");
 
     let tree1 = test_workspace.snapshot()?;
-    let files1 = tree1.entries().map(|(name, _value)| name).collect_vec();
+    let files1 = tree1
+        .entries_stream()
+        .map(|(name, _value)| name)
+        .collect::<Vec<_>>()
+        .block_on();
     assert_eq!(
         files1,
         to_owned_path_vec(&[
@@ -1595,7 +1609,11 @@ fn test_gitignores() -> TestResult {
     testutils::write_working_copy_file(&workspace_root, subdir_ignored_path, "2");
 
     let tree2 = test_workspace.snapshot()?;
-    let files2 = tree2.entries().map(|(name, _value)| name).collect_vec();
+    let files2 = tree2
+        .entries_stream()
+        .map(|(name, _value)| name)
+        .collect::<Vec<_>>()
+        .block_on();
     assert_eq!(
         files2,
         to_owned_path_vec(&[
@@ -1638,7 +1656,11 @@ fn test_gitignores_walk() -> TestResult {
     testutils::write_working_copy_file(&workspace_root, nested_path, "2");
 
     let tree1 = test_workspace.snapshot()?;
-    let files1 = tree1.entries().map(|(name, _value)| name).collect_vec();
+    let files1 = tree1
+        .entries_stream()
+        .map(|(name, _value)| name)
+        .collect::<Vec<_>>()
+        .block_on();
     assert_eq!(
         files1,
         to_owned_path_vec(&[

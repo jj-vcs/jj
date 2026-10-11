@@ -47,6 +47,7 @@ use either::Either;
 use futures::AsyncRead;
 use futures::AsyncReadExt as _;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::io::AllowStdIo;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
@@ -1409,9 +1410,10 @@ impl TreeState {
         if cfg!(debug_assertions) {
             let tree_paths: HashSet<_> = self
                 .tree
-                .entries_matching(sparse_matcher.as_ref())
-                .filter_map(|(path, result)| result.is_ok().then_some(path))
-                .collect();
+                .entries_stream_matching(sparse_matcher.as_ref())
+                .filter_map(async |(path, result)| result.is_ok().then_some(path))
+                .collect()
+                .await;
             let file_states = self.file_states.all();
             let state_paths: HashSet<_> = file_states.paths().map(|path| path.to_owned()).collect();
             assert_eq!(state_paths, tree_paths);
@@ -2562,13 +2564,14 @@ impl TreeState {
             if old_tree.tree_ids().num_sides() == new_tree.tree_ids().num_sides()
                 && old_tree.labels() != new_tree.labels()
             {
-                // TODO: it might be better to use an async stream here and merge it with the
-                // other diff stream, but it could be difficult since the diff stream is not
-                // sorted in the same order as the conflicts iterator.
+                // TODO: it might be better to merge this stream with the other diff stream,
+                // but it could be difficult since the diff stream is not sorted in the same
+                // order as the conflicts stream.
                 new_tree
-                    .conflicts_matching(matcher)
+                    .conflicts_stream_matching(matcher)
                     .map(|(path, value)| value.map(|value| (path, value)))
-                    .try_collect()?
+                    .try_collect()
+                    .await?
             } else {
                 HashMap::new()
             };
