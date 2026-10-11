@@ -553,6 +553,90 @@ fn test_merge_views_git_heads() -> TestResult {
 }
 
 #[test]
+fn test_merge_views_git_heads_lost_by_old_client() -> TestResult {
+    // A view written by a client too old to know per-workspace Git HEADs
+    // drops every `git_heads` entry while `wc_commit_ids` survives. Merging
+    // such a view must not delete the surviving side's recorded target,
+    // whichever side the reconcile loads first.
+    for wipe_first in [false, true] {
+        let test_repo = TestRepo::init();
+        let repo = &test_repo.repo;
+
+        let mut tx0 = repo.start_transaction();
+        let head = write_random_commit(tx0.repo_mut());
+        let wc_commit = write_random_commit(tx0.repo_mut());
+        tx0.repo_mut()
+            .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), wc_commit.id().clone())?;
+        tx0.repo_mut()
+            .set_git_head_target(WorkspaceName::DEFAULT, RefTarget::normal(head.id().clone()));
+        let repo = tx0.commit("test").block_on()?;
+
+        // An unrelated concurrent operation.
+        let mut tx1 = repo.start_transaction();
+        write_random_commit(tx1.repo_mut());
+
+        // The old client's operation: git_heads gone, workspace kept.
+        let mut tx2 = repo.start_transaction();
+        write_random_commit(tx2.repo_mut());
+        tx2.repo_mut()
+            .set_git_head_target(WorkspaceName::DEFAULT, RefTarget::absent());
+
+        let txs = if wipe_first {
+            vec![tx2, tx1]
+        } else {
+            vec![tx1, tx2]
+        };
+        let repo = commit_transactions(txs);
+        assert_eq!(
+            repo.view().git_head(WorkspaceName::DEFAULT),
+            &RefTarget::normal(head.id().clone()),
+            "recorded Git HEAD must survive the merge (wipe_first={wipe_first})"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn test_merge_views_git_heads_workspace_removed() -> TestResult {
+    // A genuine workspace removal deletes both the working-copy commit and
+    // the recorded Git HEAD; the merge must not resurrect the target.
+    for removal_first in [false, true] {
+        let test_repo = TestRepo::init();
+        let repo = &test_repo.repo;
+
+        let ws_name = WorkspaceNameBuf::from("second");
+        let mut tx0 = repo.start_transaction();
+        let head = write_random_commit(tx0.repo_mut());
+        let wc_commit = write_random_commit(tx0.repo_mut());
+        tx0.repo_mut()
+            .set_wc_commit(ws_name.clone(), wc_commit.id().clone())?;
+        tx0.repo_mut()
+            .set_git_head_target(&ws_name, RefTarget::normal(head.id().clone()));
+        let repo = tx0.commit("test").block_on()?;
+
+        let mut tx1 = repo.start_transaction();
+        write_random_commit(tx1.repo_mut());
+
+        let mut tx2 = repo.start_transaction();
+        write_random_commit(tx2.repo_mut());
+        tx2.repo_mut().remove_workspace(&ws_name).block_on()?;
+
+        let txs = if removal_first {
+            vec![tx2, tx1]
+        } else {
+            vec![tx1, tx2]
+        };
+        let repo = commit_transactions(txs);
+        assert!(
+            repo.view().git_head(&ws_name).is_absent(),
+            "a removed workspace's Git HEAD must stay deleted (removal_first={removal_first})"
+        );
+        assert_eq!(repo.view().get_wc_commit_id(&ws_name), None);
+    }
+    Ok(())
+}
+
+#[test]
 fn test_merge_views_divergent() -> TestResult {
     // We start with just commit A. Operation 1 rewrites it as A2. Operation 2
     // rewrites it as A3.
