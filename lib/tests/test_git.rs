@@ -4710,6 +4710,103 @@ fn test_fetch_multiple_branches() -> TestResult {
     Ok(())
 }
 
+#[test_case("foo/bar", "foo"; "nested to parent")]
+#[test_case("foo", "foo/bar"; "parent to nested")]
+fn test_fetch_prune_renamed_bookmark_with_path_conflict(
+    old_name: &str,
+    new_name: &str,
+) -> TestResult {
+    let test_data = GitRepoData::create();
+    let old_ref = format!("refs/heads/{old_name}");
+    let new_ref = format!("refs/heads/{new_name}");
+    let commit = empty_git_commit(&test_data.origin_repo, &old_ref, &[]);
+
+    let mut tx = test_data.repo.start_transaction();
+    fetch_import_all(tx.repo_mut(), "origin".as_ref());
+    assert!(
+        tx.repo()
+            .get_remote_bookmark(remote_symbol(old_name, "origin"))
+            .is_present()
+    );
+    assert!(
+        test_data
+            .git_repo
+            .try_find_reference(&format!("refs/remotes/origin/{old_name}"))?
+            .is_some()
+    );
+
+    // The old and new ref names conflict in Git's loose ref storage.
+    delete_git_ref(&test_data.origin_repo, &old_ref);
+    git_ref(&test_data.origin_repo, &new_ref, commit);
+
+    fetch_import_all(tx.repo_mut(), "origin".as_ref());
+    assert!(
+        tx.repo()
+            .get_remote_bookmark(remote_symbol(old_name, "origin"))
+            .is_absent()
+    );
+    assert!(
+        tx.repo()
+            .get_remote_bookmark(remote_symbol(new_name, "origin"))
+            .is_present()
+    );
+    assert!(
+        test_data
+            .git_repo
+            .try_find_reference(&format!("refs/remotes/origin/{new_name}"))?
+            .is_some()
+    );
+
+    Ok(())
+}
+
+#[test_case("foo/bar", "foo"; "nested to parent")]
+#[test_case("foo", "foo/bar"; "parent to nested")]
+fn test_fetch_prune_renamed_tag_with_path_conflict(old_name: &str, new_name: &str) -> TestResult {
+    let test_data = GitRepoData::create();
+    let old_ref = format!("refs/tags/{old_name}");
+    let new_ref = format!("refs/tags/{new_name}");
+    let commit = empty_git_commit(&test_data.origin_repo, &old_ref, &[]);
+
+    let mut tx = test_data.repo.start_transaction();
+    fetch_import_all(tx.repo_mut(), "origin".as_ref());
+    assert!(
+        tx.repo()
+            .get_remote_tag(remote_symbol(old_name, "origin"))
+            .is_present()
+    );
+    assert!(
+        test_data
+            .git_repo
+            .try_find_reference(&format!("refs/jj/remote-tags/origin/{old_name}"))?
+            .is_some()
+    );
+
+    // The old and new ref names conflict in Git's loose ref storage.
+    delete_git_ref(&test_data.origin_repo, &old_ref);
+    git_ref(&test_data.origin_repo, &new_ref, commit);
+
+    fetch_import_all(tx.repo_mut(), "origin".as_ref());
+    assert!(
+        tx.repo()
+            .get_remote_tag(remote_symbol(old_name, "origin"))
+            .is_absent()
+    );
+    assert!(
+        tx.repo()
+            .get_remote_tag(remote_symbol(new_name, "origin"))
+            .is_present()
+    );
+    assert!(
+        test_data
+            .git_repo
+            .try_find_reference(&format!("refs/jj/remote-tags/origin/{new_name}"))?
+            .is_some()
+    );
+
+    Ok(())
+}
+
 #[test]
 fn test_fetch_local_remote_conflicts() -> TestResult {
     let test_data = GitRepoData::create();
