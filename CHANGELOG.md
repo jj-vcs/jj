@@ -30,6 +30,8 @@ and this project adheres to
 * `jj git fetch` no longer creates additional refs based on non-standard Git
   `remote.<name>.fetch` configuration.
 
+* Fixed tag deletion with `jj git fetch --tag=NAME`.
+
 * Fixed issue with `config-schema.json` where Taplo (TOML parsing library) would
   flag any `aliases` defined as a table but without an explicit
   `.enabled = true` as "valid under more than one of the schemas". This affected

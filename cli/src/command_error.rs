@@ -589,7 +589,9 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 GitFetchError::RemoteName(_) => {
                     user_error(err).hinted("Run `jj git remote rename` to give a different name.")
                 }
-                GitFetchError::RejectedUpdates(_) | GitFetchError::Subprocess(_) => user_error(err),
+                GitFetchError::RejectedUpdates(_)
+                | GitFetchError::FailedToPrune(_)
+                | GitFetchError::Subprocess(_) => user_error(err),
             }
         }
     }
