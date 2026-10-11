@@ -7809,8 +7809,17 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Shell completion now suggests tag names for <code>jj tag track</code>, <code>jj tag untrack</code>,
-  <code>jj tag list</code>, <code>jj git fetch --tag</code>, and <code>jj git push --tag</code>.</li>
+<li>
+<p>Shell completion now suggests tag names for <code>jj tag track</code>, <code>jj tag untrack</code>,
+  <code>jj tag list</code>, <code>jj git fetch --tag</code>, and <code>jj git push --tag</code>.</p>
+</li>
+<li>
+<p>Fixed issue with <code>config-schema.json</code> where Taplo (TOML parsing library) would
+  flag any <code>aliases</code> defined as a table but without an explicit
+  <code>.enabled = true</code> as "valid under more than one of the schemas". This affected
+  downstream tools such as editor extensions showing errors in perfectly valid
+  config files.</p>
+</li>
 </ul>
 <h2 id="0460-2026-10-07"><a href="https://github.com/jj-vcs/jj/compare/v0.45.1...v0.46.0">0.46.0</a> - 2026-10-07<a class="headerlink" href="#0460-2026-10-07" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights_1">Release highlights<a class="headerlink" href="#release-highlights_1" title="Permanent link">&para;</a></h3>
