@@ -77,12 +77,7 @@ impl Rule {
     fn is_compat(&self) -> bool {
         matches!(
             self,
-            Self::compat_parents_op
-                | Self::compat_dag_range_op
-                | Self::compat_dag_range_pre_op
-                | Self::compat_dag_range_post_op
-                | Self::compat_add_op
-                | Self::compat_sub_op
+            Self::compat_parents_op | Self::compat_add_op | Self::compat_sub_op
         )
     }
 
@@ -110,9 +105,6 @@ impl Rule {
             | Self::dag_range_pre_op
             | Self::dag_range_post_op
             | Self::dag_range_all_op => Some("::"),
-            Self::compat_dag_range_op
-            | Self::compat_dag_range_pre_op
-            | Self::compat_dag_range_post_op => Some(":"),
             Self::range_op => Some(".."),
             Self::range_pre_op | Self::range_post_op | Self::range_all_op => Some(".."),
             Self::range_ops => None,
@@ -165,12 +157,6 @@ pub struct RevsetParseError {
 pub enum RevsetParseErrorKind {
     #[error("Syntax error")]
     SyntaxError,
-    #[error("`{op}` is not a prefix operator")]
-    NotPrefixOperator {
-        op: String,
-        similar_op: String,
-        description: String,
-    },
     #[error("`{op}` is not a postfix operator")]
     NotPostfixOperator {
         op: String,
@@ -470,21 +456,6 @@ pub fn parse_program(revset_str: &str) -> Result<ExpressionNode<'_>, RevsetParse
 }
 
 fn parse_expression_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseError> {
-    fn not_prefix_op(
-        op: &Pair<Rule>,
-        similar_op: impl Into<String>,
-        description: impl Into<String>,
-    ) -> RevsetParseError {
-        RevsetParseError::with_span(
-            RevsetParseErrorKind::NotPrefixOperator {
-                op: op.as_str().to_owned(),
-                similar_op: similar_op.into(),
-                description: description.into(),
-            },
-            op.as_span(),
-        )
-    }
-
     fn not_postfix_op(
         op: &Pair<Rule>,
         similar_op: impl Into<String>,
@@ -524,15 +495,9 @@ fn parse_expression_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParse
                 | Op::infix(Rule::compat_sub_op, Assoc::Left))
             .op(Op::prefix(Rule::negate_op))
             // Ranges can't be nested without parentheses. Associativity doesn't matter.
-            .op(Op::infix(Rule::dag_range_op, Assoc::Left)
-                | Op::infix(Rule::compat_dag_range_op, Assoc::Left)
-                | Op::infix(Rule::range_op, Assoc::Left))
-            .op(Op::prefix(Rule::dag_range_pre_op)
-                | Op::prefix(Rule::compat_dag_range_pre_op)
-                | Op::prefix(Rule::range_pre_op))
-            .op(Op::postfix(Rule::dag_range_post_op)
-                | Op::postfix(Rule::compat_dag_range_post_op)
-                | Op::postfix(Rule::range_post_op))
+            .op(Op::infix(Rule::dag_range_op, Assoc::Left) | Op::infix(Rule::range_op, Assoc::Left))
+            .op(Op::prefix(Rule::dag_range_pre_op) | Op::prefix(Rule::range_pre_op))
+            .op(Op::postfix(Rule::dag_range_post_op) | Op::postfix(Rule::range_post_op))
             // Neighbors
             .op(Op::postfix(Rule::parents_op)
                 | Op::postfix(Rule::children_op)
@@ -552,7 +517,6 @@ fn parse_expression_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParse
             let op_kind = match op.as_rule() {
                 Rule::negate_op => UnaryOp::Negate,
                 Rule::dag_range_pre_op => UnaryOp::DagRangePre,
-                Rule::compat_dag_range_pre_op => Err(not_prefix_op(&op, "::", "ancestors"))?,
                 Rule::range_pre_op => UnaryOp::RangePre,
                 r => panic!("unexpected prefix operator rule {r:?}"),
             };
@@ -564,7 +528,6 @@ fn parse_expression_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParse
         .map_postfix(|lhs, op| {
             let op_kind = match op.as_rule() {
                 Rule::dag_range_post_op => UnaryOp::DagRangePost,
-                Rule::compat_dag_range_post_op => Err(not_postfix_op(&op, "::", "descendants"))?,
                 Rule::range_post_op => UnaryOp::RangePost,
                 Rule::parents_op => UnaryOp::Parents,
                 Rule::children_op => UnaryOp::Children,
@@ -584,7 +547,6 @@ fn parse_expression_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParse
                 Rule::difference_op => BinaryOp::Difference,
                 Rule::compat_sub_op => Err(not_infix_op(&op, "~", "difference"))?,
                 Rule::dag_range_op => BinaryOp::DagRange,
-                Rule::compat_dag_range_op => Err(not_infix_op(&op, "::", "DAG range"))?,
                 Rule::range_op => BinaryOp::Range,
                 r => panic!("unexpected infix operator rule {r:?}"),
             };
@@ -1321,7 +1283,7 @@ mod tests {
         assert_eq!(parse_normalized("x:y&z"), parse_normalized("(x:y)&(z)"));
         assert_matches!(
             parse_into_kind("x:~y"), // (x:) ~ (y)
-            Err(RevsetParseErrorKind::NotPostfixOperator { .. })
+            Err(RevsetParseErrorKind::SyntaxError)
         );
 
         // Pattern prefix is like (type)x cast, so is evaluated from right
@@ -1570,14 +1532,6 @@ mod tests {
 
     #[test]
     fn test_parse_revset_compat_operator() {
-        assert_eq!(
-            parse_into_kind(":foo"),
-            Err(RevsetParseErrorKind::NotPrefixOperator {
-                op: ":".to_owned(),
-                similar_op: "::".to_owned(),
-                description: "ancestors".to_owned(),
-            })
-        );
         assert_eq!(
             parse_into_kind("foo^"),
             Err(RevsetParseErrorKind::NotPostfixOperator {
