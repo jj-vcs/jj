@@ -162,7 +162,7 @@ fn test_git_push_revert() {
 }
 
 /// This test is identical to the previous one, except for additional
-/// import/export. It demonstrates that this changes the outcome.
+/// import/export.
 #[test]
 fn test_git_push_revert_with_import_export() {
     let test_env = TestEnvironment::default();
@@ -224,9 +224,7 @@ fn test_git_push_revert_with_import_export() {
     [EOF]
     ");
 
-    // PROBLEM: inserting this import changes the outcome compared to previous test
-    // TODO: decide if this is the better behavior, and whether import of
-    // remote-tracking bookmarks should happen on every operation.
+    // This import is noop since there are no "new" changes.
     work_dir.run_jj(["git", "import"]).success();
     //                     | jj refs | jj's   | git
     //                     |         |git_refs| repo
@@ -235,19 +233,20 @@ fn test_git_push_revert_with_import_export() {
     //    remote-tracking  | BB      |   BB   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
-      @git: qpvuntsm d9a9f6a0 (empty) BB
-      @origin: qpvuntsm d9a9f6a0 (empty) BB
+      @git (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
     [EOF]
     ");
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
     work_dir.run_jj(["describe", "-m", "CC"]).success();
     work_dir.run_jj(["git", "fetch"]).success();
-    // There is not a conflict. This seems like a good outcome; reverting `git push`
-    // was essentially a no-op.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    main: qpvuntsm 1e742089 (empty) CC
-      @git (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 d9a9f6a0 (hidden) (empty) BB
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 d9a9f6a0 (hidden) (empty) BB
+    main (conflicted):
+      - qpvuntsm/2 3a44d6c5 (hidden) (empty) AA
+      + qpvuntsm/0 1e742089 (divergent) (empty) CC
+      + qpvuntsm/1 d9a9f6a0 (divergent) (empty) BB
+      @git (ahead by 1 commits, behind by 2 commits): qpvuntsm/2 3a44d6c5 (hidden) (empty) AA
+      @origin (behind by 1 commits): qpvuntsm/1 d9a9f6a0 (divergent) (empty) BB
     [EOF]
     ");
 }

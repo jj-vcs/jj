@@ -16,12 +16,13 @@
 //!
 //! # Reference handling
 //!
-//! * `jj git import` applies the diff between `git_refs` and `remotes[]`.
-//!   `git_refs` is always copied from the backing Git repo.
+//! * `jj git import` applies the diff between the backing Git repo and jj's
+//!   `git_refs`, and updates jj's `remotes` view.
 //! * `jj git export` copies jj's `remotes` view back to the Git repo. If a ref
 //!   in the Git repo has been updated since the last import, the ref isn't
 //!   exported.
-//! * `jj op restore` never rolls back `git_refs`.
+//! * `jj op restore` never rolls back `git_refs`. This means the restored state
+//!   can be exported to Git but not re-imported.
 
 #![expect(missing_docs)]
 
@@ -923,70 +924,51 @@ fn diff_refs_to_import(
             git_ref_filter(kind, symbol).then_some((full_name.as_ref(), target))
         })
         .collect();
-    let mut known_remote_bookmarks = view
-        .all_remote_bookmarks()
-        .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
-        .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
-        .collect();
-    let mut known_remote_tags = {
-        let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
-        view.remote_tags(remote)
-            .map(|(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
-            .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
-            .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
-            .collect()
-    };
 
     let mut changed_git_refs = Vec::new();
-    let mut changed_remote_bookmarks = Vec::new();
-    let mut changed_remote_tags = Vec::new();
     let mut failed_ref_names = Vec::new();
     let actual = git_repo.references().map_err(GitImportError::from_git)?;
-    collect_changed_refs_to_import(
+    collect_changed_git_refs_to_import(
         actual.local_branches().map_err(GitImportError::from_git)?,
         &mut known_git_refs,
-        &mut known_remote_bookmarks,
         &mut changed_git_refs,
-        &mut changed_remote_bookmarks,
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
-    collect_changed_refs_to_import(
+    collect_changed_git_refs_to_import(
         actual.remote_branches().map_err(GitImportError::from_git)?,
         &mut known_git_refs,
-        &mut known_remote_bookmarks,
         &mut changed_git_refs,
-        &mut changed_remote_bookmarks,
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
-    collect_changed_refs_to_import(
+    collect_changed_git_refs_to_import(
         actual.tags().map_err(GitImportError::from_git)?,
         &mut known_git_refs,
-        &mut known_remote_tags,
         &mut changed_git_refs,
-        &mut changed_remote_tags,
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
     for full_name in known_git_refs.into_keys() {
         changed_git_refs.push((full_name.to_owned(), RefTarget::absent()));
     }
-    for (RemoteRefKey(symbol), old) in known_remote_bookmarks {
-        if old.is_present() {
-            changed_remote_bookmarks.push(GitImportRefUpdate::new(
+
+    let mut changed_remote_bookmarks = Vec::new();
+    let mut changed_remote_tags = Vec::new();
+    for (full_name, new_target) in &changed_git_refs {
+        let (kind, symbol) = parse_git_ref(full_name).expect("should be parsed before");
+        let (changes, old_remote_ref) = match kind {
+            GitRefKind::Bookmark => (
+                &mut changed_remote_bookmarks,
+                view.get_remote_bookmark(symbol),
+            ),
+            GitRefKind::Tag => (&mut changed_remote_tags, view.get_remote_tag(symbol)),
+        };
+        if *new_target != old_remote_ref.target {
+            changes.push(GitImportRefUpdate::new(
                 symbol.to_owned(),
-                old.clone(),
-                RefTarget::absent(),
-            ));
-        }
-    }
-    for (RemoteRefKey(symbol), old) in known_remote_tags {
-        if old.is_present() {
-            changed_remote_tags.push(GitImportRefUpdate::new(
-                symbol.to_owned(),
-                old.clone(),
-                RefTarget::absent(),
+                old_remote_ref.clone(),
+                new_target.clone(),
             ));
         }
     }
@@ -1079,12 +1061,10 @@ fn diff_fetched_refs_to_import(
     })
 }
 
-fn collect_changed_refs_to_import(
+fn collect_changed_git_refs_to_import(
     actual_git_refs: gix::reference::iter::Iter,
     known_git_refs: &mut HashMap<&GitRefName, &RefTarget>,
-    known_remote_refs: &mut HashMap<RemoteRefKey<'_>, &RemoteRef>,
     changed_git_refs: &mut Vec<(GitRefNameBuf, RefTarget)>,
-    changed_remote_refs: &mut Vec<GitImportRefUpdate>,
     failed_ref_names: &mut Vec<BString>,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> Result<(), GitImportError> {
@@ -1117,26 +1097,14 @@ fn collect_changed_refs_to_import(
         let new_target = RefTarget::normal(CommitId::from_bytes(oid.as_bytes()));
         known_git_refs.remove(full_name);
         if new_target != *old_git_target {
-            changed_git_refs.push((full_name.to_owned(), new_target.clone()));
-        }
-        // TODO: Make it configurable which remotes are publishing and update public
-        // heads here.
-        let old_remote_ref = known_remote_refs
-            .remove(&symbol)
-            .unwrap_or(&ABSENT_REMOTE_REF);
-        if new_target != old_remote_ref.target {
-            changed_remote_refs.push(GitImportRefUpdate::new(
-                symbol.to_owned(),
-                old_remote_ref.clone(),
-                new_target,
-            ));
+            changed_git_refs.push((full_name.to_owned(), new_target));
         }
     }
     Ok(())
 }
 
-/// Similar to [`collect_changed_refs_to_import()`], but doesn't track Git ref
-/// changes. Fetched refs should be managed solely by jj.
+/// Similar to [`collect_changed_git_refs_to_import()`], but compares remote
+/// refs. Fetched refs should be managed solely by jj.
 fn collect_changed_fetched_refs_to_import(
     actual_git_refs: gix::reference::iter::Iter,
     known_remote_refs: &mut HashMap<RemoteRefKey<'_>, &RemoteRef>,

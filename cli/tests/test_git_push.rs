@@ -3205,15 +3205,25 @@ fn test_git_push_unmapped_refs() {
     [EOF]
     "#);
 
-    // Since the export failed, this command imports the "deletion" of
-    // bookmark2@origin as an external change and abandons commit2. Ideally, we
-    // should block imports until the refs are updated externally.
+    // The export failure isn't "imported" as an external change
     insta::assert_snapshot!(get_bookmark_output(&local_dir), @"
     bookmark1: rlvkpnrz 5792bfac (empty) commit1
       @git: rlvkpnrz 5792bfac (empty) commit1
       @origin: rlvkpnrz 5792bfac (empty) commit1
+    bookmark2: zsuskuln aa5df56a (empty) commit2
+      @git: zsuskuln aa5df56a (empty) commit2
+      @origin: zsuskuln aa5df56a (empty) commit2
     [EOF]
     ");
+
+    // The export failure is reported again
+    let output = local_dir.run_jj(["new", "--quiet"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Failed to export some bookmarks:
+      bookmark2@origin: Failed to set: Could not commit reference, reference="refs/remotes/origin/bookmark2": Directory not empty: Directory not empty: Directory not empty
+    [EOF]
+    "#);
 }
 
 fn add_remote(test_env: &TestEnvironment, work_dir: &TestWorkDir, name: &str) {

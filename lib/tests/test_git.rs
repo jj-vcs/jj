@@ -1317,6 +1317,8 @@ fn test_import_refs_reimport_remote_tags_deleted() -> TestResult {
         .set_remote_tag(remote_symbol("tag1", "git"), remote_ref1.clone());
     tx.repo_mut()
         .set_remote_tag(remote_symbol("tag1", "origin"), remote_ref1.clone());
+    tx.repo_mut()
+        .set_git_ref_target("refs/tags/tag1".as_ref(), target1.clone());
     let repo = tx.commit("test").block_on()?;
 
     // Import "deleted" tags from Git repo.
