@@ -113,6 +113,10 @@ impl GitSubprocessCallback for NullCallback {
         false
     }
 
+    fn use_sideband_colors(&self) -> Option<bool> {
+        None
+    }
+
     fn progress(&mut self, _progress: &git::GitProgress) -> io::Result<()> {
         Ok(())
     }
@@ -7086,6 +7090,9 @@ fn test_push_updates_with_options() -> TestResult {
     impl GitSubprocessCallback for CapturingCallback {
         fn needs_progress(&self) -> bool {
             false
+        }
+        fn use_sideband_colors(&self) -> Option<bool> {
+            None
         }
         fn progress(&mut self, _progress: &git::GitProgress) -> std::io::Result<()> {
             Ok(())

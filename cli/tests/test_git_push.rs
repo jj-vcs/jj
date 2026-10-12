@@ -2865,6 +2865,77 @@ fn test_git_push_sign_on_push() {
 }
 
 #[test]
+fn test_git_push_remote_colors() -> TestResult {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    work_dir.run_jj(["describe", "-m", "color test"]).success();
+    let hook_path =
+        git_repo_dir_for_jj_repo(&test_env.work_dir("origin")).join("hooks/post-receive");
+    std::fs::write(
+        &hook_path,
+        "#!/bin/sh\nprintf 'SUCCESS: pushed\\n'\nprintf '\\033[32mserver color\\033[0m\\n'\n",
+    )?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700))?;
+    }
+    let push = |name, color, expected| {
+        let output = work_dir
+            .run_jj([
+                "git",
+                "push",
+                "--named",
+                &format!("color-{name}=@"),
+                "--color",
+                color,
+            ])
+            .success();
+        assert!(output.stderr.raw().contains(expected), "{output}");
+        assert!(
+            output
+                .stderr
+                .raw()
+                .contains("remote: \x1b[32mserver color\x1b[0m"),
+            "{output}"
+        );
+    };
+    for (color, expected) in [
+        ("always", "remote: \x1b[1;32mSUCCESS\x1b[m: pushed"),
+        ("never", "remote: SUCCESS: pushed"),
+        ("auto", "remote: SUCCESS: pushed"),
+    ] {
+        push(color, color, expected);
+    }
+
+    // Keep Git's configured keyword styles, while honoring jj's color choice.
+    let git_repo_path = git_repo_dir_for_jj_repo(&work_dir);
+    let set_git_config = |key, value| {
+        work_dir
+            .run_jj([
+                "util",
+                "exec",
+                "--",
+                "git",
+                "--git-dir",
+                git_repo_path.to_str().unwrap(),
+                "config",
+                key,
+                value,
+            ])
+            .success();
+    };
+    set_git_config("color.remote.success", "magenta");
+    set_git_config("color.remote", "never");
+    push("custom", "always", "remote: \x1b[35mSUCCESS\x1b[m: pushed");
+    set_git_config("color.remote", "always");
+    push("disabled", "never", "remote: SUCCESS: pushed");
+    Ok(())
+}
+
+#[test]
 fn test_git_push_rejected_by_remote() -> TestResult {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
