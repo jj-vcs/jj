@@ -52,6 +52,7 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
+use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
@@ -72,7 +73,6 @@ use jj_lib::simple_backend::SimpleBackend;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use jj_lib::tree::Tree;
-use jj_lib::tree_builder::TreeBuilder;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
@@ -465,12 +465,15 @@ pub fn write_file(store: &Store, path: &RepoPath, contents: &str) -> FileId {
 
 pub struct TestTreeBuilder {
     store: Arc<Store>,
-    tree_builder: TreeBuilder,
+    tree_builder: MergedTreeBuilder,
 }
 
 impl TestTreeBuilder {
     pub fn new(store: Arc<Store>) -> Self {
-        let tree_builder = TreeBuilder::new(store.clone(), store.empty_tree_id().clone());
+        let tree_builder = MergedTreeBuilder::new(MergedTree::resolved(
+            store.clone(),
+            store.empty_tree_id().clone(),
+        ));
         Self {
             store,
             tree_builder,
@@ -483,6 +486,7 @@ impl TestTreeBuilder {
         contents: impl AsRef<[u8]>,
     ) -> TestTreeFileEntryBuilder<'_> {
         TestTreeFileEntryBuilder {
+            store: &self.store,
             tree_builder: &mut self.tree_builder,
             path: path.to_owned(),
             contents: contents.as_ref().to_vec(),
@@ -495,30 +499,31 @@ impl TestTreeBuilder {
     pub fn symlink(&mut self, path: &RepoPath, target: &str) {
         let id = self.store.write_symlink(path, target).block_on().unwrap();
         self.tree_builder
-            .set(path.to_owned(), TreeValue::Symlink(id));
+            .set_or_remove(path.to_owned(), Some(TreeValue::Symlink(id)));
     }
 
     pub fn submodule(&mut self, path: &RepoPath, commit: CommitId) {
         self.tree_builder
-            .set(path.to_owned(), TreeValue::GitSubmodule(commit));
+            .set_or_remove(path.to_owned(), Some(TreeValue::GitSubmodule(commit)));
     }
 
     pub fn write_single_tree(self) -> Tree {
-        let id = self.tree_builder.write_tree().block_on().unwrap();
-        self.store
-            .get_tree(RepoPathBuf::root(), &id)
+        let tree = self.write_merged_tree();
+        let id = tree.tree_ids().as_resolved().unwrap();
+        tree.store()
+            .get_tree(RepoPathBuf::root(), id)
             .block_on()
             .unwrap()
     }
 
     pub fn write_merged_tree(self) -> MergedTree {
-        let id = self.tree_builder.write_tree().block_on().unwrap();
-        MergedTree::resolved(self.store, id)
+        self.tree_builder.write_tree().block_on().unwrap()
     }
 }
 
 pub struct TestTreeFileEntryBuilder<'a> {
-    tree_builder: &'a mut TreeBuilder,
+    store: &'a Store,
+    tree_builder: &'a mut MergedTreeBuilder,
     path: RepoPathBuf,
     contents: Vec<u8>,
     executable: bool,
@@ -552,15 +557,13 @@ impl TestTreeFileEntryBuilder<'_> {
 impl Drop for TestTreeFileEntryBuilder<'_> {
     fn drop(&mut self) {
         let id = self
-            .tree_builder
-            .store()
+            .store
             .write_file(&self.path, &mut self.contents.as_slice())
             .block_on()
             .unwrap();
         let path = std::mem::replace(&mut self.path, RepoPathBuf::root());
         let copy_id = if let Some(copy_history) = self.copy_history.as_ref() {
-            self.tree_builder
-                .store()
+            self.store
                 .backend()
                 .write_copy(copy_history)
                 .block_on()
@@ -568,13 +571,13 @@ impl Drop for TestTreeFileEntryBuilder<'_> {
         } else {
             self.copy_id.clone()
         };
-        self.tree_builder.set(
+        self.tree_builder.set_or_remove(
             path,
-            TreeValue::File {
+            Some(TreeValue::File {
                 id,
                 executable: self.executable,
                 copy_id,
-            },
+            }),
         );
     }
 }
