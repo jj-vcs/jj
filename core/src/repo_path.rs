@@ -691,12 +691,24 @@ impl<V> RepoPathTree<V> {
     where
         V: Default,
     {
+        self.add_with_ancestors(path, |_| {})
+    }
+
+    /// Add a path to the tree like [`Self::add()`], calling `f` on each node
+    /// from the root to the added node (inclusive).
+    pub fn add_with_ancestors(&mut self, path: &RepoPath, mut f: impl FnMut(&mut Self)) -> &mut Self
+    where
+        V: Default,
+    {
+        f(self);
         path.components().fold(self, |sub, name| {
             // Avoid name.clone() if entry already exists.
             if !sub.entries.contains_key(name) {
                 sub.entries.insert(name.to_owned(), Self::default());
             }
-            sub.entries.get_mut(name).unwrap()
+            let child = sub.entries.get_mut(name).unwrap();
+            f(child);
+            child
         })
     }
 
@@ -747,6 +759,20 @@ mod tests {
 
     fn repo_path_component(value: &str) -> &RepoPathComponent {
         RepoPathComponent::new(value).unwrap()
+    }
+
+    #[test]
+    fn test_repo_path_tree_add_with_ancestors() {
+        let mut tree: RepoPathTree<u32> = RepoPathTree::default();
+        tree.add(repo_path("a/x"));
+        let node = tree.add_with_ancestors(repo_path("a/b/c"), |node| *node.value_mut() += 1);
+        *node.value_mut() += 10;
+        tree.add_with_ancestors(repo_path("a/b"), |node| *node.value_mut() += 1);
+        assert_eq!(*tree.value(), 2);
+        assert_eq!(*tree.get(repo_path("a")).unwrap().value(), 2);
+        assert_eq!(*tree.get(repo_path("a/b")).unwrap().value(), 2);
+        assert_eq!(*tree.get(repo_path("a/b/c")).unwrap().value(), 11);
+        assert_eq!(*tree.get(repo_path("a/x")).unwrap().value(), 0);
     }
 
     #[test]

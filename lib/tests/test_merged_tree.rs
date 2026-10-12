@@ -822,8 +822,8 @@ fn test_merged_tree_builder_overrides_below_base_file() -> TestResult {
         )
     );
 
-    // Adding a tree at `path/tree` and then removing everything in it keeps the
-    // file since no value ends up below `path`
+    // Adding a tree at `path/tree` replaces the file even if everything in the
+    // tree is then removed
     let tree_value = create_tree(repo, &[(tree_file_path, "file")])
         .path_value(tree_path)
         .block_on()?;
@@ -834,7 +834,7 @@ fn test_merged_tree_builder_overrides_below_base_file() -> TestResult {
     assert_tree_eq!(
         tree,
         create_conflict(
-            &[(conflicted_path, "side1"), (path, "file")],
+            &[(conflicted_path, "side1")],
             &[(conflicted_path, "base")],
             &[(conflicted_path, "side2"), (child_path, "child")],
         )

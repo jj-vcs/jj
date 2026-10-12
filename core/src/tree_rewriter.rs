@@ -283,6 +283,9 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
                 .filter_map(|(name, value)| Some((name, value?)))
                 .collect(),
         );
+        // TODO: Write trees with identical contents only once. For example, if the
+        // only conflict in a merged tree is in `dir/file` and it gets resolved, the
+        // `dir/` and root trees end up the same for all terms.
         let store = self.store.clone();
         if tree.is_empty() && !key.0.is_root() {
             // Empty subtrees are omitted from their parents, so there's no need to write
