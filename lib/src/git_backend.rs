@@ -635,20 +635,23 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
 }
 
 /// Parses the `jj:conflict-labels` header value if present.
-fn extract_conflict_labels_from_commit(commit: &gix::objs::CommitRef) -> Merge<String> {
+fn extract_conflict_labels_from_commit(commit: &gix::objs::CommitRef) -> Result<Merge<String>, ()> {
     let Some(value) = commit
         .extra_headers()
         .find(JJ_CONFLICT_LABELS_COMMIT_HEADER)
     else {
-        return Merge::resolved(String::new());
+        return Ok(Merge::resolved(String::new()));
     };
 
-    str::from_utf8(value)
-        .expect("labels should be valid utf8")
+    let labels = str::from_utf8(value)
+        .map_err(|_| ())?
         .split_terminator('\n')
         .map(str::to_owned)
-        .collect::<MergeBuilder<_>>()
-        .build()
+        .collect_vec();
+    if labels.len() == 1 || labels.len() % 2 == 0 {
+        return Err(());
+    }
+    Ok(Merge::from_vec(labels))
 }
 
 /// Parses the `jj:trees` header value if present, otherwise returns the
@@ -705,7 +708,8 @@ fn commit_from_git_without_root_parent(
     };
     // If the commit is a conflict, the conflict labels are stored in a commit
     // header separately from the trees.
-    let conflict_labels = extract_conflict_labels_from_commit(&commit);
+    let conflict_labels = extract_conflict_labels_from_commit(&commit)
+        .map_err(|()| to_read_object_err("Invalid jj:conflict-labels header", id))?;
     // Conflicted commits written before we started using the `jj:trees` header
     // (~March 2024) may have the root trees stored in the extra metadata table
     // instead. For such commits, we'll update the root tree later when we read the
