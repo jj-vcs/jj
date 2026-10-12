@@ -62,6 +62,9 @@ and this project adheres to
   the offset from the start of the day was used, so times after were off
   by an hour. Likely a niche bug fix, but a bug fix nonetheless!
 
+* Concurrent `jj config set` and `jj config unset` commands no longer lose each
+  other's updates or corrupt the config file.
+
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
 

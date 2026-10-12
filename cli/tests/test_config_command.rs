@@ -28,6 +28,84 @@ use crate::common::force_interactive;
 use crate::common::to_toml_value;
 
 #[test]
+fn test_config_set_unset_parallel() {
+    let run_parallel = |commands: Vec<assert_cmd::Command>| {
+        let barrier = std::sync::Barrier::new(commands.len());
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = commands
+                .into_iter()
+                .map(|mut command| {
+                    let barrier = &barrier;
+                    scope.spawn(move || {
+                        barrier.wait();
+                        command.output().unwrap()
+                    })
+                })
+                .collect();
+            for handle in handles {
+                let output = handle.join().unwrap();
+                assert!(
+                    output.status.success(),
+                    "{}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+        });
+    };
+    for level in ["--repo", "--workspace", "--user"] {
+        let test_env = TestEnvironment::default();
+        test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+        let commands = (0..20)
+            .map(|i| {
+                let mut command = test_env.new_jj_cmd();
+                command.current_dir(test_env.env_root().join("repo"));
+                command.args([
+                    "config",
+                    "set",
+                    level,
+                    &format!("race.key{i}"),
+                    &i.to_string(),
+                ]);
+                command
+            })
+            .collect();
+        run_parallel(commands);
+        for i in 0..20 {
+            let output = test_env
+                .run_jj_in("repo", ["config", "get", &format!("race.key{i}")])
+                .success();
+            assert_eq!(output.stdout.raw(), format!("{i}\n"));
+        }
+        let commands = (0..20)
+            .map(|i| {
+                let mut command = test_env.new_jj_cmd();
+                command.current_dir(test_env.env_root().join("repo"));
+                if i % 2 == 0 {
+                    command.args(["config", "unset", level, &format!("race.key{i}")]);
+                } else {
+                    command.args([
+                        "config",
+                        "set",
+                        level,
+                        &format!("race.key{i}"),
+                        &(i + 100).to_string(),
+                    ]);
+                }
+                command
+            })
+            .collect();
+        run_parallel(commands);
+        for i in 0..20 {
+            let output = test_env.run_jj_in("repo", ["config", "get", &format!("race.key{i}")]);
+            assert_eq!(output.status.success(), i % 2 != 0);
+            if i % 2 != 0 {
+                assert_eq!(output.stdout.raw(), format!("{}\n", i + 100));
+            }
+        }
+    }
+}
+
+#[test]
 fn test_config_list_single() {
     let test_env = TestEnvironment::default();
     test_env.add_config(
