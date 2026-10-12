@@ -240,6 +240,26 @@ impl GitSubprocessContext {
     ) -> Result<GitPushStats, GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
+        // Exclude all fetch mappings to prevent push from updating tracking
+        // refs. An empty `-c remote.<name>.fetch=` entry doesn't disable the
+        // configured refspecs.
+        //
+        // Git checks negative refspecs by reversing positive mappings, even
+        // when querying by source. Add a dummy mapping so every source reaches
+        // the exclusion check. For refs/heads/main -> refs/remotes/origin/main,
+        // it tries to match refs/heads/main against refs/remotes/origin/* and
+        // dummy refs/*, and translates "back" to refs/jj/dummy/heads/main,
+        // which matches ^refs/*.
+        //
+        // https://github.com/git/git/blob/v2.42.0/remote.c#L891
+        command
+            .arg("-c")
+            .arg(format!(
+                "remote.{}.fetch=refs/jj/dummy/*:refs/*",
+                remote_name.as_str()
+            ))
+            .arg("-c")
+            .arg(format!("remote.{}.fetch=^refs/*", remote_name.as_str()));
         // Currently jj does not support commit hooks, so we prevent git from running
         // them
         //

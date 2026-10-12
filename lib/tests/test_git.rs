@@ -6522,11 +6522,9 @@ fn test_push_updates_success() -> TestResult {
     let new_oid = git_id(&setup.child_of_main_commit);
     assert_eq!(new_target.target().id(), new_oid);
 
-    // Check that the ref got updated in the cloned repo. This just tests our
-    // assumptions about libgit2 because we want the refs/remotes/origin/main
-    // bookmark to be updated.
+    // Check that the local remote-tracking ref is unchanged
     let new_target = clone_repo.find_reference("refs/remotes/origin/main")?;
-    assert_eq!(new_target.target().id(), new_oid);
+    assert_eq!(new_target.target().id(), git_id(&setup.main_commit));
     Ok(())
 }
 
