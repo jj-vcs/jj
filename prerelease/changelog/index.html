@@ -7814,6 +7814,13 @@ and this project adheres to
   <code>jj tag list</code>, <code>jj git fetch --tag</code>, and <code>jj git push --tag</code>.</p>
 </li>
 <li>
+<p><code>jj git fetch</code> no longer creates additional refs based on non-standard Git
+  <code>remote.&lt;name&gt;.fetch</code> configuration.</p>
+</li>
+<li>
+<p>Fixed tag deletion with <code>jj git fetch --tag=NAME</code>.</p>
+</li>
+<li>
 <p>Fixed issue with <code>config-schema.json</code> where Taplo (TOML parsing library) would
   flag any <code>aliases</code> defined as a table but without an explicit
   <code>.enabled = true</code> as "valid under more than one of the schemas". This affected
