@@ -228,18 +228,22 @@ fn test_git_import_undo() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
-    // Try "git import" again, which should re-import the bookmark "a".
+
+    // but cannot re-import because there are no "new" changes. If needed, we
+    // can add a fresh --reimport flag.
     let output = work_dir.run_jj(["git", "import"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    bookmark: a@git [new] tracked
+    Nothing changed.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    a: qpvuntsm e8849ae1 (empty) (no description set)
-      @git: qpvuntsm e8849ae1 (empty) (no description set)
-    [EOF]
-    ");
+
+    // The restored state can be exported.
+    let output = work_dir.run_jj(["git", "export"]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+    insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @"[]");
+
     Ok(())
 }
 
@@ -322,19 +326,21 @@ fn test_git_import_move_export_with_default_undo() -> TestResult {
     ]
     "#);
 
-    // The last bookmark "a" state is imported from git. No idea what's the most
-    // intuitive result here.
+    // "git import" does nothing since there are no "new" changes.
     let output = work_dir.run_jj(["git", "import"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    bookmark: a@git [new] tracked
+    Nothing changed.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    a: royxmykx e7d0d5fd (empty) (no description set)
-      @git: royxmykx e7d0d5fd (empty) (no description set)
-    [EOF]
-    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+
+    // The restored state can be exported.
+    let output = work_dir.run_jj(["git", "export"]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+    insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @"[]");
+
     Ok(())
 }
 

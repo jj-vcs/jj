@@ -16,6 +16,10 @@ and this project adheres to
   remote-tracking Git refs. Use `jj git export` to export remote bookmarks to
   Git.
 
+* In non-colocated workspaces, `jj git import; jj undo; jj git import` no longer
+  re-imports external changes. Run `jj git export` to reflect undone changes in
+  Git. `jj git fetch; jj undo; jj git fetch` continues to work as expected.
+
 * `Timestamp.format()` now follows [jiff's strftime
   syntax](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html) instead of
   chrono's. Most directives, including the default format, are unchanged, but:
@@ -97,6 +101,9 @@ and this project adheres to
 * Fix a race condition in colocated workspaces where concurrent `jj git fetch`
   and `jj` commands could import partially fetched refs, causing divergence.
   [#7349](https://github.com/jj-vcs/jj/issues/7349)
+
+* In colocated workspaces, Git export failures are no longer misidentified as
+  external changes.
 
 * `jj run` now materializes conflicts using `ui.conflict-marker-style` instead
   of always using the `snapshot` style.
