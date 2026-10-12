@@ -57,7 +57,6 @@ pub mod str_util;
 pub mod symbol_util;
 pub mod time_util;
 pub mod tree;
-pub mod tree_builder;
 pub mod tree_merge;
 mod tree_rewriter;
 mod tree_walk;
