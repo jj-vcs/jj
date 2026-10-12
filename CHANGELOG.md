@@ -133,6 +133,10 @@ and this project adheres to
 
 ### Fixed bugs
 
+* `jj log` no longer warns that a path has no matching entries when the printed
+  revisions delete that path.
+  [#10267](https://github.com/jj-vcs/jj/issues/10267)
+
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
   such as `ssh` asking for a key passphrase or for confirmation of an unknown
   host key. Subprocesses started from a terminal now inherit its console, rather
