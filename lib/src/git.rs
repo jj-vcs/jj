@@ -3570,8 +3570,6 @@ pub fn push_refs(
             .map(|((name, update), ref_update)| (&**name, update, ref_update))
     };
 
-    // The remote refs in Git should usually be updated by `git push`. In that
-    // case, this only updates our record about the last exported state.
     let unexported_bookmarks = {
         let refs =
             build_pushed_bookmarks_to_export(mut_repo.view(), remote, pushed_bookmark_updates());
