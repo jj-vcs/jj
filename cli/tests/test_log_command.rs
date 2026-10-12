@@ -1065,6 +1065,28 @@ fn test_log_filtered_by_path() {
 }
 
 #[test]
+fn test_log_filtered_by_deleted_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["new", "-m", "second"]).success();
+    work_dir.remove_file("file1");
+
+    // The path only exists in the parent tree of the commit that deleted it, so
+    // it shouldn't be reported as unmatched.
+    let output = work_dir.run_jj(["log", "-r", "@", "-T", "description", "-s", "file1"]);
+    insta::assert_snapshot!(output, @"
+    @  second
+    │  D file1
+    ~
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_log_limit() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
