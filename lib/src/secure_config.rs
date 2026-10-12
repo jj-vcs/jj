@@ -33,6 +33,8 @@ use crate::file_util::PathError;
 use crate::file_util::path_from_bytes;
 use crate::file_util::path_to_bytes;
 use crate::hex_util::encode_hex;
+use crate::lock::FileLock;
+use crate::lock::FileLockError;
 use crate::protos::secure_config::ConfigMetadata;
 
 const CONFIG_FILE: &str = "config.toml";
@@ -80,6 +82,10 @@ pub enum SecureConfigError {
     /// The config ID isn't CONFIG_ID_BYTES * 2 hex chars.
     #[error("Found an invalid config ID")]
     BadConfigIdError,
+
+    /// Failed to lock the config ID file.
+    #[error(transparent)]
+    LockError(#[from] FileLockError),
 }
 
 /// The path to the config file for a secure config.
@@ -354,9 +360,78 @@ impl SecureConfig {
         })
     }
 
+    /// Locks the config ID file so concurrent callers cannot generate
+    /// divergent config IDs or observe one another's partially written
+    /// config. Returns `None` if the repo directory doesn't exist yet, in
+    /// which case no config file can be written anyway.
+    fn lock(&self) -> Result<Option<FileLock>, SecureConfigError> {
+        if !self.repo_dir.try_exists().unwrap_or(false) {
+            return Ok(None);
+        }
+        let lock_path = self
+            .repo_dir
+            .join(self.config_id_name)
+            .with_extension("lock");
+        Ok(Some(FileLock::lock(lock_path)?))
+    }
+
     /// Determines the path to the config, and any metadata associated with it.
     /// If no config exists, the path will be None.
     pub fn maybe_load_config(
+        &self,
+        rng: &mut ChaCha20Rng,
+        root_config_dir: &Path,
+    ) -> Result<LoadedSecureConfig, SecureConfigError> {
+        // Normal config reads must not need write access to the repo directory.
+        // Only lock if this call may migrate or repair a config on disk.
+        if self.cache.borrow().is_some() {
+            return self.maybe_load_config_locked(rng, root_config_dir);
+        }
+        let config_id_path = self.repo_dir.join(self.config_id_name);
+        let needs_lock = match fs::read_to_string(&config_id_path) {
+            Ok(config_id)
+                if config_id.len() == CONFIG_ID_BYTES * 2
+                    && config_id.chars().all(|c| c.is_ascii_hexdigit()) =>
+            {
+                let config_dir = root_config_dir.join(config_id);
+                match read_metadata(&config_dir) {
+                    Ok(metadata) => {
+                        let encoded = path_to_bytes(&self.repo_dir).ok();
+                        if metadata_path(&metadata).ok()
+                            == Some(encoded.is_some().then_some(self.repo_dir.as_path()))
+                        {
+                            // This is the common, read-only path. Avoid locking
+                            // and rereading the config ID and metadata.
+                            let config_file = config_dir.join(CONFIG_FILE);
+                            *self.cache.borrow_mut() =
+                                Some((Some(config_file.clone()), metadata.clone()));
+                            return Ok(LoadedSecureConfig {
+                                config_file: Some(config_file),
+                                metadata,
+                                warnings: vec![],
+                            });
+                        }
+                        true
+                    }
+                    Err(SecureConfigError::PathError(err)) if err.source.kind() == NotFound => true,
+                    Err(_) => false,
+                }
+            }
+            Err(err) if err.kind() == NotFound => {
+                self.repo_dir.join(self.legacy_config_name).exists()
+            }
+            _ => false,
+        };
+        if needs_lock {
+            let _lock = self.lock()?;
+            self.cache.take();
+            self.maybe_load_config_locked(rng, root_config_dir)
+        } else {
+            self.maybe_load_config_locked(rng, root_config_dir)
+        }
+    }
+
+    fn maybe_load_config_locked(
         &self,
         rng: &mut ChaCha20Rng,
         root_config_dir: &Path,
@@ -409,7 +484,11 @@ impl SecureConfig {
         rng: &mut ChaCha20Rng,
         root_config_dir: &Path,
     ) -> Result<LoadedSecureConfig, SecureConfigError> {
-        let mut loaded = self.maybe_load_config(rng, root_config_dir)?;
+        let _lock = self.lock()?;
+        // A cached absence was observed before the lock was taken; another
+        // process may have created the config since. Re-check under the lock.
+        self.cache.take();
+        let mut loaded = self.maybe_load_config_locked(rng, root_config_dir)?;
         if loaded.config_file.is_none() {
             let (path, metadata) =
                 self.generate_initial_config(root_config_dir, &generate_config_id(rng))?;
@@ -424,6 +503,8 @@ impl SecureConfig {
 #[cfg(test)]
 mod tests {
     use std::ffi::OsStr;
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt as _;
 
     use rand::SeedableRng as _;
     use tempfile::TempDir;
@@ -498,6 +579,52 @@ mod tests {
         assert_eq!(loaded2.config_file.unwrap(), path);
         assert_eq!(loaded2.metadata, loaded.metadata);
         assert!(loaded2.warnings.is_empty());
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_readonly_repo_can_load_existing_config() -> TestResult {
+        let mut env = TestEnv::new();
+        let created = env.config.load_config(&mut env.rng, &env.config_dir)?;
+        let reader = env.secure_config_for_dir(env.repo_dir.clone());
+        let old_permissions = fs::metadata(&env.repo_dir)?.permissions();
+        fs::set_permissions(&env.repo_dir, fs::Permissions::from_mode(0o500))?;
+        let result = reader.maybe_load_config(&mut env.rng, &env.config_dir);
+        fs::set_permissions(&env.repo_dir, old_permissions)?;
+        let loaded = result?;
+        assert_eq!(loaded.config_file, created.config_file);
+        assert_eq!(loaded.metadata, created.metadata);
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_readonly_repo_can_check_missing_config() -> TestResult {
+        let mut env = TestEnv::new();
+        let old_permissions = fs::metadata(&env.repo_dir)?.permissions();
+        fs::set_permissions(&env.repo_dir, fs::Permissions::from_mode(0o500))?;
+        let result = env.config.maybe_load_config(&mut env.rng, &env.config_dir);
+        fs::set_permissions(&env.repo_dir, old_permissions)?;
+        assert!(result?.config_file.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_cached_missing_config_created_by_another_instance() -> TestResult {
+        let mut env = TestEnv::new();
+        assert_eq!(
+            env.config
+                .maybe_load_config(&mut env.rng, &env.config_dir)?
+                .config_file,
+            None
+        );
+        let other = env.secure_config_for_dir(env.repo_dir.clone());
+        let created = other.load_config(&mut env.rng, &env.config_dir)?;
+        let loaded = env.config.load_config(&mut env.rng, &env.config_dir)?;
+        assert_eq!(loaded.config_file, created.config_file);
+        assert_eq!(loaded.metadata, created.metadata);
+        assert_eq!(fs::read_dir(&env.config_dir)?.count(), 1);
         Ok(())
     }
 
