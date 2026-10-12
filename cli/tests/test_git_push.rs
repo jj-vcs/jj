@@ -946,8 +946,6 @@ fn test_git_push_multiple() {
     [EOF]
     ");
 
-    // All pushed bookmarks/tags should be committed to the operation.
-    // Therefore, the subsequent "git import" should be noop.
     let output = work_dir.run_jj(["git", "push", "--all", "--deleted"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -965,6 +963,10 @@ fn test_git_push_multiple() {
     [EOF]
     [exit status: 1]
     ");
+    // All pushed bookmarks/tags can be exported. Therefore, the subsequent
+    // "git import" should be noop.
+    let output = work_dir.run_jj(["git", "export"]);
+    insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "import"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -973,17 +975,22 @@ fn test_git_push_multiple() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     bookmark2: yqosqzyt 0cb91ecd (empty) foo
+      @git: yqosqzyt 0cb91ecd (empty) foo
       @origin: yqosqzyt 0cb91ecd (empty) foo
     bookmark3: yqosqzyt 0cb91ecd (empty) foo
+      @git: yqosqzyt 0cb91ecd (empty) foo
       @origin (not created yet)
     my-bookmark: yqosqzyt 0cb91ecd (empty) foo
+      @git: yqosqzyt 0cb91ecd (empty) foo
       @origin: yqosqzyt 0cb91ecd (empty) foo
     [EOF]
     ");
     insta::assert_snapshot!(get_tag_output(&work_dir), @"
     tag1: yqosqzyt 0cb91ecd (empty) foo
+      @git: yqosqzyt 0cb91ecd (empty) foo
       @origin: yqosqzyt 0cb91ecd (empty) foo
     tag2: yqosqzyt 0cb91ecd (empty) foo
+      @git: yqosqzyt 0cb91ecd (empty) foo
       @origin: yqosqzyt 0cb91ecd (empty) foo
     [EOF]
     ");
@@ -3190,16 +3197,12 @@ fn test_git_push_unmapped_refs() {
     ------- stderr -------
     Changes to push to origin:
       bookmark: bookmark2 [add to aa5df56a071b]
-    Warning: The following bookmarks couldn't be updated locally:
-      bookmark2@origin: Failed to set: Could not commit reference, reference="refs/remotes/origin/bookmark2": Directory not empty: Directory not empty: Directory not empty
     Warning: Failed to export some bookmarks:
       bookmark2@origin: Failed to set: Could not commit reference, reference="refs/remotes/origin/bookmark2": Directory not empty: Directory not empty: Directory not empty
     Hint: Git doesn't allow a branch/tag name that looks like a parent directory of
     another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks/tags that failed
     to export or their "parent" bookmarks/tags.
-    Error: Failed to push some bookmarks
     [EOF]
-    [exit status: 1]
     "#);
 
     // Since the export failed, this command imports the "deletion" of
