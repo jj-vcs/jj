@@ -41,7 +41,6 @@ use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
-use jj_lib::merged_tree::TreeDiffIterator;
 use jj_lib::merged_tree::TreeDiffStreamImpl;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::repo::Repo as _;
@@ -67,19 +66,19 @@ fn diff_entry_tuple(diff: TreeDiffEntry) -> (RepoPathBuf, (MergedTreeValue, Merg
     (diff.path, (values.before, values.after))
 }
 
-fn diff_stream_equals_iter(tree1: &MergedTree, tree2: &MergedTree, matcher: &dyn Matcher) {
-    let iter_diff: Vec<_> = TreeDiffIterator::new(tree1, tree2, matcher)
-        .map(|diff| (diff.path, diff.values.unwrap()))
-        .collect();
-    for max_concurrent_reads in [1, 10] {
+fn diff_stream_sequential_equals_concurrent(
+    tree1: &MergedTree,
+    tree2: &MergedTree,
+    matcher: &dyn Matcher,
+) {
+    let diff_with_concurrency = |max_concurrent_reads| {
         tree1.store().clear_caches();
-        let stream_diff: Vec<_> =
-            TreeDiffStreamImpl::new(tree1, tree2, matcher, max_concurrent_reads)
-                .map(|diff| (diff.path, diff.values.unwrap()))
-                .collect()
-                .block_on();
-        assert_eq!(stream_diff, iter_diff);
-    }
+        TreeDiffStreamImpl::new(tree1, tree2, matcher, max_concurrent_reads)
+            .map(|diff| (diff.path, diff.values.unwrap()))
+            .collect::<Vec<_>>()
+            .block_on()
+    };
+    assert_eq!(diff_with_concurrency(1), diff_with_concurrency(10));
 }
 
 /// Test that a tree built with no changes on top of an add/add conflict gets
@@ -1029,7 +1028,7 @@ fn test_diff_resolved() -> TestResult {
             ),
         )
     );
-    diff_stream_equals_iter(&before_merged, &after_merged, &EverythingMatcher);
+    diff_stream_sequential_equals_concurrent(&before_merged, &after_merged, &EverythingMatcher);
     Ok(())
 }
 
@@ -1124,7 +1123,7 @@ fn test_diff_copy_tracing() -> TestResult {
             ),
         )
     );
-    diff_stream_equals_iter(&before_merged, &after_merged, &EverythingMatcher);
+    diff_stream_sequential_equals_concurrent(&before_merged, &after_merged, &EverythingMatcher);
     Ok(())
 }
 
@@ -1202,7 +1201,7 @@ fn test_diff_copy_tracing_file_and_dir() -> TestResult {
             ),
         )
     );
-    diff_stream_equals_iter(&before, &after, &EverythingMatcher);
+    diff_stream_sequential_equals_concurrent(&before, &after, &EverythingMatcher);
     Ok(())
 }
 
@@ -1313,7 +1312,7 @@ fn test_diff_conflicted() -> TestResult {
         })
         .collect_vec();
     assert_eq!(actual_diff, expected_diff);
-    diff_stream_equals_iter(&left_merged, &right_merged, &EverythingMatcher);
+    diff_stream_sequential_equals_concurrent(&left_merged, &right_merged, &EverythingMatcher);
     // Test the reverse diff
     let actual_diff: Vec<_> = right_merged
         .diff_stream(&left_merged, &EverythingMatcher)
@@ -1333,7 +1332,7 @@ fn test_diff_conflicted() -> TestResult {
         })
         .collect_vec();
     assert_eq!(actual_diff, expected_diff);
-    diff_stream_equals_iter(&right_merged, &left_merged, &EverythingMatcher);
+    diff_stream_sequential_equals_concurrent(&right_merged, &left_merged, &EverythingMatcher);
     Ok(())
 }
 
@@ -1492,7 +1491,7 @@ fn test_diff_dir_file() -> TestResult {
             ),
         ];
         assert_eq!(actual_diff, expected_diff);
-        diff_stream_equals_iter(&left_merged, &right_merged, &EverythingMatcher);
+        diff_stream_sequential_equals_concurrent(&left_merged, &right_merged, &EverythingMatcher);
     }
 
     // Test the reverse diff
@@ -1537,7 +1536,7 @@ fn test_diff_dir_file() -> TestResult {
             ),
         ];
         assert_eq!(actual_diff, expected_diff);
-        diff_stream_equals_iter(&right_merged, &left_merged, &EverythingMatcher);
+        diff_stream_sequential_equals_concurrent(&right_merged, &left_merged, &EverythingMatcher);
     }
 
     // Diff while filtering by `path1` (file1 -> directory1) as a file
@@ -1553,7 +1552,7 @@ fn test_diff_dir_file() -> TestResult {
             (path1.to_owned(), (left_value(path1), Merge::absent())),
         ];
         assert_eq!(actual_diff, expected_diff);
-        diff_stream_equals_iter(&left_merged, &right_merged, &matcher);
+        diff_stream_sequential_equals_concurrent(&left_merged, &right_merged, &matcher);
     }
 
     // Diff while filtering by `path1/file` (file1 -> directory1) as a file
@@ -1572,7 +1571,7 @@ fn test_diff_dir_file() -> TestResult {
             ),
         ];
         assert_eq!(actual_diff, expected_diff);
-        diff_stream_equals_iter(&left_merged, &right_merged, &matcher);
+        diff_stream_sequential_equals_concurrent(&left_merged, &right_merged, &matcher);
     }
 
     // Diff while filtering by `path1` (file1 -> directory1) as a prefix
@@ -1591,7 +1590,7 @@ fn test_diff_dir_file() -> TestResult {
             ),
         ];
         assert_eq!(actual_diff, expected_diff);
-        diff_stream_equals_iter(&left_merged, &right_merged, &matcher);
+        diff_stream_sequential_equals_concurrent(&left_merged, &right_merged, &matcher);
     }
 
     // Diff while filtering by `path6` (directory1 -> file1+(directory1-absent)) as
@@ -1607,7 +1606,7 @@ fn test_diff_dir_file() -> TestResult {
             .block_on();
         let expected_diff = vec![(path6.to_owned(), (Merge::absent(), right_value(path6)))];
         assert_eq!(actual_diff, expected_diff);
-        diff_stream_equals_iter(&left_merged, &right_merged, &matcher);
+        diff_stream_sequential_equals_concurrent(&left_merged, &right_merged, &matcher);
     }
     Ok(())
 }
@@ -2101,7 +2100,7 @@ fn test_diff_with_trees_dir_added_removed() -> TestResult {
     assert!(diff_rev[1].1.0.is_tree()); // Before: Tree
     assert!(diff_rev[1].1.1.is_absent()); // After: Absent
 
-    diff_stream_equals_iter(&tree1_merged, &tree2_merged, &EverythingMatcher);
+    diff_stream_sequential_equals_concurrent(&tree1_merged, &tree2_merged, &EverythingMatcher);
     Ok(())
 }
 
@@ -2153,7 +2152,7 @@ fn test_diff_with_trees_recursive_modification() -> TestResult {
     assert!(diff[3].1.0.is_present());
     assert!(diff[3].1.1.is_present());
 
-    diff_stream_equals_iter(&merged1, &merged2, &EverythingMatcher);
+    diff_stream_sequential_equals_concurrent(&merged1, &merged2, &EverythingMatcher);
     Ok(())
 }
 
@@ -2191,7 +2190,7 @@ fn test_diff_with_trees_no_modifications() -> TestResult {
 
     assert_eq!(diff_rev.len(), 0);
 
-    diff_stream_equals_iter(&tree1_merged, &tree2_merged, &EverythingMatcher);
+    diff_stream_sequential_equals_concurrent(&tree1_merged, &tree2_merged, &EverythingMatcher);
     Ok(())
 }
 
@@ -2231,7 +2230,7 @@ fn test_diff_with_trees_files_matcher_for_file() -> TestResult {
     let (before, after) = &diff[0].1;
     assert_ne!(before, after);
 
-    diff_stream_equals_iter(&merged1, &merged2, &matcher);
+    diff_stream_sequential_equals_concurrent(&merged1, &merged2, &matcher);
     Ok(())
 }
 
@@ -2283,7 +2282,7 @@ fn test_diff_with_trees_glob_matcher_for_path() -> TestResult {
     assert!(!diff[1].1.1.is_tree());
     assert_ne!(diff[1].1.0, diff[1].1.1); // IDs should differ
 
-    diff_stream_equals_iter(&merged1, &merged2, &matcher);
+    diff_stream_sequential_equals_concurrent(&merged1, &merged2, &matcher);
     Ok(())
 }
 
@@ -2326,7 +2325,7 @@ fn test_diff_with_trees_files_matcher_for_intermediate_directory() -> TestResult
     // assert_eq!(diff.len(), 1);
     assert_eq!(diff.len(), 0);
 
-    diff_stream_equals_iter(&merged1, &merged2, &matcher);
+    diff_stream_sequential_equals_concurrent(&merged1, &merged2, &matcher);
     Ok(())
 }
 
