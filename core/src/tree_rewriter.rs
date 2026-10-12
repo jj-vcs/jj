@@ -1,0 +1,237 @@
+// Copyright 2026 The Jujutsu Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Concurrently writes rewritten versions of the trees in a `Merge<TreeId>`.
+
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::Arc;
+
+use futures::FutureExt as _;
+use futures::StreamExt as _;
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
+use itertools::Itertools as _;
+
+use crate::backend;
+use crate::backend::BackendResult;
+use crate::backend::TreeId;
+use crate::backend::TreeValue;
+use crate::merge::Merge;
+use crate::repo_path::RepoPathBuf;
+use crate::repo_path::RepoPathComponentBuf;
+use crate::store::Store;
+use crate::tree::Tree;
+
+/// An entry in a rewritten tree, as returned by
+/// [`TreeRewriteVisitor::visit_tree()`].
+#[derive(Debug)]
+pub(crate) enum RewrittenEntry {
+    /// The entry has this value.
+    Value(TreeValue),
+    /// The entry is the rewritten version of `base_tree_id`. The entry is
+    /// omitted if the rewritten tree is empty.
+    Subtree { base_tree_id: TreeId },
+}
+
+/// Decides how each tree is rewritten by [`rewrite_trees()`].
+pub(crate) trait TreeRewriteVisitor {
+    /// Returns the entries of the rewritten version of `tree`, sorted by name.
+    fn visit_tree(&self, tree: &Tree) -> Vec<(RepoPathComponentBuf, RewrittenEntry)>;
+}
+
+/// Rewrites each root tree in `roots` as decided by `visitor`, and returns the
+/// IDs of the rewritten trees. Subtrees that are shared between terms are read
+/// and written only once.
+pub(crate) async fn rewrite_trees<V: TreeRewriteVisitor>(
+    store: &Arc<Store>,
+    roots: Merge<TreeId>,
+    visitor: &V,
+) -> BackendResult<Merge<TreeId>> {
+    let mut rewriter = TreeRewriter {
+        store: store.clone(),
+        visitor,
+        work: FuturesUnordered::new(),
+        scheduled_trees: HashSet::new(),
+        rewritten_trees: HashMap::new(),
+        unfinished_trees: HashMap::new(),
+        parent_trees: HashMap::new(),
+    };
+    for tree_id in roots.iter().unique() {
+        rewriter.schedule_read((RepoPathBuf::root(), tree_id.clone()));
+    }
+    rewriter.run().await?;
+    Ok(roots.into_map(|tree_id| rewriter.rewritten_trees[&(RepoPathBuf::root(), tree_id)].clone()))
+}
+
+/// Identifies a tree to rewrite by its path and its original ID.
+type TreeKey = (RepoPathBuf, TreeId);
+
+/// Identifies an entry in a tree by the tree's key and the entry's index.
+type EntryKey = (TreeKey, usize);
+
+#[derive(Debug)]
+enum WorkItem {
+    // A base tree that has been read.
+    ReadTree {
+        result: BackendResult<Tree>,
+    },
+    // A rewritten tree that has been written.
+    WrittenTree {
+        key: TreeKey,
+        result: BackendResult<TreeId>,
+    },
+}
+
+/// A rewritten tree that's waiting for some of its subtrees to be written.
+struct UnfinishedTree {
+    // Entries of the rewritten tree. Entries for subtrees that have not yet been
+    // written, or that turned out to be empty, are `None`.
+    entries: Vec<(RepoPathComponentBuf, Option<TreeValue>)>,
+    remaining_subtrees: usize,
+}
+
+struct TreeRewriter<'visitor, V: TreeRewriteVisitor> {
+    store: Arc<Store>,
+    visitor: &'visitor V,
+    work: FuturesUnordered<BoxFuture<'static, WorkItem>>,
+    scheduled_trees: HashSet<TreeKey>,
+    // Map from original tree to the ID of the rewritten tree
+    rewritten_trees: HashMap<TreeKey, TreeId>,
+    unfinished_trees: HashMap<TreeKey, UnfinishedTree>,
+    // Entries in parent trees to update when we have finished writing a subtree
+    parent_trees: HashMap<TreeKey, Vec<EntryKey>>,
+}
+
+impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
+    async fn run(&mut self) -> BackendResult<()> {
+        while let Some(item) = self.work.next().await {
+            match item {
+                WorkItem::ReadTree { result } => {
+                    let tree = result?;
+                    self.process_tree(&tree);
+                }
+                WorkItem::WrittenTree { key, result } => {
+                    let tree_id = result?;
+                    let (dir, _) = &key;
+                    // Add this entry to the parent tree(s) (unless this is a root tree)
+                    if !dir.is_root() {
+                        let is_empty = tree_id == *self.store.empty_tree_id();
+                        for (parent_key, index) in self.parent_trees.remove(&key).unwrap() {
+                            let unfinished_tree =
+                                self.unfinished_trees.get_mut(&parent_key).unwrap();
+                            if !is_empty {
+                                unfinished_tree.entries[index].1 =
+                                    Some(TreeValue::Tree(tree_id.clone()));
+                            }
+                            unfinished_tree.remaining_subtrees -= 1;
+                            if unfinished_tree.remaining_subtrees == 0 {
+                                let unfinished_tree =
+                                    self.unfinished_trees.remove(&parent_key).unwrap();
+                                self.schedule_write(parent_key, unfinished_tree.entries);
+                            }
+                        }
+                    }
+                    self.rewritten_trees.insert(key, tree_id);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn process_tree(&mut self, tree: &Tree) {
+        let key = (tree.dir().to_owned(), tree.id().clone());
+        let mut new_entries = vec![];
+        let mut remaining_subtrees = 0;
+        for (index, (name, entry)) in self.visitor.visit_tree(tree).into_iter().enumerate() {
+            match entry {
+                RewrittenEntry::Value(value) => new_entries.push((name, Some(value))),
+                RewrittenEntry::Subtree { base_tree_id } => {
+                    let subtree_key = (tree.dir().join(&name), base_tree_id);
+                    if let Some(new_subtree_id) = self.rewritten_trees.get(&subtree_key) {
+                        // We already have the rewritten subtree. This can happen when the
+                        // current tree is conflicted but the subtree is not and we
+                        // processed the subtree when we visited another side of the
+                        // current conflict.
+                        let value = (new_subtree_id != self.store.empty_tree_id())
+                            .then(|| TreeValue::Tree(new_subtree_id.clone()));
+                        new_entries.push((name, value));
+                    } else {
+                        self.parent_trees
+                            .entry(subtree_key.clone())
+                            .or_default()
+                            .push((key.clone(), index));
+                        self.schedule_read(subtree_key);
+                        new_entries.push((name, None));
+                        remaining_subtrees += 1;
+                    }
+                }
+            }
+        }
+        // TODO: Reuse the base tree instead of writing it if no entries changed.
+        if remaining_subtrees > 0 {
+            self.unfinished_trees.insert(
+                key,
+                UnfinishedTree {
+                    entries: new_entries,
+                    remaining_subtrees,
+                },
+            );
+        } else {
+            self.schedule_write(key, new_entries);
+        }
+    }
+
+    fn schedule_read(&mut self, key: TreeKey) {
+        if !self.scheduled_trees.insert(key.clone()) {
+            // Already scheduled
+            return;
+        }
+        let (dir, tree_id) = key;
+        let store = self.store.clone();
+        self.work.push(
+            async move {
+                store
+                    .get_tree(dir, &tree_id)
+                    .map(|result| WorkItem::ReadTree { result })
+                    .await
+            }
+            .boxed(),
+        );
+    }
+
+    fn schedule_write(
+        &mut self,
+        key: TreeKey,
+        entries: Vec<(RepoPathComponentBuf, Option<TreeValue>)>,
+    ) {
+        let tree = backend::Tree::from_sorted_entries(
+            entries
+                .into_iter()
+                .filter_map(|(name, value)| Some((name, value?)))
+                .collect(),
+        );
+        let store = self.store.clone();
+        self.work.push(
+            async move {
+                let result = store
+                    .write_tree(&key.0, tree)
+                    .await
+                    .map(|tree| tree.id().clone());
+                WorkItem::WrittenTree { key, result }
+            }
+            .boxed(),
+        );
+    }
+}
