@@ -659,30 +659,14 @@ struct TreeDiffVisitor<'matcher> {
 }
 
 impl TreeDiffVisitor<'_> {
-    async fn single_tree(
-        store: &Arc<Store>,
-        dir: RepoPathBuf,
-        value: Option<&TreeValue>,
-    ) -> BackendResult<Tree> {
-        match value {
-            Some(TreeValue::Tree(tree_id)) => store.get_tree(dir, tree_id).await,
-            _ => Ok(Tree::empty(store.clone(), dir.clone())),
-        }
-    }
-
     /// Gets the given trees if `values` are trees, otherwise an empty tree.
     async fn trees(
         store: Arc<Store>,
         dir: RepoPathBuf,
         values: MergedTreeValue,
     ) -> BackendResult<Merge<Tree>> {
-        if values.is_tree() {
-            values
-                .try_map_async(|value| Self::single_tree(&store, dir.clone(), value.as_ref()))
-                .await
-        } else {
-            Ok(Merge::resolved(Tree::empty(store, dir)))
-        }
+        let trees = values.to_tree_merge(&store, &dir).await?;
+        Ok(trees.unwrap_or_else(|| Merge::resolved(Tree::empty(store, dir))))
     }
 }
 
