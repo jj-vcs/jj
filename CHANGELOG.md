@@ -12,8 +12,9 @@ and this project adheres to
 
 ### Breaking changes
 
-* In non-colocated workspaces, `jj git fetch` no longer updates remote-tracking
-  Git refs. Use `jj git export` to export remote bookmarks to Git.
+* In non-colocated workspaces, `jj git fetch` and `push` no longer update
+  remote-tracking Git refs. Use `jj git export` to export remote bookmarks to
+  Git.
 
 * `Timestamp.format()` now follows [jiff's strftime
   syntax](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html) instead of
