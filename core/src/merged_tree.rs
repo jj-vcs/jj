@@ -276,12 +276,7 @@ impl MergedTree {
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        let concurrency = self.store().concurrency();
-        if concurrency <= 1 {
-            futures::stream::iter(TreeDiffIterator::new(self, other, matcher)).boxed()
-        } else {
-            TreeDiffStreamImpl::new(self, other, matcher, concurrency).boxed()
-        }
+        TreeDiffStreamImpl::new(self, other, matcher, self.store().concurrency()).boxed()
     }
 
     /// Stream of the differences between this tree and another tree.
@@ -597,135 +592,6 @@ impl Iterator for ConflictIterator<'_> {
                 }
             } else {
                 self.stack.pop();
-            }
-        }
-        None
-    }
-}
-
-/// Iterator over the differences between two trees.
-pub struct TreeDiffIterator<'matcher> {
-    store: Arc<Store>,
-    stack: Vec<TreeDiffDir>,
-    matcher: &'matcher dyn Matcher,
-}
-
-struct TreeDiffDir {
-    entries: Vec<(RepoPathBuf, Diff<MergedTreeValue>)>,
-}
-
-impl<'matcher> TreeDiffIterator<'matcher> {
-    /// Creates a iterator over the differences between two trees.
-    pub fn new(tree1: &MergedTree, tree2: &MergedTree, matcher: &'matcher dyn Matcher) -> Self {
-        assert!(Arc::ptr_eq(tree1.store(), tree2.store()));
-        let root_dir = RepoPath::root();
-        let mut stack = Vec::new();
-        let root_diff = Diff::new(tree1.to_merged_tree_value(), tree2.to_merged_tree_value());
-        if root_diff.is_changed() && !matcher.visit(root_dir).is_nothing() {
-            stack.push(TreeDiffDir {
-                entries: vec![(root_dir.to_owned(), root_diff)],
-            });
-        }
-        Self {
-            store: tree1.store().clone(),
-            stack,
-            matcher,
-        }
-    }
-
-    /// Gets the given trees if `values` are trees, otherwise an empty tree.
-    fn trees(
-        store: &Arc<Store>,
-        dir: &RepoPath,
-        values: &MergedTreeValue,
-    ) -> BackendResult<Merge<Tree>> {
-        if let Some(trees) = values.to_tree_merge(store, dir).block_on()? {
-            Ok(trees)
-        } else {
-            Ok(Merge::resolved(Tree::empty(store.clone(), dir.to_owned())))
-        }
-    }
-}
-
-impl TreeDiffDir {
-    fn from_trees(
-        dir: &RepoPath,
-        trees1: &Merge<Tree>,
-        trees2: &Merge<Tree>,
-        matcher: &dyn Matcher,
-    ) -> Self {
-        let mut entries = vec![];
-        for (name, diff) in merged_tree_entry_diff(trees1, trees2) {
-            let path = dir.join(name);
-            let tree_before = diff.before.is_tree();
-            let tree_after = diff.after.is_tree();
-            // Check if trees and files match, but only if either side is a tree or a file
-            // (don't query the matcher unnecessarily).
-            let tree_matches = (tree_before || tree_after) && !matcher.visit(&path).is_nothing();
-            let file_matches = (!tree_before || !tree_after) && matcher.matches(&path);
-
-            // Replace trees or files that don't match by `Merge::absent()`
-            let before = if (tree_before && tree_matches) || (!tree_before && file_matches) {
-                diff.before
-            } else {
-                Merge::absent()
-            };
-            let after = if (tree_after && tree_matches) || (!tree_after && file_matches) {
-                diff.after
-            } else {
-                Merge::absent()
-            };
-            if before.is_absent() && after.is_absent() {
-                continue;
-            }
-            entries.push((path, Diff::new(before.cloned(), after.cloned())));
-        }
-        entries.reverse();
-        Self { entries }
-    }
-}
-
-impl Iterator for TreeDiffIterator<'_> {
-    type Item = TreeDiffEntry;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(top) = self.stack.last_mut() {
-            let Some((path, diff)) = top.entries.pop() else {
-                self.stack.pop().unwrap();
-                continue;
-            };
-
-            if diff.before.is_tree() || diff.after.is_tree() {
-                let (before_tree, after_tree) = match (
-                    Self::trees(&self.store, &path, &diff.before),
-                    Self::trees(&self.store, &path, &diff.after),
-                ) {
-                    (Ok(before_tree), Ok(after_tree)) => (before_tree, after_tree),
-                    (Err(before_err), _) => {
-                        return Some(TreeDiffEntry {
-                            path,
-                            values: Err(before_err),
-                        });
-                    }
-                    (_, Err(after_err)) => {
-                        return Some(TreeDiffEntry {
-                            path,
-                            values: Err(after_err),
-                        });
-                    }
-                };
-                let subdir =
-                    TreeDiffDir::from_trees(&path, &before_tree, &after_tree, self.matcher);
-                self.stack.push(subdir);
-            }
-            if diff.before.is_file_like()
-                || diff.after.is_file_like()
-                || self.matcher.matches(&path)
-            {
-                return Some(TreeDiffEntry {
-                    path,
-                    values: Ok(diff),
-                });
             }
         }
         None
