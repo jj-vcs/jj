@@ -113,7 +113,6 @@ pub use jj_core::time_util;
 pub mod trailer;
 pub mod transaction;
 pub use jj_core::tree;
-pub use jj_core::tree_builder;
 pub mod ui_path;
 pub mod union_find;
 pub mod view;
