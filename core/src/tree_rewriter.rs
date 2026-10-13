@@ -17,12 +17,15 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::collections::hash_map::Entry;
 use std::future::poll_fn;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
 
+use blake2::Blake2b512;
+use digest::Digest as _;
 use futures::FutureExt as _;
 use futures::StreamExt as _;
 use futures::future::BoxFuture;
@@ -33,7 +36,9 @@ use crate::backend;
 use crate::backend::BackendResult;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
+use crate::content_hash::ContentHash;
 use crate::merge::Merge;
+use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponentBuf;
 use crate::store::Store;
@@ -97,7 +102,8 @@ impl<'a, T: 'a> LimitedFutures<'a, T> {
 
 /// Rewrites each root tree in `roots` with its context, as decided by
 /// `visitor`, and returns the IDs of the rewritten trees. Subtrees that are
-/// shared between terms are read and written only once.
+/// shared between terms are read only once, and rewritten trees with identical
+/// contents are written at most once.
 pub(crate) async fn rewrite_trees<V: TreeRewriteVisitor>(
     store: &Arc<Store>,
     roots: Merge<(TreeId, V::Context)>,
@@ -109,6 +115,7 @@ pub(crate) async fn rewrite_trees<V: TreeRewriteVisitor>(
         work: LimitedFutures::new(store.concurrency()),
         scheduled_trees: HashSet::new(),
         rewritten_trees: HashMap::new(),
+        written_trees: (!roots.is_resolved()).then(HashMap::new),
         unfinished_trees: HashMap::new(),
         parent_trees: HashMap::new(),
     };
@@ -127,6 +134,21 @@ type TreeKey<C> = (RepoPathBuf, TreeId, C);
 /// Identifies an entry in a tree by the tree's key and the entry's index.
 type EntryKey<C> = (TreeKey<C>, usize);
 
+/// Identifies a written tree by the content hash of its path and entries.
+type TreeContentHash = digest::Output<Blake2b512>;
+
+fn tree_content_hash(dir: &RepoPath, tree: &backend::Tree) -> TreeContentHash {
+    let mut hasher = Blake2b512::default();
+    ContentHash::hash(dir, &mut hasher);
+    ContentHash::hash(tree, &mut hasher);
+    hasher.finalize()
+}
+
+enum TreeWriteState<C> {
+    Pending(Vec<TreeKey<C>>),
+    Written(TreeId),
+}
+
 #[derive(Debug)]
 enum WorkItem<C> {
     // A base tree that has been read.
@@ -137,6 +159,7 @@ enum WorkItem<C> {
     // A rewritten tree that has been written to the store.
     WrittenTree {
         key: TreeKey<C>,
+        content_hash: Option<TreeContentHash>,
         result: BackendResult<TreeId>,
     },
 }
@@ -160,6 +183,10 @@ struct TreeRewriter<'visitor, V: TreeRewriteVisitor> {
     scheduled_trees: HashSet<TreeKey<V::Context>>,
     // Map from original tree to the ID of the rewritten tree
     rewritten_trees: HashMap<TreeKey<V::Context>, TreeId>,
+    // Map from the content hash of a tree's path and entries to its write state,
+    // used to avoid writing identical trees multiple times when rewriting
+    // conflicted trees (`None` when rewriting a non-conflicted tree)
+    written_trees: Option<HashMap<TreeContentHash, TreeWriteState<V::Context>>>,
     unfinished_trees: HashMap<TreeKey<V::Context>, UnfinishedTree>,
     // Entries in parent trees to update when we have finished writing a subtree
     parent_trees: HashMap<TreeKey<V::Context>, Vec<EntryKey<V::Context>>>,
@@ -173,9 +200,27 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
                     let tree = result?;
                     self.process_tree(&tree, context);
                 }
-                WorkItem::WrittenTree { key, result } => {
+                WorkItem::WrittenTree {
+                    key,
+                    content_hash,
+                    result,
+                } => {
                     let tree_id = result?;
-                    self.record_written_tree(key, tree_id);
+                    let waiting_keys = content_hash.map(|content_hash| {
+                        let Some(TreeWriteState::Pending(waiting_keys)) = self
+                            .written_trees
+                            .as_mut()
+                            .unwrap()
+                            .insert(content_hash, TreeWriteState::Written(tree_id.clone()))
+                        else {
+                            panic!("written tree should have been pending");
+                        };
+                        waiting_keys
+                    });
+                    self.record_written_tree(key, tree_id.clone());
+                    for waiting_key in waiting_keys.into_iter().flatten() {
+                        self.record_written_tree(waiting_key, tree_id.clone());
+                    }
                 }
             }
         }
@@ -278,8 +323,8 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
         });
     }
 
-    /// Writes the rewritten tree, or reuses `base_tree` if the rewritten tree
-    /// has the same entries.
+    /// Writes the rewritten tree, or reuses an existing tree if one with the
+    /// same entries already exists.
     fn schedule_write(
         &mut self,
         key: TreeKey<V::Context>,
@@ -301,19 +346,50 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
         }
         if &tree == base_tree.data() {
             let tree_id = base_tree.id().clone();
+            if let Some(written_trees) = &mut self.written_trees {
+                let content_hash = tree_content_hash(&key.0, &tree);
+                // Another term may already have a pending write for the same contents.
+                written_trees
+                    .entry(content_hash)
+                    .or_insert_with(|| TreeWriteState::Written(tree_id.clone()));
+            }
             self.record_written_tree(key, tree_id);
             return;
         }
-        // TODO: Write trees with identical contents only once. For example, if the
-        // only conflict in a merged tree is in `dir/file` and it gets resolved, the
-        // `dir/` and root trees end up the same for all terms.
+        let content_hash = if let Some(written_trees) = &mut self.written_trees {
+            let content_hash = tree_content_hash(&key.0, &tree);
+            match written_trees.entry(content_hash) {
+                Entry::Occupied(mut entry) => {
+                    match entry.get_mut() {
+                        TreeWriteState::Written(tree_id) => {
+                            let tree_id = tree_id.clone();
+                            self.record_written_tree(key, tree_id);
+                        }
+                        TreeWriteState::Pending(waiting_keys) => {
+                            waiting_keys.push(key);
+                        }
+                    }
+                    return;
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(TreeWriteState::Pending(vec![]));
+                }
+            }
+            Some(content_hash)
+        } else {
+            None
+        };
         let store = self.store.clone();
         self.work.push(async move {
             let result = store
                 .write_tree(&key.0, tree)
                 .await
                 .map(|tree| tree.id().clone());
-            WorkItem::WrittenTree { key, result }
+            WorkItem::WrittenTree {
+                key,
+                content_hash,
+                result,
+            }
         });
     }
 }
