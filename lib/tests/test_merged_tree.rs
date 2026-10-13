@@ -44,6 +44,7 @@ use jj_lib::merged_tree::TreeDiffEntry;
 use jj_lib::merged_tree::TreeDiffIterator;
 use jj_lib::merged_tree::TreeDiffStreamImpl;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
+use jj_lib::merged_tree_builder::MergedTreeBuilderError;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -215,6 +216,36 @@ fn test_merged_tree_builder_file_dir_conflict_replaced_by_dir() -> TestResult {
     )?;
     let actual_tree = builder.write_tree().block_on()?;
     assert_tree_eq!(actual_tree, expected_tree);
+    Ok(())
+}
+
+#[test]
+fn test_merged_tree_builder_rejects_unresolved_tree_override() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let dir_path = repo_path("dir");
+    let file_path = repo_path("dir/file");
+    let tree1 = create_single_tree(repo, &[(file_path, "1")]);
+    let tree2 = create_single_tree(repo, &[(file_path, "2")]);
+    let tree3 = create_single_tree(repo, &[(file_path, "3")]);
+
+    let empty_conflict_tree = MergedTree::new(
+        store.clone(),
+        Merge::repeated(store.empty_tree_id().clone(), 2),
+        ConflictLabels::unlabeled(),
+    );
+    let mut builder = MergedTreeBuilder::new(empty_conflict_tree);
+    let unresolved_tree_override = Merge::from_vec(vec![
+        tree1.path_value(dir_path).block_on()?,
+        tree2.path_value(dir_path).block_on()?,
+        tree3.path_value(dir_path).block_on()?,
+    ]);
+    assert_eq!(
+        builder.set_or_remove_merge(dir_path.to_owned(), unresolved_tree_override),
+        Err(MergedTreeBuilderError::UnresolvedTreeMerge)
+    );
     Ok(())
 }
 

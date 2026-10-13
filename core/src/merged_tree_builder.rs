@@ -25,6 +25,7 @@ use thiserror::Error;
 
 use crate::backend::BackendResult;
 use crate::backend::MergedTreeValue;
+use crate::backend::MergedTreeValueExt as _;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::merge::Merge;
@@ -44,11 +45,17 @@ pub struct MergedTreeBuilder {
     overrides: BTreeMap<RepoPathBuf, MergedTreeValue>,
 }
 
-/// Error returned when attempting to set an override with a conflict arity that
-/// does not match the base tree.
-#[derive(Debug, Error)]
-#[error("Conflict arity mismatch")]
-pub struct ConflictArityMismatchError;
+/// Error returned when attempting to set an invalid override on a
+/// [`MergedTreeBuilder`].
+#[derive(Debug, PartialEq, Eq, Error)]
+pub enum MergedTreeBuilderError {
+    /// Override conflict arity does not match the base tree.
+    #[error("Conflict arity mismatch")]
+    ConflictArityMismatch,
+    /// Unresolved `TreeValue::Tree` merges are not supported.
+    #[error("Unresolved TreeValue::Tree merges are not supported")]
+    UnresolvedTreeMerge,
+}
 
 impl MergedTreeBuilder {
     /// Create a new builder with the given trees as base.
@@ -75,15 +82,18 @@ impl MergedTreeBuilder {
     /// values should also be derived from the base tree's conflict. To
     /// combine paths from a differently conflicted tree, merge the trees
     /// instead (e.g. using `MergedTree::filtered()` and
-    /// `MergedTree::merge()`). Use `Merge::absent()` to remove a value from
-    /// the tree.
+    /// `MergedTree::merge()`). Unresolved `TreeValue::Tree` merges are not
+    /// supported. Use `Merge::absent()` to remove a value from the tree.
     pub fn set_or_remove_merge(
         &mut self,
         path: RepoPathBuf,
         values: MergedTreeValue,
-    ) -> Result<(), ConflictArityMismatchError> {
+    ) -> Result<(), MergedTreeBuilderError> {
+        if values.is_tree() && !values.is_resolved() {
+            return Err(MergedTreeBuilderError::UnresolvedTreeMerge);
+        }
         if !(values.is_resolved() || values.num_sides() == self.base_tree.tree_ids().num_sides()) {
-            return Err(ConflictArityMismatchError);
+            return Err(MergedTreeBuilderError::ConflictArityMismatch);
         }
         self.overrides.insert(path, values);
         Ok(())
