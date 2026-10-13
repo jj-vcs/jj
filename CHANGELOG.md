@@ -6,37 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Release highlights
-
-### Breaking changes
-
-### Deprecations
-
-### New features
-
-* Diff hunk headers now include symbol context even for unsupported languages.
-
-* `jj resolve` gained a built-in `:editor` merge tool that opens the conflicted
-  file with conflict markers in your text editor. Unlike the other merge tools,
-  it supports conflicts with more than two sides.
-
-### Fixed bugs
-
-* Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
-  `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
-
-* `jj git fetch` no longer creates additional refs based on non-standard Git
-  `remote.<name>.fetch` configuration.
-
-* Fixed tag deletion with `jj git fetch --tag=NAME`.
-
-* Fixed issue with `config-schema.json` where Taplo (TOML parsing library) would
-  flag any `aliases` defined as a table but without an explicit
-  `.enabled = true` as "valid under more than one of the schemas". This affected
-  downstream tools such as editor extensions showing errors in perfectly valid
-  config files.
+<!-- BEGIN UNRELEASED NOTE -->
+Changes that have not been released yet are described in the
+[`changelog/`](https://github.com/jj-vcs/jj/tree/main/changelog) directory.
+<!-- END UNRELEASED NOTE -->
 
 ## [0.46.0] - 2026-10-07
 
@@ -5770,7 +5743,6 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.46.0...HEAD
 [0.46.0]: https://github.com/jj-vcs/jj/compare/v0.45.1...v0.46.0
 [0.45.1]: https://github.com/jj-vcs/jj/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/jj-vcs/jj/compare/v0.44.0...v0.45.0

@@ -17,6 +17,8 @@ mise.local.toml
 # mkdocs
 /.venv
 /.python-version
+# Created by running changelog/test_changelog.py
+__pycache__/
 
 # Editor specific ignores
 .idea
