@@ -84,6 +84,7 @@ pub async fn cmd_workspace_remove(
     let workspace_store = workspace_command.repo().loader().workspace_store().clone();
     let repo_path = workspace_command.repo_path();
 
+    let mut paths_to_remove = Vec::new();
     let mut workspaces_to_remove = Vec::new();
     for ws in &remove_ws {
         let ws_path = workspace_store.get_workspace_path(ws)?.ok_or_else(|| {
@@ -120,7 +121,8 @@ pub async fn cmd_workspace_remove(
             ))
             .hinted(USE_WORKSPACE_FORGET_HINT));
         }
-        workspaces_to_remove.push((ws_path, ws_workspace));
+        paths_to_remove.push(ws_path);
+        workspaces_to_remove.push(ws_workspace);
     }
 
     // Snapshot each workspace before its directory goes away, so that tracked
@@ -128,8 +130,7 @@ pub async fn cmd_workspace_remove(
     // Untracked and ignored files are not part of the snapshot and are lost
     // along with the directory.
     let mut op_id = workspace_command.repo().op_id().clone();
-    let mut paths_to_remove = Vec::new();
-    for (abs_path, ws_workspace) in workspaces_to_remove {
+    for ws_workspace in workspaces_to_remove {
         let op = ws_workspace.repo_loader().load_operation(&op_id).await?;
         let ws_repo = ws_workspace.repo_loader().load_at(&op).await?;
         let mut ws_helper = command.for_workable_repo(ui, ws_workspace, ws_repo)?;
@@ -137,7 +138,6 @@ pub async fn cmd_workspace_remove(
         // Continue from the operation the snapshot created, so that the next
         // snapshot and the removal itself build on it.
         op_id = ws_helper.repo().op_id().clone();
-        paths_to_remove.push(abs_path);
     }
 
     let workspace = command.load_workspace()?;
