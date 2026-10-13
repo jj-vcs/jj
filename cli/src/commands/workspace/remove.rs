@@ -14,14 +14,17 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::commit::Commit;
 #[cfg(feature = "git")]
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::ref_name::WorkspaceNameBuf;
-#[cfg(feature = "git")]
 use jj_lib::repo::Repo as _;
+use jj_lib::workspace::Workspace;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::WorkspaceCommandEnvironment;
+use crate::cli_util::print_snapshot_stats;
 use crate::command_error::CommandError;
 use crate::command_error::print_error_sources;
 use crate::command_error::user_error;
@@ -29,6 +32,7 @@ use crate::command_error::user_error_with_message;
 use crate::complete;
 #[cfg(feature = "git")]
 use crate::git_util::unlink_git_worktree;
+use crate::progress::snapshot_progress;
 use crate::ui::Ui;
 
 const USE_WORKSPACE_FORGET_HINT: &str =
@@ -129,23 +133,20 @@ pub async fn cmd_workspace_remove(
     // working-copy changes that were never committed survive as a commit.
     // Untracked and ignored files are not part of the snapshot and are lost
     // along with the directory.
-    let mut op_id = workspace_command.repo().op_id().clone();
-    for ws_workspace in workspaces_to_remove {
-        let op = ws_workspace.repo_loader().load_operation(&op_id).await?;
-        let ws_repo = ws_workspace.repo_loader().load_at(&op).await?;
-        let mut ws_helper = command.for_workable_repo(ui, ws_workspace, ws_repo)?;
-        ws_helper.maybe_snapshot(ui).await?;
-        // Continue from the operation the snapshot created, so that the next
-        // snapshot and the removal itself build on it.
-        op_id = ws_helper.repo().op_id().clone();
+    let mut new_snapshot_commit_ids = Vec::new();
+    for mut ws_workspace in workspaces_to_remove {
+        let env = command.workspace_environment(ui, &ws_workspace)?;
+        if let Some(new_commit) = snapshot_workspace(ui, &mut ws_workspace, &env).await? {
+            // Drop commit object since the underlying store isn't shared.
+            new_snapshot_commit_ids.push(new_commit.id().clone());
+        }
     }
 
-    let workspace = command.load_workspace()?;
-    let op = workspace.repo_loader().load_operation(&op_id).await?;
-    let repo = workspace.repo_loader().load_at(&op).await?;
-    workspace_command = command.for_workable_repo(ui, workspace, repo)?;
-
     let mut tx = workspace_command.start_transaction();
+    for commit_id in &new_snapshot_commit_ids {
+        let commit = tx.repo().store().get_commit_async(commit_id).await?;
+        tx.repo_mut().add_head(&commit).await?;
+    }
     for ws in &remove_ws {
         tx.repo_mut().remove_workspace(ws).await?;
     }
@@ -186,4 +187,58 @@ pub async fn cmd_workspace_remove(
     }
 
     Ok(())
+}
+
+/// Snapshots working-copy changes to a new commit.
+async fn snapshot_workspace(
+    ui: &Ui,
+    workspace: &mut Workspace,
+    env: &WorkspaceCommandEnvironment,
+) -> Result<Option<Commit>, CommandError> {
+    let repo_loader = workspace.repo_loader().clone();
+    let mut locked_ws = workspace.start_working_copy_mutation().await?;
+    let op_id = locked_ws.locked_wc().old_operation_id();
+    let op = repo_loader.load_operation(op_id).await?;
+    let repo = repo_loader.load_at(&op).await?;
+    let workspace_name = env.workspace_name();
+    let Some(wc_commit_id) = repo.view().get_wc_commit_id(workspace_name) else {
+        return Ok(None);
+    };
+
+    let wc_commit = repo.store().get_commit_async(wc_commit_id).await?;
+    let (new_tree, stats) = {
+        let matcher = env.auto_tracking_matcher(ui)?;
+        let mut options =
+            env.snapshot_options_with_start_tracking_matcher(repo.store(), &matcher)?;
+        let progress = snapshot_progress(ui);
+        options.progress = progress.as_ref().map(|x| x as _);
+        locked_ws.locked_wc().snapshot(&options).await?
+    };
+    print_snapshot_stats(ui, &stats, env.path_converter())?;
+    // TODO: error out if stats.untracked_paths isn't empty?
+    if new_tree.tree_ids_and_labels() == wc_commit.tree().tree_ids_and_labels() {
+        return Ok(None);
+    }
+
+    // Simply create a new commit since we don't check the immutability of the
+    // working-copy commit. It's also safer not to rewrite and rebase commits
+    // during workspace removal.
+    let mut tx = repo.start_transaction();
+    let new_commit = tx
+        .repo_mut()
+        .new_commit(vec![wc_commit.id().clone()], new_tree.clone())
+        .detach()
+        .set_description(format!(
+            "SNAPSHOT OF REMOVED WORKSPACE `{name}`\n",
+            name = workspace_name.as_symbol()
+        ))
+        .write_hidden()
+        .await?;
+    writeln!(
+        ui.status(),
+        "Snapshot commit created for workspace '{name}': {commit_id:.12}",
+        name = workspace_name.as_symbol(),
+        commit_id = new_commit.id()
+    )?;
+    Ok(Some(new_commit))
 }
