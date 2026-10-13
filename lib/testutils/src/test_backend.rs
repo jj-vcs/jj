@@ -68,6 +68,7 @@ type TestBackendDataMap = HashMap<PathBuf, Arc<Mutex<TestBackendData>>>;
 pub struct TestBackendData {
     commits: HashMap<CommitId, Commit>,
     trees: HashMap<RepoPathBuf, HashMap<TreeId, Tree>>,
+    written_trees_count: usize,
     files: HashMap<RepoPathBuf, HashMap<FileId, Vec<u8>>>,
     symlinks: HashMap<RepoPathBuf, HashMap<SymlinkId, String>>,
     copies: HashMap<CopyId, CopyHistory>,
@@ -148,6 +149,10 @@ impl TestBackend {
 
     pub fn remove_commit_unchecked(&self, id: &CommitId) {
         self.locked_data().commits.remove(id);
+    }
+
+    pub fn written_trees_count(&self) -> usize {
+        self.locked_data().written_trees_count
     }
 
     async fn run_async<R: Send + 'static>(
@@ -368,6 +373,7 @@ impl Backend for TestBackend {
         let path = path.to_owned();
         let contents = contents.clone();
         self.run_async(move |mut data| {
+            data.written_trees_count += 1;
             let id = TreeId::new(get_hash(&contents));
             data.trees
                 .entry(path.clone())
