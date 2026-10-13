@@ -17,7 +17,10 @@
 use std::collections::BTreeMap;
 use std::iter::zip;
 
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::future::try_join_all;
+use futures::stream;
 use thiserror::Error;
 
 use crate::backend::BackendResult;
@@ -28,6 +31,7 @@ use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPathBuf;
 use crate::tree_builder::TreeBuilder;
+use crate::tree_merge::resolve_file_values;
 
 /// Helper for writing trees with conflicts.
 ///
@@ -48,6 +52,10 @@ pub struct ConflictArityMismatchError;
 
 impl MergedTreeBuilder {
     /// Create a new builder with the given trees as base.
+    ///
+    /// The `base_tree` is assumed to already have its conflicts resolved (e.g.
+    /// via `MergedTree::merge()` or `MergedTree::resolve()`), as `write_tree()`
+    /// only resolves overridden paths and simplifies root tree IDs.
     pub fn new(base_tree: MergedTree) -> Self {
         Self {
             base_tree,
@@ -85,24 +93,37 @@ impl MergedTreeBuilder {
     pub async fn write_tree(self) -> BackendResult<MergedTree> {
         let store = self.base_tree.store().clone();
         let labels = self.base_tree.labels().clone();
-        let new_tree_ids = self.write_merged_trees().await?;
-        let (labels, new_tree_ids) = labels.simplify_with(&new_tree_ids);
-        match new_tree_ids.into_resolved() {
-            Ok(single_tree_id) => Ok(MergedTree::resolved(store, single_tree_id)),
-            Err(tree_ids) => {
-                let tree = MergedTree::new(store, tree_ids, labels);
-                tree.resolve().await
-            }
+        let new_tree_ids = if self.overrides.is_empty() {
+            self.base_tree.into_tree_ids()
+        } else {
+            self.write_merged_trees().await?
+        };
+        if let Some(tree_id) = new_tree_ids.resolve_trivial(store.merge_options().same_change) {
+            return Ok(MergedTree::resolved(store, tree_id.clone()));
         }
+        let (labels, new_tree_ids) = labels.simplify_with(&new_tree_ids);
+        Ok(MergedTree::new(store, new_tree_ids, labels))
     }
 
     async fn write_merged_trees(self) -> BackendResult<Merge<TreeId>> {
         let store = self.base_tree.store().clone();
         let base_tree_ids = self.base_tree.into_tree_ids();
+        let overrides: Vec<_> = stream::iter(self.overrides)
+            .map(async |(path, values)| {
+                let values = if values.is_resolved() {
+                    values
+                } else {
+                    resolve_file_values(&store, &path, values).await?
+                };
+                BackendResult::Ok((path, values))
+            })
+            .buffered(store.concurrency())
+            .try_collect()
+            .await?;
         // Create a single-tree builder for each base tree
         let mut tree_builders =
             base_tree_ids.into_map(|base_tree_id| TreeBuilder::new(store.clone(), base_tree_id));
-        for (path, values) in self.overrides {
+        for (path, values) in overrides {
             match values.into_resolved() {
                 Ok(value) => {
                     // This path was overridden with a resolved value. Apply that to all
