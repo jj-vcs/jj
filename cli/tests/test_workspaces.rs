@@ -1767,17 +1767,75 @@ fn test_workspaces_remove_snapshots_before_removal() {
     let output = main_dir.run_jj(["workspace", "remove", "secondary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
+    Snapshot commit created for workspace 'secondary': 0e481f0a039f
     Removed workspace directory "$TEST_ENV/secondary".
     [EOF]
     "#);
 
     assert!(!test_env.env_root().join("secondary").exists());
 
-    let output = main_dir.run_jj(["log", "-r", r#"files("unsnapshotted.txt")"#, "--summary"]);
+    let output = main_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @"
-    ○  pmmvwywv test.user@example.com 2001-02-03 08:05:10 e7db06a0
-    │  (no description set)
-    ~  A unsnapshotted.txt
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 504e3d8c
+    │  (empty) (no description set)
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:10 0e481f0a
+    │ │  SNAPSHOT OF REMOVED WORKSPACE `secondary`
+    │ │  A unsnapshotted.txt
+    │ ○  pmmvwywv test.user@example.com 2001-02-03 08:05:09 058f604d
+    ├─╯  (empty) (no description set)
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 7b22a8cb
+    │  initial
+    │  A file
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_workspaces_remove_snapshots_stale_before_removal() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-minitial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir.write_file("unsnapshotted.txt", "important data");
+
+    main_dir
+        .run_jj(["describe", "-rsecondary@", "-mstale"])
+        .success();
+
+    let output = main_dir.run_jj(["workspace", "remove", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Snapshot commit created for workspace 'secondary': ff0805347b96
+    Removed workspace directory "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+
+    assert!(!test_env.env_root().join("secondary").exists());
+
+    let output = main_dir.run_jj(["log", "--summary"]);
+    insta::assert_snapshot!(output, @"
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 504e3d8c
+    │  (empty) (no description set)
+    │ ○  mzvwutvl test.user@example.com 2001-02-03 08:05:11 ff080534
+    │ │  SNAPSHOT OF REMOVED WORKSPACE `secondary`
+    │ │  A unsnapshotted.txt
+    │ ○  pmmvwywv/1 test.user@example.com 2001-02-03 08:05:09 058f604d (divergent)
+    ├─╯  (empty) (no description set)
+    │ ○  pmmvwywv/0 test.user@example.com 2001-02-03 08:05:10 8cee6445 (divergent)
+    ├─╯  (empty) stale
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 7b22a8cb
+    │  initial
+    │  A file
+    ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
