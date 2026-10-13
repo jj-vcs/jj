@@ -780,14 +780,18 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
         let merged_tree1 = tree1.to_merged_tree_value();
         let merged_tree2 = tree2.to_merged_tree_value();
         let root_diff = Diff::new(merged_tree1.clone(), merged_tree2.clone());
-        if root_diff.is_changed() && matcher.matches(&dir) {
-            stream.items.insert(dir.clone(), Ok(root_diff));
+        if root_diff.is_changed() {
+            if matcher.matches(&dir) {
+                stream.items.insert(dir.clone(), Ok(root_diff));
+            }
+            if !matcher.visit(&dir).is_nothing() {
+                let root_tree_fut = Box::pin(try_join(
+                    Self::trees(store.clone(), dir.clone(), merged_tree1),
+                    Self::trees(store, dir.clone(), merged_tree2),
+                ));
+                stream.pending_trees.insert(dir, root_tree_fut);
+            }
         }
-        let root_tree_fut = Box::pin(try_join(
-            Self::trees(store.clone(), dir.clone(), merged_tree1),
-            Self::trees(store, dir.clone(), merged_tree2),
-        ));
-        stream.pending_trees.insert(dir, root_tree_fut);
         stream
     }
 
