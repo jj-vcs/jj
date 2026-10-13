@@ -5793,6 +5793,75 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
 }
 
 #[test]
+fn test_push_bookmarks_unexported_refs() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let subprocess_options = GitSubprocessOptions::from_settings(test_repo.repo.settings())?;
+    let remote_git_repo = testutils::git::init_bare(test_repo.env.root().join("remote"));
+
+    // Add remote with refspecs that map only specific branch
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let mut remote = git_repo
+        .remote_at(remote_git_repo.path().to_str().unwrap())?
+        .with_refspecs(
+            ["+refs/heads/dummy:refs/remotes/origin/dummy"],
+            gix::remote::Direction::Fetch,
+        )?;
+    let mut config = git_repo.config_snapshot().clone();
+    remote.save_as_to("origin", &mut config).unwrap();
+    git::save_git_config(&config)?;
+    // Reload after Git configuration change
+    let repo = test_repo
+        .env
+        .load_repo_at_head(repo.settings(), test_repo.repo_path());
+    let git_repo = get_git_repo(&repo);
+
+    // Fetch bookmark without exporting to Git
+    let old_oid = empty_git_commit(&remote_git_repo, "refs/heads/feature", &[]);
+    let mut tx = repo.start_transaction();
+    fetch_import_all(tx.repo_mut(), "origin".as_ref());
+    git_repo
+        .find_reference("refs/remotes/origin/feature")?
+        .delete()?;
+    tx.repo_mut()
+        .set_git_ref_target("refs/remotes/origin/feature".as_ref(), RefTarget::absent());
+
+    // Push bookmark change
+    let old_commit = tx.repo().store().get_commit(&jj_id(old_oid))?;
+    let new_commit = write_random_commit_with_parents(tx.repo_mut(), &[&old_commit]);
+    let targets = GitPushRefTargets {
+        bookmarks: vec![(
+            "feature".into(),
+            Diff::new(Some(old_commit.id().clone()), Some(new_commit.id().clone())),
+        )],
+        tags: vec![],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options,
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+
+    assert_eq!(
+        remote_git_repo.find_reference("refs/heads/feature")?.id(),
+        git_id(&new_commit)
+    );
+    assert!(stats.unexported_bookmarks.is_empty(), "{stats:?}");
+    assert_eq!(
+        tx.repo()
+            .view()
+            .get_remote_bookmark(remote_symbol("feature", "origin"))
+            .target,
+        RefTarget::normal(new_commit.id().clone())
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_push_new_tags() -> TestResult {
     let test_data = GitRepoData::create();
     let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
