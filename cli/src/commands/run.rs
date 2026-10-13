@@ -818,7 +818,7 @@ pub async fn cmd_run(
     };
 
     let store = workspace_command.repo().store().clone();
-    let auto_tracking_matcher = workspace_command.auto_tracking_matcher(ui)?;
+    let auto_tracking_matcher = workspace_command.env().auto_tracking_matcher(ui)?;
 
     let sparsity = match args.sparse_patterns {
         SparseInheritance::Full => None,
