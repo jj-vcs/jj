@@ -72,6 +72,7 @@ pub struct TestBackendData {
     symlinks: HashMap<RepoPathBuf, HashMap<SymlinkId, String>>,
     copies: HashMap<CopyId, CopyHistory>,
     num_file_reads: usize,
+    num_tree_writes: usize,
 }
 
 #[derive(Clone, Default)]
@@ -155,6 +156,12 @@ impl TestBackend {
     /// the same data.
     pub fn num_file_reads(&self) -> usize {
         self.locked_data().num_file_reads
+    }
+
+    /// Number of `write_tree()` calls made so far, across all backends sharing
+    /// the same data.
+    pub fn num_tree_writes(&self) -> usize {
+        self.locked_data().num_tree_writes
     }
 
     async fn run_async<R: Send + 'static>(
@@ -376,6 +383,7 @@ impl Backend for TestBackend {
         let path = path.to_owned();
         let contents = contents.clone();
         self.run_async(move |mut data| {
+            data.num_tree_writes += 1;
             let id = TreeId::new(get_hash(&contents));
             data.trees
                 .entry(path.clone())
