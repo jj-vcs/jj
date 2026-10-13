@@ -7799,6 +7799,11 @@ and this project adheres to
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p><code>jj git push</code> with <code>git.sign-on-push</code> enabled now signs commits in a
+  separate transaction before the push, so commits stay signed if the push
+  fails and a new push doesn't have to sign them again.</p>
+</li>
+<li>
 <p>Diff hunk headers now include symbol context even for unsupported languages.</p>
 </li>
 <li>

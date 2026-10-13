@@ -5688,6 +5688,12 @@ signing uses <code>drop</code>).</p>
 because the signing work is deferred to push time. If <code>signing.behavior</code> is set
 to <code>own</code> or <code>force</code>, commits may already be signed when written, and
 <code>git.sign-on-push</code> would have little or nothing left to sign.</p>
+<p>The commits are signed in their own transaction which is committed before
+the push starts. If the push fails, the commits stay signed and retrying
+does not have to sign them again. If nothing needs signing, no extra
+transaction is created.</p>
+<p>Because signing and pushing are separate operations, <code>jj undo</code> of the push
+operation would not undo the commit signatures.</p>
 <h2 id="commit-signature-verification">Commit Signature Verification<a class="headerlink" href="#commit-signature-verification" title="Permanent link">&para;</a></h2>
 <p>By default signature verification and display is <strong>disabled</strong> as it incurs a
 performance cost when rendering medium to large change logs. You can enable it
