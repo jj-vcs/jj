@@ -3476,7 +3476,8 @@ pub fn push_refs(
     // The remote refs in Git should usually be updated by `git push`. In that
     // case, this only updates our record about the last exported state.
     let unexported_bookmarks = {
-        let refs = build_pushed_bookmarks_to_export(remote, pushed_bookmark_updates());
+        let refs =
+            build_pushed_bookmarks_to_export(mut_repo.view(), remote, pushed_bookmark_updates());
         export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, refs)
     };
     // Update remote tags so we can look up annotated tag oid without fetching.
@@ -3579,6 +3580,7 @@ pub fn push_updates(
 
 /// Builds diff of remote bookmarks corresponding to the given `pushed_updates`.
 fn build_pushed_bookmarks_to_export<'a>(
+    view: &View,
     remote: &RemoteName,
     pushed_updates: impl IntoIterator<Item = (&'a RefName, &'a Diff<Option<CommitId>>)>,
 ) -> RefsToExport {
@@ -3586,7 +3588,13 @@ fn build_pushed_bookmarks_to_export<'a>(
     let mut to_delete = Vec::new();
     for (name, update) in pushed_updates {
         let symbol = name.to_remote_symbol(remote);
-        match (update.before.as_ref(), update.after.as_ref()) {
+        // Unsupported ref names will be reported later by export_refs_to_git()
+        let known = to_git_ref_name(GitRefKind::Bookmark, symbol)
+            .and_then(|full_name| view.get_git_ref(&full_name).as_normal());
+        if known == update.after.as_ref() {
+            continue;
+        }
+        match (known, update.after.as_ref()) {
             (old, Some(new)) => {
                 let old_oid = old.map(owned_oid_from_commit_id);
                 let new_oid = owned_oid_from_commit_id(new);
