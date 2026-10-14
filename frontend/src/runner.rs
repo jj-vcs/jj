@@ -26,8 +26,10 @@ use jj_lib::lock::FileLockError;
 use jj_lib::matchers::Matcher;
 use jj_lib::matchers::NothingMatcher;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_heads_store::OpHeadsStoreError;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_store::OperationId;
+use jj_lib::operation::Operation;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::ReadonlyRepo;
@@ -66,6 +68,9 @@ pub struct RunnerOptions {
     pub integrate_operation: bool,
     /// Allow rewriting immutable commits.
     pub ignore_immutable: bool,
+    /// Merge concurrent operations when loading the repo at the head
+    /// operation. If false, loading fails if there are concurrent operations.
+    pub merge_concurrent_operations: bool,
     /// Attributes to record in the metadata of new operations.
     pub transaction_attributes: Vec<(String, String)>,
 }
@@ -106,6 +111,12 @@ impl RunnerOptions {
 /// importing from or exporting to Git, or finishing a transaction.
 #[derive(Debug)]
 pub enum RunnerEvent<'a> {
+    /// Concurrent operations were found when loading the repo and are about
+    /// to be merged.
+    MergingConcurrentOperations {
+        /// The concurrent operations.
+        operations: &'a [Operation],
+    },
     /// Descendants of rewritten commits were rebased.
     DescendantsRebased {
         /// Number of rebased commits.
@@ -189,6 +200,8 @@ pub enum RunnerEvent<'a> {
 /// Why descendant commits were rebased.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RebaseReason {
+    /// Commits were rewritten by concurrent operations that were merged.
+    ConcurrentOperations,
     /// Commits were rewritten by a transaction.
     RewrittenCommits,
     /// Commits were rewritten in the Git repo.
@@ -244,6 +257,13 @@ impl SnapshotConfig {
 /// Git, or finishing a transaction.
 #[derive(Debug, Error)]
 pub enum RunnerError {
+    /// There are concurrent operations, and
+    /// [`RunnerOptions::merge_concurrent_operations`] isn't set.
+    #[error("Found {} concurrent operations", op_ids.len())]
+    ConcurrentOperations {
+        /// IDs of the concurrent operations.
+        op_ids: Vec<OperationId>,
+    },
     /// The working copy needs to be updated, but it can't be.
     #[error("The working copy can't be updated")]
     WorkingCopyNotWritable(WorkingCopyNotWritableReason),
@@ -280,6 +300,9 @@ pub enum RunnerError {
     /// Error from the operation store.
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
+    /// Error from the operation heads store.
+    #[error(transparent)]
+    OpHeadsStore(#[from] OpHeadsStoreError),
     /// Error loading the repo.
     #[error(transparent)]
     RepoLoader(#[from] RepoLoaderError),

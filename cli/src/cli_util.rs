@@ -427,6 +427,7 @@ impl CommandHelper {
             ignore_working_copy: global_args.ignore_working_copy,
             integrate_operation: !global_args.no_integrate_operation,
             ignore_immutable: global_args.ignore_immutable,
+            merge_concurrent_operations: true,
             transaction_attributes: command_args_to_transaction_attribute(self.string_args()),
         }
     }
@@ -532,11 +533,25 @@ impl CommandHelper {
         workspace: Workspace,
         mut env: WorkspaceCommandEnvironment,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
-        let op_head =
-            self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
-        let repo = workspace.repo_loader().load_at(&op_head).await?;
+        let options = self.runner_options();
+        let mut runner = if let Some(op_str) = &self.data.global_args.at_operation {
+            let op = op_walk::resolve_op_for_load(workspace.repo_loader(), op_str).await?;
+            let repo = workspace.repo_loader().load_at(&op).await?;
+            let may_snapshot_working_copy = self.is_working_copy_writable();
+            WorkspaceOperationRunner::new(
+                workspace,
+                repo,
+                env.base.clone(),
+                options,
+                may_snapshot_working_copy,
+            )
+        } else {
+            let events = CliRunnerEvents::new(ui, &env);
+            WorkspaceOperationRunner::load_at_head(&events, workspace, env.base.clone(), options)
+                .await?
+        };
         if let Err(err) = jj_frontend::revset_util::try_resolve_trunk_alias(
-            repo.as_ref(),
+            runner.repo().as_ref(),
             &env.revset_parse_context(),
         ) {
             // The fallback can be builtin_trunk() if we're willing to support
@@ -554,7 +569,7 @@ impl CommandHelper {
                 ui.hint_default(),
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
             )?;
-            let base_env = Arc::make_mut(&mut env.base);
+            let base_env = Arc::make_mut(&mut runner.env);
             base_env
                 .revset_aliases_map_mut()
                 .insert("trunk()", fallback, None)
@@ -563,16 +578,9 @@ impl CommandHelper {
             let result = base_env.reload_revset_expressions(&mut diagnostics);
             print_workspace_environment_diagnostics(ui, &diagnostics)?;
             result?;
+            env.base = runner.env.clone();
         }
-        let may_snapshot_working_copy = self.is_working_copy_writable();
-        WorkspaceCommandHelper::new(
-            ui,
-            workspace,
-            repo,
-            env,
-            self.runner_options(),
-            may_snapshot_working_copy,
-        )
+        WorkspaceCommandHelper::new(ui, runner, env)
     }
 
     pub fn get_working_copy_factory(&self) -> Result<&dyn WorkingCopyFactory, CommandError> {
@@ -648,14 +656,14 @@ impl CommandHelper {
                 let repo = workspace.repo_loader().load_at(&op).await?;
                 let options = self.runner_options();
                 let may_snapshot_working_copy = !options.ignore_working_copy;
-                let mut workspace_command = WorkspaceCommandHelper::new(
-                    ui,
+                let runner = WorkspaceOperationRunner::new(
                     workspace,
                     repo,
-                    env,
+                    env.base.clone(),
                     options,
                     may_snapshot_working_copy,
-                )?;
+                );
+                let mut workspace_command = WorkspaceCommandHelper::new(ui, runner, env)?;
                 workspace_command.check_working_copy_writable()?;
                 let snapshot_config = workspace_command.load_snapshot_config(ui)?;
 
@@ -878,7 +886,14 @@ impl CommandHelper {
         // the specified operation.
         let options = self.runner_options();
         let may_snapshot_working_copy = !options.ignore_working_copy;
-        WorkspaceCommandHelper::new(ui, workspace, repo, env, options, may_snapshot_working_copy)
+        let runner = WorkspaceOperationRunner::new(
+            workspace,
+            repo,
+            env.base.clone(),
+            options,
+            may_snapshot_working_copy,
+        );
+        WorkspaceCommandHelper::new(ui, runner, env)
     }
 }
 
@@ -1220,10 +1235,21 @@ impl<'a> CliRunnerEvents<'a> {
     fn print_event(&self, event: RunnerEvent<'_>) -> Result<(), CommandError> {
         let ui = self.ui;
         match event {
+            RunnerEvent::MergingConcurrentOperations { operations: _ } => {
+                writeln!(
+                    ui.status(),
+                    "Concurrent modification detected, resolving automatically.",
+                )?;
+            }
             RunnerEvent::DescendantsRebased {
                 num_rebased,
                 reason,
             } => match reason {
+                RebaseReason::ConcurrentOperations => writeln!(
+                    ui.status(),
+                    "Rebased {num_rebased} descendant commits onto commits rewritten by other \
+                     operation.",
+                )?,
                 RebaseReason::RewrittenCommits => {
                     writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
                 }
@@ -1421,6 +1447,62 @@ impl WorkspaceOperationRunner {
             may_snapshot_working_copy,
             may_update_working_copy,
         }
+    }
+
+    /// Loads the repo for `workspace` at the head operation. If there are
+    /// concurrent operations, they're merged if
+    /// [`RunnerOptions::merge_concurrent_operations`] is set. Otherwise,
+    /// [`RunnerError::ConcurrentOperations`] is returned.
+    pub async fn load_at_head(
+        events: &dyn RunnerEvents,
+        workspace: Workspace,
+        env: Arc<WorkspaceEnvironment>,
+        options: RunnerOptions,
+    ) -> Result<Self, RunnerError> {
+        let repo_loader = workspace.repo_loader();
+        let op_head = op_heads_store::resolve_op_heads(
+            repo_loader.op_heads_store().as_ref(),
+            repo_loader.op_store(),
+            async |op_heads| -> Result<Operation, RunnerError> {
+                if !options.merge_concurrent_operations {
+                    return Err(RunnerError::ConcurrentOperations {
+                        op_ids: op_heads.iter().map(|op| op.id().clone()).collect(),
+                    });
+                }
+                events
+                    .event(RunnerEvent::MergingConcurrentOperations {
+                        operations: &op_heads,
+                    })
+                    .map_err(RunnerError::EventSink)?;
+                let (merged_repo, num_rebased) = repo_loader
+                    .merge_operations(
+                        op_heads,
+                        Some(workspace.workspace_name()),
+                        Some("reconcile divergent operations"),
+                        options.transaction_attributes.iter().cloned(),
+                    )
+                    .await?;
+                if num_rebased > 0 {
+                    events
+                        .event(RunnerEvent::DescendantsRebased {
+                            num_rebased,
+                            reason: RebaseReason::ConcurrentOperations,
+                        })
+                        .map_err(RunnerError::EventSink)?;
+                }
+                Ok(merged_repo.operation().clone())
+            },
+        )
+        .await?;
+        let repo = repo_loader.load_at(&op_head).await?;
+        let may_snapshot_working_copy = !options.ignore_working_copy;
+        Ok(Self::new(
+            workspace,
+            repo,
+            env,
+            options,
+            may_snapshot_working_copy,
+        ))
     }
 
     pub fn workspace(&self) -> &Workspace {
@@ -1983,19 +2065,9 @@ impl WorkspaceCommandHelper {
     #[instrument(skip_all)]
     fn new(
         ui: &Ui,
-        workspace: Workspace,
-        repo: Arc<ReadonlyRepo>,
+        runner: WorkspaceOperationRunner,
         env: WorkspaceCommandEnvironment,
-        options: RunnerOptions,
-        may_snapshot_working_copy: bool,
     ) -> Result<Self, CommandError> {
-        let runner = WorkspaceOperationRunner::new(
-            workspace,
-            repo,
-            env.base.clone(),
-            options,
-            may_snapshot_working_copy,
-        );
         let helper = Self {
             runner,
             env,
@@ -4596,4 +4668,126 @@ pub fn shell_quote(s: &str) -> Cow<'_, str> {
     // shlex::try_quote fails if `s` has a nul byte, which
     // shouldn't usually happen. Fall back to unquoted on error.
     shlex::try_quote(s).unwrap_or(s.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::assert_matches;
+
+    use super::*;
+
+    /// Records which events were reported.
+    #[derive(Default)]
+    struct RecordingEvents(RefCell<Vec<String>>);
+
+    impl RunnerEvents for RecordingEvents {
+        fn event(
+            &self,
+            event: RunnerEvent<'_>,
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let name = format!("{event:?}");
+            let name = name.split([' ', '(', '{']).next().unwrap().to_owned();
+            self.0.borrow_mut().push(name);
+            Ok(())
+        }
+    }
+
+    fn test_runner_options(merge_concurrent_operations: bool) -> RunnerOptions {
+        RunnerOptions {
+            ignore_working_copy: false,
+            integrate_operation: true,
+            ignore_immutable: false,
+            merge_concurrent_operations,
+            transaction_attributes: vec![],
+        }
+    }
+
+    /// Creates a workspace with two concurrent operations, and returns the
+    /// workspace, its environment, and the IDs of the operation heads.
+    fn workspace_with_concurrent_operations() -> (
+        testutils::TestWorkspace,
+        Arc<WorkspaceEnvironment>,
+        Vec<OperationId>,
+    ) {
+        let mut config = testutils::base_user_config();
+        config.extend_layers(crate::config::default_config_layers());
+        let settings = testutils::user_settings_from_config(config);
+        let test_workspace = testutils::TestWorkspace::init_with_settings(&settings);
+        let repo = &test_workspace.repo;
+        let op_ids = ["operation 1", "operation 2"]
+            .map(|description| {
+                let tx = repo.start_transaction();
+                tx.commit(description).block_on().unwrap().op_id().clone()
+            })
+            .into_iter()
+            .sorted()
+            .collect_vec();
+
+        let ui = Ui::null();
+        let config = settings.config();
+        let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
+        let env = WorkspaceEnvironment::new(
+            &mut diagnostics,
+            &test_workspace.workspace,
+            test_workspace.workspace.workspace_root(),
+            Arc::new(RevsetExtensions::default()),
+            load_fileset_aliases(&ui, config).unwrap(),
+            load_revset_aliases(&ui, config).unwrap(),
+        )
+        .unwrap();
+        (test_workspace, Arc::new(env), op_ids)
+    }
+
+    #[test]
+    fn test_load_at_head_concurrent_operations_not_merged() {
+        let (test_workspace, env, op_ids) = workspace_with_concurrent_operations();
+        let testutils::TestWorkspace {
+            env: _test_env,
+            workspace,
+            ..
+        } = test_workspace;
+        let events = RecordingEvents::default();
+        let result = WorkspaceOperationRunner::load_at_head(
+            &events,
+            workspace,
+            env,
+            test_runner_options(false),
+        )
+        .block_on();
+        assert_matches!(
+            result.err(),
+            Some(RunnerError::ConcurrentOperations { op_ids: actual })
+                if actual.iter().sorted().collect_vec() == op_ids.iter().collect_vec()
+        );
+        assert!(events.0.borrow().is_empty());
+    }
+
+    #[test]
+    fn test_load_at_head_concurrent_operations_merged() {
+        let (test_workspace, env, op_ids) = workspace_with_concurrent_operations();
+        let testutils::TestWorkspace {
+            env: _test_env,
+            workspace,
+            ..
+        } = test_workspace;
+        let events = RecordingEvents::default();
+        let runner = WorkspaceOperationRunner::load_at_head(
+            &events,
+            workspace,
+            env,
+            test_runner_options(true),
+        )
+        .block_on()
+        .unwrap();
+        let parent_op_ids = runner
+            .repo()
+            .operation()
+            .parent_ids()
+            .iter()
+            .sorted()
+            .cloned()
+            .collect_vec();
+        assert_eq!(parent_op_ids, op_ids);
+        assert_eq!(*events.0.borrow(), ["MergingConcurrentOperations"]);
+    }
 }
