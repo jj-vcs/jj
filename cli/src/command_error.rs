@@ -69,6 +69,7 @@ use jj_lib::workspace::WorkspaceInitError;
 use jj_lib::workspace_store::WorkspaceStoreError;
 use thiserror::Error;
 
+use crate::cli_util::CliEventSinkError;
 use crate::cli_util::short_operation_hash;
 use crate::description_util::ParseBulkEditMessageError;
 use crate::description_util::TempTextEditError;
@@ -259,11 +260,19 @@ impl From<RunnerError> for CommandError {
             RunnerError::CheckOut { .. } => internal_error(err),
             RunnerError::Backend(err) => err.into(),
             RunnerError::WorkingCopyState(err) => err.into(),
+            RunnerError::RevsetEvaluation(err) => err.into(),
+            RunnerError::RewriteRootCommit(err) => err.into(),
+            RunnerError::TransactionCommit(err) => err.into(),
+            #[cfg(feature = "git")]
+            RunnerError::GitExport(err) => err.into(),
             #[cfg(feature = "git")]
             RunnerError::GitResetHead(err) => err.into(),
-            RunnerError::EventSink(err) => match err.downcast::<io::Error>() {
-                Ok(err) => (*err).into(),
-                Err(err) => internal_error(err),
+            RunnerError::EventSink(err) => match err.downcast::<CliEventSinkError>() {
+                Ok(err) => err.0,
+                Err(err) => match err.downcast::<io::Error>() {
+                    Ok(err) => (*err).into(),
+                    Err(err) => internal_error(err),
+                },
             },
         }
     }
