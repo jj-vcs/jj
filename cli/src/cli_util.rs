@@ -58,6 +58,7 @@ use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::RunnerEvent;
 use jj_frontend::runner::RunnerOptions;
 use jj_frontend::runner::SnapshotConfig;
+use jj_frontend::runner::WorkingCopyNotWritableReason;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
@@ -1594,18 +1595,18 @@ impl WorkspaceCommandHelper {
         self.workspace.settings()
     }
 
-    pub fn check_working_copy_writable(&self) -> Result<(), CommandError> {
+    pub fn check_working_copy_writable(&self) -> Result<(), RunnerError> {
         if self.may_update_working_copy {
             Ok(())
         } else {
-            let hint = if self.options.ignore_working_copy {
-                "Don't use --ignore-working-copy."
+            let reason = if self.options.ignore_working_copy {
+                WorkingCopyNotWritableReason::IgnoringWorkingCopy
             } else if !self.options.integrate_operation {
-                "Don't use --no-integrate-operation."
+                WorkingCopyNotWritableReason::NotIntegratingOperations
             } else {
-                "Don't use --at-op."
+                WorkingCopyNotWritableReason::NotAtHeadOperation
             };
-            Err(user_error("This command must be able to update the working copy.").hinted(hint))
+            Err(RunnerError::WorkingCopyNotWritable(reason))
         }
     }
 
@@ -1809,22 +1810,22 @@ impl WorkspaceCommandHelper {
         &self.env
     }
 
-    async fn prepare_working_copy_mutation(&self) -> Result<Commit, CommandError> {
+    async fn prepare_working_copy_mutation(&self) -> Result<Commit, RunnerError> {
         self.check_working_copy_writable()?;
         self.get_wc_commit()
             .await?
-            .ok_or_else(|| user_error("Nothing checked out in this workspace"))
+            .ok_or(RunnerError::NothingCheckedOut)
     }
 
     pub async fn start_working_copy_mutation(
         &mut self,
-    ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
+    ) -> Result<(LockedWorkspace<'_>, Commit), RunnerError> {
         let wc_commit = self.prepare_working_copy_mutation().await?;
         let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
         if wc_commit.tree().tree_ids_and_labels()
             != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
         {
-            return Err(user_error("Concurrent working copy operation. Try again."));
+            return Err(RunnerError::ConcurrentWorkingCopyOperation);
         }
         Ok((locked_ws, wc_commit))
     }
@@ -1879,7 +1880,7 @@ to the current parents may contain changes from multiple commits.
         self.repo().view().get_wc_commit_id(self.workspace_name())
     }
 
-    pub async fn get_wc_commit(&self) -> Result<Option<Commit>, CommandError> {
+    pub async fn get_wc_commit(&self) -> BackendResult<Option<Commit>> {
         if let Some(id) = self.get_wc_commit_id() {
             let commit = self.repo().store().get_commit_async(id).await?;
             Ok(Some(commit))
@@ -3360,7 +3361,7 @@ async fn update_stale_working_copy(
     if stale_commit.tree().tree_ids_and_labels()
         != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
     {
-        return Err(user_error("Concurrent working copy operation. Try again."));
+        return Err(RunnerError::ConcurrentWorkingCopyOperation.into());
     }
     let stats = locked_ws
         .locked_wc()
