@@ -34,7 +34,7 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 
 /// Basic pattern to match `RepoPath`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FilePattern {
     /// Matches file (or exact) path.
     FilePath(RepoPathBuf),
@@ -72,7 +72,7 @@ impl FilePattern {
 }
 
 /// AST-level representation of the fileset expression.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FilesetExpression {
     /// Matches nothing.
     None,
