@@ -266,7 +266,7 @@ fn print_imported_changes(
     Ok(())
 }
 
-fn print_failed_git_import(ui: &Ui, stats: &GitImportStats) -> Result<(), CommandError> {
+fn print_failed_git_import(ui: &Ui, stats: &GitImportStats) -> io::Result<()> {
     if !stats.failed_ref_names.is_empty() {
         writeln!(ui.warning_default(), "Failed to import some Git refs:")?;
         let mut formatter = ui.stderr_formatter();
@@ -295,7 +295,7 @@ fn print_failed_git_import(ui: &Ui, stats: &GitImportStats) -> Result<(), Comman
 
 /// Prints only the summary of git import stats (abandoned count, failed refs).
 /// Use this when a WorkspaceCommandTransaction is not available.
-pub fn print_git_import_stats_summary(ui: &Ui, stats: &GitImportStats) -> Result<(), CommandError> {
+pub fn print_git_import_stats_summary(ui: &Ui, stats: &GitImportStats) -> io::Result<()> {
     if let Some(mut formatter) = ui.status_formatter() {
         if !stats.abandoned_commits.is_empty() {
             writeln!(
