@@ -54,6 +54,7 @@ use jiff::Zoned;
 use jiff::tz::TimeZone;
 use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_frontend::runner::RunnerOptions;
+use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -555,7 +556,10 @@ impl CommandHelper {
                 .revset_aliases_map
                 .insert("trunk()", fallback, None)
                 .expect("valid syntax");
-            env.base.reload_revset_expressions(ui)?;
+            let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
+            let result = env.base.reload_revset_expressions(&mut diagnostics);
+            print_workspace_environment_diagnostics(ui, &diagnostics)?;
+            result?;
         }
         let may_snapshot_working_copy = self.is_working_copy_writable();
         WorkspaceCommandHelper::new(
@@ -952,6 +956,19 @@ fn load_advance_bookmarks_matcher(
     }
 }
 
+fn print_workspace_environment_diagnostics(
+    ui: &Ui,
+    diagnostics: &WorkspaceEnvironmentDiagnostics,
+) -> io::Result<()> {
+    let WorkspaceEnvironmentDiagnostics {
+        immutable_heads,
+        short_prefixes,
+    } = diagnostics;
+    print_parse_diagnostics(ui, "In `revset-aliases.immutable_heads()`", immutable_heads)?;
+    print_parse_diagnostics(ui, "In `revsets.short-prefixes`", short_prefixes)?;
+    Ok(())
+}
+
 /// Metadata and configuration loaded for a specific workspace.
 ///
 /// This contains what's needed to parse and evaluate revsets and filesets in
@@ -975,7 +992,7 @@ impl WorkspaceEnvironment {
     /// and filesets are resolved relative to `cwd`.
     #[instrument(skip_all)]
     pub fn new(
-        ui: &Ui,
+        diagnostics: &mut WorkspaceEnvironmentDiagnostics,
         workspace: &Workspace,
         cwd: &Path,
         revset_extensions: Arc<RevsetExtensions>,
@@ -1005,7 +1022,7 @@ impl WorkspaceEnvironment {
             short_prefixes_expression: None,
             conflict_marker_style: settings.get("ui.conflict-marker-style")?,
         };
-        env.reload_revset_expressions(ui)?;
+        env.reload_revset_expressions(diagnostics)?;
         Ok(env)
     }
 
@@ -1099,9 +1116,14 @@ impl WorkspaceEnvironment {
     }
 
     /// Updates parsed revset expressions.
-    fn reload_revset_expressions(&mut self, ui: &Ui) -> Result<(), CommandError> {
-        self.immutable_heads_expression = self.load_immutable_heads_expression(ui)?;
-        self.short_prefixes_expression = self.load_short_prefixes_expression(ui)?;
+    fn reload_revset_expressions(
+        &mut self,
+        diagnostics: &mut WorkspaceEnvironmentDiagnostics,
+    ) -> Result<(), CommandError> {
+        self.immutable_heads_expression =
+            self.load_immutable_heads_expression(&mut diagnostics.immutable_heads)?;
+        self.short_prefixes_expression =
+            self.load_short_prefixes_expression(&mut diagnostics.short_prefixes)?;
         Ok(())
     }
 
@@ -1124,21 +1146,18 @@ impl WorkspaceEnvironment {
 
     fn load_immutable_heads_expression(
         &self,
-        ui: &Ui,
+        diagnostics: &mut RevsetDiagnostics,
     ) -> Result<Arc<UserRevsetExpression>, CommandError> {
-        let mut diagnostics = RevsetDiagnostics::new();
-        let expression = jj_frontend::revset_util::parse_immutable_heads_expression(
-            &mut diagnostics,
+        jj_frontend::revset_util::parse_immutable_heads_expression(
+            diagnostics,
             &self.revset_parse_context(),
         )
-        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))?;
-        print_parse_diagnostics(ui, "In `revset-aliases.immutable_heads()`", &diagnostics)?;
-        Ok(expression)
+        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))
     }
 
     fn load_short_prefixes_expression(
         &self,
-        ui: &Ui,
+        diagnostics: &mut RevsetDiagnostics,
     ) -> Result<Option<Arc<UserRevsetExpression>>, CommandError> {
         let revset_string = self
             .settings
@@ -1148,14 +1167,10 @@ impl WorkspaceEnvironment {
         if revset_string.is_empty() {
             Ok(None)
         } else {
-            let mut diagnostics = RevsetDiagnostics::new();
-            let expression = revset::parse(
-                &mut diagnostics,
-                &revset_string,
-                &self.revset_parse_context(),
-            )
-            .map_err(|err| config_error_with_message("Invalid `revsets.short-prefixes`", err))?;
-            print_parse_diagnostics(ui, "In `revsets.short-prefixes`", &diagnostics)?;
+            let expression =
+                revset::parse(diagnostics, &revset_string, &self.revset_parse_context()).map_err(
+                    |err| config_error_with_message("Invalid `revsets.short-prefixes`", err),
+                )?;
             Ok(Some(expression))
         }
     }
@@ -1203,14 +1218,17 @@ impl WorkspaceCommandEnvironment {
         let fileset_aliases_map = load_fileset_aliases(ui, settings.config())?;
         let revset_aliases_map = load_revset_aliases(ui, settings.config())?;
         let template_aliases_map = load_template_aliases(ui, settings.config())?;
-        let base = WorkspaceEnvironment::new(
-            ui,
+        let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
+        let result = WorkspaceEnvironment::new(
+            &mut diagnostics,
             workspace,
             command.cwd(),
             command.revset_extensions().clone(),
             fileset_aliases_map,
             revset_aliases_map,
-        )?;
+        );
+        print_workspace_environment_diagnostics(ui, &diagnostics)?;
+        let base = result?;
         Ok(Self {
             base,
             command: command.clone(),
