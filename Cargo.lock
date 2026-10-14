@@ -2793,6 +2793,7 @@ name = "jj-frontend"
 version = "0.46.0"
 dependencies = [
  "jj-lib",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
