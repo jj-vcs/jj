@@ -1415,6 +1415,30 @@ fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
                 short_operation_hash(op_id)
             )
         }
+        RunnerEvent::SnapshotOnImmutableWorkingCopy { new_wc_commit: _ } => writeln!(
+            ui.warning_default(),
+            "The working-copy commit is immutable; a new commit has been created on top of it.",
+        ),
+        RunnerEvent::WorkingCopyBecameImmutable { new_wc_commit: _ } => writeln!(
+            ui.warning_default(),
+            "The working-copy commit became immutable; a new commit has been created on top of it.",
+        ),
+        #[cfg(feature = "git")]
+        RunnerEvent::JjConflictFilesInWorkingCopy => {
+            writeln!(
+                ui.warning_default(),
+                "The working copy contains '.jjconflict' files. These files are used by `jj` \
+                 internally and should not be present in the working copy."
+            )?;
+            writeln!(
+                ui.hint_default(),
+                "You may have used a regular `git` command to check out a conflicted commit."
+            )?;
+            writeln!(
+                ui.hint_default(),
+                "You can use `jj abandon` to discard the working copy changes."
+            )
+        }
         #[cfg(feature = "git")]
         RunnerEvent::GitHeadImported { first_import } => {
             if *first_import {
@@ -2319,10 +2343,11 @@ to the current parents may contain changes from multiple commits.
                     .write()
                     .await
                     .map_err(snapshot_command_error)?;
-                writeln!(
-                    ui.warning_default(),
-                    "The working-copy commit is immutable; a new commit has been created on top \
-                     of it.",
+                print_runner_event(
+                    ui,
+                    &RunnerEvent::SnapshotOnImmutableWorkingCopy {
+                        new_wc_commit: &new_wc_commit,
+                    },
                 )
                 .map_err(snapshot_command_error)?;
             } else {
@@ -2421,22 +2446,8 @@ to the current parents may contain changes from multiple commits.
                 .entries_non_recursive()
                 .any(|entry| entry.name().as_internal_str().starts_with(".jjconflict"))
         {
-            writeln!(
-                ui.warning_default(),
-                "The working copy contains '.jjconflict' files. These files are used by `jj` \
-                 internally and should not be present in the working copy."
-            )
-            .map_err(snapshot_command_error)?;
-            writeln!(
-                ui.hint_default(),
-                "You may have used a regular `git` command to check out a conflicted commit."
-            )
-            .map_err(snapshot_command_error)?;
-            writeln!(
-                ui.hint_default(),
-                "You can use `jj abandon` to discard the working copy changes."
-            )
-            .map_err(snapshot_command_error)?;
+            print_runner_event(ui, &RunnerEvent::JjConflictFilesInWorkingCopy)
+                .map_err(snapshot_command_error)?;
         }
 
         if self.options.integrate_operation {
@@ -2555,10 +2566,11 @@ to the current parents may contain changes from multiple commits.
                 .await?;
             tx.repo_mut()
                 .set_wc_commit(self.workspace_name().to_owned(), new_wc_commit.id().clone())?;
-            writeln!(
-                ui.warning_default(),
-                "The working-copy commit became immutable; a new commit has been created on top \
-                 of it.",
+            print_runner_event(
+                ui,
+                &RunnerEvent::WorkingCopyBecameImmutable {
+                    new_wc_commit: &new_wc_commit,
+                },
             )?;
             Some(new_wc_commit)
         } else {
