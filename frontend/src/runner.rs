@@ -17,6 +17,7 @@
 
 use std::sync::Arc;
 
+use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::transaction::Transaction;
@@ -67,4 +68,36 @@ impl RunnerOptions {
             Ok(unpublished_op.leave_unpublished())
         }
     }
+}
+
+/// Something noteworthy that happened while snapshotting the working copy,
+/// importing from or exporting to Git, or finishing a transaction.
+#[derive(Debug)]
+pub enum RunnerEvent<'a> {
+    /// Descendants of rewritten commits were rebased.
+    DescendantsRebased {
+        /// Number of rebased commits.
+        num_rebased: usize,
+        /// Why the commits were rebased.
+        reason: RebaseReason,
+    },
+    /// A new operation was written but not published because
+    /// [`RunnerOptions::integrate_operation`] is false.
+    OperationLeftUnpublished {
+        /// ID of the unpublished operation.
+        op_id: &'a OperationId,
+        /// Whether the operation snapshotted the working copy.
+        is_snapshot: bool,
+    },
+}
+
+/// Why descendant commits were rebased.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RebaseReason {
+    /// Commits were rewritten by a transaction.
+    RewrittenCommits,
+    /// Commits were rewritten in the Git repo.
+    RewrittenInGit,
+    /// The working-copy commit was rewritten by a snapshot.
+    WorkingCopySnapshot,
 }
