@@ -23,6 +23,7 @@ use itertools::Itertools as _;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::StaleWorkingCopyError;
 use jj_frontend::runner::WorkingCopyNotWritableReason;
+use jj_frontend::workspace_env::WorkspaceEnvironmentError;
 use jj_lib::absorb::AbsorbError;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
@@ -238,6 +239,18 @@ fn format_similarity_hint<S: AsRef<str>>(candidates: &[S]) -> Option<String> {
     }
 }
 
+impl From<WorkspaceEnvironmentError> for CommandError {
+    fn from(err: WorkspaceEnvironmentError) -> Self {
+        match err {
+            WorkspaceEnvironmentError::Config(err) => err.into(),
+            WorkspaceEnvironmentError::InvalidImmutableHeads(_)
+            | WorkspaceEnvironmentError::InvalidShortPrefixes(_) => config_error(err),
+            #[cfg(feature = "git")]
+            WorkspaceEnvironmentError::GitRepoAtWorkdir(err) => err.into(),
+        }
+    }
+}
+
 impl From<RunnerError> for CommandError {
     fn from(err: RunnerError) -> Self {
         match err {
@@ -291,6 +304,7 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
                     )
                 }
             },
+            RunnerError::Environment(err) => err.into(),
             RunnerError::Backend(err) => err.into(),
             RunnerError::OpStore(err) => err.into(),
             RunnerError::RepoLoader(err) => err.into(),
@@ -631,6 +645,7 @@ mod git {
     use jj_lib::git::GitRemoteManagementError;
     use jj_lib::git::GitResetHeadError;
     use jj_lib::git::UnexpectedGitBackendError;
+    use jj_lib::git_backend::GitRepoAtWorkdirError;
 
     use super::CommandError;
     use super::user_error;
@@ -733,6 +748,12 @@ jj currently does not support partial clones. To use jj with this repository, tr
 
     impl From<UnexpectedGitBackendError> for CommandError {
         fn from(err: UnexpectedGitBackendError) -> Self {
+            user_error(err)
+        }
+    }
+
+    impl From<GitRepoAtWorkdirError> for CommandError {
+        fn from(err: GitRepoAtWorkdirError) -> Self {
             user_error(err)
         }
     }

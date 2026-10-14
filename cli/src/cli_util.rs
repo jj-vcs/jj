@@ -61,6 +61,7 @@ use jj_frontend::runner::SnapshotConfig;
 use jj_frontend::runner::StaleWorkingCopyError;
 use jj_frontend::runner::WorkingCopyNotWritableReason;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
+use jj_frontend::workspace_env::WorkspaceEnvironmentError;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -171,7 +172,6 @@ use crate::cli_args::parse_early_args;
 use crate::cli_args::to_string_args;
 use crate::cli_args::warn_if_args_mismatch;
 use crate::command_error::CommandError;
-use crate::command_error::config_error_with_message;
 use crate::command_error::handle_command_result;
 use crate::command_error::internal_error;
 use crate::command_error::internal_error_with_message;
@@ -1009,7 +1009,7 @@ impl WorkspaceEnvironment {
         revset_extensions: Arc<RevsetExtensions>,
         fileset_aliases_map: FilesetAliasesMap,
         revset_aliases_map: RevsetAliasesMap,
-    ) -> Result<Self, CommandError> {
+    ) -> Result<Self, WorkspaceEnvironmentError> {
         let settings = workspace.settings();
         let default_ignored_remote = default_ignored_remote_name(workspace.repo_loader().store());
         let path_converter = RepoPathUiConverter::Fs {
@@ -1133,7 +1133,7 @@ impl WorkspaceEnvironment {
     fn reload_revset_expressions(
         &mut self,
         diagnostics: &mut WorkspaceEnvironmentDiagnostics,
-    ) -> Result<(), CommandError> {
+    ) -> Result<(), WorkspaceEnvironmentError> {
         self.immutable_heads_expression =
             self.load_immutable_heads_expression(&mut diagnostics.immutable_heads)?;
         self.short_prefixes_expression =
@@ -1161,18 +1161,18 @@ impl WorkspaceEnvironment {
     fn load_immutable_heads_expression(
         &self,
         diagnostics: &mut RevsetDiagnostics,
-    ) -> Result<Arc<UserRevsetExpression>, CommandError> {
+    ) -> Result<Arc<UserRevsetExpression>, WorkspaceEnvironmentError> {
         jj_frontend::revset_util::parse_immutable_heads_expression(
             diagnostics,
             &self.revset_parse_context(),
         )
-        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))
+        .map_err(WorkspaceEnvironmentError::InvalidImmutableHeads)
     }
 
     fn load_short_prefixes_expression(
         &self,
         diagnostics: &mut RevsetDiagnostics,
-    ) -> Result<Option<Arc<UserRevsetExpression>>, CommandError> {
+    ) -> Result<Option<Arc<UserRevsetExpression>>, WorkspaceEnvironmentError> {
         let revset_string = self
             .settings
             .get_string("revsets.short-prefixes")
@@ -1182,9 +1182,8 @@ impl WorkspaceEnvironment {
             Ok(None)
         } else {
             let expression =
-                revset::parse(diagnostics, &revset_string, &self.revset_parse_context()).map_err(
-                    |err| config_error_with_message("Invalid `revsets.short-prefixes`", err),
-                )?;
+                revset::parse(diagnostics, &revset_string, &self.revset_parse_context())
+                    .map_err(WorkspaceEnvironmentError::InvalidShortPrefixes)?;
             Ok(Some(expression))
         }
     }
