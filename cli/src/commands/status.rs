@@ -161,7 +161,7 @@ pub(crate) async fn cmd_status(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"
             )?;
-            print_conflicted_paths(conflicts, formatter, &workspace_command)?;
+            print_conflicted_paths(conflicts, formatter, workspace_command.path_converter())?;
 
             let wc_revset = RevsetExpression::commit(status.commit.id().clone());
 
