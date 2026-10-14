@@ -24,6 +24,7 @@ use std::fmt::Debug;
 use std::io;
 use std::io::Write as _;
 use std::mem;
+use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -550,10 +551,11 @@ impl CommandHelper {
                 ui.hint_default(),
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
             )?;
-            env.revset_aliases_map
+            env.base
+                .revset_aliases_map
                 .insert("trunk()", fallback, None)
                 .expect("valid syntax");
-            env.reload_revset_expressions(ui)?;
+            env.base.reload_revset_expressions(ui)?;
         }
         let may_snapshot_working_copy = self.is_working_copy_writable();
         WorkspaceCommandHelper::new(
@@ -951,12 +953,14 @@ fn load_advance_bookmarks_matcher(
 }
 
 /// Metadata and configuration loaded for a specific workspace.
-pub struct WorkspaceCommandEnvironment {
-    command: CommandHelper,
+///
+/// This contains what's needed to parse and evaluate revsets and filesets in
+/// the workspace, independent of how the user interacts with it.
+pub struct WorkspaceEnvironment {
     settings: UserSettings,
+    revset_extensions: Arc<RevsetExtensions>,
     fileset_aliases_map: FilesetAliasesMap,
     revset_aliases_map: RevsetAliasesMap,
-    template_aliases_map: TemplateAliasesMap,
     default_ignored_remote: Option<&'static RemoteName>,
     path_converter: RepoPathUiConverter,
     working_copy_shared_with_git: bool,
@@ -966,16 +970,22 @@ pub struct WorkspaceCommandEnvironment {
     conflict_marker_style: ConflictMarkerStyle,
 }
 
-impl WorkspaceCommandEnvironment {
+impl WorkspaceEnvironment {
+    /// Loads environment for the given `workspace`. Relative paths in revsets
+    /// and filesets are resolved relative to `cwd`.
     #[instrument(skip_all)]
-    fn new(ui: &Ui, command: &CommandHelper, workspace: &Workspace) -> Result<Self, CommandError> {
+    pub fn new(
+        ui: &Ui,
+        workspace: &Workspace,
+        cwd: &Path,
+        revset_extensions: Arc<RevsetExtensions>,
+        fileset_aliases_map: FilesetAliasesMap,
+        revset_aliases_map: RevsetAliasesMap,
+    ) -> Result<Self, CommandError> {
         let settings = workspace.settings();
-        let fileset_aliases_map = load_fileset_aliases(ui, settings.config())?;
-        let revset_aliases_map = load_revset_aliases(ui, settings.config())?;
-        let template_aliases_map = load_template_aliases(ui, settings.config())?;
         let default_ignored_remote = default_ignored_remote_name(workspace.repo_loader().store());
         let path_converter = RepoPathUiConverter::Fs {
-            cwd: command.cwd().to_owned(),
+            cwd: cwd.to_owned(),
             base: workspace.workspace_root().to_owned(),
         };
         #[cfg(feature = "git")]
@@ -983,11 +993,10 @@ impl WorkspaceCommandEnvironment {
         #[cfg(not(feature = "git"))]
         let working_copy_shared_with_git = false;
         let mut env = Self {
-            command: command.clone(),
             settings: settings.clone(),
+            revset_extensions,
             fileset_aliases_map,
             revset_aliases_map,
-            template_aliases_map,
             default_ignored_remote,
             path_converter,
             working_copy_shared_with_git,
@@ -1035,87 +1044,6 @@ impl WorkspaceCommandEnvironment {
         Ok(GitImportExportLock { _lock: lock })
     }
 
-    pub fn auto_tracking_matcher(&self, ui: &Ui) -> Result<Box<dyn Matcher>, CommandError> {
-        let mut diagnostics = FilesetDiagnostics::new();
-        let pattern = self.settings.get_string("snapshot.auto-track")?;
-        let context = self.fileset_parse_context_for_config();
-        let expression = fileset::parse(&mut diagnostics, &pattern, &context)?;
-        print_parse_diagnostics(ui, "In `snapshot.auto-track`", &diagnostics)?;
-        Ok(expression.to_matcher())
-    }
-
-    pub fn snapshot_options_with_start_tracking_matcher<'a>(
-        &self,
-        store: &Store,
-        start_tracking_matcher: &'a dyn Matcher,
-    ) -> Result<SnapshotOptions<'a>, CommandError> {
-        let base_ignores = self.base_ignores(store)?;
-        let HumanByteSize(mut max_new_file_size) = self
-            .settings
-            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
-        if max_new_file_size == 0 {
-            max_new_file_size = u64::MAX;
-        }
-        Ok(SnapshotOptions {
-            base_ignores,
-            progress: None,
-            start_tracking_matcher,
-            force_tracking_matcher: &NothingMatcher,
-            max_new_file_size,
-        })
-    }
-
-    #[cfg(not(feature = "git"))]
-    pub fn base_ignores(&self, _store: &Store) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
-        Ok(GitIgnoreFile::empty())
-    }
-
-    #[cfg(feature = "git")]
-    #[instrument(skip_all)]
-    pub fn base_ignores(&self, store: &Store) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
-        let get_excludes_file_path = |config: &gix::config::File| -> Option<PathBuf> {
-            // TODO: maybe use path() and interpolate(), which can process non-utf-8
-            // path on Unix.
-            if let Some(value) = config.string("core.excludesFile") {
-                let home_dir = self.command.config_env().home_dir();
-                let path = str::from_utf8(&value)
-                    .ok()
-                    .map(|value| jj_lib::file_util::expand_home_path(value, home_dir))?;
-                // The configured path is usually absolute, but if it's relative,
-                // the "git" command would read the file at the work-tree directory.
-                Some(self.workspace_root().join(path))
-            } else {
-                xdg_config_home().map(|x| x.join("git").join("ignore"))
-            }
-        };
-
-        fn xdg_config_home() -> Option<PathBuf> {
-            if let Ok(x) = std::env::var("XDG_CONFIG_HOME")
-                && !x.is_empty()
-            {
-                return Some(PathBuf::from(x));
-            }
-            etcetera::home_dir().ok().map(|home| home.join(".config"))
-        }
-
-        let mut git_ignores = GitIgnoreFile::empty();
-        if let Ok(git_backend) = jj_lib::git::get_git_backend(store) {
-            let git_repo = git_backend.git_repo();
-            if let Some(excludes_file_path) = get_excludes_file_path(&git_repo.config_snapshot()) {
-                git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
-            }
-            git_ignores = git_ignores.chain_with_file(
-                RepoPath::root(),
-                git_backend.git_repo_path().join("info").join("exclude"),
-            )?;
-        } else if let Ok(git_config) = gix::config::File::from_globals()
-            && let Some(excludes_file_path) = get_excludes_file_path(&git_config)
-        {
-            git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
-        }
-        Ok(git_ignores)
-    }
-
     /// Parsing context for fileset expressions specified by command arguments.
     pub(crate) fn fileset_parse_context(&self) -> FilesetParseContext<'_> {
         FilesetParseContext {
@@ -1155,7 +1083,7 @@ impl WorkspaceCommandEnvironment {
             current_time: now,
             default_ignored_remote: self.default_ignored_remote,
             fileset_aliases_map: &self.fileset_aliases_map,
-            extensions: self.command.revset_extensions(),
+            extensions: &self.revset_extensions,
             workspace: Some(workspace_context),
         }
     }
@@ -1163,7 +1091,7 @@ impl WorkspaceCommandEnvironment {
     /// Creates fresh new context which manages cache of short commit/change ID
     /// prefixes. New context should be created per repo view (or operation.)
     pub fn new_id_prefix_context(&self) -> IdPrefixContext {
-        let context = IdPrefixContext::new(self.command.revset_extensions().clone());
+        let context = IdPrefixContext::new(self.revset_extensions.clone());
         match &self.short_prefixes_expression {
             None => context,
             Some(expression) => context.disambiguate_within(expression.clone()),
@@ -1249,15 +1177,134 @@ impl WorkspaceCommandEnvironment {
         // Not using self.id_prefix_context() because the disambiguation data
         // must not be calculated and cached against arbitrary repo. It's also
         // unlikely that the immutable expression contains short hashes.
-        let id_prefix_context = IdPrefixContext::new(self.command.revset_extensions().clone());
+        let id_prefix_context = IdPrefixContext::new(self.revset_extensions.clone());
         RevsetExpressionEvaluator::new(
             repo,
-            self.command.revset_extensions().clone(),
+            self.revset_extensions.clone(),
             &id_prefix_context,
             immutable_expression,
         )
         .resolve()
         .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))
+    }
+}
+
+/// [`WorkspaceEnvironment`] plus CLI-specific configuration such as templates.
+pub struct WorkspaceCommandEnvironment {
+    base: WorkspaceEnvironment,
+    command: CommandHelper,
+    template_aliases_map: TemplateAliasesMap,
+}
+
+impl Deref for WorkspaceCommandEnvironment {
+    type Target = WorkspaceEnvironment;
+
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
+}
+
+impl WorkspaceCommandEnvironment {
+    #[instrument(skip_all)]
+    fn new(ui: &Ui, command: &CommandHelper, workspace: &Workspace) -> Result<Self, CommandError> {
+        let settings = workspace.settings();
+        let fileset_aliases_map = load_fileset_aliases(ui, settings.config())?;
+        let revset_aliases_map = load_revset_aliases(ui, settings.config())?;
+        let template_aliases_map = load_template_aliases(ui, settings.config())?;
+        let base = WorkspaceEnvironment::new(
+            ui,
+            workspace,
+            command.cwd(),
+            command.revset_extensions().clone(),
+            fileset_aliases_map,
+            revset_aliases_map,
+        )?;
+        Ok(Self {
+            base,
+            command: command.clone(),
+            template_aliases_map,
+        })
+    }
+
+    pub fn auto_tracking_matcher(&self, ui: &Ui) -> Result<Box<dyn Matcher>, CommandError> {
+        let mut diagnostics = FilesetDiagnostics::new();
+        let pattern = self.settings.get_string("snapshot.auto-track")?;
+        let context = self.fileset_parse_context_for_config();
+        let expression = fileset::parse(&mut diagnostics, &pattern, &context)?;
+        print_parse_diagnostics(ui, "In `snapshot.auto-track`", &diagnostics)?;
+        Ok(expression.to_matcher())
+    }
+
+    pub fn snapshot_options_with_start_tracking_matcher<'a>(
+        &self,
+        store: &Store,
+        start_tracking_matcher: &'a dyn Matcher,
+    ) -> Result<SnapshotOptions<'a>, CommandError> {
+        let base_ignores = self.base_ignores(store)?;
+        let HumanByteSize(mut max_new_file_size) = self
+            .settings
+            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
+        if max_new_file_size == 0 {
+            max_new_file_size = u64::MAX;
+        }
+        Ok(SnapshotOptions {
+            base_ignores,
+            progress: None,
+            start_tracking_matcher,
+            force_tracking_matcher: &NothingMatcher,
+            max_new_file_size,
+        })
+    }
+
+    #[cfg(not(feature = "git"))]
+    pub fn base_ignores(&self, _store: &Store) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+        Ok(GitIgnoreFile::empty())
+    }
+
+    #[cfg(feature = "git")]
+    #[instrument(skip_all)]
+    pub fn base_ignores(&self, store: &Store) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+        let get_excludes_file_path = |config: &gix::config::File| -> Option<PathBuf> {
+            // TODO: maybe use path() and interpolate(), which can process non-utf-8
+            // path on Unix.
+            if let Some(value) = config.string("core.excludesFile") {
+                let home_dir = self.command.config_env().home_dir();
+                let path = str::from_utf8(&value)
+                    .ok()
+                    .map(|value| jj_lib::file_util::expand_home_path(value, home_dir))?;
+                // The configured path is usually absolute, but if it's relative,
+                // the "git" command would read the file at the work-tree directory.
+                Some(self.workspace_root().join(path))
+            } else {
+                xdg_config_home().map(|x| x.join("git").join("ignore"))
+            }
+        };
+
+        fn xdg_config_home() -> Option<PathBuf> {
+            if let Ok(x) = std::env::var("XDG_CONFIG_HOME")
+                && !x.is_empty()
+            {
+                return Some(PathBuf::from(x));
+            }
+            etcetera::home_dir().ok().map(|home| home.join(".config"))
+        }
+
+        let mut git_ignores = GitIgnoreFile::empty();
+        if let Ok(git_backend) = jj_lib::git::get_git_backend(store) {
+            let git_repo = git_backend.git_repo();
+            if let Some(excludes_file_path) = get_excludes_file_path(&git_repo.config_snapshot()) {
+                git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
+            }
+            git_ignores = git_ignores.chain_with_file(
+                RepoPath::root(),
+                git_backend.git_repo_path().join("info").join("exclude"),
+            )?;
+        } else if let Ok(git_config) = gix::config::File::from_globals()
+            && let Some(excludes_file_path) = get_excludes_file_path(&git_config)
+        {
+            git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
+        }
+        Ok(git_ignores)
     }
 
     pub fn template_aliases_map(&self) -> &TemplateAliasesMap {
