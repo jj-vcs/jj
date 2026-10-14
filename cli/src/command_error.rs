@@ -20,6 +20,7 @@ use std::iter;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use jj_frontend::runner::RunnerError;
 use jj_lib::absorb::AbsorbError;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
@@ -230,6 +231,23 @@ fn format_similarity_hint<S: AsRef<str>>(candidates: &[S]) -> Option<String> {
         names => {
             let quoted_names = names.iter().map(|s| format!("`{}`", s.as_ref())).join(", ");
             Some(format!("Did you mean {quoted_names}?"))
+        }
+    }
+}
+
+impl From<RunnerError> for CommandError {
+    fn from(err: RunnerError) -> Self {
+        match err {
+            RunnerError::GitImportExportLock(_) => user_error(err),
+            RunnerError::InvalidImmutableHeads(_) => config_error(err),
+            RunnerError::CheckOut { .. } => internal_error(err),
+            RunnerError::Backend(err) => err.into(),
+            #[cfg(feature = "git")]
+            RunnerError::GitResetHead(err) => err.into(),
+            RunnerError::EventSink(err) => match err.downcast::<io::Error>() {
+                Ok(err) => (*err).into(),
+                Err(err) => internal_error(err),
+            },
         }
     }
 }

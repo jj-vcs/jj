@@ -17,13 +17,20 @@
 
 use std::sync::Arc;
 
+use jj_lib::backend::BackendError;
+use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::lock::FileLockError;
 use jj_lib::matchers::Matcher;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
+use jj_lib::revset::RevsetResolutionError;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
+use jj_lib::working_copy::CheckoutError;
+use thiserror::Error;
 
 /// Options controlling how operations on a workspace interact with the
 /// working copy and the operation log.
@@ -148,4 +155,35 @@ pub struct SnapshotConfig {
     /// shared with Git.
     #[cfg(feature = "git")]
     pub git_import_options: Option<jj_lib::git::GitImportOptions>,
+}
+
+/// Error from snapshotting the working copy, importing from or exporting to
+/// Git, or finishing a transaction.
+#[derive(Debug, Error)]
+pub enum RunnerError {
+    /// The lock for importing from and exporting to Git couldn't be taken.
+    #[error("Failed to take lock for Git import/export")]
+    GitImportExportLock(#[source] FileLockError),
+    /// The configured `immutable_heads()` couldn't be resolved.
+    #[error("Invalid `revset-aliases.immutable_heads()`")]
+    InvalidImmutableHeads(#[source] RevsetResolutionError),
+    /// A commit couldn't be checked out in the working copy.
+    #[error("Failed to check out commit {}", commit_id.hex())]
+    CheckOut {
+        /// The commit that was being checked out.
+        commit_id: CommitId,
+        /// The underlying error.
+        #[source]
+        source: CheckoutError,
+    },
+    /// Error from the commit backend.
+    #[error(transparent)]
+    Backend(#[from] BackendError),
+    /// Error resetting Git HEAD.
+    #[cfg(feature = "git")]
+    #[error(transparent)]
+    GitResetHead(#[from] jj_lib::git::GitResetHeadError),
+    /// The caller failed to handle a [`RunnerEvent`].
+    #[error(transparent)]
+    EventSink(Box<dyn std::error::Error + Send + Sync>),
 }
