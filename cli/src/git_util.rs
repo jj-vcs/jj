@@ -42,13 +42,11 @@ use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
-use jj_lib::git_backend::GitRepoAtWorkdirError;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::store::Store;
-use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
@@ -63,18 +61,6 @@ use crate::formatter::FormatterExt as _;
 use crate::revset_util::parse_remote_auto_track_bookmarks_map;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
-
-pub fn is_colocated_git_workspace(workspace: &Workspace) -> Result<bool, GitRepoAtWorkdirError> {
-    let Ok(git_backend) = git::get_git_backend(workspace.repo_loader().store()) else {
-        return Ok(false);
-    };
-    match git_backend.open_git_repo_at_workdir(workspace.workspace_root()) {
-        Ok(_) => Ok(true),
-        Err(GitRepoAtWorkdirError::NotFound { .. }) => Ok(false),
-        Err(GitRepoAtWorkdirError::Unrelated { .. }) => Ok(false),
-        Err(err @ GitRepoAtWorkdirError::Other(_)) => Err(err),
-    }
-}
 
 /// Parses user-specified remote URL or path to absolute form.
 pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError> {
