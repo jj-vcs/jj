@@ -544,7 +544,13 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         .iter()
         .map(|(name, id)| (name.into(), id.to_bytes()))
         .collect();
-    let head_ids = view.head_ids.iter().map(|id| id.to_bytes()).collect();
+    // Sort head ids so they serialize in a stable order.
+    let head_ids = view
+        .head_ids
+        .iter()
+        .sorted()
+        .map(|id| id.to_bytes())
+        .collect();
 
     let bookmarks = bookmark_views_to_proto_legacy(&view.local_bookmarks, &view.remote_views);
 
@@ -1147,6 +1153,20 @@ mod tests {
         }
         let view_reconstructed = view_from_proto(proto).unwrap();
         assert_eq!(view.remote_views, view_reconstructed.remote_views);
+    }
+
+    #[test]
+    fn test_view_to_proto_sorted_head_ids() {
+        let ids = (0..50).map(|i| CommitId::new(vec![i; 4])).collect_vec();
+        let make_view = |order: &[CommitId]| {
+            let mut view = create_view();
+            view.head_ids = order.iter().cloned().collect();
+            view
+        };
+        let proto1 = view_to_proto(&make_view(&ids));
+        let proto2 = view_to_proto(&make_view(&ids.iter().rev().cloned().collect_vec()));
+        assert!(proto1.head_ids.is_sorted());
+        assert_eq!(proto1.head_ids, proto2.head_ids);
     }
 
     #[test]
