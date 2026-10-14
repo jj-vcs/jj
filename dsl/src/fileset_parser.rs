@@ -424,6 +424,14 @@ fn parse_expression_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode>
         .parse(pair.into_inner())
 }
 
+/// Checks if the text is a valid identifier
+pub fn is_identifier(text: &str) -> bool {
+    match FilesetParser::parse(Rule::identifier, text) {
+        Ok(mut pairs) => pairs.next().unwrap().as_span().end() == text.len(),
+        Err(_) => false,
+    }
+}
+
 /// Parses text into expression tree. No name resolution is made at this stage.
 pub fn parse_program(text: &str) -> FilesetParseResult<ExpressionNode<'_>> {
     let mut pairs = FilesetParser::parse(Rule::program, text)?;

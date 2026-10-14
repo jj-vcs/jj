@@ -21,6 +21,7 @@ use std::sync::LazyLock;
 use itertools::Itertools as _;
 pub use jj_core::fileset_backend::FilePattern;
 pub use jj_core::fileset_backend::FilesetExpression;
+use jj_core::symbol_util::format_string;
 use thiserror::Error;
 
 use crate::dsl_util::collect_similar;
@@ -37,6 +38,7 @@ use crate::fileset_parser::FunctionCallNode;
 use crate::fileset_parser::UnaryOp;
 use crate::matchers::PathGlobPattern;
 use crate::repo_path::RelativePathParseError;
+use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::ui_path::RepoPathUiConverter;
 use crate::ui_path::UiPathParseError;
@@ -420,6 +422,137 @@ pub fn parse_maybe_bare(
     let node = fileset_parser::expand_aliases(node, context.aliases_map)?;
     // TODO: add basic tree substitution pass to eliminate redundant expressions
     resolve_expression(diagnostics, context, &node)
+}
+
+/// Formats the expression as fileset text.
+///
+/// Paths are formatted relative to the workspace root, so the text should be
+/// parsed with the current directory set to the workspace root.
+pub fn format_workspace_relative(expression: &FilesetExpression) -> String {
+    let mut text = String::new();
+    format_expression(&mut text, expression, Precedence::Union);
+    text
+}
+
+/// How tightly an operand must bind in order to be formatted without
+/// parentheses.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+enum Precedence {
+    Union,
+    Intersection,
+    Primary,
+}
+
+fn format_expression(text: &mut String, expression: &FilesetExpression, min: Precedence) {
+    let precedence = match expression {
+        FilesetExpression::UnionAll(_) => Precedence::Union,
+        FilesetExpression::Intersection(..) => Precedence::Intersection,
+        FilesetExpression::Difference(lhs, _) if **lhs == FilesetExpression::All => {
+            Precedence::Primary
+        }
+        FilesetExpression::Difference(..) => Precedence::Intersection,
+        FilesetExpression::None | FilesetExpression::All | FilesetExpression::Pattern(_) => {
+            Precedence::Primary
+        }
+    };
+    let needs_parens = precedence < min;
+    if needs_parens {
+        text.push('(');
+    }
+    match expression {
+        FilesetExpression::None => text.push_str("none()"),
+        FilesetExpression::All => text.push_str("all()"),
+        FilesetExpression::Pattern(pattern) => format_pattern(text, pattern),
+        FilesetExpression::UnionAll(expressions) => {
+            for (i, expression) in expressions.iter().enumerate() {
+                if i > 0 {
+                    text.push_str(" | ");
+                }
+                format_expression(text, expression, Precedence::Union);
+            }
+        }
+        FilesetExpression::Intersection(lhs, rhs) => {
+            format_expression(text, lhs, Precedence::Intersection);
+            text.push_str(" & ");
+            format_expression(text, rhs, Precedence::Primary);
+        }
+        FilesetExpression::Difference(lhs, rhs) if **lhs == FilesetExpression::All => {
+            text.push('~');
+            format_expression(text, rhs, Precedence::Primary);
+        }
+        FilesetExpression::Difference(lhs, rhs) => {
+            format_expression(text, lhs, Precedence::Intersection);
+            text.push_str(" ~ ");
+            format_expression(text, rhs, Precedence::Primary);
+        }
+    }
+    if needs_parens {
+        text.push(')');
+    }
+}
+
+fn format_pattern(text: &mut String, pattern: &FilePattern) {
+    match pattern {
+        FilePattern::FilePath(path) => {
+            text.push_str("file:");
+            text.push_str(&format_string_value(&path_to_text(path)));
+        }
+        FilePattern::PrefixPath(path) => {
+            // Bare strings are parsed as globs
+            let path = path_to_text(path);
+            if path.contains(is_glob_char) {
+                text.push_str("cwd:");
+            }
+            text.push_str(&format_string_value(&path));
+        }
+        FilePattern::FileGlob { dir, pattern } => {
+            text.push_str(if pattern.is_case_insensitive() {
+                "glob-i:"
+            } else {
+                "glob:"
+            });
+            text.push_str(&format_string_value(&glob_to_text(dir, pattern)));
+        }
+        FilePattern::PrefixGlob { dir, pattern } => {
+            text.push_str(if pattern.is_case_insensitive() {
+                "prefix-glob-i:"
+            } else {
+                "prefix-glob:"
+            });
+            text.push_str(&format_string_value(&glob_to_text(dir, pattern)));
+        }
+    }
+}
+
+fn path_to_text(path: &RepoPath) -> String {
+    if path.is_root() {
+        ".".to_owned()
+    } else {
+        path.as_internal_file_string().to_owned()
+    }
+}
+
+fn glob_to_text(dir: &RepoPath, pattern: &PathGlobPattern) -> String {
+    if dir.is_root() {
+        return pattern.as_str().to_owned();
+    }
+    let dir = dir.as_internal_file_string();
+    let dir = if cfg!(windows) {
+        globset::escape(dir)
+    } else {
+        globset::escape(&dir.replace('\\', r"\\"))
+    };
+    format!("{dir}/{}", pattern.as_str())
+}
+
+/// Formats the string as a bare identifier if possible, or else as a quoted
+/// string.
+fn format_string_value(value: &str) -> String {
+    if fileset_parser::is_identifier(value) {
+        value.to_owned()
+    } else {
+        format_string(value)
+    }
 }
 
 #[cfg(test)]
@@ -1024,5 +1157,61 @@ mod tests {
         )
         "#);
         Ok(())
+    }
+
+    #[test]
+    fn test_format_workspace_relative() {
+        let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
+            path_converter: &RepoPathUiConverter::Fs {
+                cwd: PathBuf::from("/ws"),
+                base: PathBuf::from("/ws"),
+            },
+            working_copy: None,
+        };
+        let format = |text: &str| {
+            let expression = parse(&mut FilesetDiagnostics::new(), text, &context).unwrap();
+            let formatted = format_workspace_relative(&expression);
+            let reparsed = parse(&mut FilesetDiagnostics::new(), &formatted, &context).unwrap();
+            assert_eq!(
+                reparsed, expression,
+                "{text:?} was formatted as {formatted:?}"
+            );
+            formatted
+        };
+
+        insta::assert_snapshot!(format("none()"), @"none()");
+        insta::assert_snapshot!(format("all()"), @"all()");
+        insta::assert_snapshot!(format("."), @".");
+        insta::assert_snapshot!(format("dir/file"), @"dir/file");
+        insta::assert_snapshot!(format(r#""dir/foo bar""#), @r#""dir/foo bar""#);
+        insta::assert_snapshot!(format(r#"root:"dir/foo[1]""#), @"cwd:dir/foo[1]");
+        insta::assert_snapshot!(format("file:dir/file"), @"file:dir/file");
+        insta::assert_snapshot!(format(r#"glob:"*.rs""#), @"glob:*.rs");
+        insta::assert_snapshot!(format(r#"glob:"dir/sub/*.rs""#), @"glob:dir/sub/*.rs");
+        insta::assert_snapshot!(format(r#"glob-i:"*.RS""#), @"glob-i:*.RS");
+        insta::assert_snapshot!(format(r#"prefix-glob:"dir/*""#), @"prefix-glob:dir/*");
+        insta::assert_snapshot!(format(r#"prefix-glob-i:"1/*""#), @"prefix-glob-i:1/*");
+        insta::assert_snapshot!(format("a | b | c"), @"a | b | c");
+        insta::assert_snapshot!(format("a & b ~ c"), @"a & b ~ c");
+        insta::assert_snapshot!(format("a & (b ~ c)"), @"a & (b ~ c)");
+        insta::assert_snapshot!(format("(a | b) & c"), @"(a | b) & c");
+        insta::assert_snapshot!(format("a | b & c"), @"a | b & c");
+        insta::assert_snapshot!(format("~a"), @"~a");
+        insta::assert_snapshot!(format("~(a | b) & ~c"), @"~(a | b) & ~c");
+        insta::assert_snapshot!(format("a ~ (b | c)"), @"a ~ (b | c)");
+
+        // Glob characters in the directory are escaped
+        let expression = FilesetExpression::pattern(FilePattern::FileGlob {
+            dir: RepoPathBuf::from_internal_string("a[1]").unwrap(),
+            pattern: Box::new(PathGlobPattern::parse("*.rs").unwrap()),
+        });
+        let formatted = format_workspace_relative(&expression);
+        insta::assert_snapshot!(formatted, @"glob:a[[]1[]]/*.rs");
+        let matcher = parse(&mut FilesetDiagnostics::new(), &formatted, &context)
+            .unwrap()
+            .to_matcher();
+        assert!(matcher.matches(RepoPath::from_internal_string("a[1]/x.rs").unwrap()));
+        assert!(!matcher.matches(RepoPath::from_internal_string("a1/x.rs").unwrap()));
     }
 }
