@@ -17,6 +17,7 @@
 
 use std::sync::Arc;
 
+use jj_lib::commit::Commit;
 use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
@@ -89,6 +90,23 @@ pub enum RunnerEvent {
         /// Whether the operation snapshotted the working copy.
         is_snapshot: bool,
     },
+    /// The working copy had changes but the working-copy commit was immutable,
+    /// so the changes were snapshotted into a new commit on top of it.
+    SnapshotOnImmutableWorkingCopy {
+        /// The new working-copy commit.
+        new_wc_commit: Commit,
+    },
+    /// The working-copy commit became immutable, so a new working-copy commit
+    /// was created on top of it.
+    WorkingCopyBecameImmutable {
+        /// The new working-copy commit.
+        new_wc_commit: Commit,
+    },
+    /// The working copy contains `.jjconflict*` files, which are used to
+    /// represent conflicts in Git commits. This likely means that a conflicted
+    /// commit was checked out by Git.
+    #[cfg(feature = "git")]
+    JjConflictFilesInWorkingCopy,
     /// The working-copy commit was moved because Git HEAD had changed.
     #[cfg(feature = "git")]
     GitHeadImported {
