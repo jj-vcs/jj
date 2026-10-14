@@ -128,6 +128,7 @@ use jj_lib::revset::RevsetFunction;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::RevsetWorkspaceContext;
+use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::RebaseOptions;
@@ -1207,14 +1208,13 @@ impl WorkspaceEnvironment {
         // must not be calculated and cached against arbitrary repo. It's also
         // unlikely that the immutable expression contains short hashes.
         let id_prefix_context = IdPrefixContext::new(self.revset_extensions.clone());
-        RevsetExpressionEvaluator::new(
-            repo,
-            self.revset_extensions.clone(),
-            &id_prefix_context,
-            immutable_expression,
-        )
-        .resolve()
-        .map_err(RunnerError::InvalidImmutableHeads)
+        let symbol_resolver = SymbolResolver::new(repo, self.revset_extensions.symbol_resolvers())
+            .with_id_prefix_context(&id_prefix_context);
+        let (expression, _other_repos) = immutable_expression
+            .resolve_user_expression(repo, &symbol_resolver)
+            .map_err(RunnerError::InvalidImmutableHeads)?
+            .into_inner();
+        Ok(expression)
     }
 }
 
