@@ -17,17 +17,22 @@
 use std::collections::BTreeMap;
 use std::iter::zip;
 
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::future::try_join_all;
+use futures::stream;
 use thiserror::Error;
 
 use crate::backend::BackendResult;
 use crate::backend::MergedTreeValue;
+use crate::backend::MergedTreeValueExt as _;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPathBuf;
 use crate::tree_builder::TreeBuilder;
+use crate::tree_merge::resolve_file_values;
 
 /// Helper for writing trees with conflicts.
 ///
@@ -50,7 +55,8 @@ impl MergedTreeBuilder {
     /// Create a new builder with the given trees as base.
     ///
     /// The `base_tree` is assumed to already have its conflicts resolved (e.g.
-    /// via `MergedTree::merge()` or `MergedTree::resolve()`).
+    /// via `MergedTree::merge()` or `MergedTree::resolve()`), as `write_tree()`
+    /// only resolves overridden paths and simplifies root tree IDs.
     pub fn new(base_tree: MergedTree) -> Self {
         Self {
             base_tree,
@@ -61,6 +67,7 @@ impl MergedTreeBuilder {
     /// Set an override compared to the base tree. Use `None` to remove a
     /// value from the tree.
     pub fn set_or_remove(&mut self, path: RepoPathBuf, value: Option<TreeValue>) {
+        assert!(!path.is_root());
         self.overrides.insert(path, Merge::resolved(value));
     }
 
@@ -70,13 +77,15 @@ impl MergedTreeBuilder {
     /// values should also be derived from the base tree's conflict. To
     /// combine paths from a differently conflicted tree, merge the trees
     /// instead (e.g. using `MergedTree::filtered()` and
-    /// `MergedTree::merge()`). Use `Merge::absent()` to remove a value from
-    /// the tree.
+    /// `MergedTree::merge()`). Unresolved `TreeValue::Tree` merges are not
+    /// supported. Use `Merge::absent()` to remove a value from the tree.
     pub fn set_or_remove_merge(
         &mut self,
         path: RepoPathBuf,
         values: MergedTreeValue,
     ) -> Result<(), ConflictArityMismatchError> {
+        assert!(!path.is_root());
+        assert!(values.is_resolved() || !values.is_tree());
         if !(values.is_resolved() || values.num_sides() == self.base_tree.tree_ids().num_sides()) {
             return Err(ConflictArityMismatchError);
         }
@@ -92,19 +101,31 @@ impl MergedTreeBuilder {
         let store = self.base_tree.store().clone();
         let labels = self.base_tree.labels().clone();
         let new_tree_ids = self.write_merged_trees().await?;
-        let (labels, new_tree_ids) = labels.simplify_with(&new_tree_ids);
-        match new_tree_ids.into_resolved() {
-            Ok(single_tree_id) => Ok(MergedTree::resolved(store, single_tree_id)),
-            Err(tree_ids) => {
-                let tree = MergedTree::new(store, tree_ids, labels);
-                tree.resolve().await
-            }
+        if let Some(tree_id) = new_tree_ids.resolve_trivial(store.merge_options().same_change) {
+            return Ok(MergedTree::resolved(store, tree_id.clone()));
         }
+        let (labels, new_tree_ids) = labels.simplify_with(&new_tree_ids);
+        Ok(MergedTree::new(store, new_tree_ids, labels))
     }
 
-    async fn write_merged_trees(self) -> BackendResult<Merge<TreeId>> {
+    async fn write_merged_trees(mut self) -> BackendResult<Merge<TreeId>> {
         let store = self.base_tree.store().clone();
         let base_tree_ids = self.base_tree.into_tree_ids();
+        let mut unresolved = Vec::new();
+        for (path, values) in &mut self.overrides {
+            if !values.is_resolved() {
+                let store = &store;
+                let old_values = std::mem::replace(values, Merge::absent());
+                unresolved.push(async move {
+                    *values = resolve_file_values(store, path, old_values).await?;
+                    BackendResult::Ok(())
+                });
+            }
+        }
+        stream::iter(unresolved)
+            .buffer_unordered(store.concurrency())
+            .try_collect::<()>()
+            .await?;
         // Create a single-tree builder for each base tree
         let mut tree_builders =
             base_tree_ids.into_map(|base_tree_id| TreeBuilder::new(store.clone(), base_tree_id));

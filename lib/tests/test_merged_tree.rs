@@ -111,6 +111,261 @@ fn test_merged_tree_builder_no_overrides() -> TestResult {
 }
 
 #[test]
+fn test_merged_tree_builder_resolves_file_conflict_override() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path = repo_path("dir/file");
+    let initial_base = create_tree(repo, &[(path, "initial_base\n")]);
+    let initial_left = create_tree(repo, &[(path, "initial_left\n")]);
+    let initial_right = create_tree(repo, &[(path, "initial_right\n")]);
+    let initial_conflict_tree = MergedTree::merge(Merge::from_vec(vec![
+        (initial_left, "left".into()),
+        (initial_base, "base".into()),
+        (initial_right, "right".into()),
+    ]))
+    .block_on()?;
+    assert!(initial_conflict_tree.has_conflict());
+
+    let base_tree = create_single_tree(repo, &[(path, "a\nb\nc\n")]);
+    let left_tree = create_single_tree(repo, &[(path, "a1\nb\nc\n")]);
+    let right_tree = create_single_tree(repo, &[(path, "a\nb\nc1\n")]);
+
+    let mut tree_builder = MergedTreeBuilder::new(initial_conflict_tree);
+    tree_builder.set_or_remove_merge(
+        path.to_owned(),
+        Merge::from_vec(vec![
+            left_tree.path_value(path).block_on()?,
+            base_tree.path_value(path).block_on()?,
+            right_tree.path_value(path).block_on()?,
+        ]),
+    )?;
+    let tree = tree_builder.write_tree().block_on()?;
+    let expected_tree = create_single_tree(repo, &[(path, "a1\nb\nc1\n")]);
+    assert_eq!(
+        *tree.tree_ids(),
+        Merge::resolved(expected_tree.id().clone())
+    );
+    Ok(())
+}
+
+/// Test that a trivial conflict override on top of a conflicted base tree gets
+/// resolved.
+#[test]
+fn test_merged_tree_builder_resolves_trivial_conflict_override() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path = repo_path("dir/file");
+    let initial_base = create_tree(repo, &[(path, "initial_base\n")]);
+    let initial_left = create_tree(repo, &[(path, "initial_left\n")]);
+    let initial_right = create_tree(repo, &[(path, "initial_right\n")]);
+    let initial_conflict_tree = MergedTree::merge(Merge::from_vec(vec![
+        (initial_left, "left".into()),
+        (initial_base, "base".into()),
+        (initial_right, "right".into()),
+    ]))
+    .block_on()?;
+    assert!(initial_conflict_tree.has_conflict());
+
+    let base_tree = create_single_tree(repo, &[(path, "foo")]);
+    let resolved_tree = create_single_tree(repo, &[(path, "bar")]);
+
+    let mut tree_builder = MergedTreeBuilder::new(initial_conflict_tree);
+    tree_builder.set_or_remove_merge(
+        path.to_owned(),
+        Merge::from_vec(vec![
+            resolved_tree.path_value(path).block_on()?,
+            base_tree.path_value(path).block_on()?,
+            resolved_tree.path_value(path).block_on()?,
+        ]),
+    )?;
+    let tree = tree_builder.write_tree().block_on()?;
+    assert_eq!(
+        *tree.tree_ids(),
+        Merge::resolved(resolved_tree.id().clone())
+    );
+    Ok(())
+}
+
+#[test]
+fn test_merged_tree_builder_incremental_conflict_resolution() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path1 = repo_path("dir1/file1");
+    let path2 = repo_path("dir2/file2");
+    let side1 = create_tree(repo, &[(path1, "side1"), (path2, "base")]);
+    let base1 = create_tree(repo, &[(path1, "base"), (path2, "base")]);
+    let side2 = create_tree(repo, &[(path1, "side2"), (path2, "side2")]);
+    let base2 = create_tree(repo, &[(path1, "base"), (path2, "base")]);
+    let side3 = create_tree(repo, &[(path1, "base"), (path2, "side3")]);
+
+    let merged_tree = MergedTree::merge(Merge::from_vec(vec![
+        (side1, "side 1".into()),
+        (base1, "base 1".into()),
+        (side2, "side 2".into()),
+        (base2, "base 2".into()),
+        (side3, "side 3".into()),
+    ]))
+    .block_on()?;
+    assert_eq!(merged_tree.tree_ids().num_sides(), 3);
+
+    // Resolve only the first conflict; the tree should simplify from 3 sides to
+    // 2 sides while the second conflict directory remains conflicted.
+    let expected_tree = create_tree(repo, &[(path1, "resolved1"), (path2, "resolved2")]);
+    let mut builder1 = MergedTreeBuilder::new(merged_tree);
+    builder1.set_or_remove_merge(
+        path1.to_owned(),
+        expected_tree.path_value(path1).block_on()?,
+    )?;
+    let partially_resolved = builder1.write_tree().block_on()?;
+    assert_eq!(partially_resolved.tree_ids().num_sides(), 2);
+    assert_eq!(
+        partially_resolved.labels(),
+        &ConflictLabels::from_vec(vec!["side 2".into(), "base 2".into(), "side 3".into()])
+    );
+    assert_tree_eq!(
+        partially_resolved,
+        partially_resolved.clone().resolve().block_on()?
+    );
+
+    // Resolve the second conflict in a follow-up builder; the whole tree should now be resolved.
+    let mut builder2 = MergedTreeBuilder::new(partially_resolved);
+    builder2.set_or_remove_merge(
+        path2.to_owned(),
+        expected_tree.path_value(path2).block_on()?,
+    )?;
+    let fully_resolved = builder2.write_tree().block_on()?;
+    assert_tree_eq!(fully_resolved, expected_tree);
+    Ok(())
+}
+
+#[test]
+fn test_merged_tree_builder_file_dir_conflict_replaced_by_dir() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo_path = repo_path("foo");
+    let foo_a_path = repo_path("foo/a");
+    let foo_bar_path = repo_path("foo/bar");
+    let base = create_tree(repo, &[(foo_path, "base")]);
+    let side1 = create_tree(repo, &[(foo_a_path, "left")]);
+    let side2 = create_tree(repo, &[(foo_path, "right")]);
+
+    let merged_tree = MergedTree::merge(Merge::from_vec(vec![
+        (side1, "side 1".into()),
+        (base, "base".into()),
+        (side2, "side 2".into()),
+    ]))
+    .block_on()?;
+    assert!(merged_tree.has_conflict());
+
+    let expected_tree = create_tree(repo, &[(foo_bar_path, "resolved")]);
+    let mut builder = MergedTreeBuilder::new(merged_tree);
+    builder.set_or_remove(foo_path.to_owned(), None);
+    builder.set_or_remove_merge(
+        foo_bar_path.to_owned(),
+        expected_tree.path_value(foo_bar_path).block_on()?,
+    )?;
+    let actual_tree = builder.write_tree().block_on()?;
+    assert_tree_eq!(actual_tree, expected_tree);
+    Ok(())
+}
+
+#[test]
+fn test_merged_tree_builder_resolved_tree_override() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo_path = repo_path("foo");
+    let foo_a_path = repo_path("foo/a");
+    let foo_b_path = repo_path("foo/b");
+    let foo_c_path = repo_path("foo/c");
+
+    let base_tree = create_tree(repo, &[(foo_a_path, "1")]);
+    let replacement_tree = create_tree(repo, &[(foo_b_path, "2")]);
+    let expected_with_child = create_tree(repo, &[(foo_b_path, "2"), (foo_c_path, "3")]);
+
+    let foo_value = replacement_tree.path_value(foo_path).block_on()?;
+    assert!(foo_value.is_resolved());
+    assert!(foo_value.is_tree());
+
+    let mut builder1 = MergedTreeBuilder::new(base_tree.clone());
+    builder1.set_or_remove(
+        foo_path.to_owned(),
+        foo_value.clone().into_resolved().unwrap(),
+    );
+    let result1 = builder1.write_tree().block_on()?;
+    assert_tree_eq!(result1, replacement_tree);
+
+    let mut builder2 = MergedTreeBuilder::new(base_tree);
+    builder2.set_or_remove_merge(foo_path.to_owned(), foo_value)?;
+    builder2.set_or_remove_merge(
+        foo_c_path.to_owned(),
+        expected_with_child.path_value(foo_c_path).block_on()?,
+    )?;
+    let result2 = builder2.write_tree().block_on()?;
+    assert_tree_eq!(result2, expected_with_child);
+    Ok(())
+}
+
+#[test]
+fn test_merged_tree_builder_file_dir_conflict_override() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo_path = repo_path("foo");
+    let foo_a_path = repo_path("foo/a");
+    let base = create_tree(repo, &[(foo_a_path, "base")]);
+    let side1 = create_tree(repo, &[(foo_a_path, "left")]);
+    let side2 = create_tree(repo, &[(foo_path, "right_file")]);
+
+    let merged_tree = MergedTree::merge(Merge::from_vec(vec![
+        (side1, "side 1".into()),
+        (base, "base".into()),
+        (side2, "side 2".into()),
+    ]))
+    .block_on()?;
+    let foo_merge = merged_tree.path_value(foo_path).block_on()?;
+    assert!(!foo_merge.is_resolved());
+    assert!(!foo_merge.is_tree());
+
+    let mut builder = MergedTreeBuilder::new(merged_tree.clone());
+    builder.set_or_remove_merge(foo_path.to_owned(), foo_merge)?;
+    let actual_tree = builder.write_tree().block_on()?;
+    assert_tree_eq!(actual_tree, merged_tree);
+    Ok(())
+}
+
+#[test]
+#[should_panic]
+fn test_merged_tree_builder_rejects_unresolved_tree_override() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let dir_path = repo_path("dir");
+    let file_a_path = repo_path("dir/a");
+    let file_b_path = repo_path("dir/b");
+    let base = create_tree(repo, &[(file_a_path, "base")]);
+    let side1 = create_tree(repo, &[(file_a_path, "left")]);
+    let side2 = create_tree(repo, &[(file_a_path, "right"), (file_b_path, "2")]);
+
+    let merged_tree = MergedTree::merge(Merge::from_vec(vec![
+        (side1, "side 1".into()),
+        (base, "base".into()),
+        (side2, "side 2".into()),
+    ]))
+    .block_on()
+    .unwrap();
+    let dir_merge = merged_tree.path_value(dir_path).block_on().unwrap();
+    assert!(dir_merge.is_tree() && !dir_merge.is_resolved());
+
+    let mut builder = MergedTreeBuilder::new(merged_tree);
+    let _ = builder.set_or_remove_merge(dir_path.to_owned(), dir_merge);
+}
+
+#[test]
 fn test_tree_builder_dir_and_child_overrides() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
