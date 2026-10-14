@@ -48,6 +48,7 @@ use jj_lib::working_copy::SnapshotProgress;
 use jj_lib::working_copy::WorkingCopyStateError;
 use thiserror::Error;
 
+use crate::workspace_env::WorkspaceEnvironmentDiagnostics;
 use crate::workspace_env::WorkspaceEnvironmentError;
 
 /// A token that holds a lock for git import/export operations in colocated
@@ -111,6 +112,16 @@ impl RunnerOptions {
 /// importing from or exporting to Git, or finishing a transaction.
 #[derive(Debug)]
 pub enum RunnerEvent<'a> {
+    /// The `trunk()` revset alias couldn't be resolved in the loaded repo, so
+    /// it was temporarily set to `fallback`.
+    TrunkAliasFallback {
+        /// Why `trunk()` couldn't be resolved.
+        error: &'a RevsetResolutionError,
+        /// The definition `trunk()` was set to.
+        fallback: &'a str,
+    },
+    /// Problems found while reloading the workspace environment.
+    EnvironmentDiagnostics(&'a WorkspaceEnvironmentDiagnostics),
     /// Concurrent operations were found when loading the repo and are about
     /// to be merged.
     MergingConcurrentOperations {

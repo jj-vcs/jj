@@ -534,52 +534,25 @@ impl CommandHelper {
         mut env: WorkspaceCommandEnvironment,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let options = self.runner_options();
-        let mut runner = if let Some(op_str) = &self.data.global_args.at_operation {
+        let events = CliRunnerEvents::new(ui, &env);
+        let runner = if let Some(op_str) = &self.data.global_args.at_operation {
             let op = op_walk::resolve_op_for_load(workspace.repo_loader(), op_str).await?;
             let repo = workspace.repo_loader().load_at(&op).await?;
             let may_snapshot_working_copy = self.is_working_copy_writable();
-            WorkspaceOperationRunner::new(
+            WorkspaceOperationRunner::load_at(
+                &events,
                 workspace,
                 repo,
                 env.base.clone(),
                 options,
                 may_snapshot_working_copy,
-            )
+            )?
         } else {
-            let events = CliRunnerEvents::new(ui, &env);
             WorkspaceOperationRunner::load_at_head(&events, workspace, env.base.clone(), options)
                 .await?
         };
-        if let Err(err) = jj_frontend::revset_util::try_resolve_trunk_alias(
-            runner.repo().as_ref(),
-            &env.revset_parse_context(),
-        ) {
-            // The fallback can be builtin_trunk() if we're willing to support
-            // inferred trunk forever. (#7990)
-            let fallback = "root()";
-            writeln!(
-                ui.warning_default(),
-                "Failed to resolve `revset-aliases.trunk()`: {err}"
-            )?;
-            writeln!(
-                ui.warning_no_heading(),
-                "The `trunk()` alias is temporarily set to `{fallback}`."
-            )?;
-            writeln!(
-                ui.hint_default(),
-                "Use `jj config edit --repo` to adjust the `trunk()` alias."
-            )?;
-            let base_env = Arc::make_mut(&mut runner.env);
-            base_env
-                .revset_aliases_map_mut()
-                .insert("trunk()", fallback, None)
-                .expect("valid syntax");
-            let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
-            let result = base_env.reload_revset_expressions(&mut diagnostics);
-            print_workspace_environment_diagnostics(ui, &diagnostics)?;
-            result?;
-            env.base = runner.env.clone();
-        }
+        // The runner may have updated the environment.
+        env.base = runner.env().clone();
         WorkspaceCommandHelper::new(ui, runner, env)
     }
 
@@ -1235,6 +1208,23 @@ impl<'a> CliRunnerEvents<'a> {
     fn print_event(&self, event: RunnerEvent<'_>) -> Result<(), CommandError> {
         let ui = self.ui;
         match event {
+            RunnerEvent::TrunkAliasFallback { error, fallback } => {
+                writeln!(
+                    ui.warning_default(),
+                    "Failed to resolve `revset-aliases.trunk()`: {error}"
+                )?;
+                writeln!(
+                    ui.warning_no_heading(),
+                    "The `trunk()` alias is temporarily set to `{fallback}`."
+                )?;
+                writeln!(
+                    ui.hint_default(),
+                    "Use `jj config edit --repo` to adjust the `trunk()` alias."
+                )?;
+            }
+            RunnerEvent::EnvironmentDiagnostics(diagnostics) => {
+                print_workspace_environment_diagnostics(ui, diagnostics)?;
+            }
             RunnerEvent::MergingConcurrentOperations { operations: _ } => {
                 writeln!(
                     ui.status(),
@@ -1496,6 +1486,52 @@ impl WorkspaceOperationRunner {
         .await?;
         let repo = repo_loader.load_at(&op_head).await?;
         let may_snapshot_working_copy = !options.ignore_working_copy;
+        Self::load_at(
+            events,
+            workspace,
+            repo,
+            env,
+            options,
+            may_snapshot_working_copy,
+        )
+    }
+
+    /// Creates a runner like [`Self::new()`], but first checks that the
+    /// `trunk()` revset alias can be resolved in `repo`. If it can't, it's
+    /// temporarily set to `root()` so revsets that use it can still be
+    /// evaluated.
+    pub fn load_at(
+        events: &dyn RunnerEvents,
+        workspace: Workspace,
+        repo: Arc<ReadonlyRepo>,
+        mut env: Arc<WorkspaceEnvironment>,
+        options: RunnerOptions,
+        may_snapshot_working_copy: bool,
+    ) -> Result<Self, RunnerError> {
+        if let Err(error) = jj_frontend::revset_util::try_resolve_trunk_alias(
+            repo.as_ref(),
+            &env.revset_parse_context(),
+        ) {
+            // The fallback can be builtin_trunk() if we're willing to support
+            // inferred trunk forever. (#7990)
+            let fallback = "root()";
+            events
+                .event(RunnerEvent::TrunkAliasFallback {
+                    error: &error,
+                    fallback,
+                })
+                .map_err(RunnerError::EventSink)?;
+            let env = Arc::make_mut(&mut env);
+            env.revset_aliases_map_mut()
+                .insert("trunk()", fallback, None)
+                .expect("valid syntax");
+            let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
+            let result = env.reload_revset_expressions(&mut diagnostics);
+            events
+                .event(RunnerEvent::EnvironmentDiagnostics(&diagnostics))
+                .map_err(RunnerError::EventSink)?;
+            result?;
+        }
         Ok(Self::new(
             workspace,
             repo,
@@ -4702,6 +4738,34 @@ mod tests {
         }
     }
 
+    /// Creates a workspace with the CLI's default config, and its environment.
+    /// `revset_aliases` override the configured revset aliases.
+    fn test_workspace_and_env(
+        revset_aliases: &[(&str, &str)],
+    ) -> (testutils::TestWorkspace, Arc<WorkspaceEnvironment>) {
+        let mut config = testutils::base_user_config();
+        config.extend_layers(crate::config::default_config_layers());
+        let settings = testutils::user_settings_from_config(config);
+        let test_workspace = testutils::TestWorkspace::init_with_settings(&settings);
+        let ui = Ui::null();
+        let config = settings.config();
+        let mut revset_aliases_map = load_revset_aliases(&ui, config).unwrap();
+        for (decl, definition) in revset_aliases {
+            revset_aliases_map.insert(*decl, *definition, None).unwrap();
+        }
+        let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
+        let env = WorkspaceEnvironment::new(
+            &mut diagnostics,
+            &test_workspace.workspace,
+            test_workspace.workspace.workspace_root(),
+            Arc::new(RevsetExtensions::default()),
+            load_fileset_aliases(&ui, config).unwrap(),
+            revset_aliases_map,
+        )
+        .unwrap();
+        (test_workspace, Arc::new(env))
+    }
+
     /// Creates a workspace with two concurrent operations, and returns the
     /// workspace, its environment, and the IDs of the operation heads.
     fn workspace_with_concurrent_operations() -> (
@@ -4709,10 +4773,7 @@ mod tests {
         Arc<WorkspaceEnvironment>,
         Vec<OperationId>,
     ) {
-        let mut config = testutils::base_user_config();
-        config.extend_layers(crate::config::default_config_layers());
-        let settings = testutils::user_settings_from_config(config);
-        let test_workspace = testutils::TestWorkspace::init_with_settings(&settings);
+        let (test_workspace, env) = test_workspace_and_env(&[]);
         let repo = &test_workspace.repo;
         let op_ids = ["operation 1", "operation 2"]
             .map(|description| {
@@ -4722,20 +4783,7 @@ mod tests {
             .into_iter()
             .sorted()
             .collect_vec();
-
-        let ui = Ui::null();
-        let config = settings.config();
-        let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
-        let env = WorkspaceEnvironment::new(
-            &mut diagnostics,
-            &test_workspace.workspace,
-            test_workspace.workspace.workspace_root(),
-            Arc::new(RevsetExtensions::default()),
-            load_fileset_aliases(&ui, config).unwrap(),
-            load_revset_aliases(&ui, config).unwrap(),
-        )
-        .unwrap();
-        (test_workspace, Arc::new(env), op_ids)
+        (test_workspace, env, op_ids)
     }
 
     #[test]
@@ -4789,5 +4837,35 @@ mod tests {
             .collect_vec();
         assert_eq!(parent_op_ids, op_ids);
         assert_eq!(*events.0.borrow(), ["MergingConcurrentOperations"]);
+    }
+
+    #[test]
+    fn test_load_at_unresolvable_trunk() {
+        let (test_workspace, env) = test_workspace_and_env(&[("trunk()", "nonexistent")]);
+        let testutils::TestWorkspace {
+            env: _test_env,
+            workspace,
+            repo,
+        } = test_workspace;
+        let events = RecordingEvents::default();
+        let runner = WorkspaceOperationRunner::load_at(
+            &events,
+            workspace,
+            repo,
+            env,
+            test_runner_options(false),
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            *events.0.borrow(),
+            ["TrunkAliasFallback", "EnvironmentDiagnostics"]
+        );
+        let (_, _, trunk_definition, _) = runner
+            .env()
+            .revset_aliases_map()
+            .get_function("trunk", 0)
+            .unwrap();
+        assert_eq!(trunk_definition, "root()");
     }
 }
