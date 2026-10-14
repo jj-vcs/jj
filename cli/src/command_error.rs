@@ -254,6 +254,7 @@ impl From<WorkspaceEnvironmentError> for CommandError {
 impl From<RunnerError> for CommandError {
     fn from(err: RunnerError) -> Self {
         match err {
+            RunnerError::ConcurrentOperations { .. } => internal_error(err),
             RunnerError::WorkingCopyNotWritable(reason) => {
                 let hint = match reason {
                     WorkingCopyNotWritableReason::IgnoringWorkingCopy => {
@@ -307,6 +308,7 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
             RunnerError::Environment(err) => err.into(),
             RunnerError::Backend(err) => err.into(),
             RunnerError::OpStore(err) => err.into(),
+            RunnerError::OpHeadsStore(err) => err.into(),
             RunnerError::RepoLoader(err) => err.into(),
             RunnerError::Snapshot(err) => err.into(),
             RunnerError::WorkingCopyState(err) => err.into(),
