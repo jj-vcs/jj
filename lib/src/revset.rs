@@ -91,6 +91,7 @@ use crate::str_util::StringExpression;
 use crate::str_util::StringPattern;
 use crate::time_util::DatePattern;
 use crate::ui_path::RepoPathUiConverter;
+use crate::working_copy::WorkingCopy;
 
 /// Error occurred during symbol resolution.
 #[derive(Debug, Error)]
@@ -3439,9 +3440,11 @@ impl<'a> LoweringContext<'a> {
     }
 
     pub fn fileset_parse_context(&self) -> Option<FilesetParseContext<'_>> {
+        let workspace = self.workspace?;
         Some(FilesetParseContext {
             aliases_map: self.fileset_aliases_map,
-            path_converter: self.workspace?.path_converter,
+            path_converter: workspace.path_converter,
+            working_copy: workspace.working_copy,
         })
     }
 
@@ -3451,10 +3454,13 @@ impl<'a> LoweringContext<'a> {
 }
 
 /// Workspace information needed to parse revset expression.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct RevsetWorkspaceContext<'a> {
     pub path_converter: &'a RepoPathUiConverter,
     pub workspace_name: &'a WorkspaceName,
+    /// Working copy whose sparse patterns the `sparse()` fileset function
+    /// resolves to.
+    pub working_copy: Option<&'a dyn WorkingCopy>,
 }
 
 #[cfg(test)]
@@ -3514,6 +3520,7 @@ mod tests {
         let workspace_ctx = RevsetWorkspaceContext {
             path_converter: &path_converter,
             workspace_name,
+            working_copy: None,
         };
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {

@@ -85,6 +85,8 @@ You can also specify patterns by using functions.
 
 * `all()`: Matches everything.
 * `none()`: Matches nothing.
+* `sparse()`: Matches the paths included by the current workspace's sparse
+  patterns (see `jj sparse`). Not available in config files.
 
 ## Aliases
 
