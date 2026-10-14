@@ -157,6 +157,14 @@ impl RunnerOptions {
 /// importing from or exporting to Git, or finishing a transaction.
 #[derive(Debug)]
 pub enum RunnerEvent {
+    /// The `trunk()` revset alias couldn't be resolved in the loaded repo, so
+    /// it was temporarily set to `fallback`.
+    TrunkAliasFallback {
+        /// Why `trunk()` couldn't be resolved.
+        error: RevsetResolutionError,
+        /// The definition `trunk()` was set to.
+        fallback: String,
+    },
     /// Concurrent operations were found when loading the repo and are about
     /// to be merged.
     MergingConcurrentOperations {
