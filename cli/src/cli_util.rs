@@ -1459,6 +1459,35 @@ fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
                 short_operation_hash(op_id)
             )
         }
+        #[cfg(feature = "git")]
+        RunnerEvent::GitHeadImported { first_import } => {
+            if *first_import {
+                // Don't print verbose message on initial checkout.
+                Ok(())
+            } else {
+                writeln!(
+                    ui.status(),
+                    "Reset the working copy parent to the new Git HEAD."
+                )
+            }
+        }
+        #[cfg(feature = "git")]
+        RunnerEvent::GitRefsImported(stats) => {
+            crate::git_util::print_git_import_stats_summary(ui, stats)
+        }
+        #[cfg(feature = "git")]
+        RunnerEvent::GitRefsImportFinished => writeln!(
+            ui.status(),
+            "Done importing changes from the underlying Git repo."
+        ),
+        #[cfg(feature = "git")]
+        RunnerEvent::GitRefsExported(stats) => crate::git_util::print_git_export_stats(ui, stats),
+        #[cfg(feature = "git")]
+        RunnerEvent::GitHeadResetFailed(err) => {
+            use std::error::Error as _;
+            writeln!(ui.warning_default(), "{err}")?;
+            print_error_sources(ui, err.source())
+        }
     }
 }
 
@@ -1655,14 +1684,12 @@ impl WorkspaceCommandHelper {
                     .finish(self.user_repo.repo.op_id().clone())
                     .await?;
             }
-            if old_git_head.is_present() {
-                writeln!(
-                    ui.status(),
-                    "Reset the working copy parent to the new Git HEAD."
-                )?;
-            } else {
-                // Don't print verbose message on initial checkout.
-            }
+            print_runner_event(
+                ui,
+                &RunnerEvent::GitHeadImported {
+                    first_import: old_git_head.is_absent(),
+                },
+            )?;
             if !self.options.integrate_operation {
                 print_runner_event(
                     ui,
@@ -1712,7 +1739,7 @@ impl WorkspaceCommandHelper {
             crate::git_util::load_git_import_options(ui, &git_settings, &remote_settings)?;
         let mut tx = self.start_transaction();
         let stats = git::import_refs(tx.repo_mut(), &import_options).await?;
-        crate::git_util::print_git_import_stats_summary(ui, &stats)?;
+        print_runner_event(ui, &RunnerEvent::GitRefsImported(stats))?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
@@ -1730,10 +1757,7 @@ impl WorkspaceCommandHelper {
         }
         self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)
             .await?;
-        writeln!(
-            ui.status(),
-            "Done importing changes from the underlying Git repo."
-        )?;
+        print_runner_event(ui, &RunnerEvent::GitRefsImportFinished)?;
         Ok(())
     }
 
@@ -2394,20 +2418,23 @@ to the current parents may contain changes from multiple commits.
                     // rewritten descendants, but it's harmless.
                     let stats =
                         jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
-                    crate::git_util::print_git_export_stats(ui, &stats)
+                    print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
                         .map_err(snapshot_command_error)?;
                 } else {
                     let old_tree = wc_commit.tree();
                     let new_tree = new_wc_commit.tree();
-                    export_working_copy_changes_to_git(
-                        ui,
-                        mut_repo,
+                    jj_lib::git::update_intent_to_add(
+                        mut_repo.base_repo().as_ref(),
                         workspace_root,
                         &old_tree,
                         &new_tree,
                     )
                     .await
                     .map_err(snapshot_command_error)?;
+                    let stats =
+                        jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
+                    print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
+                        .map_err(snapshot_command_error)?;
                 }
             }
 
@@ -2599,7 +2626,7 @@ to the current parents may contain changes from multiple commits.
                 .await?;
             }
             let stats = jj_lib::git::export_refs(tx.repo_mut())?;
-            crate::git_util::print_git_export_stats(ui, &stats)?;
+            print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))?;
         }
 
         self.user_repo = ReadonlyUserRepo::new(
@@ -2929,7 +2956,6 @@ async fn try_reset_git_head(
     wc_commit: &Commit,
     _git_import_export_lock: &GitImportExportLock,
 ) -> Result<(), CommandError> {
-    use std::error::Error as _;
     // Export Git HEAD while holding the git-head lock to prevent races:
     // - Between two finish_transaction calls updating HEAD
     // - With import_git_head importing HEAD concurrently
@@ -2939,8 +2965,7 @@ async fn try_reset_git_head(
     match jj_lib::git::reset_head(mut_repo, workspace_name, workspace_root, wc_commit).await {
         Ok(()) => Ok(()),
         Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
-            writeln!(ui.warning_default(), "{err}")?;
-            print_error_sources(ui, err.source())?;
+            print_runner_event(ui, &RunnerEvent::GitHeadResetFailed(err))?;
             Ok(())
         }
         Err(err) => Err(err.into()),
