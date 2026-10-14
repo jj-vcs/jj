@@ -3313,6 +3313,21 @@ In other words, for all (A, B, C) where A has (B, C) as parents and C is an ance
 
 Manage which paths from the working-copy commit are present in the working copy
 
+The sparse patterns are a fileset expression (see `jj help -k filesets`).
+They're displayed and edited as a list of rules, which are applied in order
+starting from no files. Each rule either adds (`+`) or removes (`-`) the
+files matched by a fileset expression. Paths in the rules are relative to
+the workspace root. For example, these rules include everything except the
+`build/` directory, but do include `build/config/`:
+
+```text
++ all()
+- build
++ build/config
+```
+
+The `sparse()` fileset function refers to the current sparse patterns.
+
 **Usage:** `jj sparse <COMMAND>`
 
 ###### **Subcommands:**
@@ -3328,6 +3343,8 @@ Manage which paths from the working-copy commit are present in the working copy
 
 Start an editor to update the patterns that are present in the working copy
 
+The patterns are edited as a list of rules (see `jj sparse --help`). Paths are relative to the workspace root.
+
 **Usage:** `jj sparse edit`
 
 
@@ -3336,7 +3353,7 @@ Start an editor to update the patterns that are present in the working copy
 
 List the patterns that are currently present in the working copy
 
-By default, a newly cloned or initialized repo will have have a pattern matching all files from the repo root. That pattern is rendered as `.` (a single period).
+The patterns are printed as a list of rules (see `jj sparse --help`). By default, a newly cloned or initialized repo has a single rule, `+ all()`.
 
 **Usage:** `jj sparse list`
 
@@ -3354,15 +3371,23 @@ Reset the patterns to include all files in the working copy
 
 Update the patterns that are present in the working copy
 
-For example, if all you need is the `README.md` and the `lib/` directory, use `jj sparse set --clear --add README.md --add lib`. If you no longer need the `lib` directory, use `jj sparse set --remove lib`.
+Patterns are fileset expressions (see `jj help -k filesets`). Like in other commands, paths are relative to the current directory.
 
-**Usage:** `jj sparse set [OPTIONS]`
+For example, if all you need is the `README.md` and the `lib/` directory, use `jj sparse set README.md lib`. If you then no longer need the `lib/tests/` directory, use `jj sparse set --exclude lib/tests`. To add patterns in a different order, use `sparse()` to refer to the current patterns, e.g. `jj sparse set '(src | sparse()) ~ src/generated'`.
+
+The new patterns are computed by starting from the current patterns (or from the positional arguments, or from no files if `--clear` is given), then including all `--include` patterns, then excluding all `--exclude` patterns.
+
+**Usage:** `jj sparse set [OPTIONS] [FILESETS]...`
+
+###### **Arguments:**
+
+* `<FILESETS>` — Replace the patterns with the files matched by any of these filesets
 
 ###### **Options:**
 
-* `--add <ADD>` — Patterns to add to the working copy
-* `--remove <REMOVE>` — Patterns to remove from the working copy
-* `--clear` — Include no files in the working copy (combine with --add)
+* `--include <FILESET>` — Add the files matched by these filesets
+* `--exclude <FILESET>` — Remove the files matched by these filesets
+* `--clear` — Start from no files instead of the current patterns
 
 
 

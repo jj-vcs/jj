@@ -13,20 +13,18 @@
 // limitations under the License.
 
 use std::io::Write as _;
-use std::path::Path;
 
 use tracing::instrument;
 
-use super::sparse_patterns_as_prefixes;
+use super::format_sparse_rules;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
 /// List the patterns that are currently present in the working copy
 ///
-/// By default, a newly cloned or initialized repo will have have a pattern
-/// matching all files from the repo root. That pattern is rendered as `.` (a
-/// single period).
+/// The patterns are printed as a list of rules (see `jj sparse --help`). By
+/// default, a newly cloned or initialized repo has a single rule, `+ all()`.
 #[derive(clap::Args, Clone, Debug)]
 pub struct SparseListArgs {}
 
@@ -37,12 +35,7 @@ pub async fn cmd_sparse_list(
     _args: &SparseListArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
-    for path in sparse_patterns_as_prefixes(workspace_command.working_copy().sparse_patterns()?)? {
-        writeln!(
-            ui.stdout(),
-            "{}",
-            path.to_fs_path_unchecked(Path::new("")).display()
-        )?;
-    }
+    let sparse_patterns = workspace_command.working_copy().sparse_patterns()?;
+    write!(ui.stdout(), "{}", format_sparse_rules(sparse_patterns))?;
     Ok(())
 }

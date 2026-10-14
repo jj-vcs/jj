@@ -29,6 +29,16 @@ and this project adheres to
   * New directives and flags such as `%N`, `%Q`, `%^a`, and `%5Y` are now
     accepted. `%#z` no longer panics.
 
+* `jj sparse set` now takes fileset expressions instead of paths, and paths are
+  relative to the current directory like in other commands. `--add` and
+  `--remove` have been renamed to `--include` and `--exclude` (the old names
+  still work). `--exclude` now excludes the matching files from the current
+  patterns instead of removing an entry from the list of patterns, so e.g.
+  `jj sparse set --exclude lib/tests` now works when `lib/` is included.
+
+* `jj sparse list` and `jj sparse edit` now show the sparse patterns as a list
+  of rules that each include (`+`) or exclude (`-`) a fileset expression.
+
 ### Deprecations
 
 ### New features
@@ -51,6 +61,12 @@ and this project adheres to
 
 * `jj config gc` now also cleans up workspace configs whose paths no longer
   exist.
+
+* Sparse patterns can now be arbitrary fileset expressions, so they can use
+  globs and exclude paths. For example, `jj sparse set 'all() ~ build'`
+  checks out everything except the `build/` directory.
+  [#1896](https://github.com/jj-vcs/jj/issues/1896),
+  [#7815](https://github.com/jj-vcs/jj/issues/7815)
 
 * New `sparse()` fileset function matches the paths included by the current
   workspace's sparse patterns. For example, `jj log -r 'files(sparse())'`

@@ -33,12 +33,12 @@ fn test_sparse_manage_patterns() {
     // By default, all files are tracked
     let output = work_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    .
+    + all()
     [EOF]
     ");
 
     // Can stop tracking all files
-    let output = work_dir.run_jj(["sparse", "set", "--remove", "."]);
+    let output = work_dir.run_jj(["sparse", "set", "--exclude", "."]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Added 0 files, modified 0 files, removed 3 files
@@ -61,22 +61,18 @@ fn test_sparse_manage_patterns() {
     ");
 
     // Run commands in sub directory to ensure that patterns are parsed as
-    // workspace-relative paths, not cwd-relative ones.
+    // cwd-relative paths, and stored as workspace-relative paths.
     let sub_dir = work_dir.create_dir("sub");
 
-    // Not a workspace-relative path
-    let output = sub_dir.run_jj(["sparse", "set", "--add=../file2"]);
-    insta::assert_snapshot!(output, @r#"
-    ------- stderr -------
-    error: invalid value '../file2' for '--add <ADD>': Invalid component ".." in repo-relative path "../file2"
-
-    For more information, try '--help'.
-    [EOF]
-    [exit status: 2]
-    "#);
-
-    // Can `--add` a few files
-    let output = sub_dir.run_jj(["sparse", "set", "--add", "file2", "--add", "file3"]);
+    // Can `--include` a few files
+    let output = sub_dir.run_jj([
+        "sparse",
+        "set",
+        "--include",
+        "../file2",
+        "--include",
+        "../file3",
+    ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Added 2 files, modified 0 files, removed 0 files
@@ -84,17 +80,25 @@ fn test_sparse_manage_patterns() {
     ");
     let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    file2
-    file3
+    + file2
+    + file3
     [EOF]
     ");
     assert!(!work_dir.root().join("file1").exists());
     assert!(work_dir.root().join("file2").exists());
     assert!(work_dir.root().join("file3").exists());
 
-    // Can combine `--add` and `--remove`
+    // Can combine `--include` and `--exclude`. `--add` and `--remove` are
+    // aliases.
     let output = sub_dir.run_jj([
-        "sparse", "set", "--add", "file1", "--remove", "file2", "--remove", "file3",
+        "sparse",
+        "set",
+        "--add",
+        "../file1",
+        "--exclude",
+        "../file2",
+        "--remove",
+        "../file3",
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -103,39 +107,95 @@ fn test_sparse_manage_patterns() {
     ");
     let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    file1
+    + file2
+    + file3
+    + file1
+    - file2
+    - file3
     [EOF]
     ");
     assert!(work_dir.root().join("file1").exists());
     assert!(!work_dir.root().join("file2").exists());
     assert!(!work_dir.root().join("file3").exists());
 
-    // Can use `--clear` and `--add`
-    let output = sub_dir.run_jj(["sparse", "set", "--clear", "--add", "file2"]);
+    // Positional arguments replace the patterns
+    let output = sub_dir.run_jj(["sparse", "set", "../file2", "../file3"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Added 1 files, modified 0 files, removed 1 files
+    Added 2 files, modified 0 files, removed 1 files
     [EOF]
     ");
     let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    file2
+    + file2
+    + file3
+    [EOF]
+    ");
+
+    // Can use `--clear` and `--include`
+    let output = sub_dir.run_jj(["sparse", "set", "--clear", "--include", "../file2"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+    let output = sub_dir.run_jj(["sparse", "list"]);
+    insta::assert_snapshot!(output, @"
+    + file2
     [EOF]
     ");
     assert!(!work_dir.root().join("file1").exists());
     assert!(work_dir.root().join("file2").exists());
     assert!(!work_dir.root().join("file3").exists());
 
+    // Can use fileset expressions, including `sparse()` for the current
+    // patterns
+    let output = work_dir.run_jj(["sparse", "set", "glob:file*", "--exclude", "file3"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["sparse", "set", "(file3 | sparse()) ~ file1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Added 1 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["sparse", "list"]);
+    insta::assert_snapshot!(output, @"
+    + file3
+    + glob:file* ~ file3
+    - file1
+    [EOF]
+    ");
+    assert!(!work_dir.root().join("file1").exists());
+    assert!(work_dir.root().join("file2").exists());
+    assert!(work_dir.root().join("file3").exists());
+
+    // Positional arguments can't be combined with `--clear`
+    let output = work_dir.run_jj(["sparse", "set", "--clear", "file1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: the argument '--clear' cannot be used with '[FILESETS]...'
+
+    Usage: jj sparse set --clear [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
     // Can reset back to all files
     let output = sub_dir.run_jj(["sparse", "reset"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Added 2 files, modified 0 files, removed 0 files
+    Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
     let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    .
+    + all()
     [EOF]
     ");
     assert!(work_dir.root().join("file1").exists());
@@ -153,43 +213,90 @@ fn test_sparse_manage_patterns() {
     };
     let read_patterns = || std::fs::read_to_string(test_env.env_root().join("patterns0")).unwrap();
 
-    edit_patterns(&["file1"]);
+    // Paths are relative to the workspace root even if run from a sub
+    // directory
+    edit_patterns(&["+ all()", "- file1", "  -  file2  ", "", "JJ: ignored"]);
     let output = sub_dir.run_jj(["sparse", "edit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    insta::assert_snapshot!(read_patterns(), @".");
+    insta::assert_snapshot!(read_patterns(), @r#"
+    + all()
+    JJ: Each line adds (+) or removes (-) the files matched by a fileset expression,
+    JJ: starting from no files. Paths are relative to the workspace root.
+    JJ: Lines starting with "JJ:" are ignored.
+    "#);
     let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    file1
+    + all()
+    - file1
+    - file2
     [EOF]
     ");
 
-    // Can edit with multiple files
-    edit_patterns(&["file3", "file2", "file3"]);
+    // Can include previously excluded files
+    edit_patterns(&["+ all()", "- file1 | file2", "+ file2"]);
     let output = sub_dir.run_jj(["sparse", "edit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Added 2 files, modified 0 files, removed 1 files
+    Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(read_patterns(), @"file1");
-    let output = sub_dir.run_jj(["sparse", "list"]);
+    insta::assert_snapshot!(read_patterns(), @r#"
+    + all()
+    - file1
+    - file2
+    JJ: Each line adds (+) or removes (-) the files matched by a fileset expression,
+    JJ: starting from no files. Paths are relative to the workspace root.
+    JJ: Lines starting with "JJ:" are ignored.
+    "#);
+    assert!(!work_dir.root().join("file1").exists());
+    assert!(work_dir.root().join("file2").exists());
+    assert!(work_dir.root().join("file3").exists());
+
+    // Lines must start with a marker
+    edit_patterns(&["file1"]);
+    let output = sub_dir.run_jj(["sparse", "edit"]);
     insta::assert_snapshot!(output, @"
-    file2
-    file3
+    ------- stderr -------
+    Error: Sparse pattern must start with '+' or '-': file1
     [EOF]
+    [exit status: 1]
+    ");
+
+    // Invalid expressions are rejected
+    edit_patterns(&["+ file1 |"]);
+    let output = sub_dir.run_jj(["sparse", "edit"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to parse sparse pattern: + file1 |
+    Caused by:  --> 1:8
+      |
+    1 | file1 |
+      |        ^---
+      |
+      = expected `~` or <primary>
+    [EOF]
+    [exit status: 1]
     ");
 
     // Invalid paths are rejected
-    edit_patterns(&["./file1"]);
+    edit_patterns(&["+ ../file1"]);
     let output = sub_dir.run_jj(["sparse", "edit"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Failed to parse sparse pattern: ./file1
-    Caused by: Invalid component "." in repo-relative path "./file1"
+    Error: Failed to parse sparse pattern: + ../file1
+    Caused by:
+    1:  --> 1:1
+      |
+    1 | ../file1
+      | ^------^
+      |
+      = Invalid file pattern
+    2: Path "../file1" is not in the repo "."
+    3: Invalid component ".." in repo-relative path "../file1"
     [EOF]
     [exit status: 1]
     "#);

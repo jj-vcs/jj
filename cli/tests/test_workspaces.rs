@@ -213,15 +213,15 @@ fn test_workspaces_sparse_patterns() {
     ws1_dir.run_jj(["workspace", "add", "../ws2"]).success();
     let output = ws2_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    foo
+    + foo
     [EOF]
     ");
     ws2_dir.run_jj(["sparse", "set", "--add=bar"]).success();
     ws2_dir.run_jj(["workspace", "add", "../ws3"]).success();
     let output = ws3_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    bar
-    foo
+    + foo
+    + bar
     [EOF]
     ");
     // --sparse-patterns behavior
@@ -230,8 +230,8 @@ fn test_workspaces_sparse_patterns() {
         .success();
     let output = ws4_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    bar
-    foo
+    + foo
+    + bar
     [EOF]
     ");
     ws3_dir
@@ -239,7 +239,7 @@ fn test_workspaces_sparse_patterns() {
         .success();
     let output = ws5_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    .
+    + all()
     [EOF]
     ");
     ws3_dir
@@ -1172,9 +1172,9 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     let output = secondary_dir.run_jj(["sparse", "list"]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @"
-        added
-        deleted
-        modified
+        + modified
+        + deleted
+        + added
         [EOF]
         ");
     }
