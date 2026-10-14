@@ -1353,8 +1353,6 @@ Search for content in files
 
 Prints each line that matches the specified pattern, prefixed by the file path. Use `--name-only` to print only the file paths.
 
-This is an early version of the command. It does not search files concurrently.
-
 **Usage:** `jj file search [OPTIONS] --pattern <PATTERN> [FILESETS]...`
 
 ###### **Arguments:**
