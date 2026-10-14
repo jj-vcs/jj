@@ -26,6 +26,8 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
+use jj_lib::repo::RewriteRootCommit;
+use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
@@ -192,6 +194,19 @@ pub enum RunnerError {
     /// Error reading or writing the working-copy state.
     #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
+    /// Error evaluating a revset.
+    #[error(transparent)]
+    RevsetEvaluation(#[from] RevsetEvaluationError),
+    /// Attempted to rewrite the root commit.
+    #[error(transparent)]
+    RewriteRootCommit(#[from] RewriteRootCommit),
+    /// Error committing a transaction.
+    #[error(transparent)]
+    TransactionCommit(#[from] TransactionCommitError),
+    /// Error exporting to Git.
+    #[cfg(feature = "git")]
+    #[error(transparent)]
+    GitExport(#[from] jj_lib::git::GitExportError),
     /// Error resetting Git HEAD.
     #[cfg(feature = "git")]
     #[error(transparent)]
@@ -199,6 +214,13 @@ pub enum RunnerError {
     /// The caller failed to handle a [`RunnerEvent`].
     #[error(transparent)]
     EventSink(Box<dyn std::error::Error + Send + Sync>),
+}
+
+impl RunnerError {
+    /// Wraps an error from the caller's handling of a [`RunnerEvent`].
+    pub fn event_sink(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+        Self::EventSink(err.into())
+    }
 }
 
 /// Why the working copy can't be updated.
