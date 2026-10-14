@@ -19,6 +19,7 @@ use itertools::Itertools as _;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
+use jj_lib::fileset::FilesetExpression;
 #[cfg(feature = "git")]
 use jj_lib::git::GitSubprocessOptions;
 #[cfg(feature = "git")]
@@ -197,12 +198,12 @@ pub async fn cmd_workspace_add(
 
     let sparsity = match args.sparse_patterns {
         SparseInheritance::Full => None,
-        SparseInheritance::Empty => Some(vec![]),
+        SparseInheritance::Empty => Some(FilesetExpression::none()),
         SparseInheritance::Copy => {
             let sparse_patterns = old_workspace_command
                 .working_copy()
                 .sparse_patterns()?
-                .to_vec();
+                .clone();
             Some(sparse_patterns)
         }
     };

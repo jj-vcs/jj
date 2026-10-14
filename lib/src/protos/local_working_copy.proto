@@ -42,8 +42,41 @@ message FileStateEntry {
   FileState state = 2;
 }
 
+// Resolved fileset expression. Paths are relative to the workspace root.
+message FilesetExpression {
+  message Empty {}
+  message Glob {
+    // Directory the pattern is evaluated in.
+    string dir = 1;
+    string pattern = 2;
+    bool case_insensitive = 3;
+  }
+  message UnionAll {
+    repeated FilesetExpression expressions = 1;
+  }
+  message Binary {
+    FilesetExpression lhs = 1;
+    FilesetExpression rhs = 2;
+  }
+
+  oneof value {
+    Empty none = 1;
+    Empty all = 2;
+    string file_path = 3;
+    string prefix_path = 4;
+    Glob file_glob = 5;
+    Glob prefix_glob = 6;
+    UnionAll union_all = 7;
+    Binary intersection = 8;
+    Binary difference = 9;
+  }
+}
+
 message SparsePatterns {
+  // Legacy format: the union of these path prefixes. Only used if
+  // `expression` is unset.
   repeated string prefixes = 1;
+  FilesetExpression expression = 2;
 }
 
 message TreeState {

@@ -89,6 +89,8 @@ use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
 use crate::file_util::persist_temp_file;
 use crate::file_util::symlink_file;
+use crate::fileset::FilePattern;
+use crate::fileset::FilesetExpression;
 use crate::fsmonitor::FsmonitorSettings;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::WatchmanConfig;
@@ -101,6 +103,7 @@ use crate::matchers::EverythingMatcher;
 use crate::matchers::FilesMatcher;
 use crate::matchers::IntersectionMatcher;
 use crate::matchers::Matcher;
+use crate::matchers::PathGlobPattern;
 use crate::matchers::PrefixMatcher;
 use crate::matchers::UnionMatcher;
 use crate::merge::Merge;
@@ -653,18 +656,152 @@ fn is_file_state_entries_proto_unique_and_sorted(
 
 fn sparse_patterns_from_proto(
     proto: Option<&crate::protos::local_working_copy::SparsePatterns>,
-) -> Vec<RepoPathBuf> {
-    let mut sparse_patterns = vec![];
-    if let Some(proto_sparse_patterns) = proto {
-        for prefix in &proto_sparse_patterns.prefixes {
-            sparse_patterns.push(RepoPathBuf::from_internal_string(prefix).unwrap());
-        }
-    } else {
+) -> Result<FilesetExpression, String> {
+    let Some(proto) = proto else {
         // For compatibility with old working copies.
         // TODO: Delete this is late 2022 or so.
-        sparse_patterns.push(RepoPathBuf::root());
+        return Ok(FilesetExpression::all());
+    };
+    if let Some(expression) = &proto.expression {
+        return fileset_expression_from_proto(expression);
     }
-    sparse_patterns
+    if proto.prefixes.len() == 1 && proto.prefixes[0].is_empty() {
+        return Ok(FilesetExpression::all());
+    }
+    let expressions = proto
+        .prefixes
+        .iter()
+        .map(|prefix| repo_path_from_proto(prefix).map(FilesetExpression::prefix_path))
+        .try_collect()?;
+    Ok(FilesetExpression::union_all(expressions))
+}
+
+fn sparse_patterns_to_proto(
+    expression: &FilesetExpression,
+) -> crate::protos::local_working_copy::SparsePatterns {
+    crate::protos::local_working_copy::SparsePatterns {
+        prefixes: vec![],
+        expression: Some(fileset_expression_to_proto(expression)),
+    }
+}
+
+fn repo_path_from_proto(path: &str) -> Result<RepoPathBuf, String> {
+    RepoPathBuf::from_internal_string(path).map_err(|err| err.to_string())
+}
+
+fn fileset_expression_from_proto(
+    proto: &crate::protos::local_working_copy::FilesetExpression,
+) -> Result<FilesetExpression, String> {
+    use crate::protos::local_working_copy::fileset_expression::Binary;
+    use crate::protos::local_working_copy::fileset_expression::Glob;
+    use crate::protos::local_working_copy::fileset_expression::Value;
+    let glob_from_proto = |glob: &Glob| -> Result<_, String> {
+        let dir = repo_path_from_proto(&glob.dir)?;
+        let pattern = if glob.case_insensitive {
+            PathGlobPattern::parse_i(&glob.pattern)
+        } else {
+            PathGlobPattern::parse(&glob.pattern)
+        }
+        .map_err(|err| err.to_string())?;
+        Ok((dir, Box::new(pattern)))
+    };
+    let binary_from_proto = |binary: &Binary| -> Result<_, String> {
+        let operand_from_proto = |operand: &Option<Box<_>>| match operand {
+            Some(operand) => fileset_expression_from_proto(operand),
+            None => Err("missing operand in fileset expression".to_owned()),
+        };
+        Ok((
+            operand_from_proto(&binary.lhs)?,
+            operand_from_proto(&binary.rhs)?,
+        ))
+    };
+    match &proto.value {
+        Some(Value::None(_)) => Ok(FilesetExpression::none()),
+        Some(Value::All(_)) => Ok(FilesetExpression::all()),
+        Some(Value::FilePath(path)) => {
+            Ok(FilesetExpression::file_path(repo_path_from_proto(path)?))
+        }
+        Some(Value::PrefixPath(path)) => {
+            Ok(FilesetExpression::prefix_path(repo_path_from_proto(path)?))
+        }
+        Some(Value::FileGlob(glob)) => {
+            let (dir, pattern) = glob_from_proto(glob)?;
+            Ok(FilesetExpression::pattern(FilePattern::FileGlob {
+                dir,
+                pattern,
+            }))
+        }
+        Some(Value::PrefixGlob(glob)) => {
+            let (dir, pattern) = glob_from_proto(glob)?;
+            Ok(FilesetExpression::pattern(FilePattern::PrefixGlob {
+                dir,
+                pattern,
+            }))
+        }
+        Some(Value::UnionAll(union)) => {
+            let expressions = union
+                .expressions
+                .iter()
+                .map(fileset_expression_from_proto)
+                .try_collect()?;
+            Ok(FilesetExpression::UnionAll(expressions))
+        }
+        Some(Value::Intersection(binary)) => {
+            let (lhs, rhs) = binary_from_proto(binary)?;
+            Ok(lhs.intersection(rhs))
+        }
+        Some(Value::Difference(binary)) => {
+            let (lhs, rhs) = binary_from_proto(binary)?;
+            Ok(lhs.difference(rhs))
+        }
+        None => Err("missing fileset expression".to_owned()),
+    }
+}
+
+fn fileset_expression_to_proto(
+    expression: &FilesetExpression,
+) -> crate::protos::local_working_copy::FilesetExpression {
+    use crate::protos::local_working_copy::fileset_expression::Binary;
+    use crate::protos::local_working_copy::fileset_expression::Empty;
+    use crate::protos::local_working_copy::fileset_expression::Glob;
+    use crate::protos::local_working_copy::fileset_expression::UnionAll;
+    use crate::protos::local_working_copy::fileset_expression::Value;
+    let glob_to_proto = |dir: &RepoPath, pattern: &PathGlobPattern| Glob {
+        dir: dir.as_internal_file_string().to_owned(),
+        pattern: pattern.as_str().to_owned(),
+        case_insensitive: pattern.is_case_insensitive(),
+    };
+    let binary_to_proto = |lhs: &FilesetExpression, rhs: &FilesetExpression| {
+        Box::new(Binary {
+            lhs: Some(Box::new(fileset_expression_to_proto(lhs))),
+            rhs: Some(Box::new(fileset_expression_to_proto(rhs))),
+        })
+    };
+    let value = match expression {
+        FilesetExpression::None => Value::None(Empty {}),
+        FilesetExpression::All => Value::All(Empty {}),
+        FilesetExpression::Pattern(FilePattern::FilePath(path)) => {
+            Value::FilePath(path.as_internal_file_string().to_owned())
+        }
+        FilesetExpression::Pattern(FilePattern::PrefixPath(path)) => {
+            Value::PrefixPath(path.as_internal_file_string().to_owned())
+        }
+        FilesetExpression::Pattern(FilePattern::FileGlob { dir, pattern }) => {
+            Value::FileGlob(glob_to_proto(dir, pattern))
+        }
+        FilesetExpression::Pattern(FilePattern::PrefixGlob { dir, pattern }) => {
+            Value::PrefixGlob(glob_to_proto(dir, pattern))
+        }
+        FilesetExpression::UnionAll(expressions) => Value::UnionAll(UnionAll {
+            expressions: expressions
+                .iter()
+                .map(fileset_expression_to_proto)
+                .collect(),
+        }),
+        FilesetExpression::Intersection(lhs, rhs) => Value::Intersection(binary_to_proto(lhs, rhs)),
+        FilesetExpression::Difference(lhs, rhs) => Value::Difference(binary_to_proto(lhs, rhs)),
+    };
+    crate::protos::local_working_copy::FilesetExpression { value: Some(value) }
 }
 
 /// Creates intermediate directories from the `working_copy_path` to the
@@ -998,8 +1135,7 @@ pub struct TreeState {
     state_path: PathBuf,
     tree: MergedTree,
     file_states: FileStatesMap,
-    // Currently only path prefixes
-    sparse_patterns: Vec<RepoPathBuf>,
+    sparse_patterns: FilesetExpression,
     own_mtime: MillisSinceEpoch,
     symlink_support: bool,
 
@@ -1023,6 +1159,8 @@ pub enum TreeStateError {
         path: PathBuf,
         source: prost::DecodeError,
     },
+    #[error("Invalid sparse patterns in tree state {path}: {message}")]
+    InvalidSparsePatterns { path: PathBuf, message: String },
     #[error("Writing tree state to temporary file {path}")]
     WriteTreeState { path: PathBuf, source: io::Error },
     #[error("Persisting tree state to file {path}")]
@@ -1044,12 +1182,12 @@ impl TreeState {
         self.file_states.all()
     }
 
-    pub fn sparse_patterns(&self) -> &Vec<RepoPathBuf> {
+    pub fn sparse_patterns(&self) -> &FilesetExpression {
         &self.sparse_patterns
     }
 
     fn sparse_matcher(&self) -> Box<dyn Matcher> {
-        Box::new(PrefixMatcher::new(&self.sparse_patterns))
+        self.sparse_patterns.to_matcher()
     }
 
     pub fn init(
@@ -1094,7 +1232,7 @@ impl TreeState {
             state_path,
             tree: store.empty_merged_tree(),
             file_states: FileStatesMap::new(),
-            sparse_patterns: vec![RepoPathBuf::root()],
+            sparse_patterns: FilesetExpression::all(),
             own_mtime: MillisSinceEpoch(0),
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
@@ -1174,7 +1312,13 @@ impl TreeState {
         }
         self.file_states =
             FileStatesMap::from_proto(proto.file_states, proto.is_file_states_sorted);
-        self.sparse_patterns = sparse_patterns_from_proto(proto.sparse_patterns.as_ref());
+        self.sparse_patterns =
+            sparse_patterns_from_proto(proto.sparse_patterns.as_ref()).map_err(|message| {
+                TreeStateError::InvalidSparsePatterns {
+                    path: tree_state_path.to_owned(),
+                    message,
+                }
+            })?;
         self.watchman_clock = proto.watchman_clock;
         Ok(())
     }
@@ -1192,13 +1336,7 @@ impl TreeState {
         proto.file_states = self.file_states.data.clone();
         // `FileStatesMap` is guaranteed to be sorted.
         proto.is_file_states_sorted = true;
-        let mut sparse_patterns = crate::protos::local_working_copy::SparsePatterns::default();
-        for path in &self.sparse_patterns {
-            sparse_patterns
-                .prefixes
-                .push(path.as_internal_file_string().to_owned());
-        }
-        proto.sparse_patterns = Some(sparse_patterns);
+        proto.sparse_patterns = Some(sparse_patterns_to_proto(&self.sparse_patterns));
         proto.watchman_clock = self.watchman_clock.clone();
 
         let wrap_write_err = |source| TreeStateError::WriteTreeState {
@@ -2300,11 +2438,11 @@ impl TreeState {
 
     pub fn set_sparse_patterns(
         &mut self,
-        sparse_patterns: Vec<RepoPathBuf>,
+        sparse_patterns: FilesetExpression,
     ) -> Result<CheckoutStats, CheckoutError> {
         let tree = self.tree.clone();
-        let old_matcher = PrefixMatcher::new(&self.sparse_patterns);
-        let new_matcher = PrefixMatcher::new(&sparse_patterns);
+        let old_matcher = self.sparse_patterns.to_matcher();
+        let new_matcher = sparse_patterns.to_matcher();
         let added_matcher = DifferenceMatcher::new(&new_matcher, &old_matcher);
         let removed_matcher = DifferenceMatcher::new(&old_matcher, &new_matcher);
         let empty_tree = self.store.empty_merged_tree();
@@ -2755,7 +2893,7 @@ impl WorkingCopy for LocalWorkingCopy {
         Ok(self.tree_state()?.current_tree())
     }
 
-    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
+    fn sparse_patterns(&self) -> Result<&FilesetExpression, WorkingCopyStateError> {
         Ok(self.tree_state()?.sparse_patterns())
     }
 
@@ -3016,13 +3154,13 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         Ok(())
     }
 
-    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
+    fn sparse_patterns(&self) -> Result<&FilesetExpression, WorkingCopyStateError> {
         self.wc.sparse_patterns()
     }
 
     async fn set_sparse_patterns(
         &mut self,
-        new_sparse_patterns: Vec<RepoPathBuf>,
+        new_sparse_patterns: FilesetExpression,
     ) -> Result<CheckoutStats, CheckoutError> {
         // TODO: Write a "pending_checkout" file with new sparse patterns so we can
         // continue an interrupted update if we find such a file.
@@ -3262,6 +3400,73 @@ mod tests {
             prefixed_states.get_at(repo_path("b#"), repo_path_component("#")),
             None
         );
+    }
+
+    #[test]
+    fn test_sparse_patterns_from_legacy_proto() {
+        use crate::protos::local_working_copy::SparsePatterns;
+        let from_prefixes = |prefixes: &[&str]| {
+            sparse_patterns_from_proto(Some(&SparsePatterns {
+                prefixes: prefixes.iter().map(|&prefix| prefix.to_owned()).collect(),
+                expression: None,
+            }))
+            .unwrap()
+        };
+        let prefix_path = |path| FilesetExpression::prefix_path(repo_path(path).to_owned());
+
+        assert_eq!(
+            sparse_patterns_from_proto(None).unwrap(),
+            FilesetExpression::all()
+        );
+        assert_eq!(from_prefixes(&[]), FilesetExpression::none());
+        assert_eq!(from_prefixes(&[""]), FilesetExpression::all());
+        assert_eq!(from_prefixes(&["dir"]), prefix_path("dir"));
+        assert_eq!(
+            from_prefixes(&["dir1", "dir2"]),
+            FilesetExpression::union_all(vec![prefix_path("dir1"), prefix_path("dir2")])
+        );
+    }
+
+    #[test]
+    fn test_sparse_patterns_proto_round_trip() {
+        let prefix_path = |path| FilesetExpression::prefix_path(repo_path(path).to_owned());
+        let glob = |dir, pattern, icase| {
+            let pattern = if icase {
+                PathGlobPattern::parse_i(pattern)
+            } else {
+                PathGlobPattern::parse(pattern)
+            };
+            FilePattern::FileGlob {
+                dir: repo_path(dir).to_owned(),
+                pattern: Box::new(pattern.unwrap()),
+            }
+        };
+        let round_trip = |expression: &FilesetExpression| {
+            let proto = sparse_patterns_to_proto(expression);
+            let proto =
+                crate::protos::local_working_copy::SparsePatterns::decode(&*proto.encode_to_vec())
+                    .unwrap();
+            sparse_patterns_from_proto(Some(&proto)).unwrap()
+        };
+
+        for expression in [
+            FilesetExpression::none(),
+            FilesetExpression::all(),
+            prefix_path("dir"),
+            FilesetExpression::file_path(repo_path("dir/file").to_owned()),
+            FilesetExpression::pattern(glob("dir", "*.rs", false)),
+            FilesetExpression::pattern(glob("", "*.RS", true)),
+            FilesetExpression::pattern(FilePattern::PrefixGlob {
+                dir: repo_path("dir").to_owned(),
+                pattern: Box::new(PathGlobPattern::parse("sub*").unwrap()),
+            }),
+            FilesetExpression::UnionAll(vec![prefix_path("dir1"), prefix_path("dir2")]),
+            FilesetExpression::all()
+                .difference(prefix_path("dir1"))
+                .intersection(prefix_path("dir2")),
+        ] {
+            assert_eq!(round_trip(&expression), expression);
+        }
     }
 
     #[test]

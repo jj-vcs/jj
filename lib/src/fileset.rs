@@ -306,11 +306,7 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, FilesetFunction>> = LazyLock
             FilesetParseError::expression("Failed to read sparse patterns", function.name_span)
                 .with_source(err)
         })?;
-        let expressions = sparse_patterns
-            .iter()
-            .map(|path| FilesetExpression::prefix_path(path.clone()))
-            .collect();
-        Ok(FilesetExpression::union_all(expressions))
+        Ok(sparse_patterns.clone())
     });
     map
 });

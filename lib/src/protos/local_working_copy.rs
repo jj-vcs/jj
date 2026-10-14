@@ -23,10 +23,72 @@ pub struct FileStateEntry {
     #[prost(message, optional, tag = "2")]
     pub state: ::core::option::Option<FileState>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+/// Resolved fileset expression. Paths are relative to the workspace root.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FilesetExpression {
+    #[prost(oneof = "fileset_expression::Value", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9")]
+    pub value: ::core::option::Option<fileset_expression::Value>,
+}
+/// Nested message and enum types in `FilesetExpression`.
+pub mod fileset_expression {
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+    pub struct Empty {}
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+    pub struct Glob {
+        /// Directory the pattern is evaluated in.
+        #[prost(string, tag = "1")]
+        pub dir: ::prost::alloc::string::String,
+        #[prost(string, tag = "2")]
+        pub pattern: ::prost::alloc::string::String,
+        #[prost(bool, tag = "3")]
+        pub case_insensitive: bool,
+    }
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct UnionAll {
+        #[prost(message, repeated, tag = "1")]
+        pub expressions: ::prost::alloc::vec::Vec<super::FilesetExpression>,
+    }
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct Binary {
+        #[prost(message, optional, boxed, tag = "1")]
+        pub lhs: ::core::option::Option<
+            ::prost::alloc::boxed::Box<super::FilesetExpression>,
+        >,
+        #[prost(message, optional, boxed, tag = "2")]
+        pub rhs: ::core::option::Option<
+            ::prost::alloc::boxed::Box<super::FilesetExpression>,
+        >,
+    }
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Value {
+        #[prost(message, tag = "1")]
+        None(Empty),
+        #[prost(message, tag = "2")]
+        All(Empty),
+        #[prost(string, tag = "3")]
+        FilePath(::prost::alloc::string::String),
+        #[prost(string, tag = "4")]
+        PrefixPath(::prost::alloc::string::String),
+        #[prost(message, tag = "5")]
+        FileGlob(Glob),
+        #[prost(message, tag = "6")]
+        PrefixGlob(Glob),
+        #[prost(message, tag = "7")]
+        UnionAll(UnionAll),
+        #[prost(message, tag = "8")]
+        Intersection(::prost::alloc::boxed::Box<Binary>),
+        #[prost(message, tag = "9")]
+        Difference(::prost::alloc::boxed::Box<Binary>),
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SparsePatterns {
+    /// Legacy format: the union of these path prefixes. Only used if
+    /// `expression` is unset.
     #[prost(string, repeated, tag = "1")]
     pub prefixes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "2")]
+    pub expression: ::core::option::Option<FilesetExpression>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TreeState {

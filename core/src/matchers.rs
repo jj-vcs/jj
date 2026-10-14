@@ -654,7 +654,11 @@ mod tests {
         assert_ne!(glob("*.rs"), glob("*.md"));
         assert_ne!(glob("*.rs"), PathGlobPattern::parse_i("*.rs").unwrap());
         assert!(!glob("*.rs").is_case_insensitive());
-        assert!(PathGlobPattern::parse_i("*.rs").unwrap().is_case_insensitive());
+        assert!(
+            PathGlobPattern::parse_i("*.rs")
+                .unwrap()
+                .is_case_insensitive()
+        );
     }
 
     #[test]

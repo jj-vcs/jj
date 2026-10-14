@@ -18,6 +18,8 @@ mod reset;
 mod set;
 
 use clap::Subcommand;
+use jj_lib::fileset::FilePattern;
+use jj_lib::fileset::FilesetExpression;
 use jj_lib::repo_path::RepoPathBuf;
 use tracing::instrument;
 
@@ -34,6 +36,7 @@ use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::print_checkout_stats;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error_with_message;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// Manage which paths from the working-copy commit are present in the working
@@ -66,14 +69,37 @@ async fn update_sparse_patterns_with(
     f: impl FnOnce(&mut Ui, &[RepoPathBuf]) -> Result<Vec<RepoPathBuf>, CommandError>,
 ) -> Result<(), CommandError> {
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation().await?;
-    let new_patterns = f(ui, locked_ws.locked_wc().sparse_patterns()?)?;
+    let old_patterns = sparse_patterns_as_prefixes(locked_ws.locked_wc().sparse_patterns()?)?;
+    let new_patterns = f(ui, &old_patterns)?;
     let stats = locked_ws
         .locked_wc()
-        .set_sparse_patterns(new_patterns)
+        .set_sparse_patterns(FilesetExpression::union_all(
+            new_patterns
+                .into_iter()
+                .map(FilesetExpression::prefix_path)
+                .collect(),
+        ))
         .await
         .map_err(|err| internal_error_with_message("Failed to update working copy paths", err))?;
     let operation_id = locked_ws.locked_wc().old_operation_id().clone();
     locked_ws.finish(operation_id).await?;
     print_checkout_stats(ui, &stats, &wc_commit)?;
     Ok(())
+}
+
+/// Returns the sparse patterns as a list of path prefixes.
+fn sparse_patterns_as_prefixes(
+    expression: &FilesetExpression,
+) -> Result<Vec<RepoPathBuf>, CommandError> {
+    let as_prefix = |expression: &FilesetExpression| match expression {
+        FilesetExpression::All => Some(RepoPathBuf::root()),
+        FilesetExpression::Pattern(FilePattern::PrefixPath(path)) => Some(path.clone()),
+        _ => None,
+    };
+    match expression {
+        FilesetExpression::None => Some(vec![]),
+        FilesetExpression::UnionAll(expressions) => expressions.iter().map(as_prefix).collect(),
+        _ => as_prefix(expression).map(|path| vec![path]),
+    }
+    .ok_or_else(|| user_error("Sparse patterns are not a list of path prefixes"))
 }

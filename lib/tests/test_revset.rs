@@ -1157,7 +1157,7 @@ fn test_evaluate_expression_files_in_sparse_patterns() -> TestResult {
     let mut locked_ws = workspace.start_working_copy_mutation().block_on()?;
     locked_ws
         .locked_wc()
-        .set_sparse_patterns(vec![repo_path("dir1").to_owned()])
+        .set_sparse_patterns(FilesetExpression::prefix_path(repo_path("dir1").to_owned()))
         .block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
 
