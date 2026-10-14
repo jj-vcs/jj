@@ -82,10 +82,10 @@ fn diff_stream_sequential_equals_concurrent(
     assert_eq!(diff_with_concurrency(1), diff_with_concurrency(10));
 }
 
-/// Test that a tree built with no changes on top of an add/add conflict gets
-/// resolved.
+/// Test that a tree built with no changes on top of an add/add conflict does
+/// not get resolved.
 #[test]
-fn test_merged_tree_builder_resolves_conflict() -> TestResult {
+fn test_merged_tree_builder_no_overrides() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let store = repo.store();
@@ -104,9 +104,9 @@ fn test_merged_tree_builder_resolves_conflict() -> TestResult {
         ]),
         ConflictLabels::from_vec(vec!["tree 2".into(), "tree 1".into(), "tree 3".into()]),
     );
-    let tree_builder = MergedTreeBuilder::new(base_tree);
+    let tree_builder = MergedTreeBuilder::new(base_tree.clone());
     let tree = tree_builder.write_tree().block_on()?;
-    assert_eq!(*tree.tree_ids(), Merge::resolved(tree2.id().clone()));
+    assert_tree_eq!(tree, base_tree);
     Ok(())
 }
 
