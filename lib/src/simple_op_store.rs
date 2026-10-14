@@ -1170,6 +1170,49 @@ mod tests {
     }
 
     #[test]
+    fn test_view_to_proto_deterministic_wc_commit_ids() {
+        let entries = (0..50)
+            .map(|i| {
+                (
+                    WorkspaceNameBuf::from(format!("ws{i}")),
+                    CommitId::new(vec![i; 4]),
+                )
+            })
+            .collect_vec();
+        let make_view = |entries: Vec<_>| {
+            let mut view = create_view();
+            // Leave head_ids empty so the test only covers wc_commit_ids.
+            view.head_ids.clear();
+            view.wc_commit_ids = entries.into_iter().collect();
+            view
+        };
+        let view1 = make_view(entries.clone());
+        let view2 = make_view(entries.into_iter().rev().collect());
+        assert_eq!(
+            view_to_proto(&view1).encode_to_vec(),
+            view_to_proto(&view2).encode_to_vec()
+        );
+    }
+
+    #[test]
+    fn test_operation_to_proto_deterministic_attributes() {
+        let entries = (0..50)
+            .map(|i| (format!("key{i}"), format!("value{i}")))
+            .collect_vec();
+        let make_operation = |entries: Vec<_>| {
+            let mut operation = create_operation();
+            operation.metadata.attributes = entries.into_iter().collect();
+            operation
+        };
+        let operation1 = make_operation(entries.clone());
+        let operation2 = make_operation(entries.into_iter().rev().collect());
+        assert_eq!(
+            operation_to_proto(&operation1).encode_to_vec(),
+            operation_to_proto(&operation2).encode_to_vec()
+        );
+    }
+
+    #[test]
     fn test_migrate_git_refs_to_remote_tags() {
         let tracked_remote_ref = |target: &RefTarget| RemoteRef {
             target: target.clone(),
