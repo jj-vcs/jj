@@ -21,6 +21,7 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_frontend::runner::RunnerError;
+use jj_frontend::runner::StaleWorkingCopyError;
 use jj_frontend::runner::WorkingCopyNotWritableReason;
 use jj_lib::absorb::AbsorbError;
 use jj_lib::backend::BackendError;
@@ -258,11 +259,50 @@ impl From<RunnerError> for CommandError {
             RunnerError::GitImportExportLock(_) => user_error(err),
             RunnerError::InvalidImmutableHeads(_) => config_error(err),
             RunnerError::CheckOut { .. } => internal_error(err),
+            RunnerError::StaleWorkingCopy(err) => match err {
+                StaleWorkingCopyError::Stale { wc_op_id } => user_error(format!(
+                    "The working copy is stale (not updated since operation {}).",
+                    short_operation_hash(&wc_op_id)
+                ))
+                .hinted(
+                    "Run `jj workspace update-stale` to update it.
+See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
+                     for more information.",
+                ),
+                StaleWorkingCopyError::SiblingOperation {
+                    repo_op_id,
+                    wc_op_id,
+                } => internal_error(format!(
+                    "The repo was loaded at operation {}, which seems to be a sibling of the \
+                     working copy's operation {}",
+                    short_operation_hash(&repo_op_id),
+                    short_operation_hash(&wc_op_id)
+                ))
+                .hinted(format!(
+                    "Run `jj op integrate {}` to add the working copy's operation to the \
+                     operation log.",
+                    short_operation_hash(&wc_op_id)
+                )),
+                StaleWorkingCopyError::OperationNotFound(_) => {
+                    user_error("Could not read working copy's operation.").hinted(
+                        "Run `jj workspace update-stale` to recover.
+See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
+                         for more information.",
+                    )
+                }
+            },
             RunnerError::Backend(err) => err.into(),
+            RunnerError::OpStore(err) => err.into(),
+            RunnerError::RepoLoader(err) => err.into(),
+            RunnerError::Snapshot(err) => err.into(),
             RunnerError::WorkingCopyState(err) => err.into(),
             RunnerError::RevsetEvaluation(err) => err.into(),
             RunnerError::RewriteRootCommit(err) => err.into(),
+            RunnerError::CheckOutCommit(err) => err.into(),
+            RunnerError::Reset(err) => err.into(),
             RunnerError::TransactionCommit(err) => err.into(),
+            #[cfg(feature = "git")]
+            RunnerError::GitImport(err) => err.into(),
             #[cfg(feature = "git")]
             RunnerError::GitExport(err) => err.into(),
             #[cfg(feature = "git")]
