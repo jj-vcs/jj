@@ -25,15 +25,20 @@ use jj_lib::lock::FileLockError;
 use jj_lib::matchers::Matcher;
 use jj_lib::matchers::NothingMatcher;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_store::OpStoreError;
 use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
+use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::ReadonlyRepo;
+use jj_lib::repo::RepoLoaderError;
 use jj_lib::repo::RewriteRootCommit;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy::CheckoutError;
+use jj_lib::working_copy::ResetError;
+use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::WorkingCopyStateError;
 use thiserror::Error;
@@ -217,9 +222,21 @@ pub enum RunnerError {
         #[source]
         source: CheckoutError,
     },
+    /// The working copy is stale.
+    #[error(transparent)]
+    StaleWorkingCopy(#[from] StaleWorkingCopyError),
     /// Error from the commit backend.
     #[error(transparent)]
     Backend(#[from] BackendError),
+    /// Error from the operation store.
+    #[error(transparent)]
+    OpStore(#[from] OpStoreError),
+    /// Error loading the repo.
+    #[error(transparent)]
+    RepoLoader(#[from] RepoLoaderError),
+    /// Error snapshotting the working copy.
+    #[error(transparent)]
+    Snapshot(#[from] SnapshotError),
     /// Error reading or writing the working-copy state.
     #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
@@ -229,9 +246,19 @@ pub enum RunnerError {
     /// Attempted to rewrite the root commit.
     #[error(transparent)]
     RewriteRootCommit(#[from] RewriteRootCommit),
+    /// Error creating a new working-copy commit.
+    #[error(transparent)]
+    CheckOutCommit(#[from] CheckOutCommitError),
+    /// Error resetting the working-copy state.
+    #[error(transparent)]
+    Reset(#[from] ResetError),
     /// Error committing a transaction.
     #[error(transparent)]
     TransactionCommit(#[from] TransactionCommitError),
+    /// Error importing from Git.
+    #[cfg(feature = "git")]
+    #[error(transparent)]
+    GitImport(#[from] jj_lib::git::GitImportError),
     /// Error exporting to Git.
     #[cfg(feature = "git")]
     #[error(transparent)]
@@ -250,6 +277,37 @@ impl RunnerError {
     pub fn event_sink(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
         Self::EventSink(err.into())
     }
+}
+
+/// The working copy can't be snapshotted because it's not at the repo's
+/// operation.
+#[derive(Debug, Error)]
+pub enum StaleWorkingCopyError {
+    /// The working copy was last updated at an operation that's older than the
+    /// repo's operation.
+    #[error("The working copy is stale (not updated since operation {})", wc_op_id.hex())]
+    Stale {
+        /// The operation the working copy was last updated at.
+        wc_op_id: OperationId,
+    },
+    /// The working copy was last updated at an operation that's not an
+    /// ancestor of the repo's operation. That operation may need to be
+    /// integrated into the operation log.
+    #[error(
+        "The repo was loaded at operation {}, which seems to be a sibling of the working copy's \
+         operation {}",
+        repo_op_id.hex(),
+        wc_op_id.hex()
+    )]
+    SiblingOperation {
+        /// The operation the repo was loaded at.
+        repo_op_id: OperationId,
+        /// The operation the working copy was last updated at.
+        wc_op_id: OperationId,
+    },
+    /// The working copy's operation couldn't be found.
+    #[error("Could not read working copy's operation")]
+    OperationNotFound(#[source] OpStoreError),
 }
 
 /// Why the working copy can't be updated.
