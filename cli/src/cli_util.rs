@@ -53,6 +53,7 @@ use jiff::Timestamp;
 use jiff::Zoned;
 use jiff::tz::TimeZone;
 use jj_frontend::revset_util::default_ignored_remote_name;
+use jj_frontend::runner::RunnerOptions;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -131,7 +132,6 @@ use jj_lib::str_util::StringMatcher;
 use jj_lib::template_parser::TemplateAliasesMap;
 use jj_lib::template_parser::TemplateDiagnostics;
 use jj_lib::transaction::Transaction;
-use jj_lib::transaction::TransactionCommitError;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::ui_path::UiPathParseError;
 use jj_lib::working_copy;
@@ -421,20 +421,15 @@ impl CommandHelper {
         Ok(template)
     }
 
-    pub fn should_commit_transaction(&self) -> bool {
-        !self.global_args().no_integrate_operation
-    }
-
-    async fn maybe_commit_transaction(
-        &self,
-        tx: Transaction,
-        description: impl Into<String>,
-    ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        let unpublished_op = tx.write(description).await?;
-        if self.should_commit_transaction() {
-            unpublished_op.publish().await
-        } else {
-            Ok(unpublished_op.leave_unpublished())
+    /// Options for the [`WorkspaceCommandHelper`] derived from the global
+    /// arguments.
+    pub fn runner_options(&self) -> RunnerOptions {
+        let global_args = self.global_args();
+        RunnerOptions {
+            ignore_working_copy: global_args.ignore_working_copy,
+            integrate_operation: !global_args.no_integrate_operation,
+            ignore_immutable: global_args.ignore_immutable,
+            transaction_attributes: command_args_to_transaction_attribute(self.string_args()),
         }
     }
 
@@ -562,7 +557,14 @@ impl CommandHelper {
             env.reload_revset_expressions(ui)?;
         }
         let may_snapshot_working_copy = self.is_working_copy_writable();
-        WorkspaceCommandHelper::new(ui, workspace, repo, env, may_snapshot_working_copy)
+        WorkspaceCommandHelper::new(
+            ui,
+            workspace,
+            repo,
+            env,
+            self.runner_options(),
+            may_snapshot_working_copy,
+        )
     }
 
     pub fn get_working_copy_factory(&self) -> Result<&dyn WorkingCopyFactory, CommandError> {
@@ -636,12 +638,14 @@ impl CommandHelper {
             Ok(op) => {
                 // self.for_workable_repo(), but reuse loaded env.
                 let repo = workspace.load_at(&op).await?;
-                let may_snapshot_working_copy = !self.global_args().ignore_working_copy;
+                let options = self.runner_options();
+                let may_snapshot_working_copy = !options.ignore_working_copy;
                 let mut workspace_command = WorkspaceCommandHelper::new(
                     ui,
                     workspace,
                     repo,
                     env,
+                    options,
                     may_snapshot_working_copy,
                 )?;
                 workspace_command.check_working_copy_writable()?;
@@ -684,12 +688,13 @@ impl CommandHelper {
                         // Reset Git HEAD first if the repo is colocated
                         #[cfg(feature = "git")]
                         if workspace_command.env.working_copy_shared_with_git
-                            && self.should_commit_transaction()
+                            && workspace_command.options.integrate_operation
                         {
                             let workspace_name = workspace_command.env.workspace_name();
                             let workspace_root = workspace_command.env.workspace_root();
-                            let mut tx =
-                                start_repo_transaction(repo, workspace_name, self.string_args());
+                            let mut tx = workspace_command
+                                .options
+                                .start_transaction(repo, workspace_name);
                             try_reset_git_head(
                                 ui,
                                 tx.repo_mut(),
@@ -700,8 +705,10 @@ impl CommandHelper {
                             )
                             .await?;
                             if tx.repo().has_changes() {
-                                let repo =
-                                    self.maybe_commit_transaction(tx, "reset git head").await?;
+                                let repo = workspace_command
+                                    .options
+                                    .maybe_commit_transaction(tx, "reset git head")
+                                    .await?;
                                 workspace_command.user_repo = ReadonlyUserRepo::new(repo);
                             }
                         }
@@ -845,8 +852,9 @@ impl CommandHelper {
         let env = self.workspace_environment(ui, &workspace)?;
         // No is_at_head_operation() check here because the repo isn't loaded at
         // the specified operation.
-        let may_snapshot_working_copy = !self.global_args().ignore_working_copy;
-        WorkspaceCommandHelper::new(ui, workspace, repo, env, may_snapshot_working_copy)
+        let options = self.runner_options();
+        let may_snapshot_working_copy = !options.ignore_working_copy;
+        WorkspaceCommandHelper::new(ui, workspace, repo, env, options, may_snapshot_working_copy)
     }
 }
 
@@ -1226,12 +1234,14 @@ impl WorkspaceCommandEnvironment {
     }
 
     /// Resolves the effective `immutable()` expression to test against commits
-    /// during a rewrite, taking the `--ignore-immutable` flag into account.
+    /// during a rewrite. If `ignore_immutable` is true, only the root commit is
+    /// considered immutable.
     fn resolve_immutable_expression(
         &self,
         repo: &dyn Repo,
+        ignore_immutable: bool,
     ) -> Result<Arc<ResolvedRevsetExpression>, CommandError> {
-        let immutable_expression = if self.command.global_args().ignore_immutable {
+        let immutable_expression = if ignore_immutable {
             UserRevsetExpression::root()
         } else {
             self.immutable_expression()
@@ -1315,6 +1325,7 @@ pub struct WorkspaceCommandHelper {
     workspace: Workspace,
     user_repo: ReadonlyUserRepo,
     env: WorkspaceCommandEnvironment,
+    options: RunnerOptions,
     // TODO: Parsed template can be cached if it doesn't capture 'repo lifetime
     commit_summary_template_text: String,
     op_summary_template_text: String,
@@ -1350,18 +1361,19 @@ impl WorkspaceCommandHelper {
         workspace: Workspace,
         repo: Arc<ReadonlyRepo>,
         env: WorkspaceCommandEnvironment,
+        options: RunnerOptions,
         may_snapshot_working_copy: bool,
     ) -> Result<Self, CommandError> {
         let settings = workspace.settings();
         let commit_summary_template_text = settings.get_string("templates.commit_summary")?;
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
-        let may_update_working_copy =
-            may_snapshot_working_copy && env.command.should_commit_transaction();
+        let may_update_working_copy = may_snapshot_working_copy && options.integrate_operation;
 
         let helper = Self {
             workspace,
             user_repo: ReadonlyUserRepo::new(repo),
             env,
+            options,
             commit_summary_template_text,
             op_summary_template_text,
             may_snapshot_working_copy,
@@ -1384,9 +1396,9 @@ impl WorkspaceCommandHelper {
         if self.may_update_working_copy {
             Ok(())
         } else {
-            let hint = if self.env.command.global_args().ignore_working_copy {
+            let hint = if self.options.ignore_working_copy {
                 "Don't use --ignore-working-copy."
-            } else if self.env.command.global_args().no_integrate_operation {
+            } else if !self.options.integrate_operation {
                 "Don't use --no-integrate-operation."
             } else {
                 "Don't use --at-op."
@@ -1491,12 +1503,11 @@ impl WorkspaceCommandHelper {
             locked_ws.locked_wc().reset(&wc_commit).await?;
             tx.repo_mut().rebase_descendants().await?;
             self.user_repo = ReadonlyUserRepo::new(
-                self.env
-                    .command
+                self.options
                     .maybe_commit_transaction(tx, "import git head")
                     .await?,
             );
-            if self.env.command.should_commit_transaction() {
+            if self.options.integrate_operation {
                 locked_ws
                     .finish(self.user_repo.repo.op_id().clone())
                     .await?;
@@ -1509,7 +1520,7 @@ impl WorkspaceCommandHelper {
             } else {
                 // Don't print verbose message on initial checkout.
             }
-            if !self.env.command.should_commit_transaction() {
+            if !self.options.integrate_operation {
                 writeln!(
                     ui.status(),
                     "Operation left uncommitted because --no-integrate-operation was requested: {}",
@@ -1556,7 +1567,7 @@ impl WorkspaceCommandHelper {
         }
 
         let mut tx = tx.into_inner();
-        let num_rebased = rebase_mutable_descendants(&self.env, &mut tx).await?;
+        let num_rebased = rebase_mutable_descendants(&self.env, &self.options, &mut tx).await?;
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
@@ -2064,7 +2075,9 @@ to the current parents may contain changes from multiple commits.
         to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), CommandError> {
         let repo = self.repo().as_ref();
-        let immutable_expr = self.env.resolve_immutable_expression(repo)?;
+        let immutable_expr = self
+            .env
+            .resolve_immutable_expression(repo, self.options.ignore_immutable)?;
         let Some(commit_id) = immutable_expr
             .intersection(to_rewrite_expr)
             .evaluate(repo)?
@@ -2149,15 +2162,13 @@ to the current parents may contain changes from multiple commits.
                 .map_err(snapshot_command_error)?
         };
         if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
-            let mut tx = start_repo_transaction(
-                &self.user_repo.repo,
-                &workspace_name,
-                self.env.command.string_args(),
-            );
+            let mut tx = self
+                .options
+                .start_transaction(&self.user_repo.repo, &workspace_name);
             tx.set_is_snapshot(true);
             let immutable_expr = self
                 .env
-                .resolve_immutable_expression(tx.repo())
+                .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)
                 .map_err(snapshot_command_error)?;
             let wc_immutable = !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
@@ -2206,8 +2217,7 @@ to the current parents may contain changes from multiple commits.
             }
 
             #[cfg(feature = "git")]
-            if self.env.working_copy_shared_with_git && self.env.command.should_commit_transaction()
-            {
+            if self.env.working_copy_shared_with_git && self.options.integrate_operation {
                 let workspace_root = self.env.workspace_root();
                 if wc_immutable {
                     // New working-copy commit is created on top. Reset Git HEAD and index.
@@ -2243,13 +2253,12 @@ to the current parents may contain changes from multiple commits.
             }
 
             let repo = self
-                .env
-                .command
+                .options
                 .maybe_commit_transaction(tx, "snapshot working copy")
                 .await
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
-            if !self.env.command.should_commit_transaction() {
+            if !self.options.integrate_operation {
                 writeln!(
                     ui.status(),
                     "Snapshot operation left uncommitted because --no-integrate-operation was \
@@ -2289,7 +2298,7 @@ to the current parents may contain changes from multiple commits.
             .map_err(snapshot_command_error)?;
         }
 
-        if self.env.command.should_commit_transaction() {
+        if self.options.integrate_operation {
             locked_ws
                 .finish(self.user_repo.repo.op_id().clone())
                 .await
@@ -2353,11 +2362,9 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn start_transaction(&mut self) -> WorkspaceCommandTransaction<'_> {
-        let tx = start_repo_transaction(
-            self.repo(),
-            self.workspace_name(),
-            self.env.command.string_args(),
-        );
+        let tx = self
+            .options
+            .start_transaction(self.repo(), self.workspace_name());
         let id_prefix_context = mem::take(&mut self.user_repo.id_prefix_context);
         WorkspaceCommandTransaction {
             helper: self,
@@ -2391,7 +2398,9 @@ to the current parents may contain changes from multiple commits.
         // failures can be ignored. snapshot_working_copy() ensures that the
         // working-copy commit is mutable.
         let maybe_new_wc_commit = if let Some(wc_commit) = &maybe_new_wc_commit
-            && let Ok(immutable_expr) = self.env.resolve_immutable_expression(tx.repo())
+            && let Ok(immutable_expr) = self
+                .env
+                .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)
             && !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
                 .evaluate(tx.repo())?
@@ -2416,7 +2425,7 @@ to the current parents may contain changes from multiple commits.
         };
 
         #[cfg(feature = "git")]
-        if self.env.working_copy_shared_with_git && self.env.command.should_commit_transaction() {
+        if self.env.working_copy_shared_with_git && self.options.integrate_operation {
             if let Some(wc_commit) = &maybe_new_wc_commit {
                 try_reset_git_head(
                     ui,
@@ -2433,8 +2442,7 @@ to the current parents may contain changes from multiple commits.
         }
 
         self.user_repo = ReadonlyUserRepo::new(
-            self.env
-                .command
+            self.options
                 .maybe_commit_transaction(tx, description)
                 .await?,
         );
@@ -2454,7 +2462,7 @@ to the current parents may contain changes from multiple commits.
 
         self.report_repo_changes(ui, &old_repo).await?;
 
-        if !self.env.command.should_commit_transaction() {
+        if !self.options.integrate_operation {
             writeln!(
                 ui.status(),
                 "Operation left uncommitted because --no-integrate-operation was requested: {}",
@@ -2881,7 +2889,7 @@ impl WorkspaceCommandTransaction<'_> {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
-        let num_rebased = rebase_mutable_descendants(&helper.env, &mut tx).await?;
+        let num_rebased = rebase_mutable_descendants(&helper.env, &helper.options, &mut tx).await?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
         }
@@ -3014,6 +3022,7 @@ fn command_args_to_transaction_attribute(command_args: &[String]) -> Vec<(String
 
 async fn rebase_mutable_descendants(
     env: &WorkspaceCommandEnvironment,
+    options: &RunnerOptions,
     tx: &mut Transaction,
 ) -> Result<usize, CommandError> {
     // Commands like "jj git fetch" can update immutable commits to reflect the
@@ -3021,7 +3030,8 @@ async fn rebase_mutable_descendants(
     // tx.base_repo() here because we're interested in existing immutable
     // commits that are still reachable.
     let mut num_rebased = 0;
-    let immutable = env.resolve_immutable_expression(tx.base_repo().as_ref())?;
+    let immutable =
+        env.resolve_immutable_expression(tx.base_repo().as_ref(), options.ignore_immutable)?;
     tx.repo_mut()
         .rebase_descendants_with_options(
             &immutable,
