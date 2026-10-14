@@ -113,6 +113,14 @@ pub enum RunnerEvent<'a> {
         /// The new working-copy commit.
         new_wc_commit: &'a Commit,
     },
+    /// The user's name or email isn't configured, so new commits will have an
+    /// empty author and committer.
+    UserIdentityNotConfigured {
+        /// Whether `user.name` is missing.
+        missing_name: bool,
+        /// Whether `user.email` is missing.
+        missing_email: bool,
+    },
     /// The working copy contains `.jjconflict*` files, which are used to
     /// represent conflicts in Git commits. This likely means that a conflicted
     /// commit was checked out by Git.
