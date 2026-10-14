@@ -208,12 +208,14 @@ impl MergedTree {
         let mut queue = TreeWalkQueue::new(self.store().concurrency());
         if !self.tree_ids.is_resolved() {
             let root = RepoPathBuf::root();
-            let root_trees_fut = read_trees(
-                self.store.clone(),
-                root.clone(),
-                self.to_merged_tree_value(),
-            );
-            queue.schedule(root, root_trees_fut);
+            if !matcher.visit(&root).is_nothing() {
+                let root_trees_fut = read_trees(
+                    self.store.clone(),
+                    root.clone(),
+                    self.to_merged_tree_value(),
+                );
+                queue.schedule(root, root_trees_fut);
+            }
         }
         let visitor = ConflictsVisitor {
             store: self.store.clone(),
@@ -279,12 +281,14 @@ impl MergedTree {
     ) -> TreeEntriesStream<'matcher> {
         let mut queue = TreeWalkQueue::new(self.store().concurrency());
         let root = RepoPathBuf::root();
-        let root_trees_fut = read_trees(
-            self.store.clone(),
-            root.clone(),
-            self.to_merged_tree_value(),
-        );
-        queue.schedule(root, root_trees_fut);
+        if !matcher.visit(&root).is_nothing() {
+            let root_trees_fut = read_trees(
+                self.store.clone(),
+                root.clone(),
+                self.to_merged_tree_value(),
+            );
+            queue.schedule(root, root_trees_fut);
+        }
         let visitor = TreeEntriesVisitor {
             store: self.store.clone(),
             matcher,
