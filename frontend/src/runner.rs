@@ -30,6 +30,7 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy::CheckoutError;
+use jj_lib::working_copy::WorkingCopyStateError;
 use thiserror::Error;
 
 /// Options controlling how operations on a workspace interact with the
@@ -162,6 +163,15 @@ pub struct SnapshotConfig {
 /// Git, or finishing a transaction.
 #[derive(Debug, Error)]
 pub enum RunnerError {
+    /// The working copy needs to be updated, but it can't be.
+    #[error("The working copy can't be updated")]
+    WorkingCopyNotWritable(WorkingCopyNotWritableReason),
+    /// There's no working-copy commit for the workspace.
+    #[error("Nothing checked out in this workspace")]
+    NothingCheckedOut,
+    /// The working copy was changed concurrently.
+    #[error("Concurrent working copy operation. Try again.")]
+    ConcurrentWorkingCopyOperation,
     /// The lock for importing from and exporting to Git couldn't be taken.
     #[error("Failed to take lock for Git import/export")]
     GitImportExportLock(#[source] FileLockError),
@@ -180,6 +190,9 @@ pub enum RunnerError {
     /// Error from the commit backend.
     #[error(transparent)]
     Backend(#[from] BackendError),
+    /// Error reading or writing the working-copy state.
+    #[error(transparent)]
+    WorkingCopyState(#[from] WorkingCopyStateError),
     /// Error resetting Git HEAD.
     #[cfg(feature = "git")]
     #[error(transparent)]
@@ -187,4 +200,15 @@ pub enum RunnerError {
     /// The caller failed to handle a [`RunnerEvent`].
     #[error(transparent)]
     EventSink(Box<dyn std::error::Error + Send + Sync>),
+}
+
+/// Why the working copy can't be updated.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WorkingCopyNotWritableReason {
+    /// [`RunnerOptions::ignore_working_copy`] is set.
+    IgnoringWorkingCopy,
+    /// [`RunnerOptions::integrate_operation`] is not set.
+    NotIntegratingOperations,
+    /// The repo was loaded at an operation other than the head operation.
+    NotAtHeadOperation,
 }

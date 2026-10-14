@@ -21,6 +21,7 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_frontend::runner::RunnerError;
+use jj_frontend::runner::WorkingCopyNotWritableReason;
 use jj_lib::absorb::AbsorbError;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
@@ -238,10 +239,26 @@ fn format_similarity_hint<S: AsRef<str>>(candidates: &[S]) -> Option<String> {
 impl From<RunnerError> for CommandError {
     fn from(err: RunnerError) -> Self {
         match err {
+            RunnerError::WorkingCopyNotWritable(reason) => {
+                let hint = match reason {
+                    WorkingCopyNotWritableReason::IgnoringWorkingCopy => {
+                        "Don't use --ignore-working-copy."
+                    }
+                    WorkingCopyNotWritableReason::NotIntegratingOperations => {
+                        "Don't use --no-integrate-operation."
+                    }
+                    WorkingCopyNotWritableReason::NotAtHeadOperation => "Don't use --at-op.",
+                };
+                user_error("This command must be able to update the working copy.").hinted(hint)
+            }
+            RunnerError::NothingCheckedOut | RunnerError::ConcurrentWorkingCopyOperation => {
+                user_error(err)
+            }
             RunnerError::GitImportExportLock(_) => user_error(err),
             RunnerError::InvalidImmutableHeads(_) => config_error(err),
             RunnerError::CheckOut { .. } => internal_error(err),
             RunnerError::Backend(err) => err.into(),
+            RunnerError::WorkingCopyState(err) => err.into(),
             #[cfg(feature = "git")]
             RunnerError::GitResetHead(err) => err.into(),
             RunnerError::EventSink(err) => match err.downcast::<io::Error>() {
