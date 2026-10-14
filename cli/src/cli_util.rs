@@ -55,6 +55,7 @@ use jiff::Zoned;
 use jiff::tz::TimeZone;
 use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_frontend::runner::RebaseReason;
+use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::RunnerEvent;
 use jj_frontend::runner::RunnerOptions;
 use jj_frontend::runner::SnapshotConfig;
@@ -175,7 +176,6 @@ use crate::command_error::internal_error_with_message;
 use crate::command_error::print_error_sources;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
-use crate::command_error::user_error_with_message;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::commit_templater::CommitTemplateLanguageExtension;
 use crate::config::ConfigEnv;
@@ -1059,12 +1059,10 @@ impl WorkspaceEnvironment {
     fn lock_git_import_export(
         &self,
         workspace: &Workspace,
-    ) -> Result<GitImportExportLock, CommandError> {
+    ) -> Result<GitImportExportLock, RunnerError> {
         let lock = if self.working_copy_shared_with_git {
             let lock_path = workspace.repo_path().join("git_import_export.lock");
-            Some(FileLock::lock(lock_path).map_err(|err| {
-                user_error_with_message("Failed to take lock for Git import/export", err)
-            })?)
+            Some(FileLock::lock(lock_path).map_err(RunnerError::GitImportExportLock)?)
         } else {
             None
         };
@@ -1192,7 +1190,7 @@ impl WorkspaceEnvironment {
         &self,
         repo: &dyn Repo,
         ignore_immutable: bool,
-    ) -> Result<Arc<ResolvedRevsetExpression>, CommandError> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, RunnerError> {
         let immutable_expression = if ignore_immutable {
             UserRevsetExpression::root()
         } else {
@@ -1210,7 +1208,7 @@ impl WorkspaceEnvironment {
             immutable_expression,
         )
         .resolve()
-        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))
+        .map_err(RunnerError::InvalidImmutableHeads)
     }
 }
 
@@ -1571,7 +1569,7 @@ impl WorkspaceCommandHelper {
     /// colocated with Git. Returns a token that can be passed to functions
     /// that need to import from or export to Git. For non-colocated repos,
     /// returns a token with no lock inside.
-    fn lock_git_import_export(&self) -> Result<GitImportExportLock, CommandError> {
+    fn lock_git_import_export(&self) -> Result<GitImportExportLock, RunnerError> {
         self.env.lock_git_import_export(&self.workspace)
     }
 
@@ -2943,7 +2941,7 @@ async fn try_reset_git_head(
     workspace_root: &Path,
     wc_commit: &Commit,
     _git_import_export_lock: &GitImportExportLock,
-) -> Result<(), CommandError> {
+) -> Result<(), RunnerError> {
     // Export Git HEAD while holding the git-head lock to prevent races:
     // - Between two finish_transaction calls updating HEAD
     // - With import_git_head importing HEAD concurrently
@@ -2953,7 +2951,8 @@ async fn try_reset_git_head(
     match jj_lib::git::reset_head(mut_repo, workspace_name, workspace_root, wc_commit).await {
         Ok(()) => Ok(()),
         Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
-            print_runner_event(ui, &RunnerEvent::GitHeadResetFailed(&err))?;
+            print_runner_event(ui, &RunnerEvent::GitHeadResetFailed(&err))
+                .map_err(|err| RunnerError::EventSink(err.into()))?;
             Ok(())
         }
         Err(err) => Err(err.into()),
@@ -3200,7 +3199,7 @@ async fn rebase_mutable_descendants(
     env: &WorkspaceCommandEnvironment,
     options: &RunnerOptions,
     tx: &mut Transaction,
-) -> Result<usize, CommandError> {
+) -> Result<usize, RunnerError> {
     // Commands like "jj git fetch" can update immutable commits to reflect the
     // remote changes. Their immutable descendants shouldn't be rebased. We use
     // tx.base_repo() here because we're interested in existing immutable
@@ -3659,18 +3658,16 @@ pub async fn update_working_copy(
     workspace: &mut Workspace,
     old_commit: Option<&Commit>,
     new_commit: &Commit,
-) -> Result<CheckoutStats, CommandError> {
+) -> Result<CheckoutStats, RunnerError> {
     let old_tree = old_commit.map(|commit| commit.tree());
     // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
     // warning for most commands (but be an error for the checkout command)
     let stats = workspace
         .check_out(repo.op_id().clone(), old_tree.as_ref(), new_commit)
         .await
-        .map_err(|err| {
-            internal_error_with_message(
-                format!("Failed to check out commit {}", new_commit.id().hex()),
-                err,
-            )
+        .map_err(|source| RunnerError::CheckOut {
+            commit_id: new_commit.id().clone(),
+            source,
         })?;
     Ok(stats)
 }

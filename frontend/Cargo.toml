@@ -20,6 +20,7 @@ include = [
 
 [dependencies]
 jj-lib = { workspace = true }
+thiserror = { workspace = true }
 
 [features]
 default = []
