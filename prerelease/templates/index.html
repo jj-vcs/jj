@@ -3010,9 +3010,17 @@ including capture group 0 for the full match.</p>
   Surround <strong>non-empty</strong> content with texts such as parentheses.</li>
 <li><code>config(name: Stringify) -&gt; Option&lt;ConfigValue&gt;</code>: Look up configuration
    value by <code>name</code>.</li>
-<li><code>git_web_url([remote: String]) -&gt; String</code>: Best-effort conversion of a git
+<li>
+<p><code>revset(revset: Stringify) -&gt; List&lt;Commit&gt;</code>: Evaluates <a href="../revsets/">a revset</a>.</p>
+<p>The revset is evaluated once during template parsing if its value evaluates to
+a constant string. Queries built from values that aren't yet known during
+parsing, for example <code>self.change_id()</code>, are evaluated per call at runtime.</p>
+</li>
+<li>
+<p><code>git_web_url([remote: String]) -&gt; String</code>: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
-  empty string on failure. SSH host alias resolution is currently unsupported.</li>
+  empty string on failure. SSH host alias resolution is currently unsupported.</p>
+</li>
 </ul>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <h3 id="annotationline-type"><code>AnnotationLine</code> type<a class="headerlink" href="#annotationline-type" title="Permanent link">&para;</a></h3>
@@ -3146,7 +3154,7 @@ labels are stripped.</p>
   of this commit. May not be available for some commits.</li>
 <li><code>.immutable() -&gt; Boolean</code>: True if the commit is included in <a href="../config/#set-of-immutable-commits">the set of
   immutable commits</a>.</li>
-<li><code>.contained_in(revset: StringLiteral) -&gt; Boolean</code>: True if the commit is included in
+<li><code>.contained_in(revset: Stringify) -&gt; Boolean</code>: True if the commit is included in
   <a href="../revsets/">the provided revset</a>.</li>
 <li><code>.conflict() -&gt; Boolean</code>: True if the commit contains merge conflicts.</li>
 <li><code>.empty() -&gt; Boolean</code>: True if the commit modifies no files.</li>
@@ -3496,8 +3504,7 @@ that don't form a valid escape sequence.</p>
 <p>A single-quoted string literal has no escape syntax. <code>'</code> can't be expressed
 inside a single-quoted string literal.</p>
 <p>String literals have their own type so that the value can be validated at parse
-time. For example, <code>contained_in(revset)</code> requires a literal so the revset can
-be parsed and checked before the template is evaluated.</p>
+time.</p>
 <h3 id="stringpattern-type"><code>StringPattern</code> type<a class="headerlink" href="#stringpattern-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
 <p>These are the exact same as the <a href="../revsets/#string-patterns">String pattern type</a> in revsets, except that

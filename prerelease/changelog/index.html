@@ -7811,6 +7811,14 @@ and this project adheres to
   file with conflict markers in your text editor. Unlike the other merge tools,
   it supports conflicts with more than two sides.</p>
 </li>
+<li>
+<p><code>Commit.contained_in()</code> now accepts a <code>Stringify</code> instead of a <code>StringLiteral</code>.
+  This enables dynamic query building during templating.</p>
+</li>
+<li>
+<p>Templates now have a top-level <code>revset(revset: Stringify) -&gt; List&lt;Commit&gt;</code>
+  function for evaluating revsets during templating.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
