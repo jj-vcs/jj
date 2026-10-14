@@ -53,6 +53,8 @@ use jiff::Timestamp;
 use jiff::Zoned;
 use jiff::tz::TimeZone;
 use jj_frontend::revset_util::default_ignored_remote_name;
+use jj_frontend::runner::RebaseReason;
+use jj_frontend::runner::RunnerEvent;
 use jj_frontend::runner::RunnerOptions;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
 use jj_lib::backend::BackendResult;
@@ -1427,6 +1429,39 @@ pub struct GitImportExportLock {
     _lock: Option<FileLock>,
 }
 
+fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
+    match event {
+        RunnerEvent::DescendantsRebased {
+            num_rebased,
+            reason,
+        } => match reason {
+            RebaseReason::RewrittenCommits => {
+                writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")
+            }
+            RebaseReason::RewrittenInGit => writeln!(
+                ui.status(),
+                "Rebased {num_rebased} descendant commits off of commits rewritten from Git."
+            ),
+            RebaseReason::WorkingCopySnapshot => writeln!(
+                ui.status(),
+                "Rebased {num_rebased} descendant commits onto updated working copy."
+            ),
+        },
+        RunnerEvent::OperationLeftUnpublished { op_id, is_snapshot } => {
+            let kind = if *is_snapshot {
+                "Snapshot operation"
+            } else {
+                "Operation"
+            };
+            writeln!(
+                ui.status(),
+                "{kind} left uncommitted because --no-integrate-operation was requested: {}",
+                short_operation_hash(op_id)
+            )
+        }
+    }
+}
+
 /// Provides utilities for writing a command that works on a [`Workspace`]
 /// (which most commands do).
 pub struct WorkspaceCommandHelper {
@@ -1629,17 +1664,25 @@ impl WorkspaceCommandHelper {
                 // Don't print verbose message on initial checkout.
             }
             if !self.options.integrate_operation {
-                writeln!(
-                    ui.status(),
-                    "Operation left uncommitted because --no-integrate-operation was requested: {}",
-                    short_operation_hash(self.repo().op_id())
+                print_runner_event(
+                    ui,
+                    &RunnerEvent::OperationLeftUnpublished {
+                        op_id: self.repo().op_id().clone(),
+                        is_snapshot: false,
+                    },
                 )?;
             }
         } else {
             // Unlikely, but the HEAD ref got deleted by git?
             let num_rebased = tx.repo_mut().rebase_descendants().await?;
             if num_rebased > 0 {
-                writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
+                print_runner_event(
+                    ui,
+                    &RunnerEvent::DescendantsRebased {
+                        num_rebased,
+                        reason: RebaseReason::RewrittenCommits,
+                    },
+                )?;
             }
             self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
                 .await?;
@@ -1677,9 +1720,12 @@ impl WorkspaceCommandHelper {
         let mut tx = tx.into_inner();
         let num_rebased = rebase_mutable_descendants(&self.env, &self.options, &mut tx).await?;
         if num_rebased > 0 {
-            writeln!(
-                ui.status(),
-                "Rebased {num_rebased} descendant commits off of commits rewritten from Git."
+            print_runner_event(
+                ui,
+                &RunnerEvent::DescendantsRebased {
+                    num_rebased,
+                    reason: RebaseReason::RewrittenInGit,
+                },
             )?;
         }
         self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)
@@ -2319,9 +2365,12 @@ to the current parents may contain changes from multiple commits.
                 .await
                 .map_err(snapshot_command_error)?;
             if num_rebased > 0 {
-                writeln!(
-                    ui.status(),
-                    "Rebased {num_rebased} descendant commits onto updated working copy."
+                print_runner_event(
+                    ui,
+                    &RunnerEvent::DescendantsRebased {
+                        num_rebased,
+                        reason: RebaseReason::WorkingCopySnapshot,
+                    },
                 )
                 .map_err(snapshot_command_error)?;
             }
@@ -2369,11 +2418,12 @@ to the current parents may contain changes from multiple commits.
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
             if !self.options.integrate_operation {
-                writeln!(
-                    ui.status(),
-                    "Snapshot operation left uncommitted because --no-integrate-operation was \
-                     requested: {}",
-                    short_operation_hash(self.user_repo.repo.op_id())
+                print_runner_event(
+                    ui,
+                    &RunnerEvent::OperationLeftUnpublished {
+                        op_id: self.user_repo.repo.op_id().clone(),
+                        is_snapshot: true,
+                    },
                 )
                 .map_err(snapshot_command_error)?;
             }
@@ -2574,10 +2624,12 @@ to the current parents may contain changes from multiple commits.
         self.report_repo_changes(ui, &old_repo).await?;
 
         if !self.options.integrate_operation {
-            writeln!(
-                ui.status(),
-                "Operation left uncommitted because --no-integrate-operation was requested: {}",
-                short_operation_hash(self.repo().op_id())
+            print_runner_event(
+                ui,
+                &RunnerEvent::OperationLeftUnpublished {
+                    op_id: self.repo().op_id().clone(),
+                    is_snapshot: false,
+                },
             )?;
         }
 
@@ -3002,7 +3054,13 @@ impl WorkspaceCommandTransaction<'_> {
         }
         let num_rebased = rebase_mutable_descendants(&helper.env, &helper.options, &mut tx).await?;
         if num_rebased > 0 {
-            writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
+            print_runner_event(
+                ui,
+                &RunnerEvent::DescendantsRebased {
+                    num_rebased,
+                    reason: RebaseReason::RewrittenCommits,
+                },
+            )?;
         }
         // Acquire git import/export lock before finishing the transaction to ensure
         // Git HEAD export happens atomically with the transaction commit.
