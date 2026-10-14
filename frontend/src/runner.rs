@@ -43,6 +43,8 @@ use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::WorkingCopyStateError;
 use thiserror::Error;
 
+use crate::workspace_env::WorkspaceEnvironmentError;
+
 /// Options controlling how operations on a workspace interact with the
 /// working copy and the operation log.
 #[derive(Clone, Debug)]
@@ -226,6 +228,9 @@ pub enum RunnerError {
     /// The working copy is stale.
     #[error(transparent)]
     StaleWorkingCopy(#[from] StaleWorkingCopyError),
+    /// The workspace environment couldn't be loaded.
+    #[error(transparent)]
+    Environment(#[from] WorkspaceEnvironmentError),
     /// Error from the commit backend.
     #[error(transparent)]
     Backend(#[from] BackendError),
