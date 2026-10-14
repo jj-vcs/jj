@@ -1478,6 +1478,26 @@ fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
     }
 }
 
+/// [`CommandError`] from the CLI's handling of a [`RunnerEvent`]. It's
+/// converted back to the original error when the [`RunnerError`] is converted
+/// to a [`CommandError`].
+#[derive(Debug)]
+pub(crate) struct CliEventSinkError(pub(crate) CommandError);
+
+impl fmt::Display for CliEventSinkError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0.error, f)
+    }
+}
+
+impl std::error::Error for CliEventSinkError {}
+
+impl From<CliEventSinkError> for RunnerError {
+    fn from(err: CliEventSinkError) -> Self {
+        Self::event_sink(err)
+    }
+}
+
 /// Provides utilities for writing a command that works on a [`Workspace`]
 /// (which most commands do).
 pub struct WorkspaceCommandHelper {
@@ -2484,24 +2504,6 @@ to the current parents may contain changes from multiple commits.
         Ok(stats)
     }
 
-    async fn update_working_copy(
-        &mut self,
-        ui: &Ui,
-        maybe_old_commit: Option<&Commit>,
-        new_commit: &Commit,
-    ) -> Result<(), CommandError> {
-        assert!(self.may_update_working_copy);
-        let stats = update_working_copy(
-            &self.user_repo.repo,
-            &mut self.workspace,
-            maybe_old_commit,
-            new_commit,
-        )
-        .await?;
-        self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
-            .await
-    }
-
     async fn print_updated_working_copy_stats(
         &self,
         ui: &Ui,
@@ -2556,7 +2558,7 @@ to the current parents may contain changes from multiple commits.
         mut tx: Transaction,
         description: impl Into<String>,
         git_import_export_lock: &GitImportExportLock,
-    ) -> Result<(), CommandError> {
+    ) -> Result<(), RunnerError> {
         let old_repo = tx.base_repo().clone();
 
         let maybe_old_wc_commit = old_repo
@@ -2596,7 +2598,8 @@ to the current parents may contain changes from multiple commits.
                 &RunnerEvent::WorkingCopyBecameImmutable {
                     new_wc_commit: &new_wc_commit,
                 },
-            )?;
+            )
+            .map_err(RunnerError::event_sink)?;
             Some(new_wc_commit)
         } else {
             maybe_new_wc_commit
@@ -2616,7 +2619,8 @@ to the current parents may contain changes from multiple commits.
                 .await?;
             }
             let stats = jj_lib::git::export_refs(tx.repo_mut())?;
-            print_runner_event(ui, &RunnerEvent::GitRefsExported(&stats))?;
+            print_runner_event(ui, &RunnerEvent::GitRefsExported(&stats))
+                .map_err(RunnerError::event_sink)?;
         }
 
         self.user_repo =
@@ -2627,15 +2631,30 @@ to the current parents may contain changes from multiple commits.
         // don't leave the working copy in a stale state.
         if self.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
-                self.update_working_copy(ui, maybe_old_wc_commit.as_ref(), new_commit)
-                    .await?;
+                let stats = update_working_copy(
+                    &self.user_repo.repo,
+                    &mut self.workspace,
+                    maybe_old_wc_commit.as_ref(),
+                    new_commit,
+                )
+                .await?;
+                self.print_updated_working_copy_stats(
+                    ui,
+                    maybe_old_wc_commit.as_ref(),
+                    new_commit,
+                    &stats,
+                )
+                .await
+                .map_err(CliEventSinkError)?;
             } else {
                 // It seems the workspace was deleted, so we shouldn't try to
                 // update it.
             }
         }
 
-        self.report_repo_changes(ui, &old_repo).await?;
+        self.report_repo_changes(ui, &old_repo)
+            .await
+            .map_err(CliEventSinkError)?;
 
         if !self.options.integrate_operation {
             print_runner_event(
@@ -2644,7 +2663,8 @@ to the current parents may contain changes from multiple commits.
                     op_id: self.repo().op_id(),
                     is_snapshot: false,
                 },
-            )?;
+            )
+            .map_err(RunnerError::event_sink)?;
         }
 
         let settings = self.settings();
@@ -2661,19 +2681,22 @@ to the current parents may contain changes from multiple commits.
                 ui.warning_default(),
                 "{not_configured_msg} Until configured, your commits will be created with the \
                  empty identity, and can't be pushed to remotes."
-            )?;
-            writeln!(ui.hint_default(), "To configure, run:")?;
+            )
+            .map_err(RunnerError::event_sink)?;
+            writeln!(ui.hint_default(), "To configure, run:").map_err(RunnerError::event_sink)?;
             if missing_user_name {
                 writeln!(
                     ui.hint_no_heading(),
                     r#"  jj config set --user user.name "Some One""#
-                )?;
+                )
+                .map_err(RunnerError::event_sink)?;
             }
             if missing_user_mail {
                 writeln!(
                     ui.hint_no_heading(),
                     r#"  jj config set --user user.email "someone@example.com""#
-                )?;
+                )
+                .map_err(RunnerError::event_sink)?;
             }
         }
         Ok(())
@@ -2953,7 +2976,7 @@ async fn try_reset_git_head(
         Ok(()) => Ok(()),
         Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
             print_runner_event(ui, &RunnerEvent::GitHeadResetFailed(&err))
-                .map_err(|err| RunnerError::EventSink(err.into()))?;
+                .map_err(RunnerError::event_sink)?;
             Ok(())
         }
         Err(err) => Err(err.into()),
@@ -3074,7 +3097,8 @@ impl WorkspaceCommandTransaction<'_> {
         let git_import_export_lock = helper.lock_git_import_export()?;
         helper
             .finish_transaction(ui, tx, description, &git_import_export_lock)
-            .await
+            .await?;
+        Ok(())
     }
 
     /// Returns the wrapped [`Transaction`] for circumstances where
