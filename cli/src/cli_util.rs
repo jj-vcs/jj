@@ -1474,6 +1474,36 @@ fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
             ui.warning_default(),
             "The working-copy commit became immutable; a new commit has been created on top of it.",
         ),
+        RunnerEvent::UserIdentityNotConfigured {
+            missing_name,
+            missing_email,
+        } => {
+            let not_configured_msg = match (missing_name, missing_email) {
+                (true, true) => "Name and email not configured.",
+                (true, false) => "Name not configured.",
+                (false, true) => "Email not configured.",
+                (false, false) => return Ok(()),
+            };
+            writeln!(
+                ui.warning_default(),
+                "{not_configured_msg} Until configured, your commits will be created with the \
+                 empty identity, and can't be pushed to remotes."
+            )?;
+            writeln!(ui.hint_default(), "To configure, run:")?;
+            if *missing_name {
+                writeln!(
+                    ui.hint_no_heading(),
+                    r#"  jj config set --user user.name "Some One""#
+                )?;
+            }
+            if *missing_email {
+                writeln!(
+                    ui.hint_no_heading(),
+                    r#"  jj config set --user user.email "someone@example.com""#
+                )?;
+            }
+            Ok(())
+        }
         #[cfg(feature = "git")]
         RunnerEvent::JjConflictFilesInWorkingCopy => {
             writeln!(
@@ -2718,36 +2748,17 @@ to the current parents may contain changes from multiple commits.
         }
 
         let settings = self.settings();
-        let missing_user_name = settings.user_name().is_empty();
-        let missing_user_mail = settings.user_email().is_empty();
-        if missing_user_name || missing_user_mail {
-            let not_configured_msg = match (missing_user_name, missing_user_mail) {
-                (true, true) => "Name and email not configured.",
-                (true, false) => "Name not configured.",
-                (false, true) => "Email not configured.",
-                _ => unreachable!(),
-            };
-            writeln!(
-                ui.warning_default(),
-                "{not_configured_msg} Until configured, your commits will be created with the \
-                 empty identity, and can't be pushed to remotes."
+        let missing_name = settings.user_name().is_empty();
+        let missing_email = settings.user_email().is_empty();
+        if missing_name || missing_email {
+            print_runner_event(
+                ui,
+                &RunnerEvent::UserIdentityNotConfigured {
+                    missing_name,
+                    missing_email,
+                },
             )
             .map_err(RunnerError::event_sink)?;
-            writeln!(ui.hint_default(), "To configure, run:").map_err(RunnerError::event_sink)?;
-            if missing_user_name {
-                writeln!(
-                    ui.hint_no_heading(),
-                    r#"  jj config set --user user.name "Some One""#
-                )
-                .map_err(RunnerError::event_sink)?;
-            }
-            if missing_user_mail {
-                writeln!(
-                    ui.hint_no_heading(),
-                    r#"  jj config set --user user.email "someone@example.com""#
-                )
-                .map_err(RunnerError::event_sink)?;
-            }
         }
         Ok(())
     }
