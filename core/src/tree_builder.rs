@@ -168,12 +168,17 @@ impl TreeBuilder {
                 for (basename, _child) in node.children() {
                     let basename = basename.to_owned();
                     let sub_dir = dir.join(&basename);
+                    let sub_dir_override = self.overrides.get(&sub_dir);
                     let tree = tree.clone();
                     tree_reads.push(Box::pin(async move {
-                        let sub_tree = tree
-                            .sub_tree(&basename)
-                            .await?
-                            .unwrap_or_else(|| Tree::empty(self.store.clone(), sub_dir.clone()));
+                        let sub_tree = match sub_dir_override {
+                            None => tree.sub_tree(&basename).await?,
+                            Some(Override::Replace(TreeValue::Tree(id))) => {
+                                Some(self.store.get_tree(sub_dir.clone(), id).await?)
+                            }
+                            Some(Override::Replace(_) | Override::Tombstone) => None,
+                        }
+                        .unwrap_or_else(|| Tree::empty(self.store.clone(), sub_dir.clone()));
                         Ok((sub_dir, sub_tree))
                     }));
                 }
