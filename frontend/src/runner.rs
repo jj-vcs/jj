@@ -20,8 +20,10 @@ use std::sync::Arc;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::lock::FileLockError;
 use jj_lib::matchers::Matcher;
+use jj_lib::matchers::NothingMatcher;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
@@ -32,6 +34,7 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy::CheckoutError;
+use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::WorkingCopyStateError;
 use thiserror::Error;
 
@@ -162,10 +165,28 @@ pub enum RebaseReason {
 pub struct SnapshotConfig {
     /// Matches new files that should be tracked automatically.
     pub auto_tracking_matcher: Box<dyn Matcher>,
+    /// Ignore patterns in addition to the working copy's `.gitignore` files.
+    pub base_ignores: Arc<GitIgnoreFile>,
+    /// New files larger than this aren't tracked automatically.
+    pub max_new_file_size: u64,
     /// Options for importing Git refs. Only present if the working copy is
     /// shared with Git.
     #[cfg(feature = "git")]
     pub git_import_options: Option<jj_lib::git::GitImportOptions>,
+}
+
+impl SnapshotConfig {
+    /// Returns the options for snapshotting the working copy with this
+    /// configuration.
+    pub fn snapshot_options(&self) -> SnapshotOptions<'_> {
+        SnapshotOptions {
+            base_ignores: self.base_ignores.clone(),
+            progress: None,
+            start_tracking_matcher: self.auto_tracking_matcher.as_ref(),
+            force_tracking_matcher: &NothingMatcher,
+            max_new_file_size: self.max_new_file_size,
+        }
+    }
 }
 
 /// Error from snapshotting the working copy, importing from or exporting to
