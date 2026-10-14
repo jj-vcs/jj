@@ -558,14 +558,14 @@ impl CommandHelper {
                 ui.hint_default(),
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
             )?;
-            env.base
+            let base_env = Arc::make_mut(&mut env.base);
+            base_env
                 .revset_aliases_map
                 .insert("trunk()", fallback, None)
                 .expect("valid syntax");
             // Any warnings were already reported when the expressions were first
             // loaded, and the fallback can't add new ones.
-            env.base
-                .reload_revset_expressions(&mut WorkspaceEnvironmentDiagnostics::new())?;
+            base_env.reload_revset_expressions(&mut WorkspaceEnvironmentDiagnostics::new())?;
         }
         let may_snapshot_working_copy = self.is_working_copy_writable();
         WorkspaceCommandHelper::new(
@@ -983,6 +983,7 @@ fn print_workspace_environment_diagnostics(
 ///
 /// This contains what's needed to parse and evaluate revsets and filesets in
 /// the workspace, independent of how the user interacts with it.
+#[derive(Clone)]
 pub struct WorkspaceEnvironment {
     settings: UserSettings,
     revset_extensions: Arc<RevsetExtensions>,
@@ -1219,7 +1220,7 @@ impl WorkspaceEnvironment {
 
 /// [`WorkspaceEnvironment`] plus CLI-specific configuration such as templates.
 pub struct WorkspaceCommandEnvironment {
-    base: WorkspaceEnvironment,
+    base: Arc<WorkspaceEnvironment>,
     command: CommandHelper,
     template_aliases_map: TemplateAliasesMap,
 }
@@ -1243,7 +1244,7 @@ impl WorkspaceCommandEnvironment {
         print_workspace_environment_diagnostics(ui, &diagnostics)?;
         let base = result?;
         Ok(Self {
-            base,
+            base: Arc::new(base),
             command: command.clone(),
             template_aliases_map,
         })
