@@ -25,3 +25,4 @@
 
 pub mod revset_util;
 pub mod runner;
+pub mod workspace_env;
