@@ -1054,6 +1054,11 @@ impl WorkspaceEnvironment {
         &self.workspace_name
     }
 
+    /// Settings for this workspace.
+    pub fn settings(&self) -> &UserSettings {
+        &self.settings
+    }
+
     /// Acquires a lock for Git import/export operations if the workspace is
     /// supposed to be colocated.
     fn lock_git_import_export(
@@ -1341,6 +1346,26 @@ impl WorkspaceCommandEnvironment {
 
     pub fn template_aliases_map(&self) -> &TemplateAliasesMap {
         &self.template_aliases_map
+    }
+
+    /// Parses template that is validated by `WorkspaceCommandHelper::new()`.
+    fn reparse_valid_template<'a, C, L>(
+        &self,
+        language: &L,
+        template_text: &str,
+    ) -> TemplateRenderer<'a, C>
+    where
+        C: Clone + 'a,
+        L: TemplateLanguage<'a> + ?Sized,
+        L::Property: WrapTemplateProperty<'a, C>,
+    {
+        template_builder::parse(
+            language,
+            &mut TemplateDiagnostics::new(),
+            template_text,
+            &self.template_aliases_map,
+        )
+        .expect("parse error should be confined by WorkspaceCommandHelper::new()")
     }
 
     /// Parses template of the given language into evaluation tree.
@@ -2191,26 +2216,6 @@ to the current parents may contain changes from multiple commits.
         self.env.parse_template(ui, language, template_text)
     }
 
-    /// Parses template that is validated by `Self::new()`.
-    fn reparse_valid_template<'a, C, L>(
-        &self,
-        language: &L,
-        template_text: &str,
-    ) -> TemplateRenderer<'a, C>
-    where
-        C: Clone + 'a,
-        L: TemplateLanguage<'a> + ?Sized,
-        L::Property: WrapTemplateProperty<'a, C>,
-    {
-        template_builder::parse(
-            language,
-            &mut TemplateDiagnostics::new(),
-            template_text,
-            &self.env.template_aliases_map,
-        )
-        .expect("parse error should be confined by WorkspaceCommandHelper::new()")
-    }
-
     /// Parses commit template into evaluation tree.
     pub fn parse_commit_template(
         &self,
@@ -2250,20 +2255,23 @@ to the current parents may contain changes from multiple commits.
     /// Template for one-line summary of a commit.
     pub fn commit_summary_template(&self) -> TemplateRenderer<'_, Commit> {
         let language = self.commit_template_language();
-        self.reparse_valid_template(&language, &self.commit_summary_template_text)
+        self.env
+            .reparse_valid_template(&language, &self.commit_summary_template_text)
             .labeled(["commit"])
     }
 
     /// Template for one-line summary of an operation.
     pub fn operation_summary_template(&self) -> TemplateRenderer<'_, Operation> {
         let language = self.operation_template_language();
-        self.reparse_valid_template(&language, &self.op_summary_template_text)
+        self.env
+            .reparse_valid_template(&language, &self.op_summary_template_text)
             .labeled(["operation"])
     }
 
     pub fn short_change_id_template(&self) -> TemplateRenderer<'_, Commit> {
         let language = self.commit_template_language();
-        self.reparse_valid_template(&language, SHORT_CHANGE_ID_TEMPLATE_TEXT)
+        self.env
+            .reparse_valid_template(&language, SHORT_CHANGE_ID_TEMPLATE_TEXT)
             .labeled(["commit"])
     }
 
@@ -2495,6 +2503,13 @@ to the current parents may contain changes from multiple commits.
         Ok(stats)
     }
 
+    fn reporter(&self) -> WorkspaceReporter<'_> {
+        WorkspaceReporter {
+            env: &self.env,
+            commit_summary_template_text: &self.commit_summary_template_text,
+        }
+    }
+
     async fn print_updated_working_copy_stats(
         &self,
         ui: &Ui,
@@ -2502,33 +2517,27 @@ to the current parents may contain changes from multiple commits.
         new_commit: &Commit,
         stats: &CheckoutStats,
     ) -> Result<(), CommandError> {
-        if Some(new_commit) != maybe_old_commit
-            && let Some(mut formatter) = ui.status_formatter()
-        {
-            let template = self.commit_summary_template();
-            write!(formatter, "Working copy  (@) now at: ")?;
-            template.format(new_commit, formatter.as_mut())?;
-            writeln!(formatter)?;
-            for parent in new_commit.parents().block_on()? {
-                //                "Working copy  (@) now at: "
-                write!(formatter, "Parent commit (@-)      : ")?;
-                template.format(&parent, formatter.as_mut())?;
-                writeln!(formatter)?;
-            }
-        }
-        print_checkout_stats(ui, stats, new_commit)?;
-        if Some(new_commit) != maybe_old_commit
-            && let Some(mut formatter) = ui.status_formatter()
-            && new_commit.has_conflict()
-        {
-            let conflicts = new_commit.tree().conflicts().collect().await;
-            writeln!(
-                formatter.labeled("warning").with_heading("Warning: "),
-                "There are unresolved conflicts at these paths:"
-            )?;
-            print_conflicted_paths(conflicts, formatter.as_mut(), self)?;
-        }
-        Ok(())
+        self.reporter()
+            .print_updated_working_copy_stats(
+                ui,
+                self.repo().as_ref(),
+                self.id_prefix_context(),
+                maybe_old_commit,
+                new_commit,
+                stats,
+            )
+            .await
+    }
+
+    pub async fn report_repo_conflicts(
+        &self,
+        fmt: &mut dyn Formatter,
+        repo: &ReadonlyRepo,
+        conflicted_commits: Vec<CommitId>,
+    ) -> Result<(), CommandError> {
+        self.reporter()
+            .report_repo_conflicts(fmt, repo, self.id_prefix_context(), conflicted_commits)
+            .await
     }
 
     pub fn start_transaction(&mut self) -> WorkspaceCommandTransaction<'_> {
@@ -2643,7 +2652,8 @@ to the current parents may contain changes from multiple commits.
             }
         }
 
-        self.report_repo_changes(ui, &old_repo)
+        self.reporter()
+            .report_repo_changes(ui, &old_repo, self.repo(), self.id_prefix_context())
             .await
             .map_err(CliEventSinkError)?;
 
@@ -2671,196 +2681,6 @@ to the current parents may contain changes from multiple commits.
             )
             .map_err(RunnerError::event_sink)?;
         }
-        Ok(())
-    }
-
-    /// Inform the user about important changes to the repo since the previous
-    /// operation (when `old_repo` was loaded).
-    async fn report_repo_changes(
-        &self,
-        ui: &Ui,
-        old_repo: &Arc<ReadonlyRepo>,
-    ) -> Result<(), CommandError> {
-        let Some(mut fmt) = ui.status_formatter() else {
-            return Ok(());
-        };
-        let old_view = old_repo.view();
-        let new_repo = self.repo().as_ref();
-        let new_view = new_repo.view();
-
-        let workspace_name = self.workspace_name();
-        if old_view.wc_commit_ids().contains_key(workspace_name)
-            && !new_view.wc_commit_ids().contains_key(workspace_name)
-        {
-            writeln!(
-                fmt.labeled("warning").with_heading("Warning: "),
-                "The current workspace '{}' no longer exists after this operation. The working \
-                 copy was left untouched.",
-                workspace_name.as_symbol(),
-            )?;
-            writeln!(
-                fmt.labeled("hint").with_heading("Hint: "),
-                "Restore to an operation that contains the workspace (e.g. `jj undo` or `jj \
-                 redo`).",
-            )?;
-        }
-
-        let old_heads = RevsetExpression::commits(old_view.heads().iter().cloned().collect());
-        let new_heads = RevsetExpression::commits(new_view.heads().iter().cloned().collect());
-        // Filter the revsets by conflicts instead of reading all commits and doing the
-        // filtering here. That way, we can afford to evaluate the revset even if there
-        // are millions of commits added to the repo, assuming the revset engine can
-        // efficiently skip non-conflicting commits. Filter out empty commits mostly so
-        // `jj new <conflicted commit>` doesn't result in a message about new conflicts.
-        let conflicts = RevsetExpression::filter(RevsetFilterPredicate::HasConflict)
-            .filtered(RevsetFilterPredicate::File(FilesetExpression::all()));
-        let removed_conflicts_expr = new_heads.range(&old_heads).intersection(&conflicts);
-        let added_conflicts_expr = old_heads.range(&new_heads).intersection(&conflicts);
-
-        let get_commits =
-            async |expr: Arc<ResolvedRevsetExpression>| -> Result<Vec<Commit>, CommandError> {
-                let commits = expr
-                    .evaluate(new_repo)?
-                    .stream()
-                    .commits(new_repo.store())
-                    .try_collect()
-                    .await?;
-                Ok(commits)
-            };
-        let removed_conflict_commits = get_commits(removed_conflicts_expr).await?;
-        let added_conflict_commits = get_commits(added_conflicts_expr).await?;
-
-        fn commits_by_change_id(commits: &[Commit]) -> IndexMap<&ChangeId, Vec<&Commit>> {
-            let mut result: IndexMap<&ChangeId, Vec<&Commit>> = IndexMap::new();
-            for commit in commits {
-                result.entry(commit.change_id()).or_default().push(commit);
-            }
-            result
-        }
-        let removed_conflicts_by_change_id = commits_by_change_id(&removed_conflict_commits);
-        let added_conflicts_by_change_id = commits_by_change_id(&added_conflict_commits);
-        let mut resolved_conflicts_by_change_id = removed_conflicts_by_change_id.clone();
-        resolved_conflicts_by_change_id
-            .retain(|change_id, _commits| !added_conflicts_by_change_id.contains_key(change_id));
-        let mut new_conflicts_by_change_id = added_conflicts_by_change_id.clone();
-        new_conflicts_by_change_id
-            .retain(|change_id, _commits| !removed_conflicts_by_change_id.contains_key(change_id));
-
-        // TODO: Also report new divergence and maybe resolved divergence
-        if !resolved_conflicts_by_change_id.is_empty() {
-            // TODO: Report resolved and abandoned numbers separately. However,
-            // that involves resolving the change_id among the visible commits in the new
-            // repo, which isn't currently supported by Google's revset engine.
-            let num_resolved: usize = resolved_conflicts_by_change_id
-                .values()
-                .map(|commits| commits.len())
-                .sum();
-            writeln!(
-                fmt,
-                "Existing conflicts were resolved or abandoned from {num_resolved} commits."
-            )?;
-        }
-        if !new_conflicts_by_change_id.is_empty() {
-            let num_conflicted: usize = new_conflicts_by_change_id
-                .values()
-                .map(|commits| commits.len())
-                .sum();
-            writeln!(fmt, "New conflicts appeared in {num_conflicted} commits:")?;
-            print_updated_commits(
-                fmt.as_mut(),
-                &self.commit_summary_template(),
-                new_conflicts_by_change_id.values().flatten().copied(),
-            )?;
-        }
-
-        // Hint that the user might want to `jj new` to the first conflict commit to
-        // resolve conflicts. Only show the hints if there were any new or resolved
-        // conflicts, and only if there are still some conflicts.
-        if !(added_conflict_commits.is_empty()
-            || resolved_conflicts_by_change_id.is_empty() && new_conflicts_by_change_id.is_empty())
-        {
-            // If the user just resolved some conflict and squashed them in, there won't be
-            // any new conflicts. Clarify to them that there are still some other conflicts
-            // to resolve. (We don't mention conflicts in commits that weren't affected by
-            // the operation, however.)
-            if new_conflicts_by_change_id.is_empty() {
-                writeln!(
-                    fmt,
-                    "There are still unresolved conflicts in rebased descendants.",
-                )?;
-            }
-
-            self.report_repo_conflicts(
-                fmt.as_mut(),
-                new_repo,
-                added_conflict_commits
-                    .iter()
-                    .map(|commit| commit.id().clone())
-                    .collect(),
-            )
-            .await?;
-        }
-
-        Ok(())
-    }
-
-    pub async fn report_repo_conflicts(
-        &self,
-        fmt: &mut dyn Formatter,
-        repo: &ReadonlyRepo,
-        conflicted_commits: Vec<CommitId>,
-    ) -> Result<(), CommandError> {
-        if !self.settings().get_bool("hints.resolving-conflicts")? || conflicted_commits.is_empty()
-        {
-            return Ok(());
-        }
-
-        let only_one_conflicted_commit = conflicted_commits.len() == 1;
-        let root_conflicts_revset = RevsetExpression::commits(conflicted_commits)
-            .roots()
-            .evaluate(repo)?;
-
-        let root_conflict_commits: Vec<_> = root_conflicts_revset
-            .stream()
-            .commits(repo.store())
-            .try_collect()
-            .await?;
-
-        // The common part of these strings is not extracted, to avoid i18n issues.
-        let instruction = if only_one_conflicted_commit {
-            indoc! {"
-            To resolve the conflicts, start by creating a commit on top of
-            the conflicted commit:
-            "}
-        } else if root_conflict_commits.len() == 1 {
-            indoc! {"
-            To resolve the conflicts, start by creating a commit on top of
-            the first conflicted commit:
-            "}
-        } else {
-            indoc! {"
-            To resolve the conflicts, start by creating a commit on top of
-            one of the first conflicted commits:
-            "}
-        };
-        write!(fmt.labeled("hint").with_heading("Hint: "), "{instruction}")?;
-        let format_short_change_id = self.short_change_id_template();
-        {
-            let mut fmt = fmt.labeled("hint");
-            for commit in &root_conflict_commits {
-                write!(fmt, "  jj new ")?;
-                format_short_change_id.format(commit, *fmt)?;
-                writeln!(fmt)?;
-            }
-        }
-        writedoc!(
-            fmt.labeled("hint"),
-            "
-            Then use `jj resolve`, or edit the conflict markers in the file directly.
-            Once the conflicts are resolved, you can inspect the result with `jj diff`.
-            Then run `jj squash` to move the resolution into the conflicted commit.
-            ",
-        )?;
         Ok(())
     }
 
@@ -2955,6 +2775,269 @@ async fn try_reset_git_head(
     }
 }
 
+/// Reports changes to the repo and the working copy using the workspace's
+/// templates.
+struct WorkspaceReporter<'a> {
+    env: &'a WorkspaceCommandEnvironment,
+    commit_summary_template_text: &'a str,
+}
+
+impl WorkspaceReporter<'_> {
+    fn commit_summary_template<'b>(
+        &'b self,
+        repo: &'b dyn Repo,
+        id_prefix_context: &'b IdPrefixContext,
+    ) -> TemplateRenderer<'b, Commit> {
+        let language = self.env.commit_template_language(repo, id_prefix_context);
+        self.env
+            .reparse_valid_template(&language, self.commit_summary_template_text)
+            .labeled(["commit"])
+    }
+
+    fn short_change_id_template<'b>(
+        &'b self,
+        repo: &'b dyn Repo,
+        id_prefix_context: &'b IdPrefixContext,
+    ) -> TemplateRenderer<'b, Commit> {
+        let language = self.env.commit_template_language(repo, id_prefix_context);
+        self.env
+            .reparse_valid_template(&language, SHORT_CHANGE_ID_TEMPLATE_TEXT)
+            .labeled(["commit"])
+    }
+
+    async fn print_updated_working_copy_stats(
+        &self,
+        ui: &Ui,
+        repo: &dyn Repo,
+        id_prefix_context: &IdPrefixContext,
+        maybe_old_commit: Option<&Commit>,
+        new_commit: &Commit,
+        stats: &CheckoutStats,
+    ) -> Result<(), CommandError> {
+        if Some(new_commit) != maybe_old_commit
+            && let Some(mut formatter) = ui.status_formatter()
+        {
+            let template = self.commit_summary_template(repo, id_prefix_context);
+            write!(formatter, "Working copy  (@) now at: ")?;
+            template.format(new_commit, formatter.as_mut())?;
+            writeln!(formatter)?;
+            for parent in new_commit.parents().block_on()? {
+                //                "Working copy  (@) now at: "
+                write!(formatter, "Parent commit (@-)      : ")?;
+                template.format(&parent, formatter.as_mut())?;
+                writeln!(formatter)?;
+            }
+        }
+        print_checkout_stats(ui, stats, new_commit)?;
+        if Some(new_commit) != maybe_old_commit
+            && let Some(mut formatter) = ui.status_formatter()
+            && new_commit.has_conflict()
+        {
+            let conflicts = new_commit.tree().conflicts().collect().await;
+            writeln!(
+                formatter.labeled("warning").with_heading("Warning: "),
+                "There are unresolved conflicts at these paths:"
+            )?;
+            print_conflicted_paths(conflicts, formatter.as_mut(), self.env.path_converter())?;
+        }
+        Ok(())
+    }
+
+    /// Inform the user about important changes to the repo since the previous
+    /// operation (when `old_repo` was loaded).
+    async fn report_repo_changes(
+        &self,
+        ui: &Ui,
+        old_repo: &ReadonlyRepo,
+        new_repo: &ReadonlyRepo,
+        id_prefix_context: &IdPrefixContext,
+    ) -> Result<(), CommandError> {
+        let Some(mut fmt) = ui.status_formatter() else {
+            return Ok(());
+        };
+        let old_view = old_repo.view();
+        let new_view = new_repo.view();
+
+        let workspace_name = self.env.workspace_name();
+        if old_view.wc_commit_ids().contains_key(workspace_name)
+            && !new_view.wc_commit_ids().contains_key(workspace_name)
+        {
+            writeln!(
+                fmt.labeled("warning").with_heading("Warning: "),
+                "The current workspace '{}' no longer exists after this operation. The working \
+                 copy was left untouched.",
+                workspace_name.as_symbol(),
+            )?;
+            writeln!(
+                fmt.labeled("hint").with_heading("Hint: "),
+                "Restore to an operation that contains the workspace (e.g. `jj undo` or `jj \
+                 redo`).",
+            )?;
+        }
+
+        let old_heads = RevsetExpression::commits(old_view.heads().iter().cloned().collect());
+        let new_heads = RevsetExpression::commits(new_view.heads().iter().cloned().collect());
+        // Filter the revsets by conflicts instead of reading all commits and doing the
+        // filtering here. That way, we can afford to evaluate the revset even if there
+        // are millions of commits added to the repo, assuming the revset engine can
+        // efficiently skip non-conflicting commits. Filter out empty commits mostly so
+        // `jj new <conflicted commit>` doesn't result in a message about new conflicts.
+        let conflicts = RevsetExpression::filter(RevsetFilterPredicate::HasConflict)
+            .filtered(RevsetFilterPredicate::File(FilesetExpression::all()));
+        let removed_conflicts_expr = new_heads.range(&old_heads).intersection(&conflicts);
+        let added_conflicts_expr = old_heads.range(&new_heads).intersection(&conflicts);
+
+        let get_commits =
+            async |expr: Arc<ResolvedRevsetExpression>| -> Result<Vec<Commit>, CommandError> {
+                let commits = expr
+                    .evaluate(new_repo)?
+                    .stream()
+                    .commits(new_repo.store())
+                    .try_collect()
+                    .await?;
+                Ok(commits)
+            };
+        let removed_conflict_commits = get_commits(removed_conflicts_expr).await?;
+        let added_conflict_commits = get_commits(added_conflicts_expr).await?;
+
+        fn commits_by_change_id(commits: &[Commit]) -> IndexMap<&ChangeId, Vec<&Commit>> {
+            let mut result: IndexMap<&ChangeId, Vec<&Commit>> = IndexMap::new();
+            for commit in commits {
+                result.entry(commit.change_id()).or_default().push(commit);
+            }
+            result
+        }
+        let removed_conflicts_by_change_id = commits_by_change_id(&removed_conflict_commits);
+        let added_conflicts_by_change_id = commits_by_change_id(&added_conflict_commits);
+        let mut resolved_conflicts_by_change_id = removed_conflicts_by_change_id.clone();
+        resolved_conflicts_by_change_id
+            .retain(|change_id, _commits| !added_conflicts_by_change_id.contains_key(change_id));
+        let mut new_conflicts_by_change_id = added_conflicts_by_change_id.clone();
+        new_conflicts_by_change_id
+            .retain(|change_id, _commits| !removed_conflicts_by_change_id.contains_key(change_id));
+
+        // TODO: Also report new divergence and maybe resolved divergence
+        if !resolved_conflicts_by_change_id.is_empty() {
+            // TODO: Report resolved and abandoned numbers separately. However,
+            // that involves resolving the change_id among the visible commits in the new
+            // repo, which isn't currently supported by Google's revset engine.
+            let num_resolved: usize = resolved_conflicts_by_change_id
+                .values()
+                .map(|commits| commits.len())
+                .sum();
+            writeln!(
+                fmt,
+                "Existing conflicts were resolved or abandoned from {num_resolved} commits."
+            )?;
+        }
+        if !new_conflicts_by_change_id.is_empty() {
+            let num_conflicted: usize = new_conflicts_by_change_id
+                .values()
+                .map(|commits| commits.len())
+                .sum();
+            writeln!(fmt, "New conflicts appeared in {num_conflicted} commits:")?;
+            print_updated_commits(
+                fmt.as_mut(),
+                &self.commit_summary_template(new_repo, id_prefix_context),
+                new_conflicts_by_change_id.values().flatten().copied(),
+            )?;
+        }
+
+        // Hint that the user might want to `jj new` to the first conflict commit to
+        // resolve conflicts. Only show the hints if there were any new or resolved
+        // conflicts, and only if there are still some conflicts.
+        if !(added_conflict_commits.is_empty()
+            || resolved_conflicts_by_change_id.is_empty() && new_conflicts_by_change_id.is_empty())
+        {
+            // If the user just resolved some conflict and squashed them in, there won't be
+            // any new conflicts. Clarify to them that there are still some other conflicts
+            // to resolve. (We don't mention conflicts in commits that weren't affected by
+            // the operation, however.)
+            if new_conflicts_by_change_id.is_empty() {
+                writeln!(
+                    fmt,
+                    "There are still unresolved conflicts in rebased descendants.",
+                )?;
+            }
+
+            self.report_repo_conflicts(
+                fmt.as_mut(),
+                new_repo,
+                id_prefix_context,
+                added_conflict_commits
+                    .iter()
+                    .map(|commit| commit.id().clone())
+                    .collect(),
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn report_repo_conflicts(
+        &self,
+        fmt: &mut dyn Formatter,
+        repo: &ReadonlyRepo,
+        id_prefix_context: &IdPrefixContext,
+        conflicted_commits: Vec<CommitId>,
+    ) -> Result<(), CommandError> {
+        if !self.env.settings().get_bool("hints.resolving-conflicts")?
+            || conflicted_commits.is_empty()
+        {
+            return Ok(());
+        }
+
+        let only_one_conflicted_commit = conflicted_commits.len() == 1;
+        let root_conflicts_revset = RevsetExpression::commits(conflicted_commits)
+            .roots()
+            .evaluate(repo)?;
+
+        let root_conflict_commits: Vec<_> = root_conflicts_revset
+            .stream()
+            .commits(repo.store())
+            .try_collect()
+            .await?;
+
+        // The common part of these strings is not extracted, to avoid i18n issues.
+        let instruction = if only_one_conflicted_commit {
+            indoc! {"
+            To resolve the conflicts, start by creating a commit on top of
+            the conflicted commit:
+            "}
+        } else if root_conflict_commits.len() == 1 {
+            indoc! {"
+            To resolve the conflicts, start by creating a commit on top of
+            the first conflicted commit:
+            "}
+        } else {
+            indoc! {"
+            To resolve the conflicts, start by creating a commit on top of
+            one of the first conflicted commits:
+            "}
+        };
+        write!(fmt.labeled("hint").with_heading("Hint: "), "{instruction}")?;
+        let format_short_change_id = self.short_change_id_template(repo, id_prefix_context);
+        {
+            let mut fmt = fmt.labeled("hint");
+            for commit in &root_conflict_commits {
+                write!(fmt, "  jj new ")?;
+                format_short_change_id.format(commit, *fmt)?;
+                writeln!(fmt)?;
+            }
+        }
+        writedoc!(
+            fmt.labeled("hint"),
+            "
+            Then use `jj resolve`, or edit the conflict markers in the file directly.
+            Once the conflicts are resolved, you can inspect the result with `jj diff`.
+            Then run `jj squash` to move the resolution into the conflicted commit.
+            ",
+        )?;
+        Ok(())
+    }
+}
+
 /// An ongoing [`Transaction`] tied to a particular workspace.
 ///
 /// `WorkspaceCommandTransaction`s are created with
@@ -3023,6 +3106,7 @@ impl WorkspaceCommandTransaction<'_> {
     pub fn commit_summary_template(&self) -> TemplateRenderer<'_, Commit> {
         let language = self.commit_template_language();
         self.helper
+            .env
             .reparse_valid_template(&language, &self.helper.commit_summary_template_text)
             .labeled(["commit"])
     }
@@ -3313,11 +3397,11 @@ pub fn print_updated_commits<'a>(
 pub fn print_conflicted_paths(
     conflicts: Vec<(RepoPathBuf, BackendResult<MergedTreeValue>)>,
     formatter: &mut dyn Formatter,
-    workspace_command: &WorkspaceCommandHelper,
+    path_converter: &RepoPathUiConverter,
 ) -> Result<(), CommandError> {
     let formatted_paths = conflicts
         .iter()
-        .map(|(path, _conflict)| workspace_command.format_file_path(path))
+        .map(|(path, _conflict)| path_converter.format_file_path(path))
         .collect_vec();
     let max_path_len = formatted_paths.iter().map(|p| p.len()).max().unwrap_or(0);
     let formatted_paths = formatted_paths
