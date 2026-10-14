@@ -477,7 +477,7 @@ impl CommandHelper {
         // import/export.
         let git_import_export_lock = self
             .is_working_copy_writable()
-            .then(|| env.lock_git_import_export(&workspace))
+            .then(|| env.base.lock_git_import_export(&workspace))
             .transpose()?;
         let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
         let Some(git_import_export_lock) = git_import_export_lock else {
@@ -551,10 +551,11 @@ impl CommandHelper {
                 ui.hint_default(),
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
             )?;
-            env.revset_aliases_map
+            env.base
+                .revset_aliases_map
                 .insert("trunk()", fallback, None)
                 .expect("valid syntax");
-            env.reload_revset_expressions(ui)?;
+            env.base.reload_revset_expressions(ui)?;
         }
         let may_snapshot_working_copy = self.is_working_copy_writable();
         WorkspaceCommandHelper::new(
@@ -621,7 +622,7 @@ impl CommandHelper {
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let workspace = self.load_workspace()?;
         let env = self.workspace_environment(ui, &workspace)?;
-        let git_import_export_lock = env.lock_git_import_export(&workspace)?;
+        let git_import_export_lock = env.base.lock_git_import_export(&workspace)?;
         self.recover_stale_working_copy_impl(ui, workspace, env, &git_import_export_lock)
             .await
     }
@@ -687,7 +688,7 @@ impl CommandHelper {
                     | WorkingCopyFreshness::SiblingOperation => {
                         // Reset Git HEAD first if the repo is colocated
                         #[cfg(feature = "git")]
-                        if workspace_command.env.working_copy_shared_with_git
+                        if workspace_command.env.base.working_copy_shared_with_git
                             && workspace_command.options.integrate_operation
                         {
                             let workspace_name = workspace_command.env.workspace_name();
@@ -952,12 +953,14 @@ fn load_advance_bookmarks_matcher(
 }
 
 /// Metadata and configuration loaded for a specific workspace.
-pub struct WorkspaceCommandEnvironment {
-    command: CommandHelper,
+///
+/// This contains what's needed to parse and evaluate revsets and filesets in
+/// the workspace, independent of how the user interacts with it.
+pub struct WorkspaceEnvironment {
     settings: UserSettings,
+    revset_extensions: Arc<RevsetExtensions>,
     fileset_aliases_map: FilesetAliasesMap,
     revset_aliases_map: RevsetAliasesMap,
-    template_aliases_map: TemplateAliasesMap,
     default_ignored_remote: Option<&'static RemoteName>,
     path_converter: RepoPathUiConverter,
     working_copy_shared_with_git: bool,
@@ -967,16 +970,22 @@ pub struct WorkspaceCommandEnvironment {
     conflict_marker_style: ConflictMarkerStyle,
 }
 
-impl WorkspaceCommandEnvironment {
+impl WorkspaceEnvironment {
+    /// Loads environment for the given `workspace`. Relative paths in revsets
+    /// and filesets are resolved relative to `cwd`.
     #[instrument(skip_all)]
-    fn new(ui: &Ui, command: &CommandHelper, workspace: &Workspace) -> Result<Self, CommandError> {
+    pub fn new(
+        ui: &Ui,
+        workspace: &Workspace,
+        cwd: &Path,
+        revset_extensions: Arc<RevsetExtensions>,
+        fileset_aliases_map: FilesetAliasesMap,
+        revset_aliases_map: RevsetAliasesMap,
+    ) -> Result<Self, CommandError> {
         let settings = workspace.settings();
-        let fileset_aliases_map = load_fileset_aliases(ui, settings.config())?;
-        let revset_aliases_map = load_revset_aliases(ui, settings.config())?;
-        let template_aliases_map = load_template_aliases(ui, settings.config())?;
         let default_ignored_remote = default_ignored_remote_name(workspace.repo_loader().store());
         let path_converter = RepoPathUiConverter::Fs {
-            cwd: command.cwd().to_owned(),
+            cwd: cwd.to_owned(),
             base: workspace.workspace_root().to_owned(),
         };
         #[cfg(feature = "git")]
@@ -984,11 +993,10 @@ impl WorkspaceCommandEnvironment {
         #[cfg(not(feature = "git"))]
         let working_copy_shared_with_git = false;
         let mut env = Self {
-            command: command.clone(),
             settings: settings.clone(),
+            revset_extensions,
             fileset_aliases_map,
             revset_aliases_map,
-            template_aliases_map,
             default_ignored_remote,
             path_converter,
             working_copy_shared_with_git,
@@ -1036,87 +1044,6 @@ impl WorkspaceCommandEnvironment {
         Ok(GitImportExportLock { _lock: lock })
     }
 
-    pub fn auto_tracking_matcher(&self, ui: &Ui) -> Result<Box<dyn Matcher>, CommandError> {
-        let mut diagnostics = FilesetDiagnostics::new();
-        let pattern = self.settings.get_string("snapshot.auto-track")?;
-        let context = self.fileset_parse_context_for_config();
-        let expression = fileset::parse(&mut diagnostics, &pattern, &context)?;
-        print_parse_diagnostics(ui, "In `snapshot.auto-track`", &diagnostics)?;
-        Ok(expression.to_matcher())
-    }
-
-    pub fn snapshot_options_with_start_tracking_matcher<'a>(
-        &self,
-        store: &Store,
-        start_tracking_matcher: &'a dyn Matcher,
-    ) -> Result<SnapshotOptions<'a>, CommandError> {
-        let base_ignores = self.base_ignores(store)?;
-        let HumanByteSize(mut max_new_file_size) = self
-            .settings
-            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
-        if max_new_file_size == 0 {
-            max_new_file_size = u64::MAX;
-        }
-        Ok(SnapshotOptions {
-            base_ignores,
-            progress: None,
-            start_tracking_matcher,
-            force_tracking_matcher: &NothingMatcher,
-            max_new_file_size,
-        })
-    }
-
-    #[cfg(not(feature = "git"))]
-    pub fn base_ignores(&self, _store: &Store) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
-        Ok(GitIgnoreFile::empty())
-    }
-
-    #[cfg(feature = "git")]
-    #[instrument(skip_all)]
-    pub fn base_ignores(&self, store: &Store) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
-        let get_excludes_file_path = |config: &gix::config::File| -> Option<PathBuf> {
-            // TODO: maybe use path() and interpolate(), which can process non-utf-8
-            // path on Unix.
-            if let Some(value) = config.string("core.excludesFile") {
-                let home_dir = self.command.config_env().home_dir();
-                let path = str::from_utf8(&value)
-                    .ok()
-                    .map(|value| jj_lib::file_util::expand_home_path(value, home_dir))?;
-                // The configured path is usually absolute, but if it's relative,
-                // the "git" command would read the file at the work-tree directory.
-                Some(self.workspace_root().join(path))
-            } else {
-                xdg_config_home().map(|x| x.join("git").join("ignore"))
-            }
-        };
-
-        fn xdg_config_home() -> Option<PathBuf> {
-            if let Ok(x) = std::env::var("XDG_CONFIG_HOME")
-                && !x.is_empty()
-            {
-                return Some(PathBuf::from(x));
-            }
-            etcetera::home_dir().ok().map(|home| home.join(".config"))
-        }
-
-        let mut git_ignores = GitIgnoreFile::empty();
-        if let Ok(git_backend) = jj_lib::git::get_git_backend(store) {
-            let git_repo = git_backend.git_repo();
-            if let Some(excludes_file_path) = get_excludes_file_path(&git_repo.config_snapshot()) {
-                git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
-            }
-            git_ignores = git_ignores.chain_with_file(
-                RepoPath::root(),
-                git_backend.git_repo_path().join("info").join("exclude"),
-            )?;
-        } else if let Ok(git_config) = gix::config::File::from_globals()
-            && let Some(excludes_file_path) = get_excludes_file_path(&git_config)
-        {
-            git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
-        }
-        Ok(git_ignores)
-    }
-
     /// Parsing context for fileset expressions specified by command arguments.
     pub(crate) fn fileset_parse_context(&self) -> FilesetParseContext<'_> {
         FilesetParseContext {
@@ -1156,7 +1083,7 @@ impl WorkspaceCommandEnvironment {
             current_time: now,
             default_ignored_remote: self.default_ignored_remote,
             fileset_aliases_map: &self.fileset_aliases_map,
-            extensions: self.command.revset_extensions(),
+            extensions: &self.revset_extensions,
             workspace: Some(workspace_context),
         }
     }
@@ -1164,7 +1091,7 @@ impl WorkspaceCommandEnvironment {
     /// Creates fresh new context which manages cache of short commit/change ID
     /// prefixes. New context should be created per repo view (or operation.)
     pub fn new_id_prefix_context(&self) -> IdPrefixContext {
-        let context = IdPrefixContext::new(self.command.revset_extensions().clone());
+        let context = IdPrefixContext::new(self.revset_extensions.clone());
         match &self.short_prefixes_expression {
             None => context,
             Some(expression) => context.disambiguate_within(expression.clone()),
@@ -1250,15 +1177,178 @@ impl WorkspaceCommandEnvironment {
         // Not using self.id_prefix_context() because the disambiguation data
         // must not be calculated and cached against arbitrary repo. It's also
         // unlikely that the immutable expression contains short hashes.
-        let id_prefix_context = IdPrefixContext::new(self.command.revset_extensions().clone());
+        let id_prefix_context = IdPrefixContext::new(self.revset_extensions.clone());
         RevsetExpressionEvaluator::new(
             repo,
-            self.command.revset_extensions().clone(),
+            self.revset_extensions.clone(),
             &id_prefix_context,
             immutable_expression,
         )
         .resolve()
         .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))
+    }
+}
+
+/// [`WorkspaceEnvironment`] plus CLI-specific configuration such as templates.
+pub struct WorkspaceCommandEnvironment {
+    base: WorkspaceEnvironment,
+    command: CommandHelper,
+    template_aliases_map: TemplateAliasesMap,
+}
+
+impl WorkspaceCommandEnvironment {
+    #[instrument(skip_all)]
+    fn new(ui: &Ui, command: &CommandHelper, workspace: &Workspace) -> Result<Self, CommandError> {
+        let settings = workspace.settings();
+        let fileset_aliases_map = load_fileset_aliases(ui, settings.config())?;
+        let revset_aliases_map = load_revset_aliases(ui, settings.config())?;
+        let template_aliases_map = load_template_aliases(ui, settings.config())?;
+        let base = WorkspaceEnvironment::new(
+            ui,
+            workspace,
+            command.cwd(),
+            command.revset_extensions().clone(),
+            fileset_aliases_map,
+            revset_aliases_map,
+        )?;
+        Ok(Self {
+            base,
+            command: command.clone(),
+            template_aliases_map,
+        })
+    }
+
+    pub(crate) fn path_converter(&self) -> &RepoPathUiConverter {
+        self.base.path_converter()
+    }
+
+    pub(crate) fn cwd(&self) -> &Path {
+        self.base.cwd()
+    }
+
+    pub fn workspace_root(&self) -> &Path {
+        self.base.workspace_root()
+    }
+
+    pub fn workspace_name(&self) -> &WorkspaceName {
+        self.base.workspace_name()
+    }
+
+    /// Parsing context for fileset expressions specified by command arguments.
+    pub(crate) fn fileset_parse_context(&self) -> FilesetParseContext<'_> {
+        self.base.fileset_parse_context()
+    }
+
+    /// Parsing context for fileset expressions loaded from config files.
+    pub(crate) fn fileset_parse_context_for_config(&self) -> FilesetParseContext<'_> {
+        self.base.fileset_parse_context_for_config()
+    }
+
+    pub(crate) fn revset_parse_context(&self) -> RevsetParseContext<'_> {
+        self.base.revset_parse_context()
+    }
+
+    /// Creates fresh new context which manages cache of short commit/change ID
+    /// prefixes. New context should be created per repo view (or operation.)
+    pub fn new_id_prefix_context(&self) -> IdPrefixContext {
+        self.base.new_id_prefix_context()
+    }
+
+    /// User-configured expression defining the immutable set.
+    pub fn immutable_expression(&self) -> Arc<UserRevsetExpression> {
+        self.base.immutable_expression()
+    }
+
+    /// User-configured expression defining the heads of the immutable set.
+    pub fn immutable_heads_expression(&self) -> &Arc<UserRevsetExpression> {
+        self.base.immutable_heads_expression()
+    }
+
+    /// User-configured conflict marker style for materializing conflicts
+    pub fn conflict_marker_style(&self) -> ConflictMarkerStyle {
+        self.base.conflict_marker_style()
+    }
+
+    pub fn auto_tracking_matcher(&self, ui: &Ui) -> Result<Box<dyn Matcher>, CommandError> {
+        let mut diagnostics = FilesetDiagnostics::new();
+        let pattern = self.base.settings.get_string("snapshot.auto-track")?;
+        let context = self.fileset_parse_context_for_config();
+        let expression = fileset::parse(&mut diagnostics, &pattern, &context)?;
+        print_parse_diagnostics(ui, "In `snapshot.auto-track`", &diagnostics)?;
+        Ok(expression.to_matcher())
+    }
+
+    pub fn snapshot_options_with_start_tracking_matcher<'a>(
+        &self,
+        store: &Store,
+        start_tracking_matcher: &'a dyn Matcher,
+    ) -> Result<SnapshotOptions<'a>, CommandError> {
+        let base_ignores = self.base_ignores(store)?;
+        let HumanByteSize(mut max_new_file_size) = self
+            .base
+            .settings
+            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
+        if max_new_file_size == 0 {
+            max_new_file_size = u64::MAX;
+        }
+        Ok(SnapshotOptions {
+            base_ignores,
+            progress: None,
+            start_tracking_matcher,
+            force_tracking_matcher: &NothingMatcher,
+            max_new_file_size,
+        })
+    }
+
+    #[cfg(not(feature = "git"))]
+    pub fn base_ignores(&self, _store: &Store) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+        Ok(GitIgnoreFile::empty())
+    }
+
+    #[cfg(feature = "git")]
+    #[instrument(skip_all)]
+    pub fn base_ignores(&self, store: &Store) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+        let get_excludes_file_path = |config: &gix::config::File| -> Option<PathBuf> {
+            // TODO: maybe use path() and interpolate(), which can process non-utf-8
+            // path on Unix.
+            if let Some(value) = config.string("core.excludesFile") {
+                let home_dir = self.command.config_env().home_dir();
+                let path = str::from_utf8(&value)
+                    .ok()
+                    .map(|value| jj_lib::file_util::expand_home_path(value, home_dir))?;
+                // The configured path is usually absolute, but if it's relative,
+                // the "git" command would read the file at the work-tree directory.
+                Some(self.workspace_root().join(path))
+            } else {
+                xdg_config_home().map(|x| x.join("git").join("ignore"))
+            }
+        };
+
+        fn xdg_config_home() -> Option<PathBuf> {
+            if let Ok(x) = std::env::var("XDG_CONFIG_HOME")
+                && !x.is_empty()
+            {
+                return Some(PathBuf::from(x));
+            }
+            etcetera::home_dir().ok().map(|home| home.join(".config"))
+        }
+
+        let mut git_ignores = GitIgnoreFile::empty();
+        if let Ok(git_backend) = jj_lib::git::get_git_backend(store) {
+            let git_repo = git_backend.git_repo();
+            if let Some(excludes_file_path) = get_excludes_file_path(&git_repo.config_snapshot()) {
+                git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
+            }
+            git_ignores = git_ignores.chain_with_file(
+                RepoPath::root(),
+                git_backend.git_repo_path().join("info").join("exclude"),
+            )?;
+        } else if let Ok(git_config) = gix::config::File::from_globals()
+            && let Some(excludes_file_path) = get_excludes_file_path(&git_config)
+        {
+            git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
+        }
+        Ok(git_ignores)
     }
 
     pub fn template_aliases_map(&self) -> &TemplateAliasesMap {
@@ -1297,12 +1387,12 @@ impl WorkspaceCommandEnvironment {
     ) -> CommitTemplateLanguage<'a> {
         CommitTemplateLanguage::new(
             repo,
-            &self.path_converter,
-            &self.workspace_name,
+            &self.base.path_converter,
+            &self.base.workspace_name,
             self.revset_parse_context(),
             id_prefix_context,
             self.immutable_expression(),
-            self.conflict_marker_style,
+            self.base.conflict_marker_style,
             &self.command.data.commit_template_extensions,
         )
     }
@@ -1412,7 +1502,7 @@ impl WorkspaceCommandHelper {
     /// that need to import from or export to Git. For non-colocated repos,
     /// returns a token with no lock inside.
     fn lock_git_import_export(&self) -> Result<GitImportExportLock, CommandError> {
-        self.env.lock_git_import_export(&self.workspace)
+        self.env.base.lock_git_import_export(&self.workspace)
     }
 
     /// Note that unless you have a good reason not to do so, you should always
@@ -1426,7 +1516,7 @@ impl WorkspaceCommandHelper {
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         assert!(self.may_snapshot_working_copy);
         #[cfg(feature = "git")]
-        if self.env.working_copy_shared_with_git {
+        if self.env.base.working_copy_shared_with_git {
             self.import_git_head(ui, git_import_export_lock)
                 .await
                 .map_err(snapshot_command_error)?;
@@ -1441,7 +1531,7 @@ impl WorkspaceCommandHelper {
 
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
-        if self.env.working_copy_shared_with_git {
+        if self.env.base.working_copy_shared_with_git {
             self.import_git_refs(ui, git_import_export_lock)
                 .await
                 .map_err(snapshot_command_error)?;
@@ -1682,7 +1772,7 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn working_copy_shared_with_git(&self) -> bool {
-        self.env.working_copy_shared_with_git
+        self.env.base.working_copy_shared_with_git
     }
 
     pub fn format_file_path(&self, file: &RepoPath) -> String {
@@ -2077,6 +2167,7 @@ to the current parents may contain changes from multiple commits.
         let repo = self.repo().as_ref();
         let immutable_expr = self
             .env
+            .base
             .resolve_immutable_expression(repo, self.options.ignore_immutable)?;
         let Some(commit_id) = immutable_expr
             .intersection(to_rewrite_expr)
@@ -2168,6 +2259,7 @@ to the current parents may contain changes from multiple commits.
             tx.set_is_snapshot(true);
             let immutable_expr = self
                 .env
+                .base
                 .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)
                 .map_err(snapshot_command_error)?;
             let wc_immutable = !immutable_expr
@@ -2217,7 +2309,7 @@ to the current parents may contain changes from multiple commits.
             }
 
             #[cfg(feature = "git")]
-            if self.env.working_copy_shared_with_git && self.options.integrate_operation {
+            if self.env.base.working_copy_shared_with_git && self.options.integrate_operation {
                 let workspace_root = self.env.workspace_root();
                 if wc_immutable {
                     // New working-copy commit is created on top. Reset Git HEAD and index.
@@ -2270,7 +2362,7 @@ to the current parents may contain changes from multiple commits.
         }
 
         #[cfg(feature = "git")]
-        if self.env.working_copy_shared_with_git
+        if self.env.base.working_copy_shared_with_git
             && let Ok(resolved_tree) = new_tree
                 .trees()
                 .await
@@ -2400,6 +2492,7 @@ to the current parents may contain changes from multiple commits.
         let maybe_new_wc_commit = if let Some(wc_commit) = &maybe_new_wc_commit
             && let Ok(immutable_expr) = self
                 .env
+                .base
                 .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)
             && !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
@@ -2425,7 +2518,7 @@ to the current parents may contain changes from multiple commits.
         };
 
         #[cfg(feature = "git")]
-        if self.env.working_copy_shared_with_git && self.options.integrate_operation {
+        if self.env.base.working_copy_shared_with_git && self.options.integrate_operation {
             if let Some(wc_commit) = &maybe_new_wc_commit {
                 try_reset_git_head(
                     ui,
@@ -3030,8 +3123,9 @@ async fn rebase_mutable_descendants(
     // tx.base_repo() here because we're interested in existing immutable
     // commits that are still reachable.
     let mut num_rebased = 0;
-    let immutable =
-        env.resolve_immutable_expression(tx.base_repo().as_ref(), options.ignore_immutable)?;
+    let immutable = env
+        .base
+        .resolve_immutable_expression(tx.base_repo().as_ref(), options.ignore_immutable)?;
     tx.repo_mut()
         .rebase_descendants_with_options(
             &immutable,
