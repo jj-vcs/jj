@@ -57,6 +57,7 @@ use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_frontend::runner::RebaseReason;
 use jj_frontend::runner::RunnerEvent;
 use jj_frontend::runner::RunnerOptions;
+use jj_frontend::runner::SnapshotConfig;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
@@ -488,8 +489,9 @@ impl CommandHelper {
         };
 
         let old_repo = workspace_command.repo().clone();
+        let snapshot_config = workspace_command.load_snapshot_config(ui)?;
         let (workspace_command, stats) = match workspace_command
-            .snapshot_impl(ui, &git_import_export_lock)
+            .snapshot_impl(ui, &snapshot_config, &git_import_export_lock)
             .await
         {
             Ok(stats) => (workspace_command, stats),
@@ -656,13 +658,14 @@ impl CommandHelper {
                     may_snapshot_working_copy,
                 )?;
                 workspace_command.check_working_copy_writable()?;
+                let snapshot_config = workspace_command.load_snapshot_config(ui)?;
 
                 // Snapshot the current working copy on top of the last known working-copy
                 // operation, then merge the divergent operations. The wc_commit_id of the
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
                 let stale_stats = workspace_command
-                    .snapshot_working_copy(ui, git_import_export_lock)
+                    .snapshot_working_copy(ui, &snapshot_config, git_import_export_lock)
                     .await
                     .map_err(|err| err.into_command_error())?;
 
@@ -748,7 +751,7 @@ impl CommandHelper {
                 // copy became stale. The result wouldn't be ideal, but there
                 // should be no data loss at least.
                 let fresh_stats = workspace_command
-                    .snapshot_impl(ui, git_import_export_lock)
+                    .snapshot_impl(ui, &snapshot_config, git_import_export_lock)
                     .await
                     .map_err(|err| err.into_command_error())?;
                 let merged_stats = {
@@ -773,8 +776,13 @@ impl CommandHelper {
                 )?;
 
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+                let snapshot_config = workspace_command.load_snapshot_config(ui)?;
                 let stats = workspace_command
-                    .create_and_check_out_recovery_commit(ui, git_import_export_lock)
+                    .create_and_check_out_recovery_commit(
+                        ui,
+                        &snapshot_config,
+                        git_import_export_lock,
+                    )
                     .await?;
                 Ok((workspace_command, stats))
             }
@@ -1574,6 +1582,7 @@ impl WorkspaceCommandHelper {
     async fn snapshot_impl(
         &mut self,
         ui: &Ui,
+        config: &SnapshotConfig,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         assert!(self.may_snapshot_working_copy);
@@ -1588,13 +1597,13 @@ impl WorkspaceCommandHelper {
         // In that situation, the ref would be conflicted anyway, so export
         // failure is okay.
         let stats = self
-            .snapshot_working_copy(ui, git_import_export_lock)
+            .snapshot_working_copy(ui, config, git_import_export_lock)
             .await?;
 
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
-        if self.env.working_copy_shared_with_git {
-            self.import_git_refs(ui, git_import_export_lock)
+        if let Some(import_options) = &config.git_import_options {
+            self.import_git_refs(ui, import_options, git_import_export_lock)
                 .await
                 .map_err(snapshot_command_error)?;
         }
@@ -1608,9 +1617,10 @@ impl WorkspaceCommandHelper {
         if !self.may_snapshot_working_copy {
             return Ok(());
         }
+        let config = self.load_snapshot_config(ui)?;
         let git_import_export_lock = self.lock_git_import_export()?;
         let stats = self
-            .snapshot_impl(ui, &git_import_export_lock)
+            .snapshot_impl(ui, &config, &git_import_export_lock)
             .await
             .map_err(|err| err.into_command_error())?;
         print_snapshot_stats(ui, &stats, self.env().path_converter())?;
@@ -1710,15 +1720,11 @@ impl WorkspaceCommandHelper {
     async fn import_git_refs(
         &mut self,
         ui: &Ui,
+        import_options: &jj_lib::git::GitImportOptions,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
-        use jj_lib::git;
-        let git_settings = git::GitSettings::from_settings(self.settings())?;
-        let remote_settings = self.settings().remote_settings()?;
-        let import_options =
-            crate::git_util::load_git_import_options(ui, &git_settings, &remote_settings)?;
         let mut tx = self.start_transaction();
-        let stats = git::import_refs(tx.repo_mut(), &import_options).await?;
+        let stats = jj_lib::git::import_refs(tx.repo_mut(), import_options).await?;
         print_runner_event(ui, &RunnerEvent::GitRefsImported(&stats))?;
         if !tx.repo().has_changes() {
             return Ok(());
@@ -1784,6 +1790,7 @@ impl WorkspaceCommandHelper {
     async fn create_and_check_out_recovery_commit(
         &mut self,
         ui: &Ui,
+        snapshot_config: &SnapshotConfig,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, CommandError> {
         self.check_working_copy_writable()?;
@@ -1813,7 +1820,7 @@ to the current parents may contain changes from multiple commits.
         locked_ws.finish(repo.op_id().clone()).await?;
         self.user_repo = ReadonlyUserRepo::new(repo);
 
-        self.snapshot_impl(ui, git_import_export_lock)
+        self.snapshot_impl(ui, snapshot_config, git_import_export_lock)
             .await
             .map_err(|err| err.into_command_error())
     }
@@ -1883,6 +1890,28 @@ to the current parents may contain changes from multiple commits.
             .try_collect()?;
         print_parse_diagnostics(ui, "In fileset expression", &diagnostics)?;
         Ok(FilesetExpression::union_all(expressions))
+    }
+
+    /// Loads configuration needed by [`Self::snapshot_impl()`].
+    fn load_snapshot_config(&self, ui: &Ui) -> Result<SnapshotConfig, CommandError> {
+        let auto_tracking_matcher = self.env.auto_tracking_matcher(ui)?;
+        #[cfg(feature = "git")]
+        let git_import_options = if self.env.working_copy_shared_with_git {
+            let git_settings = jj_lib::git::GitSettings::from_settings(self.settings())?;
+            let remote_settings = self.settings().remote_settings()?;
+            Some(crate::git_util::load_git_import_options(
+                ui,
+                &git_settings,
+                &remote_settings,
+            )?)
+        } else {
+            None
+        };
+        Ok(SnapshotConfig {
+            auto_tracking_matcher,
+            #[cfg(feature = "git")]
+            git_import_options,
+        })
     }
 
     pub fn snapshot_options_with_start_tracking_matcher<'a>(
@@ -2281,16 +2310,13 @@ to the current parents may contain changes from multiple commits.
     async fn snapshot_working_copy(
         &mut self,
         ui: &Ui,
+        config: &SnapshotConfig,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         let workspace_name = self.workspace_name().to_owned();
         let repo = self.repo().clone();
-        let auto_tracking_matcher = self
-            .env
-            .auto_tracking_matcher(ui)
-            .map_err(snapshot_command_error)?;
         let options = self
-            .snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)
+            .snapshot_options_with_start_tracking_matcher(config.auto_tracking_matcher.as_ref())
             .map_err(snapshot_command_error)?;
 
         // Compare working-copy tree and operation with repo's, and reload as needed.

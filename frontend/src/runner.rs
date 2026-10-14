@@ -18,6 +18,7 @@
 use std::sync::Arc;
 
 use jj_lib::commit::Commit;
+use jj_lib::matchers::Matcher;
 use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
@@ -137,4 +138,15 @@ pub enum RebaseReason {
     RewrittenInGit,
     /// The working-copy commit was rewritten by a snapshot.
     WorkingCopySnapshot,
+}
+
+/// Configuration used when snapshotting the working copy and importing changes
+/// from Git.
+pub struct SnapshotConfig {
+    /// Matches new files that should be tracked automatically.
+    pub auto_tracking_matcher: Box<dyn Matcher>,
+    /// Options for importing Git refs. Only present if the working copy is
+    /// shared with Git.
+    #[cfg(feature = "git")]
+    pub git_import_options: Option<jj_lib::git::GitImportOptions>,
 }
