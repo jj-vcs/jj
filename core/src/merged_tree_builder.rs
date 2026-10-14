@@ -48,6 +48,9 @@ pub struct ConflictArityMismatchError;
 
 impl MergedTreeBuilder {
     /// Create a new builder with the given trees as base.
+    ///
+    /// The `base_tree` is assumed to already have its conflicts resolved (e.g.
+    /// via `MergedTree::merge()` or `MergedTree::resolve()`).
     pub fn new(base_tree: MergedTree) -> Self {
         Self {
             base_tree,
@@ -83,6 +86,9 @@ impl MergedTreeBuilder {
 
     /// Create new tree(s) from the base tree(s) and overrides.
     pub async fn write_tree(self) -> BackendResult<MergedTree> {
+        if self.overrides.is_empty() {
+            return Ok(self.base_tree);
+        }
         let store = self.base_tree.store().clone();
         let labels = self.base_tree.labels().clone();
         let new_tree_ids = self.write_merged_trees().await?;
