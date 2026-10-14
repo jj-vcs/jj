@@ -271,6 +271,7 @@ impl From<WorkspaceEnvironmentError> for CommandError {
 impl From<RunnerError> for CommandError {
     fn from(err: RunnerError) -> Self {
         match err {
+            RunnerError::ConcurrentOperations { .. } => internal_error(err),
             RunnerError::WorkingCopyNotWritable(reason) => {
                 let hint = match reason {
                     WorkingCopyNotWritableReason::IgnoringWorkingCopy => {

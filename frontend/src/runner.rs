@@ -117,6 +117,9 @@ pub struct RunnerOptions {
     pub integrate_operation: bool,
     /// Allow rewriting immutable commits.
     pub ignore_immutable: bool,
+    /// Merge concurrent operations when loading the repo at the head
+    /// operation. If false, loading fails if there are concurrent operations.
+    pub merge_concurrent_operations: bool,
     /// Attributes to record in the metadata of new operations.
     pub transaction_attributes: Vec<(String, String)>,
 }
@@ -273,7 +276,8 @@ pub trait RunnerEventHandler {
 }
 
 /// Resolves the head operation of the operation log. If there are concurrent
-/// operations, they're merged.
+/// operations, they're merged if [`RunnerOptions::merge_concurrent_operations`]
+/// is set. Otherwise, [`RunnerError::ConcurrentOperations`] is returned.
 pub async fn resolve_head_operation(
     event_handler: &mut dyn RunnerEventHandler,
     repo_loader: &RepoLoader,
@@ -284,6 +288,11 @@ pub async fn resolve_head_operation(
         repo_loader.op_heads_store().as_ref(),
         repo_loader.op_store(),
         async |op_heads| -> Result<Operation, RunnerError> {
+            if !options.merge_concurrent_operations {
+                return Err(RunnerError::ConcurrentOperations {
+                    op_ids: op_heads.iter().map(|op| op.id().clone()).collect(),
+                });
+            }
             event_handler
                 .event(RunnerEvent::MergingConcurrentOperations {
                     operations: op_heads.clone(),
@@ -346,6 +355,13 @@ impl SnapshotConfig {
 /// Git, or finishing a transaction.
 #[derive(Debug, Error)]
 pub enum RunnerError {
+    /// There are concurrent operations, and
+    /// [`RunnerOptions::merge_concurrent_operations`] isn't set.
+    #[error("Found {} concurrent operations", op_ids.len())]
+    ConcurrentOperations {
+        /// IDs of the concurrent operations.
+        op_ids: Vec<OperationId>,
+    },
     /// The working copy needs to be updated, but it can't be.
     #[error("The working copy can't be updated")]
     WorkingCopyNotWritable(WorkingCopyNotWritableReason),

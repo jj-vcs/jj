@@ -437,6 +437,7 @@ impl CommandHelper {
             ignore_working_copy: global_args.ignore_working_copy,
             integrate_operation: !global_args.no_integrate_operation,
             ignore_immutable: global_args.ignore_immutable,
+            merge_concurrent_operations: true,
             transaction_attributes: command_args_to_transaction_attribute(self.string_args()),
         }
     }
@@ -1517,7 +1518,9 @@ impl WorkspaceOperationRunner {
     }
 
     /// Loads the repo for `workspace` at the head operation. If there are
-    /// concurrent operations, they're merged.
+    /// concurrent operations, they're merged if
+    /// [`RunnerOptions::merge_concurrent_operations`] is set. Otherwise,
+    /// [`RunnerError::ConcurrentOperations`] is returned.
     pub async fn load_at_head(
         event_handler: &mut dyn RunnerEventHandler,
         workspace: Workspace,
@@ -4828,6 +4831,8 @@ pub fn shell_quote(s: &str) -> Cow<'_, str> {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
 
     #[test]
@@ -4962,11 +4967,12 @@ mod tests {
         }
     }
 
-    fn test_runner_options() -> RunnerOptions {
+    fn test_runner_options(merge_concurrent_operations: bool) -> RunnerOptions {
         RunnerOptions {
             ignore_working_copy: false,
             integrate_operation: true,
             ignore_immutable: false,
+            merge_concurrent_operations,
             transaction_attributes: vec![],
         }
     }
@@ -5008,6 +5014,30 @@ mod tests {
     }
 
     #[test]
+    fn test_load_at_head_concurrent_operations_not_merged() {
+        let (test_workspace, env, op_ids) = workspace_with_concurrent_operations();
+        let testutils::TestWorkspace {
+            env: _test_env,
+            workspace,
+            ..
+        } = test_workspace;
+        let mut event_handler = RecordingEventHandler::default();
+        let result = WorkspaceOperationRunner::load_at_head(
+            &mut event_handler,
+            workspace,
+            env,
+            test_runner_options(false),
+        )
+        .block_on();
+        assert_matches!(
+            result.err(),
+            Some(RunnerError::ConcurrentOperations { op_ids: actual })
+                if actual.iter().sorted().collect_vec() == op_ids.iter().collect_vec()
+        );
+        assert!(event_handler.0.is_empty());
+    }
+
+    #[test]
     fn test_load_at_head_concurrent_operations_merged() {
         let (test_workspace, env, op_ids) = workspace_with_concurrent_operations();
         let testutils::TestWorkspace {
@@ -5020,7 +5050,7 @@ mod tests {
             &mut event_handler,
             workspace,
             env,
-            test_runner_options(),
+            test_runner_options(true),
         )
         .block_on()
         .unwrap();
