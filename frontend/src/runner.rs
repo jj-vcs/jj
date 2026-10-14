@@ -89,6 +89,25 @@ pub enum RunnerEvent<'a> {
         /// Whether the operation snapshotted the working copy.
         is_snapshot: bool,
     },
+    /// The working-copy commit was moved because Git HEAD had changed.
+    /// `first_import` is true if Git HEAD hadn't been imported before.
+    #[cfg(feature = "git")]
+    GitHeadImported {
+        /// Whether Git HEAD hadn't been imported before.
+        first_import: bool,
+    },
+    /// Refs were imported from Git. There may also have been failures.
+    #[cfg(feature = "git")]
+    GitRefsImported(&'a jj_lib::git::GitImportStats),
+    /// Changes imported from Git have been committed.
+    #[cfg(feature = "git")]
+    GitRefsImportFinished,
+    /// Refs were exported to Git. There may also have been failures.
+    #[cfg(feature = "git")]
+    GitRefsExported(&'a jj_lib::git::GitExportStats),
+    /// Git HEAD couldn't be updated to the working-copy commit's parent.
+    #[cfg(feature = "git")]
+    GitHeadResetFailed(&'a jj_lib::git::GitResetHeadError),
 }
 
 /// Why descendant commits were rebased.
