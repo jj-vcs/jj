@@ -119,8 +119,8 @@ pub struct View {
     #[deprecated]
     #[prost(bytes = "vec", tag = "2")]
     pub wc_commit_id: ::prost::alloc::vec::Vec<u8>,
-    #[prost(map = "string, bytes", tag = "8")]
-    pub wc_commit_ids: ::std::collections::HashMap<
+    #[prost(btree_map = "string, bytes", tag = "8")]
+    pub wc_commit_ids: ::prost::alloc::collections::BTreeMap<
         ::prost::alloc::string::String,
         ::prost::alloc::vec::Vec<u8>,
     >,
@@ -199,8 +199,8 @@ pub struct OperationMetadata {
     pub is_snapshot: bool,
     #[prost(string, optional, tag = "8")]
     pub workspace_name: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(map = "string, string", tag = "6")]
-    pub attributes: ::std::collections::HashMap<
+    #[prost(btree_map = "string, string", tag = "6")]
+    pub attributes: ::prost::alloc::collections::BTreeMap<
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,
