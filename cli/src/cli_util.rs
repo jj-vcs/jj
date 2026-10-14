@@ -1310,21 +1310,27 @@ impl WorkspaceCommandEnvironment {
         store: &Store,
         start_tracking_matcher: &'a dyn Matcher,
     ) -> Result<SnapshotOptions<'a>, CommandError> {
-        let base_ignores = self.base_ignores(store)?;
-        let HumanByteSize(mut max_new_file_size) = self
+        Ok(SnapshotOptions {
+            base_ignores: self.base_ignores(store)?,
+            progress: None,
+            start_tracking_matcher,
+            force_tracking_matcher: &NothingMatcher,
+            max_new_file_size: self.max_new_file_size()?,
+        })
+    }
+
+    /// Size limit for new files to be tracked by snapshots, from
+    /// `snapshot.max-new-file-size`.
+    pub fn max_new_file_size(&self) -> Result<u64, ConfigGetError> {
+        let HumanByteSize(max_new_file_size) = self
             .base
             .settings
             .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
         if max_new_file_size == 0 {
-            max_new_file_size = u64::MAX;
+            Ok(u64::MAX)
+        } else {
+            Ok(max_new_file_size)
         }
-        Ok(SnapshotOptions {
-            base_ignores,
-            progress: None,
-            start_tracking_matcher,
-            force_tracking_matcher: &NothingMatcher,
-            max_new_file_size,
-        })
     }
 
     #[cfg(not(feature = "git"))]
@@ -1988,6 +1994,8 @@ to the current parents may contain changes from multiple commits.
     /// Loads configuration needed by [`Self::snapshot_impl()`].
     fn load_snapshot_config(&self, ui: &Ui) -> Result<SnapshotConfig, CommandError> {
         let auto_tracking_matcher = self.env.auto_tracking_matcher(ui)?;
+        let base_ignores = self.base_ignores()?;
+        let max_new_file_size = self.env.max_new_file_size()?;
         #[cfg(feature = "git")]
         let git_import_options = if self.env.base.working_copy_shared_with_git {
             let git_settings = jj_lib::git::GitSettings::from_settings(self.settings())?;
@@ -2002,6 +2010,8 @@ to the current parents may contain changes from multiple commits.
         };
         Ok(SnapshotConfig {
             auto_tracking_matcher,
+            base_ignores,
+            max_new_file_size,
             #[cfg(feature = "git")]
             git_import_options,
         })
@@ -2409,9 +2419,7 @@ to the current parents may contain changes from multiple commits.
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         let workspace_name = self.workspace_name().to_owned();
         let repo = self.repo().clone();
-        let options = self
-            .snapshot_options_with_start_tracking_matcher(config.auto_tracking_matcher.as_ref())
-            .map_err(snapshot_command_error)?;
+        let options = config.snapshot_options();
 
         // Compare working-copy tree and operation with repo's, and reload as needed.
         let mut locked_ws = self
