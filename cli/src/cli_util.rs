@@ -505,7 +505,11 @@ impl CommandHelper {
                 // auto-update-stale, so let's do that now. We need to do it up here, not at a
                 // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
                 // of the working copy.
-                let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
+                let WorkspaceCommandHelper {
+                    runner: WorkspaceOperationRunner { workspace, .. },
+                    env,
+                    ..
+                } = workspace_command;
                 self.recover_stale_working_copy_impl(ui, workspace, env, &git_import_export_lock)
                     .await?
             }
@@ -670,11 +674,16 @@ impl CommandHelper {
 
                 let stale_wc_commit = workspace_command.get_wc_commit().await?.unwrap();
 
-                let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
+                let WorkspaceCommandHelper {
+                    runner: WorkspaceOperationRunner { workspace, .. },
+                    env,
+                    ..
+                } = workspace_command;
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
-                let repo = &workspace_command.user_repo.repo;
+                let repo = &workspace_command.runner.user_repo.repo;
                 let desired_wc_commit = workspace_command.prepare_working_copy_mutation().await?;
                 let mut locked_ws = workspace_command
+                    .runner
                     .workspace
                     .start_working_copy_mutation()
                     .await?;
@@ -697,11 +706,12 @@ impl CommandHelper {
                         // Reset Git HEAD first if the repo is colocated
                         #[cfg(feature = "git")]
                         if workspace_command.env.base.working_copy_shared_with_git()
-                            && workspace_command.options.integrate_operation
+                            && workspace_command.runner.options.integrate_operation
                         {
                             let workspace_name = workspace_command.env.workspace_name();
                             let workspace_root = workspace_command.env.workspace_root();
                             let mut tx = workspace_command
+                                .runner
                                 .options
                                 .start_transaction(repo, workspace_name);
                             try_reset_git_head(
@@ -715,16 +725,17 @@ impl CommandHelper {
                             .await?;
                             if tx.repo().has_changes() {
                                 let repo = workspace_command
+                                    .runner
                                     .options
                                     .maybe_commit_transaction(tx, "reset git head")
                                     .await?;
-                                workspace_command.user_repo = ReadonlyUserRepo::new(repo);
+                                workspace_command.runner.user_repo = ReadonlyUserRepo::new(repo);
                             }
                         }
 
                         let stats = update_stale_working_copy(
                             locked_ws,
-                            workspace_command.user_repo.repo.op_id().clone(),
+                            workspace_command.runner.user_repo.repo.op_id().clone(),
                             &stale_wc_commit,
                             &desired_wc_commit,
                         )
@@ -1355,18 +1366,66 @@ impl From<CliEventSinkError> for RunnerError {
     }
 }
 
+/// Runs the operations that commands (or other user interfaces) perform on a
+/// workspace before and after modifying the repo: snapshotting the working
+/// copy, importing from and exporting to Git, finishing transactions, and
+/// updating the working copy.
+pub struct WorkspaceOperationRunner {
+    workspace: Workspace,
+    user_repo: ReadonlyUserRepo,
+    env: Arc<WorkspaceEnvironment>,
+    options: RunnerOptions,
+    may_snapshot_working_copy: bool,
+    may_update_working_copy: bool,
+}
+
+impl WorkspaceOperationRunner {
+    /// Creates a runner for `workspace` with `repo` loaded. If
+    /// `may_snapshot_working_copy` is false, the working copy will be neither
+    /// snapshotted nor updated.
+    pub fn new(
+        workspace: Workspace,
+        repo: Arc<ReadonlyRepo>,
+        env: Arc<WorkspaceEnvironment>,
+        options: RunnerOptions,
+        may_snapshot_working_copy: bool,
+    ) -> Self {
+        let may_update_working_copy = may_snapshot_working_copy && options.integrate_operation;
+        Self {
+            workspace,
+            user_repo: ReadonlyUserRepo::new(repo),
+            env,
+            options,
+            may_snapshot_working_copy,
+            may_update_working_copy,
+        }
+    }
+
+    pub fn workspace(&self) -> &Workspace {
+        &self.workspace
+    }
+
+    pub fn repo(&self) -> &Arc<ReadonlyRepo> {
+        &self.user_repo.repo
+    }
+
+    pub fn env(&self) -> &Arc<WorkspaceEnvironment> {
+        &self.env
+    }
+
+    pub fn options(&self) -> &RunnerOptions {
+        &self.options
+    }
+}
+
 /// Provides utilities for writing a command that works on a [`Workspace`]
 /// (which most commands do).
 pub struct WorkspaceCommandHelper {
-    workspace: Workspace,
-    user_repo: ReadonlyUserRepo,
+    runner: WorkspaceOperationRunner,
     env: WorkspaceCommandEnvironment,
-    options: RunnerOptions,
     // TODO: Parsed template can be cached if it doesn't capture 'repo lifetime
     commit_summary_template_text: String,
     op_summary_template_text: String,
-    may_snapshot_working_copy: bool,
-    may_update_working_copy: bool,
 }
 
 impl WorkspaceCommandHelper {
@@ -1382,17 +1441,18 @@ impl WorkspaceCommandHelper {
         let settings = workspace.settings();
         let commit_summary_template_text = settings.get_string("templates.commit_summary")?;
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
-        let may_update_working_copy = may_snapshot_working_copy && options.integrate_operation;
-
-        let helper = Self {
+        let runner = WorkspaceOperationRunner::new(
             workspace,
-            user_repo: ReadonlyUserRepo::new(repo),
-            env,
+            repo,
+            env.base.clone(),
             options,
+            may_snapshot_working_copy,
+        );
+        let helper = Self {
+            runner,
+            env,
             commit_summary_template_text,
             op_summary_template_text,
-            may_snapshot_working_copy,
-            may_update_working_copy,
         };
         // Parse commit_summary template early to report error before starting
         // mutable operation.
@@ -1404,16 +1464,16 @@ impl WorkspaceCommandHelper {
 
     /// Settings for this workspace.
     pub fn settings(&self) -> &UserSettings {
-        self.workspace.settings()
+        self.runner.workspace.settings()
     }
 
     pub fn check_working_copy_writable(&self) -> Result<(), RunnerError> {
-        if self.may_update_working_copy {
+        if self.runner.may_update_working_copy {
             Ok(())
         } else {
-            let reason = if self.options.ignore_working_copy {
+            let reason = if self.runner.options.ignore_working_copy {
                 WorkingCopyNotWritableReason::IgnoringWorkingCopy
-            } else if !self.options.integrate_operation {
+            } else if !self.runner.options.integrate_operation {
                 WorkingCopyNotWritableReason::NotIntegratingOperations
             } else {
                 WorkingCopyNotWritableReason::NotAtHeadOperation
@@ -1427,7 +1487,7 @@ impl WorkspaceCommandHelper {
     /// that need to import from or export to Git. For non-colocated repos,
     /// returns a token with no lock inside.
     fn lock_git_import_export(&self) -> Result<GitImportExportLock, RunnerError> {
-        self.env.base.lock_git_import_export(&self.workspace)
+        self.env.base.lock_git_import_export(&self.runner.workspace)
     }
 
     /// Note that unless you have a good reason not to do so, you should always
@@ -1440,7 +1500,7 @@ impl WorkspaceCommandHelper {
         config: &SnapshotConfig,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, RunnerError> {
-        assert!(self.may_snapshot_working_copy);
+        assert!(self.runner.may_snapshot_working_copy);
         #[cfg(feature = "git")]
         if self.env.base.working_copy_shared_with_git() {
             self.import_git_head(ui, git_import_export_lock).await?;
@@ -1466,7 +1526,7 @@ impl WorkspaceCommandHelper {
     /// working copy is colocated with Git.
     #[instrument(skip_all)]
     pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<(), CommandError> {
-        if !self.may_snapshot_working_copy {
+        if !self.runner.may_snapshot_working_copy {
             return Ok(());
         }
         let config = self.load_snapshot_config(ui)?;
@@ -1491,7 +1551,7 @@ impl WorkspaceCommandHelper {
         ui: &Ui,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), RunnerError> {
-        assert!(self.may_snapshot_working_copy);
+        assert!(self.runner.may_snapshot_working_copy);
         let workspace_name = self.workspace_name().to_owned();
         let workspace_root = self.workspace_root().to_owned();
         let mut tx = self.start_transaction();
@@ -1509,21 +1569,20 @@ impl WorkspaceCommandHelper {
                 .repo_mut()
                 .check_out(workspace_name, &new_git_head_commit)
                 .await?;
-            let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
+            let mut locked_ws = self.runner.workspace.start_working_copy_mutation().await?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
             locked_ws.locked_wc().reset(&wc_commit).await?;
             tx.repo_mut().rebase_descendants().await?;
-            self.user_repo = ReadonlyUserRepo::new(
-                self.options
-                    .maybe_commit_transaction(tx, "import git head")
-                    .await?,
-            );
-            if self.options.integrate_operation {
-                locked_ws
-                    .finish(self.user_repo.repo.op_id().clone())
-                    .await?;
+            let repo = self
+                .runner
+                .options
+                .maybe_commit_transaction(tx, "import git head")
+                .await?;
+            self.runner.user_repo = ReadonlyUserRepo::new(repo);
+            if self.runner.options.integrate_operation {
+                locked_ws.finish(self.runner.user_repo.repo.op_id().clone()).await?;
             }
             print_runner_event(
                 ui,
@@ -1532,7 +1591,7 @@ impl WorkspaceCommandHelper {
                 },
             )
             .map_err(RunnerError::event_sink)?;
-            if !self.options.integrate_operation {
+            if !self.runner.options.integrate_operation {
                 print_runner_event(
                     ui,
                     &RunnerEvent::OperationLeftUnpublished {
@@ -1583,19 +1642,20 @@ impl WorkspaceCommandHelper {
             .map_err(RunnerError::event_sink)?;
 
         if !tx.repo().has_changes() {
-            if self.options.integrate_operation {
+            if self.runner.options.integrate_operation {
                 let stats = jj_lib::git::export_refs(tx.repo_mut())?;
                 print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
                     .map_err(RunnerError::event_sink)?;
                 if tx.repo().has_changes() {
                     let new_repo = tx.commit("export git refs").await?;
-                    self.user_repo = ReadonlyUserRepo::new(new_repo);
+                    self.runner.user_repo = ReadonlyUserRepo::new(new_repo);
                 }
             }
             return Ok(());
         }
 
-        let num_rebased = rebase_mutable_descendants(&self.env, &self.options, &mut tx).await?;
+        let num_rebased =
+            rebase_mutable_descendants(&self.env, &self.runner.options, &mut tx).await?;
         if num_rebased > 0 {
             print_runner_event(
                 ui,
@@ -1615,19 +1675,19 @@ impl WorkspaceCommandHelper {
     }
 
     pub fn repo(&self) -> &Arc<ReadonlyRepo> {
-        &self.user_repo.repo
+        &self.runner.user_repo.repo
     }
 
     pub fn repo_path(&self) -> &Path {
-        self.workspace.repo_path()
+        self.runner.workspace.repo_path()
     }
 
     pub fn workspace(&self) -> &Workspace {
-        &self.workspace
+        &self.runner.workspace
     }
 
     pub fn working_copy(&self) -> &dyn WorkingCopy {
-        self.workspace.working_copy()
+        self.runner.workspace.working_copy()
     }
 
     pub fn env(&self) -> &WorkspaceCommandEnvironment {
@@ -1645,7 +1705,7 @@ impl WorkspaceCommandHelper {
         &mut self,
     ) -> Result<(LockedWorkspace<'_>, Commit), RunnerError> {
         let wc_commit = self.prepare_working_copy_mutation().await?;
-        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
+        let mut locked_ws = self.runner.workspace.start_working_copy_mutation().await?;
         if wc_commit.tree().tree_ids_and_labels()
             != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
         {
@@ -1663,10 +1723,10 @@ impl WorkspaceCommandHelper {
         self.check_working_copy_writable()?;
 
         let workspace_name = self.workspace_name().to_owned();
-        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
+        let mut locked_ws = self.runner.workspace.start_working_copy_mutation().await?;
         let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
             locked_ws.locked_wc(),
-            &self.user_repo.repo,
+            &self.runner.user_repo.repo,
             workspace_name,
             "RECOVERY COMMIT FROM `jj workspace update-stale`
 
@@ -1685,7 +1745,7 @@ to the current parents may contain changes from multiple commits.
             short_commit_hash(new_commit.id())
         )?;
         locked_ws.finish(repo.op_id().clone()).await?;
-        self.user_repo = ReadonlyUserRepo::new(repo);
+        self.runner.user_repo = ReadonlyUserRepo::new(repo);
 
         let stats = self
             .snapshot_impl(ui, snapshot_config, git_import_export_lock)
@@ -1694,11 +1754,11 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn workspace_root(&self) -> &Path {
-        self.workspace.workspace_root()
+        self.runner.workspace.workspace_root()
     }
 
     pub fn workspace_name(&self) -> &WorkspaceName {
-        self.workspace.workspace_name()
+        self.runner.workspace.workspace_name()
     }
 
     pub fn get_wc_commit_id(&self) -> Option<&CommitId> {
@@ -2003,7 +2063,8 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn id_prefix_context(&self) -> &IdPrefixContext {
-        self.user_repo
+        self.runner
+            .user_repo
             .id_prefix_context
             .get_or_init(|| self.env.new_id_prefix_context())
     }
@@ -2072,7 +2133,7 @@ to the current parents may contain changes from multiple commits.
     /// Creates operation template language environment for this workspace.
     pub fn operation_template_language(&self) -> OperationTemplateLanguage {
         OperationTemplateLanguage::new(
-            self.workspace.repo_loader(),
+            self.runner.workspace.repo_loader(),
             Some(self.repo().op_id()),
             self.env.cwd(),
             self.env.operation_template_extensions(),
@@ -2140,7 +2201,7 @@ to the current parents may contain changes from multiple commits.
         let immutable_expr = self
             .env
             .base
-            .resolve_immutable_expression(repo, self.options.ignore_immutable)?;
+            .resolve_immutable_expression(repo, self.runner.options.ignore_immutable)?;
         let Some(commit_id) = immutable_expr
             .intersection(to_rewrite_expr)
             .evaluate(repo)?
@@ -2195,7 +2256,7 @@ to the current parents may contain changes from multiple commits.
         let options = config.snapshot_options();
 
         // Compare working-copy tree and operation with repo's, and reload as needed.
-        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
+        let mut locked_ws = self.runner.workspace.start_working_copy_mutation().await?;
 
         let Some((repo, wc_commit)) =
             handle_stale_working_copy(locked_ws.locked_wc(), repo, &workspace_name).await?
@@ -2205,7 +2266,7 @@ to the current parents may contain changes from multiple commits.
             return Ok(SnapshotStats::default());
         };
 
-        self.user_repo = ReadonlyUserRepo::new(repo);
+        self.runner.user_repo = ReadonlyUserRepo::new(repo);
         let (new_tree, stats) = {
             let mut options = options;
             let progress = crate::progress::snapshot_progress(ui);
@@ -2214,13 +2275,14 @@ to the current parents may contain changes from multiple commits.
         };
         if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
             let mut tx = self
+                .runner
                 .options
-                .start_transaction(&self.user_repo.repo, &workspace_name);
+                .start_transaction(&self.runner.user_repo.repo, &workspace_name);
             tx.set_is_snapshot(true);
             let immutable_expr = self
                 .env
                 .base
-                .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)?;
+                .resolve_immutable_expression(tx.repo(), self.runner.options.ignore_immutable)?;
             let wc_immutable = !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
                 .evaluate(tx.repo())?
@@ -2263,7 +2325,9 @@ to the current parents may contain changes from multiple commits.
             }
 
             #[cfg(feature = "git")]
-            if self.env.base.working_copy_shared_with_git() && self.options.integrate_operation {
+            if self.env.base.working_copy_shared_with_git()
+                && self.runner.options.integrate_operation
+            {
                 let workspace_root = self.env.workspace_root();
                 if wc_immutable {
                     // New working-copy commit is created on top. Reset Git HEAD and index.
@@ -2298,15 +2362,16 @@ to the current parents may contain changes from multiple commits.
             }
 
             let repo = self
+                .runner
                 .options
                 .maybe_commit_transaction(tx, "snapshot working copy")
                 .await?;
-            self.user_repo = ReadonlyUserRepo::new(repo);
-            if !self.options.integrate_operation {
+            self.runner.user_repo = ReadonlyUserRepo::new(repo);
+            if !self.runner.options.integrate_operation {
                 print_runner_event(
                     ui,
                     &RunnerEvent::OperationLeftUnpublished {
-                        op_id: self.user_repo.repo.op_id().clone(),
+                        op_id: self.runner.user_repo.repo.op_id().clone(),
                         is_snapshot: true,
                     },
                 )
@@ -2325,10 +2390,8 @@ to the current parents may contain changes from multiple commits.
                 .map_err(RunnerError::event_sink)?;
         }
 
-        if self.options.integrate_operation {
-            locked_ws
-                .finish(self.user_repo.repo.op_id().clone())
-                .await?;
+        if self.runner.options.integrate_operation {
+            locked_ws.finish(self.runner.user_repo.repo.op_id().clone()).await?;
         }
         Ok(stats)
     }
@@ -2372,9 +2435,10 @@ to the current parents may contain changes from multiple commits.
 
     pub fn start_transaction(&mut self) -> WorkspaceCommandTransaction<'_> {
         let tx = self
+            .runner
             .options
             .start_transaction(self.repo(), self.workspace_name());
-        let id_prefix_context = mem::take(&mut self.user_repo.id_prefix_context);
+        let id_prefix_context = mem::take(&mut self.runner.user_repo.id_prefix_context);
         WorkspaceCommandTransaction {
             helper: self,
             tx,
@@ -2411,7 +2475,7 @@ to the current parents may contain changes from multiple commits.
             && let Ok(immutable_expr) = self
                 .env
                 .base
-                .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)
+                .resolve_immutable_expression(tx.repo(), self.runner.options.ignore_immutable)
             && !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
                 .evaluate(tx.repo())?
@@ -2438,7 +2502,7 @@ to the current parents may contain changes from multiple commits.
         };
 
         #[cfg(feature = "git")]
-        if self.env.base.working_copy_shared_with_git() && self.options.integrate_operation {
+        if self.env.base.working_copy_shared_with_git() && self.runner.options.integrate_operation {
             if let Some(wc_commit) = &maybe_new_wc_commit {
                 try_reset_git_head(
                     ui,
@@ -2455,20 +2519,21 @@ to the current parents may contain changes from multiple commits.
                 .map_err(RunnerError::event_sink)?;
         }
 
-        self.user_repo = ReadonlyUserRepo::new(
-            self.options
-                .maybe_commit_transaction(tx, description)
-                .await?,
-        );
+        let repo = self
+            .runner
+            .options
+            .maybe_commit_transaction(tx, description)
+            .await?;
+        self.runner.user_repo = ReadonlyUserRepo::new(repo);
 
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)
         // don't leave the working copy in a stale state.
-        if self.may_update_working_copy {
+        if self.runner.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
                 let stats = update_working_copy(
-                    &self.user_repo.repo,
-                    &mut self.workspace,
+                    &self.runner.user_repo.repo,
+                    &mut self.runner.workspace,
                     maybe_old_wc_commit.as_ref(),
                     new_commit,
                 )
@@ -2492,7 +2557,7 @@ to the current parents may contain changes from multiple commits.
             .await
             .map_err(CliEventSinkError)?;
 
-        if !self.options.integrate_operation {
+        if !self.runner.options.integrate_operation {
             print_runner_event(
                 ui,
                 &RunnerEvent::OperationLeftUnpublished {
@@ -2983,7 +3048,8 @@ impl WorkspaceCommandTransaction<'_> {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
-        let num_rebased = rebase_mutable_descendants(&helper.env, &helper.options, &mut tx).await?;
+        let num_rebased =
+            rebase_mutable_descendants(&helper.env, &helper.runner.options, &mut tx).await?;
         if num_rebased > 0 {
             print_runner_event(
                 ui,
