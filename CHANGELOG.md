@@ -48,6 +48,10 @@ and this project adheres to
   downstream tools such as editor extensions showing errors in perfectly valid
   config files.
 
+* `jj resolve` no longer fails with "Failed to decode UTF-8 text" when a
+  conflicted file contains binary contents.
+  [#10371](https://github.com/jj-vcs/jj/issues/10371)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights

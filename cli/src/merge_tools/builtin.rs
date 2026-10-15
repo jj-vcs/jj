@@ -3,11 +3,13 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
+use bstr::BString;
 use futures::StreamExt as _;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CopyId;
+use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeValue;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::backend::TreeValue;
@@ -722,10 +724,22 @@ fn make_merge_file(
     } else {
         mode::NORMAL
     };
-    // TODO: Maybe we should test binary contents here, and generate per-file
-    // Binary section to select either "our" or "their" file.
-    let merge_result = files::merge_hunks(&file.contents, options);
-    let sections = make_merge_sections(merge_result)?;
+    let sections = if is_binary_conflict(&file.contents) {
+        // Binary contents can't be split into line-based hunks. Show a single
+        // section describing both sides of the conflict so that `jj resolve`
+        // doesn't fail to decode them as text. Selecting the section keeps the
+        // conflict unchanged; the UI still can't resolve binary conflicts.
+        // TODO: Let the user pick either side of the conflict, like the diff
+        // editor does for binary files.
+        vec![scm_record::Section::Binary {
+            is_checked: false,
+            old_description: describe_conflict_side(&file.contents, &file.ids, 0),
+            new_description: describe_conflict_side(&file.contents, &file.ids, 1),
+        }]
+    } else {
+        let merge_result = files::merge_hunks(&file.contents, options);
+        make_merge_sections(merge_result)?
+    };
     Ok(scm_record::File {
         old_path: None,
         // Path for displaying purposes, not for file access.
@@ -737,6 +751,32 @@ fn make_merge_file(
         file_mode,
         sections,
     })
+}
+
+/// Detects whether the conflict contains binary contents, in the same way as
+/// `buf_to_file_contents()` does for a single file: a NUL byte or invalid
+/// UTF-8 on any side.
+fn is_binary_conflict(contents: &Merge<BString>) -> bool {
+    contents
+        .as_slice()
+        .iter()
+        .any(|contents| contents.contains(&0) || std::str::from_utf8(contents).is_err())
+}
+
+/// Describes the `index`th added side of a conflict for the binary UI.
+/// An absent side gets a description too: `select_changes()` interprets a
+/// binary section with no new description as a request for an empty file.
+fn describe_conflict_side(
+    contents: &Merge<BString>,
+    ids: &Merge<Option<FileId>>,
+    index: usize,
+) -> Option<Cow<'static, str>> {
+    let contents = contents.get_add(index)?;
+    let description = match ids.get_add(index)? {
+        Some(id) => format!("{} ({}B)", id.hex(), contents.len()),
+        None => "absent".to_owned(),
+    };
+    Some(Cow::Owned(description))
 }
 
 pub async fn edit_merge_builtin(
@@ -780,10 +820,9 @@ async fn apply_merge_builtin(
         changed_files,
         files,
         async |path| tree.path_value(path).await,
-        // FIXME: It doesn't make sense to select a new value from the source tree.
-        // Presently, `select_right` is never actually called, since it is used to select binary
-        // sections, but `make_merge_file` does not produce `Binary` sections for conflicted files.
-        // This needs to be revisited when the UI becomes capable of representing binary conflicts.
+        // FIXME: Selecting a binary section calls `select_right`, which yields the
+        // conflicted value unchanged. This needs to be revisited when the UI
+        // becomes capable of representing binary conflicts.
         async |path| tree.path_value(path).await,
         async |path, contents, executable| {
             let id = store.write_file(path, &mut &contents[..]).await?;
@@ -808,7 +847,6 @@ async fn apply_merge_builtin(
 mod tests {
     use std::collections::BTreeSet;
 
-    use jj_lib::backend::FileId;
     use jj_lib::conflict_labels::ConflictLabels;
     use jj_lib::conflicts::extract_as_single_hunk;
     use jj_lib::matchers::EverythingMatcher;
@@ -1263,6 +1301,124 @@ mod tests {
             "Expect the copy id of the file to be resolved to {new_copy_id:?}, but got \
              {actual_copy_ids:?}."
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_make_merge_file_binary_conflict() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let file_path = repo_path("binary-file");
+        let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(store));
+        tree_builder
+            .base()
+            .file(file_path, b"base binary\n".as_slice());
+        tree_builder
+            .parent1()
+            .file(file_path, b"\x00\x01left binary\n".as_slice());
+        tree_builder
+            .parent2()
+            .file(file_path, b"\xff\xferight binary\n".as_slice());
+        let tree = tree_builder.write_merged_tree();
+
+        let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path).block_on()?;
+        // A binary conflict can't be split into hunks, so it should be shown as
+        // a single binary section instead of failing to decode as UTF-8.
+        let merge_file = make_merge_file(&merge_tool_file, store.merge_options())?;
+        // The merge is stored as [left, base, right]. Both descriptions
+        // must reference added sides, not the base.
+        let expected_left = format!(
+            "{} (14B)",
+            merge_tool_file
+                .file
+                .ids
+                .get_add(0)
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .hex()
+        );
+        let expected_right = format!(
+            "{} (15B)",
+            merge_tool_file
+                .file
+                .ids
+                .get_add(1)
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .hex()
+        );
+        let [
+            scm_record::Section::Binary {
+                is_checked,
+                old_description,
+                new_description,
+            },
+        ] = merge_file.sections.as_slice()
+        else {
+            panic!("expected exactly one binary section");
+        };
+        assert!(!*is_checked);
+        assert_eq!(old_description.as_deref(), Some(expected_left.as_str()));
+        assert_eq!(new_description.as_deref(), Some(expected_right.as_str()));
+
+        // Whether or not the binary section is selected, the conflict should be
+        // preserved because the UI can't resolve binary conflicts yet.
+        for is_checked in [false, true] {
+            let mut merge_file = merge_file.clone();
+            merge_file.set_checked(is_checked);
+            let tree = apply_merge_builtin(store, &tree, vec![file_path.to_owned()], &[merge_file])
+                .block_on()?;
+            assert!(
+                !tree.path_value(file_path).block_on()?.is_resolved(),
+                "conflict should be preserved (is_checked={is_checked})"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_make_merge_file_binary_conflict_with_deleted_side() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let file_path = repo_path("binary-file");
+        let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(store));
+        tree_builder.base().file(file_path, b"base".as_slice());
+        tree_builder
+            .parent1()
+            .file(file_path, b"\x00left".as_slice());
+        // The other parent has deleted this file.
+        let tree = tree_builder.write_merged_tree();
+
+        let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path).block_on()?;
+        let merge_file = make_merge_file(&merge_tool_file, store.merge_options())?;
+        let [
+            scm_record::Section::Binary {
+                new_description, ..
+            },
+        ] = merge_file.sections.as_slice()
+        else {
+            panic!("expected exactly one binary section");
+        };
+        // Keep this as Some: None would cause select_changes() to write
+        // an empty file if the user selected the binary section.
+        assert_eq!(new_description.as_deref(), Some("absent"));
+
+        for is_checked in [false, true] {
+            let mut merge_file = merge_file.clone();
+            merge_file.set_checked(is_checked);
+            let result =
+                apply_merge_builtin(store, &tree, vec![file_path.to_owned()], &[merge_file])
+                    .block_on()?;
+            assert_eq!(
+                result.path_value(file_path).block_on()?,
+                tree.path_value(file_path).block_on()?,
+                "binary conflict must be unchanged (is_checked={is_checked})"
+            );
+        }
         Ok(())
     }
 
