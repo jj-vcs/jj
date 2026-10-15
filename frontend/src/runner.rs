@@ -24,6 +24,9 @@ use jj_lib::backend::BackendError;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::config::ConfigGetError;
+use jj_lib::fileset::FilesetDiagnostics;
+use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::lock::FileLock;
@@ -49,6 +52,7 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::settings::UserSettings;
+use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy;
@@ -68,6 +72,8 @@ use jj_lib::workspace::Workspace;
 use thiserror::Error;
 use tracing::instrument;
 
+use crate::config_util::RemoteSettingDiagnostics;
+use crate::config_util::RemoteSettingParseError;
 use crate::workspace_env::WorkspaceEnvironment;
 use crate::workspace_env::WorkspaceEnvironmentDiagnostics;
 use crate::workspace_env::WorkspaceEnvironmentError;
@@ -1395,7 +1401,83 @@ pub struct SnapshotConfig {
     pub git_import_options: Option<jj_lib::git::GitImportOptions>,
 }
 
+/// Non-fatal problems found while loading a [`SnapshotConfig`].
+#[derive(Debug)]
+pub struct SnapshotConfigDiagnostics {
+    /// Diagnostics from parsing `snapshot.auto-track`.
+    pub auto_track: FilesetDiagnostics,
+    /// Diagnostics from parsing `remotes.<name>.auto-track-bookmarks`.
+    pub remote_settings: Vec<RemoteSettingDiagnostics>,
+}
+
+impl SnapshotConfigDiagnostics {
+    /// Creates empty diagnostics.
+    pub fn new() -> Self {
+        Self {
+            auto_track: FilesetDiagnostics::new(),
+            remote_settings: vec![],
+        }
+    }
+}
+
+impl Default for SnapshotConfigDiagnostics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Error from loading a [`SnapshotConfig`].
+#[derive(Debug, Error)]
+pub enum SnapshotConfigError {
+    /// A config value couldn't be read.
+    #[error(transparent)]
+    Config(#[from] ConfigGetError),
+    /// The workspace configuration couldn't be loaded.
+    #[error(transparent)]
+    Environment(#[from] WorkspaceEnvironmentError),
+    /// An ignore file couldn't be loaded.
+    #[error(transparent)]
+    GitIgnore(#[from] GitIgnoreError),
+    /// A `remotes.<name>` setting couldn't be parsed.
+    #[error(transparent)]
+    RemoteSetting(#[from] RemoteSettingParseError),
+}
+
 impl SnapshotConfig {
+    /// Loads the configuration from the settings of the workspace in `env`.
+    /// `store` is used for finding the Git repo's ignore files, and `home_dir`
+    /// for expanding `~` in Git's `core.excludesFile`.
+    pub fn load(
+        diagnostics: &mut SnapshotConfigDiagnostics,
+        env: &WorkspaceEnvironment,
+        store: &Store,
+        home_dir: Option<&Path>,
+    ) -> Result<Self, SnapshotConfigError> {
+        let auto_tracking_matcher = env.auto_tracking_matcher(&mut diagnostics.auto_track)?;
+        let base_ignores = env.base_ignores(store, home_dir)?;
+        let max_new_file_size = env.max_new_file_size()?;
+        #[cfg(feature = "git")]
+        let git_import_options = if env.working_copy_shared_with_git() {
+            let settings = env.settings();
+            let git_settings = jj_lib::git::GitSettings::from_settings(settings)?;
+            let remote_settings = settings.remote_settings()?;
+            Some(crate::git_util::load_git_import_options(
+                &mut diagnostics.remote_settings,
+                &git_settings,
+                &remote_settings,
+            )?)
+        } else {
+            None
+        };
+        Ok(Self {
+            auto_tracking_matcher,
+            base_ignores,
+            max_new_file_size,
+            #[cfg(feature = "git")]
+            git_import_options,
+        })
+    }
+
     fn snapshot_options(&self) -> SnapshotOptions<'_> {
         SnapshotOptions {
             base_ignores: self.base_ignores.clone(),

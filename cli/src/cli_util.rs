@@ -56,6 +56,7 @@ use jj_frontend::runner::RunnerEvent;
 use jj_frontend::runner::RunnerEvents;
 use jj_frontend::runner::RunnerOptions;
 use jj_frontend::runner::SnapshotConfig;
+use jj_frontend::runner::SnapshotConfigDiagnostics;
 use jj_frontend::runner::WorkspaceOperationRunner;
 use jj_frontend::workspace_env::WorkspaceEnvironment;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
@@ -188,6 +189,7 @@ use crate::operation_templater::OperationTemplateLanguageExtension;
 use crate::revset_util;
 use crate::revset_util::RevsetExpressionEvaluator;
 use crate::revset_util::parse_union_name_patterns;
+use crate::revset_util::print_remote_setting_diagnostics;
 use crate::template_builder;
 use crate::template_builder::TemplateLanguage;
 use crate::templater::TemplateRenderer;
@@ -938,28 +940,20 @@ impl WorkspaceCommandEnvironment {
 
     /// Loads configuration needed for snapshotting the working copy.
     fn load_snapshot_config(&self, ui: &Ui, store: &Store) -> Result<SnapshotConfig, CommandError> {
-        let auto_tracking_matcher = self.auto_tracking_matcher(ui)?;
-        let base_ignores = self.base_ignores(store)?;
-        let max_new_file_size = self.base.max_new_file_size()?;
-        #[cfg(feature = "git")]
-        let git_import_options = if self.base.working_copy_shared_with_git() {
-            let git_settings = jj_lib::git::GitSettings::from_settings(self.base.settings())?;
-            let remote_settings = self.base.settings().remote_settings()?;
-            Some(crate::git_util::load_git_import_options(
-                ui,
-                &git_settings,
-                &remote_settings,
-            )?)
-        } else {
-            None
-        };
-        Ok(SnapshotConfig {
-            auto_tracking_matcher,
-            base_ignores,
-            max_new_file_size,
-            #[cfg(feature = "git")]
-            git_import_options,
-        })
+        let mut diagnostics = SnapshotConfigDiagnostics::new();
+        let result = SnapshotConfig::load(
+            &mut diagnostics,
+            &self.base,
+            store,
+            self.command.config_env().home_dir(),
+        );
+        let SnapshotConfigDiagnostics {
+            auto_track,
+            remote_settings,
+        } = &diagnostics;
+        print_parse_diagnostics(ui, "In `snapshot.auto-track`", auto_track)?;
+        print_remote_setting_diagnostics(ui, remote_settings)?;
+        Ok(result?)
     }
 
     /// Parses template that is validated by `WorkspaceCommandHelper::new()`.
