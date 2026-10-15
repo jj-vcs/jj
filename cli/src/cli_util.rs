@@ -1146,6 +1146,32 @@ impl WorkspaceCommandEnvironment {
         &self.template_aliases_map
     }
 
+    /// Loads configuration needed for snapshotting the working copy.
+    fn load_snapshot_config(&self, ui: &Ui, store: &Store) -> Result<SnapshotConfig, CommandError> {
+        let auto_tracking_matcher = self.auto_tracking_matcher(ui)?;
+        let base_ignores = self.base_ignores(store)?;
+        let max_new_file_size = self.max_new_file_size()?;
+        #[cfg(feature = "git")]
+        let git_import_options = if self.base.working_copy_shared_with_git() {
+            let git_settings = jj_lib::git::GitSettings::from_settings(self.base.settings())?;
+            let remote_settings = self.base.settings().remote_settings()?;
+            Some(crate::git_util::load_git_import_options(
+                ui,
+                &git_settings,
+                &remote_settings,
+            )?)
+        } else {
+            None
+        };
+        Ok(SnapshotConfig {
+            auto_tracking_matcher,
+            base_ignores,
+            max_new_file_size,
+            #[cfg(feature = "git")]
+            git_import_options,
+        })
+    }
+
     /// Parses template that is validated by `WorkspaceCommandHelper::new()`.
     fn reparse_valid_template<'a, C, L>(
         &self,
@@ -2347,28 +2373,7 @@ to the current parents may contain changes from multiple commits.
 
     /// Loads configuration needed by [`Self::snapshot_impl()`].
     fn load_snapshot_config(&self, ui: &Ui) -> Result<SnapshotConfig, CommandError> {
-        let auto_tracking_matcher = self.env.auto_tracking_matcher(ui)?;
-        let base_ignores = self.base_ignores()?;
-        let max_new_file_size = self.env.max_new_file_size()?;
-        #[cfg(feature = "git")]
-        let git_import_options = if self.env.base.working_copy_shared_with_git() {
-            let git_settings = jj_lib::git::GitSettings::from_settings(self.settings())?;
-            let remote_settings = self.settings().remote_settings()?;
-            Some(crate::git_util::load_git_import_options(
-                ui,
-                &git_settings,
-                &remote_settings,
-            )?)
-        } else {
-            None
-        };
-        Ok(SnapshotConfig {
-            auto_tracking_matcher,
-            base_ignores,
-            max_new_file_size,
-            #[cfg(feature = "git")]
-            git_import_options,
-        })
+        self.env.load_snapshot_config(ui, self.repo().store())
     }
 
     pub fn snapshot_options_with_start_tracking_matcher<'a>(
