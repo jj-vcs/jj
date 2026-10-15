@@ -2757,6 +2757,7 @@ dependencies = [
  "jiff",
  "jj-lib",
  "pollster",
+ "testutils",
  "thiserror 2.0.21",
  "tracing",
 ]

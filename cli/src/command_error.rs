@@ -256,7 +256,8 @@ impl From<WorkspaceEnvironmentError> for CommandError {
         match err {
             WorkspaceEnvironmentError::Config(err) => err.into(),
             WorkspaceEnvironmentError::FilesetParse(err) => err.into(),
-            WorkspaceEnvironmentError::InvalidImmutableHeads(_)
+            WorkspaceEnvironmentError::ImmutableHeadsNotDefined
+            | WorkspaceEnvironmentError::InvalidImmutableHeads(_)
             | WorkspaceEnvironmentError::InvalidShortPrefixes(_) => config_error(err),
             #[cfg(feature = "git")]
             WorkspaceEnvironmentError::GitRepoAtWorkdir(err) => err.into(),
