@@ -2818,8 +2818,11 @@ name = "jj-frontend"
 version = "0.47.1"
 dependencies = [
  "async-trait",
+ "futures 0.3.34",
+ "itertools 0.15.0",
  "jiff",
  "jj-lib",
+ "pollster",
  "thiserror 2.0.21",
  "tracing",
 ]
