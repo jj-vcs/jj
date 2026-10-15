@@ -55,6 +55,13 @@ and this project adheres to
   and `jj` commands could import partially fetched refs, causing divergence.
   [#7349](https://github.com/jj-vcs/jj/issues/7349)
 
+* `jj util gc` no longer preserves an operation whose parents have been pruned.
+  A recently created operation was kept even when an operation rewrite such as
+  `jj op abandon` had orphaned it, leaving a dangling reference that could make
+  the operation log unreadable. Such an operation is now pruned together with
+  the range it refers to, so `jj op abandon` followed by `jj util gc` reclaims
+  the abandoned operations immediately again.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights

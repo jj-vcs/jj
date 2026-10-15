@@ -449,8 +449,17 @@ pub trait OpStore: Any + Send + Sync + Debug {
     ///
     /// All operations and views reachable from the `head_ids` won't be
     /// removed. In addition to that, objects created after `keep_newer` will be
-    /// preserved. This mitigates a risk of deleting new heads created
+    /// preserved, which mitigates a risk of deleting new heads created
     /// concurrently by another process.
+    ///
+    /// An operation created after `keep_newer` is preserved only if all of its
+    /// parents are preserved as well, so it may be removed even though it is
+    /// recent. A concurrently created operation is based on a published head,
+    /// so it and its recent ancestors are preserved. An operation orphaned by a
+    /// rewrite such as `jj op abandon` refers to the abandoned range instead:
+    /// preserving it would keep that range alive, and its parent reference
+    /// would dangle as soon as the range is pruned. Either way the store never
+    /// refers to a pruned object.
     // TODO: return stats?
     async fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()>;
 }
