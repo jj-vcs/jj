@@ -1607,9 +1607,8 @@ fn test_filtered_redundant_reads() {
     // Match both `dir/subdir/unchanged` and `dir/conflicted``. We need to read 3
     // different root trees and 3 different `dir/` trees because they're
     // conflicted, but we should only need to read one `dir/subdir/` version. We
-    // don't strictly need to write any `dir/subdir/` trees since we ended up
-    // matching the only file there. We need to write 3 `dir/` trees and 3 root
-    // tree.
+    // don't need to write any `dir/subdir/` trees since we ended up matching the
+    // only file there. We need to write 3 `dir/` trees and 3 root tree.
     let filtered = tree
         .filtered(&FilesMatcher::new([unchanged_file, conflicted_file]))
         .block_on()
