@@ -28,6 +28,7 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::store::Store;
+use thiserror::Error;
 
 const USER_IMMUTABLE_HEADS: &str = "immutable_heads";
 
@@ -44,32 +45,42 @@ pub fn default_ignored_remote_name(store: &Store) -> Option<&'static RemoteName>
     None
 }
 
+/// Error from [`parse_immutable_heads_expression()`].
+#[derive(Debug, Error)]
+pub enum ImmutableHeadsError {
+    /// The `immutable_heads()` alias isn't defined.
+    #[error("The `revset-aliases.immutable_heads()` alias is not defined")]
+    NotDefined,
+    /// The `immutable_heads()` alias couldn't be parsed.
+    #[error(transparent)]
+    Parse(#[from] RevsetParseError),
+}
+
 /// Parses user-configured expression defining the heads of the immutable set.
 /// Includes the root commit.
 pub fn parse_immutable_heads_expression(
     diagnostics: &mut RevsetDiagnostics,
     context: &RevsetParseContext,
-) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, ImmutableHeadsError> {
     let (_, _, immutable_heads_str, _) = context
         .aliases_map
         .get_function(USER_IMMUTABLE_HEADS, 0)
-        .unwrap();
+        .ok_or(ImmutableHeadsError::NotDefined)?;
     let heads = revset::parse(diagnostics, immutable_heads_str, context)?;
     Ok(heads.union(&RevsetExpression::root()))
 }
 
 /// Parses and resolves `trunk()` alias to detect name resolution error in it.
 ///
-/// Returns `None` if the alias couldn't be parsed. Returns `Err` if the parsed
-/// expression had name resolution error.
+/// Returns `None` if the alias isn't defined or couldn't be parsed. Returns
+/// `Err` if the parsed expression had name resolution error.
 pub fn try_resolve_trunk_alias(
     repo: &dyn Repo,
     context: &RevsetParseContext,
 ) -> Result<Option<Arc<ResolvedRevsetExpression>>, RevsetResolutionError> {
-    let (_, _, revset_str, _) = context
-        .aliases_map
-        .get_function("trunk", 0)
-        .expect("trunk() should be defined by default");
+    let Some((_, _, revset_str, _)) = context.aliases_map.get_function("trunk", 0) else {
+        return Ok(None);
+    };
     let Ok(expression) = revset::parse(&mut RevsetDiagnostics::new(), revset_str, context) else {
         return Ok(None);
     };
