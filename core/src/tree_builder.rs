@@ -20,6 +20,7 @@ use std::sync::Arc;
 use futures::TryStreamExt as _;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
+use itertools::Itertools as _;
 
 use crate::backend;
 use crate::backend::BackendResult;
@@ -86,9 +87,27 @@ impl TreeBuilder {
 
     /// Writes the modified trees to the store and returns the ID of the new
     /// root tree. Directories that become empty are removed.
-    pub async fn write_tree(self) -> BackendResult<TreeId> {
+    pub async fn write_tree(mut self) -> BackendResult<TreeId> {
         if self.overrides.is_empty() {
             return Ok(self.base_tree_id);
+        }
+
+        // A non-tree override at a path takes precedence over overrides below it
+        let shadowed_paths = self
+            .overrides
+            .keys()
+            .filter(|path| {
+                path.ancestors().skip(1).any(|ancestor| {
+                    matches!(
+                        self.overrides.get(ancestor),
+                        Some(Override::Replace(value)) if !matches!(value, TreeValue::Tree(_))
+                    )
+                })
+            })
+            .cloned()
+            .collect_vec();
+        for path in shadowed_paths {
+            self.overrides.remove(&path);
         }
 
         let mut trees_to_write = self.get_base_trees().await?;
@@ -118,7 +137,9 @@ impl TreeBuilder {
                     if let Some(TreeValue::Tree(_)) = parent_entries.get(basename) {
                         parent_entries.remove(basename);
                     } else {
-                        // Entry would have been replaced with file (see above)
+                        // The entry was removed or is a non-tree value from the base
+                        // tree. Removing paths below a non-tree value doesn't
+                        // affect it.
                     }
                 } else {
                     let data =

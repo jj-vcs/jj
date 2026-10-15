@@ -418,6 +418,23 @@ fn test_tree_builder_dir_and_child_overrides() -> TestResult {
     );
     let actual_tree_id = builder.write_tree().block_on()?;
     assert_eq!(&actual_tree_id, expected_tree.id());
+
+    // Replacing directory `foo` with a file while also setting `foo/c` ignores
+    // `foo/c`.
+    let base_tree = create_single_tree(repo, &[(foo_a_path, "1")]);
+    let expected_tree = create_single_tree(repo, &[(foo_path, "file")]);
+    let foo_c_tree = create_single_tree(repo, &[(foo_c_path, "3")]);
+    let mut builder = TreeBuilder::new(store.clone(), base_tree.id().clone());
+    builder.set(
+        foo_path.to_owned(),
+        expected_tree.path_value(foo_path).block_on()?.unwrap(),
+    );
+    builder.set(
+        foo_c_path.to_owned(),
+        foo_c_tree.path_value(foo_c_path).block_on()?.unwrap(),
+    );
+    let actual_tree_id = builder.write_tree().block_on()?;
+    assert_eq!(&actual_tree_id, expected_tree.id());
     Ok(())
 }
 
@@ -608,9 +625,9 @@ fn test_merged_tree_builder_conflicted_override_with_removal_below() -> TestResu
     Ok(())
 }
 
-/// Test a resolved override at a path that has conflicted overrides below it.
-/// The override at the path should be used only in the terms where the
-/// subtree ends up empty.
+/// Test a resolved override with a file at a path that has conflicted
+/// overrides below it. The override at the path should take precedence in all
+/// terms.
 #[test]
 fn test_merged_tree_builder_resolved_override_with_conflicted_overrides_below() -> TestResult {
     let test_repo = TestRepo::init();
@@ -659,9 +676,9 @@ fn test_merged_tree_builder_resolved_override_with_conflicted_overrides_below() 
     assert_tree_eq!(
         tree,
         create_conflict(
-            &[(conflicted_path, "side1"), (dir_file_path, "side1")],
+            &[(conflicted_path, "side1"), (dir_path, "file")],
             &[(conflicted_path, "base"), (dir_path, "file")],
-            &[(conflicted_path, "side2"), (dir_file_path, "side2")],
+            &[(conflicted_path, "side2"), (dir_path, "file")],
         )
     );
     Ok(())
