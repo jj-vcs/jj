@@ -105,11 +105,10 @@ fn test_git_push_revert() {
     work_dir.run_jj(["describe", "-m", "BB"]).success();
     //   Refs at this point look as follows (-- means no ref)
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
     //    local `main`     | BB      |   --   | --
-    //    remote-tracking  | AA      |   AA   | AA
+    //    remote-tracking  | AA      |   --   | --
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
@@ -118,11 +117,10 @@ fn test_git_push_revert() {
     let pre_push_opid = work_dir.current_operation_id();
     work_dir.run_jj(["git", "push"]).success();
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
     //    local  `main`    | BB      |   --   | --
-    //    remote-tracking  | BB      |   BB   | BB
+    //    remote-tracking  | BB      |   --   | --
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
@@ -132,11 +130,10 @@ fn test_git_push_revert() {
     // Revert the push
     work_dir.run_jj(["op", "restore", &pre_push_opid]).success();
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
     //    local  `main`    | BB      |   --   | --
-    //    remote-tracking  | AA      |   AA   | BB
+    //    remote-tracking  | AA      |   --   | --
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
@@ -164,10 +161,10 @@ fn test_git_push_revert() {
     ");
 }
 
-/// This test is identical to the previous one, except for one additional
-/// import. It demonstrates that this changes the outcome.
+/// This test is identical to the previous one, except for additional
+/// import/export. It demonstrates that this changes the outcome.
 #[test]
-fn test_git_push_revert_with_import() {
+fn test_git_push_revert_with_import_export() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     let git_repo_path = test_env.env_root().join("git-repo");
@@ -183,44 +180,46 @@ fn test_git_push_revert_with_import() {
         .success();
     work_dir.run_jj(["describe", "-m", "AA"]).success();
     work_dir.run_jj(["git", "push", "--all"]).success();
+    work_dir.run_jj(["git", "export"]).success();
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
     work_dir.run_jj(["describe", "-m", "BB"]).success();
     //   Refs at this point look as follows (-- means no ref)
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
-    //    local `main`     | BB      |   --   | --
+    //    local `main`     | BB      |   AA   | AA
     //    remote-tracking  | AA      |   AA   | AA
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
     [EOF]
     ");
     let pre_push_opid = work_dir.current_operation_id();
     work_dir.run_jj(["git", "push"]).success();
+    work_dir.run_jj(["git", "export"]).success();
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
-    //    local  `main`    | BB      |   --   | --
+    //    local  `main`    | BB      |   BB   | BB
     //    remote-tracking  | BB      |   BB   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
     [EOF]
     ");
 
-    // Revert the push
+    // Revert the push and export
     work_dir.run_jj(["op", "restore", &pre_push_opid]).success();
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
-    //    local  `main`    | BB      |   --   | --
-    //    remote-tracking  | AA      |   AA   | BB
+    //    local  `main`    | BB      |   BB   | BB
+    //    remote-tracking  | AA      |   BB   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
     [EOF]
     ");
@@ -230,13 +229,13 @@ fn test_git_push_revert_with_import() {
     // remote-tracking bookmarks should happen on every operation.
     work_dir.run_jj(["git", "import"]).success();
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
-    //    local  `main`    | BB      |   --   | --
+    //    local  `main`    | BB      |   BB   | BB
     //    remote-tracking  | BB      |   BB   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
     [EOF]
     ");
@@ -247,6 +246,7 @@ fn test_git_push_revert_with_import() {
     // was essentially a no-op.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm 1e742089 (empty) CC
+      @git (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 d9a9f6a0 (hidden) (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 d9a9f6a0 (hidden) (empty) BB
     [EOF]
     ");
@@ -275,8 +275,7 @@ fn test_git_push_revert_colocated() {
     work_dir.run_jj(["describe", "-m", "BB"]).success();
     //   Refs at this point look as follows (-- means no ref)
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
     //    local `main`     | BB      |   BB   | BB
     //    remote-tracking  | AA      |   AA   | AA
@@ -289,8 +288,7 @@ fn test_git_push_revert_colocated() {
     let pre_push_opid = work_dir.current_operation_id();
     work_dir.run_jj(["git", "push"]).success();
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
     //    local `main`     | BB      |   BB   | BB
     //    remote-tracking  | BB      |   BB   | BB
@@ -305,15 +303,13 @@ fn test_git_push_revert_colocated() {
     work_dir.run_jj(["op", "restore", &pre_push_opid]).success();
     //       === Before auto-export ====
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
     //    local `main`     | BB      |   BB   | BB
     //    remote-tracking  | AA      |   BB   | BB
     //       === After automatic `jj git export` ====
     //                     | jj refs | jj's   | git
-    //                     |         | git    | repo
-    //                     |         |tracking|
+    //                     |         |git_refs| repo
     //   ------------------------------------------
     //    local `main`     | BB      |   BB   | BB
     //    remote-tracking  | AA      |   AA   | AA
