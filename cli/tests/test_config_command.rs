@@ -2017,13 +2017,15 @@ fn create_repo_with_config(test_env: &mut TestEnvironment, repo_name: &str) -> T
 }
 
 #[test]
-fn test_config_gc_no_repos_dir() {
+fn test_config_gc_no_config_dirs() {
     let test_env = TestEnvironment::default();
-    // No repo config dir created at all.
+    // No repo or workspace config dirs.
     let output = test_env.run_jj_in(".", ["config", "gc"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Missing repo configs (repo path no longer exists):
+      (none)
+    Missing workspace configs (workspace path no longer exists):
       (none)
     [EOF]
     ");
@@ -2034,22 +2036,62 @@ fn test_config_gc_all_existing() -> TestResult {
     let mut test_env = TestEnvironment::default();
     create_repo_with_config(&mut test_env, "repo")?;
 
+    // Repo exists, no workspaces.
     let output = test_env.run_jj_in(".", ["config", "gc"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Missing repo configs (repo path no longer exists):
       (none)
+    Missing workspace configs (workspace path no longer exists):
+      (none)
     [EOF]
     ");
+
+    // Create workspace.
+    let repo_dir = test_env.work_dir("repo");
+    repo_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let workspace_dir = test_env.work_dir("secondary");
+    workspace_dir
+        .run_jj(["config", "set", "--workspace", "test-key", "test-value"])
+        .success();
+
+    // Repo and workspace exist.
+    let output = test_env.run_jj_in(".", ["config", "gc"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Missing repo configs (repo path no longer exists):
+      (none)
+    Missing workspace configs (workspace path no longer exists):
+      (none)
+    [EOF]
+    ");
+
     Ok(())
 }
 
 #[test]
 fn test_config_gc_missing_default_no() -> TestResult {
     let mut test_env = TestEnvironment::default();
-    let config_dir = create_repo_with_config(&mut test_env, "repo")?;
+    let repo_config_dir = create_repo_with_config(&mut test_env, "repo")?;
+    let repo_dir = test_env.work_dir("repo");
+    repo_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let workspace_dir = test_env.work_dir("secondary");
+    workspace_dir
+        .run_jj(["config", "set", "--workspace", "test-key", "test-value"])
+        .success();
+    let output = &workspace_dir
+        .run_jj(["config", "path", "--workspace"])
+        .success();
+    let workspace_config_dir = Path::new(output.stdout.raw().trim_end_matches('\n'))
+        .parent()
+        .unwrap();
+
     // Remove the repo so its metadata path no longer exists.
-    std::fs::remove_dir_all(test_env.env_root().join("repo"))?;
+    std::fs::remove_dir_all(repo_dir.root())?;
 
     // Non-interactive: the prompt auto-answers with the default ("no").
     let output = test_env.run_jj_in(".", ["config", "gc"]);
@@ -2058,20 +2100,61 @@ fn test_config_gc_missing_default_no() -> TestResult {
     Missing repo configs (repo path no longer exists):
       $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
         repo path: $TEST_ENV/repo/.jj/repo
-    Delete 1 missing repo config directories? (yN): n
+    Missing workspace configs (workspace path no longer exists):
+      (none)
+    Delete 1 missing config directories? (yN): n
     Aborted; nothing was deleted.
     [EOF]
     ");
-    // The directory should still be there.
-    assert!(config_dir.is_dir());
+    // The directories should still be there.
+    assert!(repo_config_dir.is_dir());
+    assert!(workspace_config_dir.is_dir());
+
+    // Remove the secondary workspace.
+    std::fs::remove_dir_all(workspace_dir.root())?;
+
+    let output = test_env.run_jj_in(".", ["config", "gc"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Missing repo configs (repo path no longer exists):
+      $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
+        repo path: $TEST_ENV/repo/.jj/repo
+    Missing workspace configs (workspace path no longer exists):
+      $TEST_ENV/home/.config/jj/workspaces/d043564ef93650b06a70
+        workspace path: $TEST_ENV/secondary/.jj
+    Delete 2 missing config directories? (yN): n
+    Aborted; nothing was deleted.
+    [EOF]
+    ");
+    // The directories should still be there.
+    assert!(repo_config_dir.is_dir());
+    assert!(workspace_config_dir.is_dir());
+
     Ok(())
 }
 
 #[test]
 fn test_config_gc_missing_confirmed() -> TestResult {
     let mut test_env = TestEnvironment::default();
-    let config_dir = create_repo_with_config(&mut test_env, "repo")?;
-    std::fs::remove_dir_all(test_env.env_root().join("repo"))?;
+    let repo_config_dir = create_repo_with_config(&mut test_env, "repo")?;
+    let repo_dir = test_env.work_dir("repo");
+    repo_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let workspace_dir = test_env.work_dir("secondary");
+    workspace_dir
+        .run_jj(["config", "set", "--workspace", "test-key", "test-value"])
+        .success();
+    let output = &workspace_dir
+        .run_jj(["config", "path", "--workspace"])
+        .success();
+    let workspace_config_dir = Path::new(output.stdout.raw().trim_end_matches('\n'))
+        .parent()
+        .unwrap();
+
+    // Remove the repo and its workspace.
+    std::fs::remove_dir_all(repo_dir.root())?;
+    std::fs::remove_dir_all(workspace_dir.root())?;
 
     let output = test_env.work_dir("").run_jj_with(|cmd| {
         force_interactive(cmd)
@@ -2083,10 +2166,14 @@ fn test_config_gc_missing_confirmed() -> TestResult {
     Missing repo configs (repo path no longer exists):
       $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
         repo path: $TEST_ENV/repo/.jj/repo
-    Delete 1 missing repo config directories? (yN): Deleted 1 config directories.
+    Missing workspace configs (workspace path no longer exists):
+      $TEST_ENV/home/.config/jj/workspaces/d043564ef93650b06a70
+        workspace path: $TEST_ENV/secondary/.jj
+    Delete 2 missing config directories? (yN): Deleted 2 config directories.
     [EOF]
     ");
-    assert!(!config_dir.exists());
+    assert!(!repo_config_dir.exists());
+    assert!(!workspace_config_dir.exists());
     Ok(())
 }
 
@@ -2118,7 +2205,9 @@ fn test_config_gc_missing_with_extra_file() -> TestResult {
     Missing repo configs (repo path no longer exists):
       $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
         repo path: $TEST_ENV/repo/.jj/repo
-    Delete 1 missing repo config directories? (yN): Warning: Failed to delete $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95: <directory not empty>
+    Missing workspace configs (workspace path no longer exists):
+      (none)
+    Delete 1 missing config directories? (yN): Warning: Failed to delete $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95: <directory not empty>
     Deleted 0 config directories.
     [EOF]
     ");
