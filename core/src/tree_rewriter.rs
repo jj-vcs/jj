@@ -143,6 +143,7 @@ enum WorkItem<C> {
 
 /// A rewritten tree that's waiting for some of its subtrees to be written.
 struct UnfinishedTree {
+    base_tree: Tree,
     // Entries of the rewritten tree. Entries for subtrees that have not yet been
     // written, or that turned out to be empty, are `None`.
     entries: Vec<(RepoPathComponentBuf, Option<TreeValue>)>,
@@ -189,7 +190,11 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
                             if unfinished_tree.remaining_subtrees == 0 {
                                 let unfinished_tree =
                                     self.unfinished_trees.remove(&parent_key).unwrap();
-                                self.schedule_write(parent_key, unfinished_tree.entries);
+                                self.schedule_write(
+                                    parent_key,
+                                    &unfinished_tree.base_tree,
+                                    unfinished_tree.entries,
+                                );
                             }
                         }
                     }
@@ -237,17 +242,17 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
                 }
             }
         }
-        // TODO: Reuse the base tree instead of writing it if no entries changed.
         if remaining_subtrees > 0 {
             self.unfinished_trees.insert(
                 key,
                 UnfinishedTree {
+                    base_tree: tree.clone(),
                     entries: new_entries,
                     remaining_subtrees,
                 },
             );
         } else {
-            self.schedule_write(key, new_entries);
+            self.schedule_write(key, tree, new_entries);
         }
     }
 
@@ -272,9 +277,12 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
         });
     }
 
+    /// Writes the rewritten tree, or reuses `base_tree` if the rewritten tree
+    /// has the same entries.
     fn schedule_write(
         &mut self,
         key: TreeKey<V::Context>,
+        base_tree: &Tree,
         entries: Vec<(RepoPathComponentBuf, Option<TreeValue>)>,
     ) {
         let tree = backend::Tree::from_sorted_entries(
@@ -283,6 +291,12 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
                 .filter_map(|(name, value)| Some((name, value?)))
                 .collect(),
         );
+        if &tree == base_tree.data() {
+            let result = Ok(base_tree.id().clone());
+            self.work
+                .push(async move { WorkItem::WrittenTree { key, result } });
+            return;
+        }
         // TODO: Write trees with identical contents only once. For example, if the
         // only conflict in a merged tree is in `dir/file` and it gets resolved, the
         // `dir/` and root trees end up the same for all terms.
