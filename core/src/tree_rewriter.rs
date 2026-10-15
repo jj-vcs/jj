@@ -16,8 +16,12 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
+use std::future::poll_fn;
 use std::hash::Hash;
 use std::sync::Arc;
+use std::task::Context;
+use std::task::Poll;
 
 use futures::FutureExt as _;
 use futures::StreamExt as _;
@@ -61,6 +65,36 @@ pub(crate) trait TreeRewriteVisitor {
     ) -> Vec<(RepoPathComponentBuf, RewrittenEntry<Self::Context>)>;
 }
 
+struct LimitedFutures<'a, T> {
+    limit: usize,
+    running: FuturesUnordered<BoxFuture<'a, T>>,
+    queued: VecDeque<BoxFuture<'a, T>>,
+}
+
+impl<'a, T: 'a> LimitedFutures<'a, T> {
+    fn new(limit: usize) -> Self {
+        assert!(limit > 0, "The limit must be positive");
+        Self {
+            limit,
+            running: FuturesUnordered::new(),
+            queued: VecDeque::new(),
+        }
+    }
+
+    fn push(&mut self, future: impl Future<Output = T> + Send + 'a) {
+        self.queued.push_back(future.boxed());
+    }
+
+    fn poll_next(&mut self, cx: &mut Context<'_>) -> Poll<Option<T>> {
+        while self.running.len() < self.limit
+            && let Some(future) = self.queued.pop_front()
+        {
+            self.running.push(future);
+        }
+        self.running.poll_next_unpin(cx)
+    }
+}
+
 /// Rewrites each root tree in `roots` with its context, as decided by
 /// `visitor`, and returns the IDs of the rewritten trees. Subtrees that are
 /// shared between terms are read and written only once.
@@ -72,7 +106,7 @@ pub(crate) async fn rewrite_trees<V: TreeRewriteVisitor>(
     let mut rewriter = TreeRewriter {
         store: store.clone(),
         visitor,
-        work: FuturesUnordered::new(),
+        work: LimitedFutures::new(store.concurrency()),
         scheduled_trees: HashSet::new(),
         rewritten_trees: HashMap::new(),
         unfinished_trees: HashMap::new(),
@@ -118,7 +152,10 @@ struct UnfinishedTree {
 struct TreeRewriter<'visitor, V: TreeRewriteVisitor> {
     store: Arc<Store>,
     visitor: &'visitor V,
-    work: FuturesUnordered<BoxFuture<'static, WorkItem<V::Context>>>,
+    // Pending reads and writes. We use `PrioritizedFutures` only to limit the
+    // number of concurrent backend requests. We don't care about the order the
+    // work is done in, so the keys are just sequence numbers.
+    work: LimitedFutures<'static, WorkItem<V::Context>>,
     scheduled_trees: HashSet<TreeKey<V::Context>>,
     // Map from original tree to the ID of the rewritten tree
     rewritten_trees: HashMap<TreeKey<V::Context>, TreeId>,
@@ -129,7 +166,7 @@ struct TreeRewriter<'visitor, V: TreeRewriteVisitor> {
 
 impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
     async fn run(&mut self) -> BackendResult<()> {
-        while let Some(item) = self.work.next().await {
+        while let Some(item) = poll_fn(|cx| self.work.poll_next(cx)).await {
             match item {
                 WorkItem::ReadTree { context, result } => {
                     let tree = result?;
@@ -221,15 +258,12 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
         }
         let (dir, tree_id, context) = key;
         let store = self.store.clone();
-        self.work.push(
-            async move {
-                store
-                    .get_tree(dir, &tree_id)
-                    .map(|result| WorkItem::ReadTree { context, result })
-                    .await
-            }
-            .boxed(),
-        );
+        self.work.push(async move {
+            store
+                .get_tree(dir, &tree_id)
+                .map(|result| WorkItem::ReadTree { context, result })
+                .await
+        });
     }
 
     fn schedule_write(
@@ -244,15 +278,12 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
                 .collect(),
         );
         let store = self.store.clone();
-        self.work.push(
-            async move {
-                let result = store
-                    .write_tree(&key.0, tree)
-                    .await
-                    .map(|tree| tree.id().clone());
-                WorkItem::WrittenTree { key, result }
-            }
-            .boxed(),
-        );
+        self.work.push(async move {
+            let result = store
+                .write_tree(&key.0, tree)
+                .await
+                .map(|tree| tree.id().clone());
+            WorkItem::WrittenTree { key, result }
+        });
     }
 }
