@@ -19,8 +19,11 @@ include = [
 ]
 
 [dependencies]
+futures = { workspace = true }
+itertools = { workspace = true }
 jiff = { workspace = true }
 jj-lib = { workspace = true }
+pollster = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
