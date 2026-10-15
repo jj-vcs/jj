@@ -45,6 +45,16 @@ pub(crate) fn check_config_file_valid(
     Ok(())
 }
 
+/// Same as [`check_config_file_valid()`], but for the default config in
+/// `jj-frontend`. A separate function so test names don't collide with files
+/// of the same name in `jj-cli`.
+pub(crate) fn check_frontend_config_file_valid(
+    path: &Path,
+    config_toml: String,
+) -> datatest_stable::Result<()> {
+    check_config_file_valid(path, config_toml)
+}
+
 pub(crate) fn check_config_file_invalid(
     path: &Path,
     config_toml: String,
