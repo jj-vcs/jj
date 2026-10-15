@@ -35,6 +35,9 @@ and this project adheres to
 * Templates now have a top-level `revset(revset: Stringify) -> List<Commit>`
   function for evaluating revsets during templating.
 
+* `jj config gc` now also cleans up workspace configs whose paths no longer
+  exist.
+
 ### Fixed bugs
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,

@@ -117,8 +117,8 @@ fn update_metadata(config_dir: &Path, metadata: &ConfigMetadata) -> Result<(), S
     Ok(())
 }
 
-/// Reads and decodes the `metadata.binpb` file in the given per-repo config
-/// directory.
+/// Reads and decodes the `metadata.binpb` file in the given repo/workspace
+/// config directory.
 pub fn read_metadata(config_dir: &Path) -> Result<ConfigMetadata, SecureConfigError> {
     let metadata_path = config_dir.join(METADATA_FILE);
     let bytes = fs::read(&metadata_path).context(&metadata_path)?;
@@ -130,13 +130,10 @@ pub fn metadata_path(metadata: &ConfigMetadata) -> Result<Option<&Path>, BadPath
     metadata.path.as_deref().map(path_from_bytes).transpose()
 }
 
-/// Removes the well-known files inside a per-repo config directory
-/// (`config.toml` and `metadata.binpb`) and then the directory itself.
-///
-/// The directory is removed non-recursively, so this errors out if any other
-/// file or subdirectory is present — better to leave a user-placed file in
-/// place than to silently delete it as part of a recursive `rm`.
-pub fn remove_repo_config_dir(config_dir: &Path) -> std::io::Result<()> {
+/// Removes the well-known files inside a repo/workspace config directory
+/// (`config.toml` and `metadata.binpb`) and then the directory itself if it
+/// becomes empty (better to not forcibly remove user-placed files).
+pub fn remove_config_dir(config_dir: &Path) -> std::io::Result<()> {
     for path in [config_dir.join(CONFIG_FILE), config_dir.join(METADATA_FILE)] {
         match fs::remove_file(&path) {
             Ok(()) => {}

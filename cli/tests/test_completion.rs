@@ -800,7 +800,7 @@ fn test_command_completion_short_name() {
     let output = test_env.complete_fish(["config", ""]);
     insta::assert_snapshot!(output, @"
     edit	Start an editor on a jj config file
-    gc	Find and optionally delete repo-level config directories whose repo path no longer exists
+    gc	Find and optionally delete repo and workspace config directories whose paths no longer exist
     get	Get the value of a given config option.
     list	List variables set in config files, along with their values
     path	Print the paths to the config files

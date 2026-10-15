@@ -16,6 +16,7 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
+use itertools::Itertools as _;
 use jj_lib::secure_config;
 use tracing::instrument;
 
@@ -25,10 +26,8 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::ui::Ui;
 
-/// Find and optionally delete repo-level config directories whose repo path
-/// no longer exists.
-// TODO: also gc workspace-level config directories under
-// `$HOME/.config/jj/workspaces/`.
+/// Find and optionally delete repo and workspace config directories whose paths
+/// no longer exist.
 // TODO: support a path argument to filter which repo paths to delete, e.g.
 // `jj config gc /tmp` to only delete repo configs whose recorded path is
 // under `/tmp`.
@@ -41,41 +40,70 @@ pub async fn cmd_config_gc(
     command: &CommandHelper,
     _args: &ConfigGcArgs,
 ) -> Result<(), CommandError> {
-    let root = command
+    let repo_configs_root = command
         .config_env()
         .repo_configs_root_dir()
-        .ok_or_else(|| user_error("No config directory found"))?;
+        .ok_or_else(|| user_error("No repo configs directory found"))?;
+    let missing_repo_paths = find_configs_with_missing_paths(&repo_configs_root)?;
 
-    let missing = find_missing_repo_configs(&root)?;
+    let workspace_configs_root = command
+        .config_env()
+        .workspace_configs_root_dir()
+        .ok_or_else(|| user_error("No workspace configs directory found"))?;
+    let missing_workspace_paths = find_configs_with_missing_paths(&workspace_configs_root)?;
 
     if let Some(mut formatter) = ui.status_formatter() {
         writeln!(
             formatter,
             "Missing repo configs (repo path no longer exists):"
         )?;
-        if missing.is_empty() {
+        if missing_repo_paths.is_empty() {
             writeln!(formatter, "  (none)")?;
         } else {
-            for (config_dir, repo_path) in &missing {
+            for (config_dir, repo_path) in &missing_repo_paths {
                 writeln!(formatter, "  {}", config_dir.display())?;
                 writeln!(formatter, "    repo path: {}", repo_path.display())?;
             }
         }
+
+        writeln!(
+            formatter,
+            "Missing workspace configs (workspace path no longer exists):"
+        )?;
+        if missing_workspace_paths.is_empty() {
+            writeln!(formatter, "  (none)")?;
+        } else {
+            for (config_dir, workspace_path) in &missing_workspace_paths {
+                writeln!(formatter, "  {}", config_dir.display())?;
+                writeln!(
+                    formatter,
+                    "    workspace path: {}",
+                    workspace_path.display()
+                )?;
+            }
+        }
     }
 
+    let missing = missing_repo_paths
+        .into_iter()
+        .chain(missing_workspace_paths)
+        .map(|(config_dir, _)| config_dir)
+        .collect_vec();
     if missing.is_empty() {
         return Ok(());
     }
 
-    let prompt = format!("Delete {} missing repo config directories?", missing.len());
-    if !ui.prompt_yes_no(&prompt, Some(false))? {
+    if !ui.prompt_yes_no(
+        &format!("Delete {} missing config directories?", missing.len()),
+        Some(false),
+    )? {
         writeln!(ui.status(), "Aborted; nothing was deleted.")?;
         return Ok(());
     }
 
     let mut deleted = 0;
-    for (config_dir, _) in &missing {
-        match secure_config::remove_repo_config_dir(config_dir) {
+    for config_dir in &missing {
+        match secure_config::remove_config_dir(config_dir) {
             Ok(()) => deleted += 1,
             Err(err) => writeln!(
                 ui.warning_default(),
@@ -88,10 +116,10 @@ pub async fn cmd_config_gc(
     Ok(())
 }
 
-/// Returns `(config_dir, repo_path)` pairs for every per-repo config
-/// directory under `root` whose recorded repo path no longer exists on
-/// disk. The list is sorted by config directory name.
-pub(crate) fn find_missing_repo_configs(
+/// Returns `(config_dir, path)` pairs for every config directory under `root`
+/// whose recorded repo or workspace path no longer exists on disk. The list is
+/// sorted by config directory name.
+pub(crate) fn find_configs_with_missing_paths(
     root: &Path,
 ) -> Result<Vec<(PathBuf, PathBuf)>, CommandError> {
     if !root.try_exists().map_err(|err| {
@@ -115,13 +143,13 @@ pub(crate) fn find_missing_repo_configs(
         let Ok(metadata) = secure_config::read_metadata(&config_dir) else {
             continue;
         };
-        let Ok(Some(repo_path)) = secure_config::metadata_path(&metadata) else {
+        let Ok(Some(path)) = secure_config::metadata_path(&metadata) else {
             continue;
         };
         // Treat "exists" errors (e.g. permission denied) as "still exists" so
         // we don't propose deleting configs we can't actually verify.
-        if !repo_path.try_exists().unwrap_or(true) {
-            missing.push((config_dir, repo_path.to_path_buf()));
+        if !path.try_exists().unwrap_or(true) {
+            missing.push((config_dir, path.to_path_buf()));
         }
     }
     missing.sort();
