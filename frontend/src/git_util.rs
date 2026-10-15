@@ -15,8 +15,15 @@
 //! Git-related helpers.
 
 use jj_lib::git;
+use jj_lib::git::GitImportOptions;
+use jj_lib::git::GitSettings;
 use jj_lib::git_backend::GitRepoAtWorkdirError;
+use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::workspace::Workspace;
+
+use crate::config_util::RemoteSettingDiagnostics;
+use crate::config_util::RemoteSettingParseError;
+use crate::config_util::parse_remote_auto_track_bookmarks_map;
 
 /// Returns whether the working copy of `workspace` is shared with a Git
 /// repository.
@@ -30,4 +37,20 @@ pub fn is_colocated_git_workspace(workspace: &Workspace) -> Result<bool, GitRepo
         Err(GitRepoAtWorkdirError::Unrelated { .. }) => Ok(false),
         Err(err @ GitRepoAtWorkdirError::Other(_)) => Err(err),
     }
+}
+
+/// Creates options for importing refs from Git from the settings.
+pub fn load_git_import_options(
+    diagnostics: &mut Vec<RemoteSettingDiagnostics>,
+    git_settings: &GitSettings,
+    remote_settings: &RemoteSettingsMap,
+) -> Result<GitImportOptions, RemoteSettingParseError> {
+    Ok(GitImportOptions {
+        abandon_unreachable_commits: git_settings.abandon_unreachable_commits,
+        record_synthetic_predecessors: git_settings.record_synthetic_predecessors,
+        remote_auto_track_bookmarks: parse_remote_auto_track_bookmarks_map(
+            diagnostics,
+            remote_settings,
+        )?,
+    })
 }
