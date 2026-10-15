@@ -2792,7 +2792,9 @@ dependencies = [
 name = "jj-frontend"
 version = "0.46.0"
 dependencies = [
+ "etcetera",
  "futures 0.3.34",
+ "gix",
  "itertools 0.15.0",
  "jiff",
  "jj-lib",

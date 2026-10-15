@@ -908,11 +908,9 @@ impl WorkspaceCommandEnvironment {
 
     pub fn auto_tracking_matcher(&self, ui: &Ui) -> Result<Box<dyn Matcher>, CommandError> {
         let mut diagnostics = FilesetDiagnostics::new();
-        let pattern = self.base.settings().get_string("snapshot.auto-track")?;
-        let context = self.fileset_parse_context_for_config();
-        let expression = fileset::parse(&mut diagnostics, &pattern, &context)?;
+        let result = self.base.auto_tracking_matcher(&mut diagnostics);
         print_parse_diagnostics(ui, "In `snapshot.auto-track`", &diagnostics)?;
-        Ok(expression.to_matcher())
+        Ok(result?)
     }
 
     pub fn snapshot_options_with_start_tracking_matcher<'a>(
@@ -925,73 +923,13 @@ impl WorkspaceCommandEnvironment {
             progress: None,
             start_tracking_matcher,
             force_tracking_matcher: &NothingMatcher,
-            max_new_file_size: self.max_new_file_size()?,
+            max_new_file_size: self.base.max_new_file_size()?,
         })
     }
 
-    /// Size limit for new files to be tracked by snapshots, from
-    /// `snapshot.max-new-file-size`.
-    pub fn max_new_file_size(&self) -> Result<u64, ConfigGetError> {
-        let HumanByteSize(max_new_file_size) = self
-            .base
-            .settings()
-            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
-        if max_new_file_size == 0 {
-            Ok(u64::MAX)
-        } else {
-            Ok(max_new_file_size)
-        }
-    }
-
-    #[cfg(not(feature = "git"))]
-    pub fn base_ignores(&self, _store: &Store) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
-        Ok(GitIgnoreFile::empty())
-    }
-
-    #[cfg(feature = "git")]
-    #[instrument(skip_all)]
     pub fn base_ignores(&self, store: &Store) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
-        let get_excludes_file_path = |config: &gix::config::File| -> Option<PathBuf> {
-            // TODO: maybe use path() and interpolate(), which can process non-utf-8
-            // path on Unix.
-            if let Some(value) = config.string("core.excludesFile") {
-                let home_dir = self.command.config_env().home_dir();
-                let path = str::from_utf8(&value)
-                    .ok()
-                    .map(|value| jj_lib::file_util::expand_home_path(value, home_dir))?;
-                // The configured path is usually absolute, but if it's relative,
-                // the "git" command would read the file at the work-tree directory.
-                Some(self.workspace_root().join(path))
-            } else {
-                xdg_config_home().map(|x| x.join("git").join("ignore"))
-            }
-        };
-
-        fn xdg_config_home() -> Option<PathBuf> {
-            if let Ok(x) = std::env::var("XDG_CONFIG_HOME")
-                && !x.is_empty()
-            {
-                return Some(PathBuf::from(x));
-            }
-            etcetera::home_dir().ok().map(|home| home.join(".config"))
-        }
-
-        let mut git_ignores = GitIgnoreFile::empty();
-        if let Ok(git_backend) = jj_lib::git::get_git_backend(store) {
-            let git_repo = git_backend.git_repo();
-            if let Some(excludes_file_path) = get_excludes_file_path(&git_repo.config_snapshot()) {
-                git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
-            }
-            git_ignores = git_ignores.chain_with_file(
-                RepoPath::root(),
-                git_backend.git_repo_path().join("info").join("exclude"),
-            )?;
-        } else if let Ok(git_config) = gix::config::File::from_globals()
-            && let Some(excludes_file_path) = get_excludes_file_path(&git_config)
-        {
-            git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
-        }
-        Ok(git_ignores)
+        self.base
+            .base_ignores(store, self.command.config_env().home_dir())
     }
 
     pub fn template_aliases_map(&self) -> &TemplateAliasesMap {
@@ -1002,7 +940,7 @@ impl WorkspaceCommandEnvironment {
     fn load_snapshot_config(&self, ui: &Ui, store: &Store) -> Result<SnapshotConfig, CommandError> {
         let auto_tracking_matcher = self.auto_tracking_matcher(ui)?;
         let base_ignores = self.base_ignores(store)?;
-        let max_new_file_size = self.max_new_file_size()?;
+        let max_new_file_size = self.base.max_new_file_size()?;
         #[cfg(feature = "git")]
         let git_import_options = if self.base.working_copy_shared_with_git() {
             let git_settings = jj_lib::git::GitSettings::from_settings(self.base.settings())?;
