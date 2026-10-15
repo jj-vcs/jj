@@ -12,6 +12,11 @@ and this project adheres to
 
 ### Breaking changes
 
+* The `latest()` revset function now considers ancestor relationships while
+  finding the latest commits. This change only affects unusual cases where one
+  of the commits in the input revset has a later committer timestamp than one of
+  its children.
+
 ### Deprecations
 
 ### New features

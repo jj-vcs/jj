@@ -102,6 +102,12 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
         self.pop_if(|next| next.pos == *pos)
     }
 
+    pub fn skip_while(&mut self, mut predicate: impl FnMut(&RevWalkWorkItem<P, T>) -> bool) {
+        while self.pop_if(&mut predicate).is_some() {
+            continue;
+        }
+    }
+
     pub fn skip_while_eq(&mut self, pos: &P) {
         while self.pop_eq(pos).is_some() {
             continue;
