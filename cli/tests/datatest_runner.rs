@@ -7,6 +7,11 @@ datatest_stable::harness! {
         pattern = r".*\.toml",
     },
     {
+        test = datatest_config_schema::check_frontend_config_file_valid,
+        root = "../frontend/src/config",
+        pattern = r".*\.toml",
+    },
+    {
         test = datatest_config_schema::check_config_file_valid,
         root = "tests/sample-configs/valid",
         pattern = r".*\.toml",

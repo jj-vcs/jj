@@ -872,14 +872,15 @@ pub fn default_config_layers() -> Vec<ConfigLayer> {
     // Syntax error in default config isn't a user error. That's why defaults are
     // loaded by separate builder.
     let parse = |text: &'static str| ConfigLayer::parse(ConfigSource::Default, text).unwrap();
-    let mut layers = vec![
+    let mut layers = config_util::default_config_layers();
+    layers.extend([
         parse(include_str!("config/colors.toml")),
         parse(include_str!("config/hints.toml")),
         parse(include_str!("config/merge_tools.toml")),
         parse(include_str!("config/misc.toml")),
         parse(include_str!("config/revsets.toml")),
         parse(include_str!("config/templates.toml")),
-    ];
+    ]);
     if cfg!(unix) {
         layers.push(parse(include_str!("config/unix.toml")));
     }
