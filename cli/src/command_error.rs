@@ -21,6 +21,7 @@ use std::iter;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use jj_frontend::config_util::RemoteSettingParseError;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::StaleWorkingCopyError;
 use jj_frontend::runner::WorkingCopyNotWritableReason;
@@ -253,6 +254,16 @@ fn format_similarity_hint<S: AsRef<str> + fmt::Display>(
                 n => Some(format!("Did you mean {quoted_names}, or {n} others?")),
             }
         }
+    }
+}
+
+impl From<RemoteSettingParseError> for CommandError {
+    fn from(err: RemoteSettingParseError) -> Self {
+        // From<RevsetParseError>, but with different message and error kind
+        let hint = revset_parse_error_hint(&err.source);
+        let mut cmd_err = config_error(err);
+        cmd_err.extend_hints(hint);
+        cmd_err
     }
 }
 

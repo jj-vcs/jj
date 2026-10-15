@@ -15,12 +15,15 @@
 //! Utility for parsing and evaluating user-provided revset expressions.
 
 use std::collections::HashMap;
+use std::io;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
+use jj_frontend::config_util;
+use jj_frontend::config_util::RemoteSettingDiagnostics;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::id_prefix::IdPrefixContext;
@@ -48,7 +51,6 @@ use jj_lib::str_util::StringMatcher;
 use thiserror::Error;
 
 use crate::command_error::CommandError;
-use crate::command_error::config_error_with_message;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::revset_parse_error_hint;
 use crate::command_error::user_error;
@@ -353,15 +355,11 @@ pub fn parse_remote_auto_track_bookmarks_map(
     ui: &Ui,
     remote_settings: &RemoteSettingsMap,
 ) -> Result<HashMap<RemoteNameBuf, StringMatcher>, CommandError> {
-    let mut matchers = HashMap::new();
-    for (name, settings) in remote_settings {
-        let Some(text) = &settings.auto_track_bookmarks else {
-            continue;
-        };
-        let expr = parse_remote_string_expression(ui, name, text, "auto-track-bookmarks")?;
-        matchers.insert(name.clone(), expr.to_matcher());
-    }
-    Ok(matchers)
+    let mut diagnostics = vec![];
+    let result =
+        config_util::parse_remote_auto_track_bookmarks_map(&mut diagnostics, remote_settings);
+    print_remote_setting_diagnostics(ui, &diagnostics)?;
+    Ok(result?)
 }
 
 /// Parses the given `remotes.<name>.auto-track-bookmarks` and
@@ -432,25 +430,31 @@ fn parse_remote_string_expression(
     ui: &Ui,
     name: &RemoteName,
     text: &str,
-    field_name: &str,
+    field_name: &'static str,
 ) -> Result<StringExpression, CommandError> {
-    let mut diagnostics = RevsetDiagnostics::new();
-    let expr = revset::parse_string_expression(&mut diagnostics, text).map_err(|err| {
-        // From<RevsetParseError>, but with different message and error kind
-        let hint = revset_parse_error_hint(&err);
-        let message = format!(
-            "Invalid `remotes.{}.{field_name}`: {}",
-            name.as_symbol(),
-            err.kind()
-        );
-        let mut cmd_err = config_error_with_message(message, err);
-        cmd_err.extend_hints(hint);
-        cmd_err
-    })?;
-    print_parse_diagnostics(
-        ui,
-        &format!("In `remotes.{}.{field_name}`", name.as_symbol()),
-        &diagnostics,
-    )?;
-    Ok(expr)
+    let mut diagnostics = vec![];
+    let result =
+        config_util::parse_remote_string_expression(&mut diagnostics, name, text, field_name);
+    print_remote_setting_diagnostics(ui, &diagnostics)?;
+    Ok(result?)
+}
+
+/// Prints diagnostics from parsing `remotes.<name>.<field>` settings.
+pub fn print_remote_setting_diagnostics(
+    ui: &Ui,
+    diagnostics: &[RemoteSettingDiagnostics],
+) -> io::Result<()> {
+    for RemoteSettingDiagnostics {
+        remote,
+        field_name,
+        diagnostics,
+    } in diagnostics
+    {
+        print_parse_diagnostics(
+            ui,
+            &format!("In `remotes.{}.{field_name}`", remote.as_symbol()),
+            diagnostics,
+        )?;
+    }
+    Ok(())
 }

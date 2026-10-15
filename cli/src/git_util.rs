@@ -58,7 +58,7 @@ use crate::command_error::print_error_sources;
 use crate::command_error::user_error;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
-use crate::revset_util::parse_remote_auto_track_bookmarks_map;
+use crate::revset_util::print_remote_setting_diagnostics;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 
@@ -192,11 +192,14 @@ pub fn load_git_import_options(
     git_settings: &GitSettings,
     remote_settings: &RemoteSettingsMap,
 ) -> Result<GitImportOptions, CommandError> {
-    Ok(GitImportOptions {
-        abandon_unreachable_commits: git_settings.abandon_unreachable_commits,
-        record_synthetic_predecessors: git_settings.record_synthetic_predecessors,
-        remote_auto_track_bookmarks: parse_remote_auto_track_bookmarks_map(ui, remote_settings)?,
-    })
+    let mut diagnostics = vec![];
+    let result = jj_frontend::git_util::load_git_import_options(
+        &mut diagnostics,
+        git_settings,
+        remote_settings,
+    );
+    print_remote_setting_diagnostics(ui, &diagnostics)?;
+    Ok(result?)
 }
 
 pub fn print_git_import_stats(

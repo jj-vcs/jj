@@ -14,6 +14,7 @@
 
 //! Loading configuration used by user interfaces.
 
+use std::collections::HashMap;
 use std::fmt;
 
 use jj_lib::config::ConfigGetError;
@@ -23,7 +24,16 @@ use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util::AliasDeclarationParser;
 use jj_lib::dsl_util::AliasesMap;
 use jj_lib::fileset::FilesetAliasesMap;
+use jj_lib::ref_name::RemoteName;
+use jj_lib::ref_name::RemoteNameBuf;
+use jj_lib::revset;
 use jj_lib::revset::RevsetAliasesMap;
+use jj_lib::revset::RevsetDiagnostics;
+use jj_lib::revset::RevsetParseError;
+use jj_lib::settings::RemoteSettingsMap;
+use jj_lib::str_util::StringExpression;
+use jj_lib::str_util::StringMatcher;
+use thiserror::Error;
 
 /// Problem found while loading configuration. Loading continues after these.
 #[derive(Clone, Debug)]
@@ -149,4 +159,69 @@ fn check_user_redefined_builtin(
             });
         }
     }
+}
+
+/// A `remotes.<name>.<field>` setting couldn't be parsed.
+#[derive(Debug, Error)]
+#[error("Invalid `remotes.{}.{field_name}`: {}", remote.as_symbol(), source.kind())]
+pub struct RemoteSettingParseError {
+    /// The remote whose setting couldn't be parsed.
+    pub remote: RemoteNameBuf,
+    /// The name of the setting, e.g. `auto-track-bookmarks`.
+    pub field_name: &'static str,
+    /// The underlying parse error.
+    #[source]
+    pub source: RevsetParseError,
+}
+
+/// Parse diagnostics for a `remotes.<name>.<field>` setting.
+#[derive(Debug)]
+pub struct RemoteSettingDiagnostics {
+    /// The remote whose setting had diagnostics.
+    pub remote: RemoteNameBuf,
+    /// The name of the setting, e.g. `auto-track-bookmarks`.
+    pub field_name: &'static str,
+    /// The diagnostics.
+    pub diagnostics: RevsetDiagnostics,
+}
+
+/// Parses the string pattern `text` from the `remotes.<name>.<field_name>`
+/// setting. Any non-fatal problems are added to `diagnostics`.
+pub fn parse_remote_string_expression(
+    diagnostics: &mut Vec<RemoteSettingDiagnostics>,
+    name: &RemoteName,
+    text: &str,
+    field_name: &'static str,
+) -> Result<StringExpression, RemoteSettingParseError> {
+    let mut revset_diagnostics = RevsetDiagnostics::new();
+    let result = revset::parse_string_expression(&mut revset_diagnostics, text);
+    if !revset_diagnostics.is_empty() {
+        diagnostics.push(RemoteSettingDiagnostics {
+            remote: name.to_owned(),
+            field_name,
+            diagnostics: revset_diagnostics,
+        });
+    }
+    result.map_err(|source| RemoteSettingParseError {
+        remote: name.to_owned(),
+        field_name,
+        source,
+    })
+}
+
+/// Parses the given `remotes.<name>.auto-track-bookmarks` settings into a map
+/// of string matchers.
+pub fn parse_remote_auto_track_bookmarks_map(
+    diagnostics: &mut Vec<RemoteSettingDiagnostics>,
+    remote_settings: &RemoteSettingsMap,
+) -> Result<HashMap<RemoteNameBuf, StringMatcher>, RemoteSettingParseError> {
+    let mut matchers = HashMap::new();
+    for (name, settings) in remote_settings {
+        let Some(text) = &settings.auto_track_bookmarks else {
+            continue;
+        };
+        let expr = parse_remote_string_expression(diagnostics, name, text, "auto-track-bookmarks")?;
+        matchers.insert(name.clone(), expr.to_matcher());
+    }
+    Ok(matchers)
 }
