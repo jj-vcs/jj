@@ -59,6 +59,7 @@ use jj_frontend::runner::RunnerOptions;
 use jj_frontend::runner::SnapshotConfig;
 use jj_frontend::runner::SnapshotConfigDiagnostics;
 use jj_frontend::runner::WorkspaceOperationRunner;
+use jj_frontend::runner::resolve_head_operation;
 use jj_frontend::workspace_env::WorkspaceEnvironment;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
 use jj_lib::backend::BackendResult;
@@ -90,7 +91,6 @@ use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::HexPrefix;
-use jj_lib::op_heads_store;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_walk;
@@ -691,28 +691,12 @@ impl CommandHelper {
         if let Some(op_str) = &self.data.global_args.at_operation {
             Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
         } else {
-            op_heads_store::resolve_op_heads(
-                repo_loader.op_heads_store().as_ref(),
-                repo_loader.op_store(),
-                async |op_heads| {
-                    writeln!(
-                        ui.status(),
-                        "Concurrent modification detected, resolving automatically.",
-                    )?;
-                    // TODO: It may be helpful to print each operation we're merging here
-                    let transaction_description = "reconcile divergent operations";
-                    merge_operations(
-                        Some(ui),
-                        repo_loader,
-                        op_heads,
-                        Some(workspace_name),
-                        Some(transaction_description),
-                        &self.data.string_args,
-                    )
-                    .await
-                },
+            let mut event_handler = UiRunnerEventHandler { ui };
+            let options = self.runner_options();
+            Ok(
+                resolve_head_operation(&mut event_handler, repo_loader, workspace_name, &options)
+                    .block_on()?,
             )
-            .block_on()
         }
     }
 
@@ -1037,20 +1021,14 @@ impl WorkspaceCommandEnvironment {
     }
 }
 
-/// Prints [`RunnerEvent`]s for the CLI.
-struct CliRunnerEventHandler<'a> {
+/// Prints [`RunnerEvent`]s that don't need templates. This is enough for
+/// operations that don't finish transactions or update the working copy, such
+/// as resolving the head operation. Use [`CliRunnerEventHandler`] otherwise.
+struct UiRunnerEventHandler<'a> {
     ui: &'a Ui,
-    reporter: WorkspaceReporter<'a>,
 }
 
-impl<'a> CliRunnerEventHandler<'a> {
-    fn new(ui: &'a Ui, env: &'a WorkspaceCommandEnvironment) -> Self {
-        Self {
-            ui,
-            reporter: WorkspaceReporter { env },
-        }
-    }
-
+impl UiRunnerEventHandler<'_> {
     async fn print_event(&mut self, event: RunnerEvent) -> Result<(), CommandError> {
         let ui = self.ui;
         match event {
@@ -1070,6 +1048,7 @@ impl<'a> CliRunnerEventHandler<'a> {
                 )?;
             }
             RunnerEvent::MergingConcurrentOperations { operations: _ } => {
+                // TODO: It may be helpful to print each operation we're merging here
                 writeln!(
                     ui.status(),
                     "Concurrent modification detected, resolving automatically.",
@@ -1117,32 +1096,9 @@ impl<'a> CliRunnerEventHandler<'a> {
                 "The working-copy commit became immutable; a new commit has been created on top \
                  of it.",
             )?,
-            RunnerEvent::WorkingCopyUpdated {
-                repo,
-                old_commit,
-                new_commit,
-                stats,
-            } => {
-                self.reporter
-                    .print_updated_working_copy_stats(
-                        ui,
-                        repo.repo().as_ref(),
-                        repo.id_prefix_context(),
-                        old_commit.as_ref(),
-                        &new_commit,
-                        &stats,
-                    )
-                    .await?;
-            }
-            RunnerEvent::TransactionFinished { old_repo, new_repo } => {
-                self.reporter
-                    .report_repo_changes(
-                        ui,
-                        &old_repo,
-                        new_repo.repo(),
-                        new_repo.id_prefix_context(),
-                    )
-                    .await?;
+            RunnerEvent::WorkingCopyUpdated { .. } | RunnerEvent::TransactionFinished { .. } => {
+                // These are reported using templates, which requires a
+                // `CliRunnerEventHandler`.
             }
             RunnerEvent::WorkingCopyNotStale => {
                 writeln!(
@@ -1252,7 +1208,7 @@ impl<'a> CliRunnerEventHandler<'a> {
 }
 
 #[async_trait(?Send)]
-impl RunnerEventHandler for CliRunnerEventHandler<'_> {
+impl RunnerEventHandler for UiRunnerEventHandler<'_> {
     async fn event(
         &mut self,
         event: RunnerEvent,
@@ -1265,6 +1221,73 @@ impl RunnerEventHandler for CliRunnerEventHandler<'_> {
     fn snapshot_progress(&self) -> Option<Box<SnapshotProgress<'_>>> {
         let progress = crate::progress::snapshot_progress(self.ui)?;
         Some(Box::new(progress))
+    }
+}
+
+/// Prints [`RunnerEvent`]s for the CLI, including the ones that are reported
+/// using templates.
+struct CliRunnerEventHandler<'a> {
+    ui_event_handler: UiRunnerEventHandler<'a>,
+    reporter: WorkspaceReporter<'a>,
+}
+
+impl<'a> CliRunnerEventHandler<'a> {
+    fn new(ui: &'a Ui, env: &'a WorkspaceCommandEnvironment) -> Self {
+        Self {
+            ui_event_handler: UiRunnerEventHandler { ui },
+            reporter: WorkspaceReporter { env },
+        }
+    }
+
+    async fn print_event(&mut self, event: RunnerEvent) -> Result<(), CommandError> {
+        let ui = self.ui_event_handler.ui;
+        match event {
+            RunnerEvent::WorkingCopyUpdated {
+                repo,
+                old_commit,
+                new_commit,
+                stats,
+            } => {
+                self.reporter
+                    .print_updated_working_copy_stats(
+                        ui,
+                        repo.repo().as_ref(),
+                        repo.id_prefix_context(),
+                        old_commit.as_ref(),
+                        &new_commit,
+                        &stats,
+                    )
+                    .await?;
+            }
+            RunnerEvent::TransactionFinished { old_repo, new_repo } => {
+                self.reporter
+                    .report_repo_changes(
+                        ui,
+                        &old_repo,
+                        new_repo.repo(),
+                        new_repo.id_prefix_context(),
+                    )
+                    .await?;
+            }
+            event => self.ui_event_handler.print_event(event).await?,
+        }
+        Ok(())
+    }
+}
+
+#[async_trait(?Send)]
+impl RunnerEventHandler for CliRunnerEventHandler<'_> {
+    async fn event(
+        &mut self,
+        event: RunnerEvent,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.print_event(event)
+            .await
+            .map_err(|err| CliEventHandlerError(err).into())
+    }
+
+    fn snapshot_progress(&self) -> Option<Box<SnapshotProgress<'_>>> {
+        self.ui_event_handler.snapshot_progress()
     }
 }
 
