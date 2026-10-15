@@ -184,13 +184,6 @@ impl WorkspaceEnvironment {
         &self.revset_aliases_map
     }
 
-    /// Mutable access to the revset aliases, e.g. for temporarily overriding
-    /// an alias. Call [`Self::reload_revset_expressions()`] afterwards so the
-    /// parsed expressions reflect the change.
-    pub fn revset_aliases_map_mut(&mut self) -> &mut RevsetAliasesMap {
-        &mut self.revset_aliases_map
-    }
-
     /// Whether the working copy is shared with a Git repository.
     pub fn working_copy_shared_with_git(&self) -> bool {
         self.working_copy_shared_with_git
@@ -272,7 +265,7 @@ impl WorkspaceEnvironment {
     }
 
     /// Updates parsed revset expressions.
-    pub fn reload_revset_expressions(
+    pub(crate) fn reload_revset_expressions(
         &mut self,
         diagnostics: &mut WorkspaceEnvironmentDiagnostics,
     ) -> Result<(), WorkspaceEnvironmentError> {
