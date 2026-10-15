@@ -161,6 +161,7 @@ use crate::cli_args::to_string_args;
 use crate::cli_args::warn_if_args_mismatch;
 use crate::command_error::CommandError;
 use crate::command_error::handle_command_result;
+use crate::command_error::immutable_commit_error;
 use crate::command_error::internal_error;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::print_error_sources;
@@ -1797,50 +1798,23 @@ impl WorkspaceCommandHelper {
         &self,
         to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), CommandError> {
-        let repo = self.repo().as_ref();
-        let immutable_expr = self
-            .env
-            .base
-            .resolve_immutable_expression(repo, self.runner.options().ignore_immutable)?;
-        let Some(commit_id) = immutable_expr
-            .intersection(to_rewrite_expr)
-            .evaluate(repo)?
-            .stream()
-            .try_next()
-            .await?
-        else {
-            return Ok(());
-        };
-        let error = if &commit_id == repo.store().root_commit_id() {
-            user_error(format!("The root commit {commit_id:.12} is immutable"))
-        } else {
-            let mut error = user_error(format!("Commit {commit_id:.12} is immutable"));
-            let commit = repo.store().get_commit_async(&commit_id).await?;
-            error.add_formatted_hint_with(|formatter| {
-                write!(formatter, "Could not modify commit: ")?;
-                self.write_commit_summary(formatter, &commit)?;
-                Ok(())
-            });
-            error.add_hint("Immutable commits are used to protect shared history.");
-            error.add_hint(indoc::indoc! {"
-                For more information, see:
-                      - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
-                      - `jj help -k config`, \"Set of immutable commits\""});
-
-            let (lower_bound, upper_bound) = immutable_expr
-                .intersection(&to_rewrite_expr.descendants())
-                .evaluate(repo)?
-                .count_estimate()
-                .await?;
-            let exact = upper_bound == Some(lower_bound);
-            let or_more = if exact { "" } else { " or more" };
-            error.add_hint(format!(
-                "This operation would rewrite {lower_bound}{or_more} immutable commits."
-            ));
-
-            error
-        };
-        Err(error)
+        match self.runner.check_rewritable_expr(to_rewrite_expr).await {
+            Err(RunnerError::ImmutableCommit {
+                commit_id,
+                num_immutable,
+            }) => {
+                let commit = self.repo().store().get_commit_async(&commit_id).await?;
+                let mut commit_hint = FormatRecorder::new(true);
+                write!(commit_hint, "Could not modify commit: ")?;
+                self.write_commit_summary(&mut commit_hint, &commit)?;
+                Err(immutable_commit_error(
+                    &commit_id,
+                    num_immutable,
+                    Some(commit_hint),
+                ))
+            }
+            result => Ok(result?),
+        }
     }
 
     fn reporter(&self) -> WorkspaceReporter<'_> {

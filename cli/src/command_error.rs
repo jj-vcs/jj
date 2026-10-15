@@ -276,6 +276,31 @@ impl From<SnapshotConfigError> for CommandError {
     }
 }
 
+/// Creates the error for an attempt to rewrite the immutable commit
+/// `commit_id`. `commit_hint`, if given, should describe the commit.
+pub(crate) fn immutable_commit_error(
+    commit_id: &CommitId,
+    num_immutable: (usize, Option<usize>),
+    commit_hint: Option<FormatRecorder>,
+) -> CommandError {
+    let mut error = user_error(format!("Commit {commit_id:.12} is immutable"));
+    if let Some(commit_hint) = commit_hint {
+        error.add_formatted_hint(commit_hint);
+    }
+    error.add_hint("Immutable commits are used to protect shared history.");
+    error.add_hint(indoc::indoc! {"
+        For more information, see:
+              - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
+              - `jj help -k config`, \"Set of immutable commits\""});
+    let (lower_bound, upper_bound) = num_immutable;
+    let exact = upper_bound == Some(lower_bound);
+    let or_more = if exact { "" } else { " or more" };
+    error.add_hint(format!(
+        "This operation would rewrite {lower_bound}{or_more} immutable commits."
+    ));
+    error
+}
+
 impl From<RunnerError> for CommandError {
     fn from(err: RunnerError) -> Self {
         match err {
@@ -292,6 +317,11 @@ impl From<RunnerError> for CommandError {
                 };
                 user_error("This command must be able to update the working copy.").hinted(hint)
             }
+            RunnerError::RootCommitImmutable { .. } => user_error(err),
+            RunnerError::ImmutableCommit {
+                commit_id,
+                num_immutable,
+            } => immutable_commit_error(&commit_id, num_immutable, None),
             RunnerError::NothingCheckedOut | RunnerError::ConcurrentWorkingCopyOperation => {
                 user_error(err)
             }
