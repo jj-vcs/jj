@@ -243,6 +243,7 @@ impl From<WorkspaceEnvironmentError> for CommandError {
     fn from(err: WorkspaceEnvironmentError) -> Self {
         match err {
             WorkspaceEnvironmentError::Config(err) => err.into(),
+            WorkspaceEnvironmentError::FilesetParse(err) => err.into(),
             WorkspaceEnvironmentError::InvalidImmutableHeads(_)
             | WorkspaceEnvironmentError::InvalidShortPrefixes(_) => config_error(err),
             #[cfg(feature = "git")]

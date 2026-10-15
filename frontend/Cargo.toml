@@ -19,7 +19,9 @@ include = [
 ]
 
 [dependencies]
+etcetera = { workspace = true, optional = true }
 futures = { workspace = true }
+gix = { workspace = true, optional = true }
 itertools = { workspace = true }
 jiff = { workspace = true }
 jj-lib = { workspace = true }
@@ -29,7 +31,7 @@ tracing = { workspace = true }
 
 [features]
 default = []
-git = ["jj-lib/git"]
+git = ["jj-lib/git", "dep:etcetera", "dep:gix"]
 
 [lints]
 workspace = true
