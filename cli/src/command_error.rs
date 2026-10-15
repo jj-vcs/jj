@@ -22,6 +22,7 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use jj_frontend::config_util::RemoteSettingParseError;
 use jj_frontend::runner::RunnerError;
+use jj_frontend::runner::SnapshotConfigError;
 use jj_frontend::runner::StaleWorkingCopyError;
 use jj_frontend::runner::WorkingCopyNotWritableReason;
 use jj_frontend::workspace_env::WorkspaceEnvironmentError;
@@ -259,6 +260,17 @@ impl From<WorkspaceEnvironmentError> for CommandError {
             | WorkspaceEnvironmentError::InvalidShortPrefixes(_) => config_error(err),
             #[cfg(feature = "git")]
             WorkspaceEnvironmentError::GitRepoAtWorkdir(err) => err.into(),
+        }
+    }
+}
+
+impl From<SnapshotConfigError> for CommandError {
+    fn from(err: SnapshotConfigError) -> Self {
+        match err {
+            SnapshotConfigError::Config(err) => err.into(),
+            SnapshotConfigError::Environment(err) => err.into(),
+            SnapshotConfigError::GitIgnore(err) => err.into(),
+            SnapshotConfigError::RemoteSetting(err) => err.into(),
         }
     }
 }
