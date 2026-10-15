@@ -280,24 +280,29 @@ impl OpStore for SimpleOpStore {
             let name = entry.file_name().into_string().ok()?;
             ViewId::try_from_hex(name)
         };
+        let entry_mtime = |entry: &fs::DirEntry| -> Result<SystemTime, PathError> {
+            let path = entry.path();
+            let metadata = entry.metadata().context(&path)?;
+            Ok(metadata.modified().expect("unsupported platform?"))
+        };
+        let remove_file = |path: &Path| -> Result<(), PathError> {
+            tracing::trace!(?path, "removing");
+            fs::remove_file(path).context(path)
+        };
         let remove_file_if_not_new = |entry: &fs::DirEntry| -> Result<(), PathError> {
             let path = entry.path();
             // Check timestamp, but there's still TOCTOU problem if an existing
             // file is renewed.
-            let metadata = entry.metadata().context(&path)?;
-            let mtime = metadata.modified().expect("unsupported platform?");
-            if mtime > keep_newer {
+            if entry_mtime(entry)? > keep_newer {
                 tracing::trace!(?path, "not removing");
                 Ok(())
             } else {
-                tracing::trace!(?path, "removing");
-                fs::remove_file(&path).context(&path)
+                remove_file(&path)
             }
         };
 
         // Reachable objects are resolved without considering the keep_newer
-        // parameter. We could collect ancestors of the "new" operations here,
-        // but more files can be added anyway after that.
+        // parameter.
         let read_op = |id: &OperationId| {
             self.read_operation(id)
                 .block_on()
@@ -309,15 +314,12 @@ impl OpStore for SimpleOpStore {
             |(_, data)| data.parents.iter().map(read_op).collect_vec(),
         )
         .try_collect()?;
-        let reachable_views: HashSet<&ViewId> =
-            reachable_ops.values().map(|data| &data.view_id).collect();
-        tracing::info!(
-            reachable_op_count = reachable_ops.len(),
-            reachable_view_count = reachable_views.len(),
-            "collected reachable objects"
-        );
 
-        let prune_ops = || -> Result<(), PathError> {
+        // Unreachable operations newer than keep_newer are preserved, to
+        // mitigate a risk of deleting a head created concurrently by another
+        // process.
+        let collect_recent_ops = || -> Result<HashMap<OperationId, Operation>, PathError> {
+            let mut recent_ops = HashMap::new();
             let op_dir = self.operations_dir();
             for entry in op_dir.read_dir().context(&op_dir)? {
                 let entry = entry.context(&op_dir)?;
@@ -328,9 +330,59 @@ impl OpStore for SimpleOpStore {
                 if reachable_ops.contains_key(&id) {
                     continue;
                 }
-                // If the operation was added after collecting reachable_views,
-                // its view mtime would also be renewed. So there's no need to
-                // update the reachable_views set to preserve the view.
+                if entry_mtime(&entry)? <= keep_newer {
+                    continue;
+                }
+                // If the operation can't be read, leave it to the timestamp
+                // check of a later gc instead of failing this one.
+                if let Ok(data) = self.read_operation(&id).block_on() {
+                    recent_ops.insert(id, data);
+                }
+            }
+            Ok(recent_ops)
+        };
+        let recent_ops = collect_recent_ops().map_err(|err| OpStoreError::Other(err.into()))?;
+
+        // A preserved operation must not refer to a pruned parent, so the
+        // ancestors of the recent operations are preserved as well. This keeps
+        // the kept set closed under parents: an operation created concurrently
+        // on top of a published head keeps its whole ancestry, and the range
+        // orphaned by a rewrite such as `jj op abandon` is retained until the
+        // operations referring to it age out.
+        let recent_ancestors: HashMap<OperationId, Operation> = dag_walk_async::dfs(
+            recent_ops.into_iter().map(Ok),
+            |(id, _)| id.clone(),
+            |(_, data)| {
+                data.parents
+                    .iter()
+                    .filter(|id| !reachable_ops.contains_key(*id))
+                    .map(read_op)
+                    .collect_vec()
+            },
+        )
+        .try_collect()?;
+        let mut kept_ops = reachable_ops;
+        kept_ops.extend(recent_ancestors);
+
+        let keep_views: HashSet<&ViewId> = kept_ops.values().map(|data| &data.view_id).collect();
+        tracing::info!(
+            kept_op_count = kept_ops.len(),
+            kept_view_count = keep_views.len(),
+            "collected kept objects"
+        );
+
+        // Remove unreachable operations that aren't preserved.
+        let prune_ops = || -> Result<(), PathError> {
+            let op_dir = self.operations_dir();
+            for entry in op_dir.read_dir().context(&op_dir)? {
+                let entry = entry.context(&op_dir)?;
+                let Some(id) = to_op_id(&entry) else {
+                    tracing::trace!(?entry, "skipping invalid file name");
+                    continue;
+                };
+                if kept_ops.contains_key(&id) {
+                    continue;
+                }
                 remove_file_if_not_new(&entry)?;
             }
             Ok(())
@@ -345,9 +397,12 @@ impl OpStore for SimpleOpStore {
                     tracing::trace!(?entry, "skipping invalid file name");
                     continue;
                 };
-                if reachable_views.contains(&id) {
+                if keep_views.contains(&id) {
                     continue;
                 }
+                // If the view was added after keep_views was collected, its
+                // mtime would also be renewed. So there's no need to add it to
+                // keep_views to preserve it.
                 remove_file_if_not_new(&entry)?;
             }
             Ok(())
