@@ -26,6 +26,7 @@ use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use bstr::BStr;
 use bstr::BString;
@@ -2168,7 +2169,9 @@ async fn reset_index(
     };
 
     let wc_tree = wc_commit.tree();
-    update_intent_to_add_impl(git_repo, &mut index, &parent_tree, &wc_tree).await?;
+    let (added_paths, removed_paths) =
+        collect_intent_to_add_changes(&parent_tree, &wc_tree).await?;
+    update_intent_to_add_impl(git_repo, &mut index, added_paths, removed_paths)?;
 
     // Match entries in the new index with entries in the old index, and copy stat
     // information if the entry didn't change.
@@ -2323,25 +2326,46 @@ pub async fn update_intent_to_add(
     let git_repo = git_backend
         .open_git_repo_at_workdir(workspace_root)
         .map_err(GitResetHeadError::from_git)?;
-    let mut index = git_repo
-        .index_or_empty()
+
+    let (added_paths, removed_paths) = collect_intent_to_add_changes(old_tree, new_tree).await?;
+    if added_paths.is_empty() && removed_paths.is_empty() {
+        return Ok(());
+    }
+
+    let mut lock = gix::lock::File::acquire_to_update_resource(
+        git_repo.index_path(),
+        gix::lock::acquire::Fail::AfterDurationWithBackoff(Duration::from_secs(1)),
+        None,
+        0,
+    )
+    .map_err(GitResetHeadError::from_git)?;
+    let index_path = git_repo.index_path();
+    let mut index = if index_path.exists() {
+        git_repo.open_index().map_err(GitResetHeadError::from_git)?
+    } else {
+        gix::index::File::from_state(gix::index::State::new(git_repo.object_hash()), index_path)
+    };
+    let changed = update_intent_to_add_impl(&git_repo, &mut index, added_paths, removed_paths)?;
+    if !changed {
+        return Ok(());
+    }
+    debug_assert!(index.verify_entries().is_ok());
+    let mut writer = std::io::BufWriter::new(&mut lock);
+    index
+        .write_to(&mut writer, gix::index::write::Options::default())
         .map_err(GitResetHeadError::from_git)?;
-    let mut_index = Arc::make_mut(&mut index);
-    update_intent_to_add_impl(&git_repo, mut_index, old_tree, new_tree).await?;
-    debug_assert!(mut_index.verify_entries().is_ok());
-    mut_index
-        .write(gix::index::write::Options::default())
-        .map_err(GitResetHeadError::from_git)?;
+    writer
+        .into_inner()
+        .map_err(|err| GitResetHeadError::from_git(err.into_error()))?;
+    lock.commit().map_err(GitResetHeadError::from_git)?;
 
     Ok(())
 }
 
-async fn update_intent_to_add_impl(
-    git_repo: &gix::Repository,
-    index: &mut gix::index::File,
+async fn collect_intent_to_add_changes(
     old_tree: &MergedTree,
     new_tree: &MergedTree,
-) -> Result<(), GitResetHeadError> {
+) -> Result<(Vec<(BString, bool)>, HashSet<BString>), GitResetHeadError> {
     let mut diff_stream = old_tree.diff_stream(new_tree, &EverythingMatcher);
     let mut added_paths = vec![];
     let mut removed_paths = HashSet::new();
@@ -2359,19 +2383,27 @@ async fn update_intent_to_add_impl(
                     continue;
                 }
             };
-            if index
-                .entry_index_by_path(BStr::new(path.as_internal_file_string()))
-                .is_err()
-            {
-                added_paths.push((BString::from(path.into_internal_string()), executable));
-            }
+            added_paths.push((BString::from(path.into_internal_string()), executable));
         } else if values.after.is_absent() {
             removed_paths.insert(BString::from(path.into_internal_string()));
         }
     }
 
+    Ok((added_paths, removed_paths))
+}
+
+fn update_intent_to_add_impl(
+    git_repo: &gix::Repository,
+    index: &mut gix::index::File,
+    added_paths: Vec<(BString, bool)>,
+    removed_paths: HashSet<BString>,
+) -> Result<bool, GitResetHeadError> {
+    let added_paths: Vec<_> = added_paths
+        .into_iter()
+        .filter(|(path, _)| index.entry_index_by_path(path.as_ref()).is_err())
+        .collect();
     if added_paths.is_empty() && removed_paths.is_empty() {
-        return Ok(());
+        return Ok(false);
     }
 
     if !added_paths.is_empty() {
@@ -2417,7 +2449,7 @@ async fn update_intent_to_add_impl(
     // which `git fsck` reports as duplicateEntries.
     index.remove_tree();
 
-    Ok(())
+    Ok(true)
 }
 
 #[derive(Debug, Error)]
