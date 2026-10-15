@@ -43,6 +43,7 @@ use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo::RepoLoader;
 use jj_lib::repo::RepoLoaderError;
 use jj_lib::repo::RewriteRootCommit;
 use jj_lib::revset::RevsetEvaluationError;
@@ -459,40 +460,9 @@ impl WorkspaceOperationRunner {
         options: RunnerOptions,
     ) -> Result<Self, RunnerError> {
         let repo_loader = workspace.repo_loader();
-        let op_head = op_heads_store::resolve_op_heads(
-            repo_loader.op_heads_store().as_ref(),
-            repo_loader.op_store(),
-            async |op_heads| -> Result<Operation, RunnerError> {
-                if !options.merge_concurrent_operations {
-                    return Err(RunnerError::ConcurrentOperations {
-                        op_ids: op_heads.iter().map(|op| op.id().clone()).collect(),
-                    });
-                }
-                events
-                    .event(RunnerEvent::MergingConcurrentOperations {
-                        operations: &op_heads,
-                    })
-                    .map_err(RunnerError::EventSink)?;
-                let (merged_repo, num_rebased) = repo_loader
-                    .merge_operations(
-                        op_heads,
-                        Some(workspace.workspace_name()),
-                        Some("reconcile divergent operations"),
-                        options.transaction_attributes.iter().cloned(),
-                    )
-                    .await?;
-                if num_rebased > 0 {
-                    events
-                        .event(RunnerEvent::DescendantsRebased {
-                            num_rebased,
-                            reason: RebaseReason::ConcurrentOperations,
-                        })
-                        .map_err(RunnerError::EventSink)?;
-                }
-                Ok(merged_repo.operation().clone())
-            },
-        )
-        .await?;
+        let op_head =
+            resolve_head_operation(events, repo_loader, workspace.workspace_name(), &options)
+                .await?;
         let repo = repo_loader.load_at(&op_head).await?;
         let may_snapshot_working_copy = !options.ignore_working_copy;
         Self::load_at(
@@ -1314,6 +1284,51 @@ to the current parents may contain changes from multiple commits.
         }
         Ok(())
     }
+}
+
+/// Resolves the head operation of the operation log. If there are concurrent
+/// operations, they're merged if [`RunnerOptions::merge_concurrent_operations`]
+/// is set. Otherwise, [`RunnerError::ConcurrentOperations`] is returned.
+pub async fn resolve_head_operation(
+    events: &dyn RunnerEvents,
+    repo_loader: &RepoLoader,
+    workspace_name: &WorkspaceName,
+    options: &RunnerOptions,
+) -> Result<Operation, RunnerError> {
+    op_heads_store::resolve_op_heads(
+        repo_loader.op_heads_store().as_ref(),
+        repo_loader.op_store(),
+        async |op_heads| -> Result<Operation, RunnerError> {
+            if !options.merge_concurrent_operations {
+                return Err(RunnerError::ConcurrentOperations {
+                    op_ids: op_heads.iter().map(|op| op.id().clone()).collect(),
+                });
+            }
+            events
+                .event(RunnerEvent::MergingConcurrentOperations {
+                    operations: &op_heads,
+                })
+                .map_err(RunnerError::EventSink)?;
+            let (merged_repo, num_rebased) = repo_loader
+                .merge_operations(
+                    op_heads,
+                    Some(workspace_name),
+                    Some("reconcile divergent operations"),
+                    options.transaction_attributes.iter().cloned(),
+                )
+                .await?;
+            if num_rebased > 0 {
+                events
+                    .event(RunnerEvent::DescendantsRebased {
+                        num_rebased,
+                        reason: RebaseReason::ConcurrentOperations,
+                    })
+                    .map_err(RunnerError::EventSink)?;
+            }
+            Ok(merged_repo.operation().clone())
+        },
+    )
+    .await
 }
 
 /// Configuration used when snapshotting the working copy and importing changes
