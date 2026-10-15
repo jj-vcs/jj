@@ -63,6 +63,7 @@ use crate::index::ReadonlyIndex;
 use crate::index::ResolvedChangeTargets;
 use crate::index_store::IndexStore;
 use crate::index_store::IndexStoreError;
+use crate::iter_util::fallible_any;
 use crate::merge::MergeBuilder;
 use crate::merge::SameChange;
 use crate::merge::trivial_merge;
@@ -1650,6 +1651,47 @@ impl MutableRepo {
         .await?;
         self.parent_mapping.clear();
         Ok(num_reparented)
+    }
+
+    /// Rebases descendants of the rewritten commits, reparenting the descendants
+    /// of `restore_roots`.
+    ///
+    /// The descendants of the commits registered in `self.parent_mappings` will
+    /// be recursively rebased onto the new version of their parents, except for
+    /// the descendants of `restore_roots`, which will be reparented so that
+    /// their content remains untouched.
+    /// Returns the number of rewritten descendants.
+    pub async fn rebase_descendants_reparenting_under(
+        &mut self,
+        restore_roots: &[CommitId],
+    ) -> BackendResult<usize> {
+        let roots = self.parent_mapping.keys().cloned().collect_vec();
+        let mut num_rebased = 0;
+        self.transform_descendants(roots, async |mut rewriter| {
+            if rewriter.parents_changed() {
+                let old_commit_id = rewriter.old_commit().id().clone();
+                let restore = fallible_any(restore_roots, async |root| {
+                    rewriter
+                        .repo_mut()
+                        .index()
+                        .is_ancestor(root, &old_commit_id)
+                        .await
+                })
+                .await
+                // TODO: indexing error shouldn't be a "BackendError"
+                .map_err(|err| BackendError::Other(err.into()))?;
+                if restore {
+                    rewriter.reparent().write().await?;
+                } else {
+                    rewriter.rebase().await?.write().await?;
+                }
+                num_rebased += 1;
+            }
+            Ok(())
+        })
+        .await?;
+        self.parent_mapping.clear();
+        Ok(num_rebased)
     }
 
     pub fn set_wc_commit(

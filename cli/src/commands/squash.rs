@@ -14,6 +14,7 @@
 
 use std::collections::HashMap;
 use std::iter::once;
+use std::slice;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
@@ -178,6 +179,10 @@ pub(crate) struct SquashArgs {
     /// The source revision will not be abandoned
     #[arg(long, short)]
     keep_emptied: bool,
+
+    /// Preserve the content (not the diff) when rebasing descendants
+    #[arg(long)]
+    restore_descendants: bool,
 }
 
 #[instrument(skip_all)]
@@ -311,7 +316,11 @@ pub(crate) async fn cmd_squash(
                             .collect(),
                     );
                 }
-                let new_commit = rewriter.rebase().await?.write().await?;
+                let new_commit = if args.restore_descendants {
+                    rewriter.reparent().write().await?
+                } else {
+                    rewriter.rebase().await?.write().await?
+                };
                 rewritten.insert(old_commit_id, new_commit);
                 num_rebased += 1;
                 Ok(())
@@ -323,6 +332,12 @@ pub(crate) async fn cmd_squash(
             }
         }
         commit
+    };
+
+    let descendants_msg_suffix = if args.restore_descendants {
+        " (while preserving their content)"
+    } else {
+        ""
     };
 
     let fileset_expression = tx
@@ -351,6 +366,7 @@ pub(crate) async fn cmd_squash(
         &source_commits,
         &destination,
         args.keep_emptied,
+        args.restore_descendants,
     )
     .await?
     {
@@ -409,8 +425,19 @@ pub(crate) async fn cmd_squash(
                     .collect(),
             );
         }
+        // Squashing into a descendant rewrites the destination, and the remaining
+        // descendants are based on that version, not on the one we started with.
+        // This has to be resolved before writing the squashed commit, which
+        // rewrites the destination again.
+        let restore_roots = tx.repo().new_parents(slice::from_ref(destination.id()));
         let commit = commit_builder.write(tx.repo_mut()).await?;
-        let num_rebased = tx.repo_mut().rebase_descendants().await?;
+        let num_rebased = if args.restore_descendants {
+            tx.repo_mut()
+                .rebase_descendants_reparenting_under(&restore_roots)
+                .await?
+        } else {
+            tx.repo_mut().rebase_descendants().await?
+        };
         if let Some(mut formatter) = ui.status_formatter() {
             if insert_destination_commit {
                 write!(formatter, "Created new commit ")?;
@@ -418,7 +445,10 @@ pub(crate) async fn cmd_squash(
                 writeln!(formatter)?;
             }
             if num_rebased > 0 {
-                writeln!(formatter, "Rebased {num_rebased} descendant commits.")?;
+                writeln!(
+                    formatter,
+                    "Rebased {num_rebased} descendant commits{descendants_msg_suffix}."
+                )?;
             }
         }
     } else {
@@ -433,7 +463,10 @@ pub(crate) async fn cmd_squash(
                 writeln!(formatter)?;
             }
             if num_rebased > 0 {
-                writeln!(formatter, "Rebased {num_rebased} descendant commits.")?;
+                writeln!(
+                    formatter,
+                    "Rebased {num_rebased} descendant commits{descendants_msg_suffix}."
+                )?;
             }
         }
 
