@@ -556,8 +556,7 @@ async fn rewrite_commit(
         // Pipe and buffer the subprocess's stdout/stderr so we can emit them
         // atomically to the parent's stdout/stderr after the process exits.
         // Writing concurrently from multiple jobs would interleave output.
-        command.stdout(Stdio::piped()).stderr(Stdio::piped());
-        command.spawn()?.wait_with_output().await?
+        run_command_with_output(command).await?
     };
 
     let options = pool.snapshot_options(base_ignores);
@@ -618,6 +617,35 @@ async fn rewrite_commit(
         skipped: false,
         status: Some(output.status),
     })
+}
+
+async fn run_command_with_output(mut command: tokio::process::Command) -> io::Result<Output> {
+    #[cfg(target_os = "netbsd")]
+    {
+        // Tokio cannot poll child output pipes on NetBSD, so capture to regular files.
+        let mut stdout_file = tempfile::tempfile()?;
+        let mut stderr_file = tempfile::tempfile()?;
+        command
+            .stdout(Stdio::from(stdout_file.try_clone()?))
+            .stderr(Stdio::from(stderr_file.try_clone()?));
+        let status = command.status().await?;
+        std::io::Seek::seek(&mut stdout_file, std::io::SeekFrom::Start(0))?;
+        std::io::Seek::seek(&mut stderr_file, std::io::SeekFrom::Start(0))?;
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        std::io::Read::read_to_end(&mut stdout_file, &mut stdout)?;
+        std::io::Read::read_to_end(&mut stderr_file, &mut stderr)?;
+        Ok(Output {
+            status,
+            stdout,
+            stderr,
+        })
+    }
+    #[cfg(not(target_os = "netbsd"))]
+    {
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        command.spawn()?.wait_with_output().await
+    }
 }
 
 /// Run a command across a set of revisions.
