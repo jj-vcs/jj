@@ -7796,8 +7796,27 @@ and this project adheres to
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
-<li>In non-colocated workspaces, <code>jj git fetch</code> no longer updates remote-tracking
-  Git refs. Use <code>jj git export</code> to export remote bookmarks to Git.</li>
+<li>
+<p>In non-colocated workspaces, <code>jj git fetch</code> no longer updates remote-tracking
+  Git refs. Use <code>jj git export</code> to export remote bookmarks to Git.</p>
+</li>
+<li>
+<p><code>Timestamp.format()</code> now follows <a href="https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html">jiff's strftime
+  syntax</a> instead of
+  chrono's. Most directives, including the default format, are unchanged, but:</p>
+<ul>
+<li><code>%v</code> and <code>%+</code> are no longer supported. Use <code>%e-%b-%Y</code> and
+  <code>%Y-%m-%dT%H:%M:%S%.3f%:z</code> (which always includes milliseconds) instead.</li>
+<li><code>%c</code>, <code>%x</code>, and <code>%r</code> produce different output. For example, <code>%x</code> now
+  formats as <code>2001 M07 8</code> rather than <code>07/08/01</code>.</li>
+<li><code>%f</code> now prints only as many digits as needed rather than always 9. Use
+  <code>%9f</code> or <code>%N</code> for the old behavior. Similarly, <code>%.f</code> no longer pads to 3, 6,
+  or 9 digits, so it formats as <code>.12</code> rather than <code>.120</code>.</li>
+<li><code>%:::z</code> now includes the minutes of an offset when they are non-zero.</li>
+<li>New directives and flags such as <code>%N</code>, <code>%Q</code>, <code>%^a</code>, and <code>%5Y</code> are now
+  accepted. <code>%#z</code> no longer panics.</li>
+</ul>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
@@ -7830,6 +7849,12 @@ and this project adheres to
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
+<li>
+<p>Date patterns such as <code>after:"2024-03-10 03:30"</code> are now resolved with the
+  correct UTC offset on days with a daylight savings transition. Previously,
+  the offset from the start of the day was used, so times after were off
+  by an hour. Likely a niche bug fix, but a bug fix nonetheless!</p>
+</li>
 <li>
 <p>Shell completion now suggests tag names for <code>jj tag track</code>, <code>jj tag untrack</code>,
   <code>jj tag list</code>, <code>jj git fetch --tag</code>, and <code>jj git push --tag</code>.</p>
