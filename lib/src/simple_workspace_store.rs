@@ -21,6 +21,8 @@ use std::path::PathBuf;
 
 use jj_core::backend::BackendInitError;
 use jj_core::backend::BackendLoadError;
+use jj_core::workspace_store::WorkspaceMetadata;
+use jj_core::workspace_store::WorkspaceType;
 use prost::Message as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -155,8 +157,24 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         Self::NAME
     }
 
-    fn add(&self, workspace_name: &WorkspaceName, path: &Path) -> Result<(), WorkspaceStoreError> {
+    fn add(
+        &self,
+        workspace_name: &WorkspaceName,
+        path: &Path,
+        workspace_type: WorkspaceType,
+    ) -> Result<(), WorkspaceStoreError> {
         let _lock = self.lock().map_err(SimpleWorkspaceStoreError::Lock)?;
+
+        if let Some(existing) = self.get_workspace_type(workspace_name)?
+            && workspace_type != existing
+        {
+            return Err(WorkspaceStoreError::Other("Workspace type mismatch".into()));
+        }
+        if let Some(existing) = self.get_workspace_metadata_by_workspace_path(path)?
+            && existing.workspace_type() != workspace_type
+        {
+            return Err(WorkspaceStoreError::Other("Workspace type mismatch".into()));
+        }
 
         let mut workspaces_proto = self.read_store()?;
 
@@ -171,6 +189,13 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         } else {
             path_to_store
         };
+        let workspace_type = match workspace_type {
+            WorkspaceType::Regular => crate::protos::simple_workspace_store::WorkspaceType::Regular,
+            WorkspaceType::Independent => {
+                crate::protos::simple_workspace_store::WorkspaceType::Independent
+            }
+        };
+
         workspaces_proto
             .workspaces
             .push(simple_workspace_store::Workspace {
@@ -178,6 +203,7 @@ impl WorkspaceStore for SimpleWorkspaceStore {
                 path: path_to_bytes(&path_to_store)
                     .map_err(SimpleWorkspaceStoreError::BadPathEncoding)?
                     .to_owned(),
+                workspace_type: workspace_type.into(),
             });
 
         self.write_store(workspaces_proto)?;
@@ -236,5 +262,53 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         let path = path_from_bytes(&w.path).map_err(SimpleWorkspaceStoreError::BadPathEncoding)?;
         // Resolve ".." components literally and convert to native separators
         Ok(Some(normalize_path(&self.repo_path().join(path))))
+    }
+
+    fn get_workspace_type(
+        &self,
+        workspace_name: &WorkspaceName,
+    ) -> Result<Option<WorkspaceType>, WorkspaceStoreError> {
+        let workspaces = self.read_store()?.workspaces;
+        let Some(w) = workspaces
+            .iter()
+            .find(|w| w.name.as_str() == workspace_name.as_str())
+        else {
+            return Ok(None);
+        };
+
+        match w.workspace_type() {
+            simple_workspace_store::WorkspaceType::Regular => Ok(Some(WorkspaceType::Regular)),
+            simple_workspace_store::WorkspaceType::Independent => {
+                Ok(Some(WorkspaceType::Independent))
+            }
+        }
+    }
+
+    fn get_workspace_metadata_by_workspace_path(
+        &self,
+        workspace_path: &Path,
+    ) -> Result<Option<WorkspaceMetadata>, WorkspaceStoreError> {
+        let workspace_path = dunce::canonicalize(workspace_path)
+            .context(workspace_path)
+            .map_err(SimpleWorkspaceStoreError::Path)?;
+        let path_to_store = relative_path(self.repo_path(), &workspace_path);
+        let path_to_store = if path_to_store.is_relative() {
+            slash_path(&path_to_store).into_owned()
+        } else {
+            path_to_store
+        };
+        let path = path_to_bytes(&path_to_store)
+            .map_err(SimpleWorkspaceStoreError::BadPathEncoding)?
+            .to_owned();
+        let workspaces = self.read_store()?.workspaces;
+        let Some(w) = workspaces.iter().find(|w| w.path == path) else {
+            return Ok(None);
+        };
+        let workspace_name = w.name.clone().into();
+        let workspace_type = match w.workspace_type() {
+            simple_workspace_store::WorkspaceType::Regular => WorkspaceType::Regular,
+            simple_workspace_store::WorkspaceType::Independent => WorkspaceType::Independent,
+        };
+        Ok(Some(WorkspaceMetadata::new(workspace_name, workspace_type)))
     }
 }

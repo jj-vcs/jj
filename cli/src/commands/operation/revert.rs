@@ -65,11 +65,14 @@ pub async fn cmd_op_revert(
     };
 
     let mut tx = workspace_command.start_transaction();
-    let repo_loader = tx.base_repo().loader();
-    let repo_at_target_op = &repo_loader.load_at(&target_op).await?;
-    let repo_at_target_op_parent = &repo_loader.load_at(&target_op_parent).await?;
+    let workspace = tx.workspace();
+    let repo_at_target_op = workspace.load_at(&target_op).await?;
+    let repo_at_target_op_parent = workspace.load_at(&target_op_parent).await?;
     tx.repo_mut()
-        .merge(repo_at_target_op, repo_at_target_op_parent)
+        .merge(
+            repo_at_target_op.as_ref(),
+            repo_at_target_op_parent.as_ref(),
+        )
         .await?;
     let new_view = view_with_desired_portions_restored(
         tx.repo().view().store_view(),

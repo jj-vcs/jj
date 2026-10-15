@@ -113,7 +113,7 @@ pub async fn cmd_op_diff(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
     let workspace_env = workspace_command.env();
-    let repo_loader = workspace_command.workspace().repo_loader();
+    let workspace = workspace_command.workspace();
     let settings = workspace_command.settings();
     let from_ops;
     let to_op;
@@ -127,20 +127,18 @@ pub async fn cmd_op_diff(
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let workspace_name = None;
     let transaction_description = None;
     let command_args = [];
     let merged_from_op = merge_operations(
         None,
-        repo_loader,
+        workspace,
         from_ops.clone(),
-        workspace_name,
         transaction_description,
         &command_args,
     )
     .await?;
-    let from_repo = repo_loader.load_at(&merged_from_op).await?;
-    let to_repo = repo_loader.load_at(&to_op).await?;
+    let from_repo = workspace.load_at(&merged_from_op).await?;
+    let to_repo = workspace.load_at(&to_op).await?;
 
     // Create a new transaction starting from `to_repo`.
     let mut tx = to_repo.start_transaction();
