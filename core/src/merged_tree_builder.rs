@@ -39,6 +39,13 @@ use crate::tree_merge::resolve_file_values;
 /// You start by creating an instance of this type with one or more
 /// base trees. You then add overrides on top. The overrides may be
 /// conflicts. Then you can write the result as a merge of trees.
+///
+/// If there are overrides both at a path and below it, the override at the
+/// path takes precedence if it's not a tree. Otherwise, the overrides below it
+/// are applied to the tree at the path, or to an empty directory if the path is
+/// removed. If there are overrides only below a path that isn't a tree in the
+/// base tree, the value at the path is replaced by a directory unless the
+/// overrides below it only remove paths.
 #[derive(Debug)]
 pub struct MergedTreeBuilder {
     base_tree: MergedTree,
