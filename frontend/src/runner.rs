@@ -19,6 +19,8 @@ use std::fmt::Debug;
 use std::path::Path;
 use std::sync::Arc;
 
+use futures::TryStreamExt as _;
+use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
@@ -46,6 +48,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo::RepoLoader;
 use jj_lib::repo::RepoLoaderError;
 use jj_lib::repo::RewriteRootCommit;
+use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetResolutionError;
@@ -292,6 +295,21 @@ pub enum RunnerError {
     /// The working copy needs to be updated, but it can't be.
     #[error("The working copy can't be updated")]
     WorkingCopyNotWritable(WorkingCopyNotWritableReason),
+    /// The root commit was going to be rewritten.
+    #[error("The root commit {commit_id:.12} is immutable")]
+    RootCommitImmutable {
+        /// ID of the root commit.
+        commit_id: CommitId,
+    },
+    /// An immutable commit was going to be rewritten.
+    #[error("Commit {commit_id:.12} is immutable")]
+    ImmutableCommit {
+        /// ID of one of the immutable commits.
+        commit_id: CommitId,
+        /// Estimated number of immutable commits that would be rewritten,
+        /// including descendants, as a lower bound and an optional upper bound.
+        num_immutable: (usize, Option<usize>),
+    },
     /// There's no working-copy commit for the workspace.
     #[error("Nothing checked out in this workspace")]
     NothingCheckedOut,
@@ -787,6 +805,52 @@ to the current parents may contain changes from multiple commits.
         self.repo = repo;
 
         self.snapshot(events, config, git_import_export_lock).await
+    }
+
+    /// Returns an error if any of `commits` are immutable, unless
+    /// [`RunnerOptions::ignore_immutable`] is set (the root commit is always
+    /// immutable).
+    pub async fn check_rewritable<'a>(
+        &self,
+        commits: impl IntoIterator<Item = &'a CommitId>,
+    ) -> Result<(), RunnerError> {
+        let commit_ids = commits.into_iter().cloned().collect_vec();
+        let to_rewrite_expr = RevsetExpression::commits(commit_ids);
+        self.check_rewritable_expr(&to_rewrite_expr).await
+    }
+
+    /// Returns an error if any of the commits in `to_rewrite_expr` are
+    /// immutable, unless [`RunnerOptions::ignore_immutable`] is set (the root
+    /// commit is always immutable).
+    pub async fn check_rewritable_expr(
+        &self,
+        to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
+    ) -> Result<(), RunnerError> {
+        let repo = self.repo.as_ref();
+        let immutable_expr = self
+            .env
+            .resolve_immutable_expression(repo, self.options.ignore_immutable)?;
+        let Some(commit_id) = immutable_expr
+            .intersection(to_rewrite_expr)
+            .evaluate(repo)?
+            .stream()
+            .try_next()
+            .await?
+        else {
+            return Ok(());
+        };
+        if &commit_id == repo.store().root_commit_id() {
+            return Err(RunnerError::RootCommitImmutable { commit_id });
+        }
+        let num_immutable = immutable_expr
+            .intersection(&to_rewrite_expr.descendants())
+            .evaluate(repo)?
+            .count_estimate()
+            .await?;
+        Err(RunnerError::ImmutableCommit {
+            commit_id,
+            num_immutable,
+        })
     }
 
     /// Rebases descendants of rewritten commits, except those that are

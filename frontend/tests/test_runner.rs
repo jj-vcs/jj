@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::assert_matches;
 use std::cell::RefCell;
 use std::fs;
 use std::sync::Arc;
 
 use jj_frontend::config_util;
+use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::RunnerEvent;
 use jj_frontend::runner::RunnerEvents;
 use jj_frontend::runner::RunnerOptions;
@@ -25,9 +27,13 @@ use jj_frontend::runner::SnapshotConfigDiagnostics;
 use jj_frontend::runner::WorkspaceOperationRunner;
 use jj_frontend::workspace_env::WorkspaceEnvironment;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
+use jj_lib::config::ConfigLayer;
+use jj_lib::config::ConfigSource;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::RevsetExtensions;
 use pollster::FutureExt as _;
+use testutils::TestEnvironment;
 use testutils::TestWorkspace;
 
 /// Records the names of reported events, like a GUI might collect them for
@@ -53,13 +59,20 @@ impl RecordingEvents {
     }
 }
 
-#[test]
-fn test_snapshot_and_finish_transaction_without_cli() {
+/// Loads the workspace like a GUI would, using only the default config from
+/// `jj-lib` and `jj-frontend` plus `user_config`. Returns the test environment
+/// (which must be kept alive), the runner, and the snapshot config.
+fn load_runner(
+    events: &RecordingEvents,
+    user_config: &str,
+    options: RunnerOptions,
+) -> (TestEnvironment, WorkspaceOperationRunner, SnapshotConfig) {
     let mut config = testutils::base_user_config();
     config.extend_layers(config_util::default_config_layers());
+    config.add_layer(ConfigLayer::parse(ConfigSource::User, user_config).unwrap());
     let settings = testutils::user_settings_from_config(config);
     let TestWorkspace {
-        env: _test_env,
+        env: test_env,
         workspace,
         ..
     } = TestWorkspace::init_with_settings(&settings);
@@ -87,19 +100,27 @@ fn test_snapshot_and_finish_transaction_without_cli() {
         None,
     )
     .unwrap();
-    let options = RunnerOptions {
+    let runner = WorkspaceOperationRunner::load_at_head(events, workspace, Arc::new(env), options)
+        .block_on()
+        .unwrap();
+    (test_env, runner, snapshot_config)
+}
+
+fn test_options() -> RunnerOptions {
+    RunnerOptions {
         ignore_working_copy: false,
         integrate_operation: true,
         ignore_immutable: false,
         merge_concurrent_operations: false,
         transaction_attributes: vec![("client".to_owned(), "test".to_owned())],
-    };
+    }
+}
 
+#[test]
+fn test_snapshot_and_finish_transaction_without_cli() {
     let events = RecordingEvents::default();
-    let mut runner =
-        WorkspaceOperationRunner::load_at_head(&events, workspace, Arc::new(env), options)
-            .block_on()
-            .unwrap();
+    let (_test_env, mut runner, snapshot_config) = load_runner(&events, "", test_options());
+    let workspace_root = runner.workspace_root().to_owned();
     assert!(events.take().is_empty());
 
     // Snapshot a new file
@@ -147,4 +168,43 @@ fn test_snapshot_and_finish_transaction_without_cli() {
     assert_eq!(runner.get_wc_commit_id(), Some(new_wc_commit.id()));
     assert_eq!(new_wc_commit.parent_ids(), [snapshot_commit.id().clone()]);
     assert!(workspace_root.join("file").is_file());
+}
+
+#[test]
+fn test_check_rewritable() {
+    let events = RecordingEvents::default();
+    let (_test_env, runner, _) = load_runner(&events, "", test_options());
+    let root_commit_id = runner.repo().store().root_commit_id().clone();
+    let wc_commit_id = runner.get_wc_commit_id().unwrap().clone();
+
+    // With the default config, only the root commit is immutable since there's
+    // no trunk() bookmark.
+    assert_matches!(
+        runner.check_rewritable([&root_commit_id]).block_on(),
+        Err(RunnerError::RootCommitImmutable { commit_id }) if commit_id == root_commit_id
+    );
+    runner.check_rewritable([&wc_commit_id]).block_on().unwrap();
+
+    let user_config = r#"revset-aliases.'immutable_heads()' = '@'"#;
+    let (_test_env, runner, _) = load_runner(&events, user_config, test_options());
+    let wc_commit_id = runner.get_wc_commit_id().unwrap().clone();
+    assert_matches!(
+        runner.check_rewritable([&wc_commit_id]).block_on(),
+        Err(RunnerError::ImmutableCommit { commit_id, num_immutable: (1, _) })
+            if commit_id == wc_commit_id
+    );
+
+    // Immutable commits can be rewritten with `ignore_immutable`, but the root
+    // commit can't.
+    let options = RunnerOptions {
+        ignore_immutable: true,
+        ..test_options()
+    };
+    let (_test_env, runner, _) = load_runner(&events, user_config, options);
+    let wc_commit_id = runner.get_wc_commit_id().unwrap().clone();
+    runner.check_rewritable([&wc_commit_id]).block_on().unwrap();
+    assert_matches!(
+        runner.check_rewritable([&root_commit_id]).block_on(),
+        Err(RunnerError::RootCommitImmutable { .. })
+    );
 }
