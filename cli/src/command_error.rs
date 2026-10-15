@@ -316,6 +316,7 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
             RunnerError::RewriteRootCommit(err) => err.into(),
             RunnerError::CheckOutCommit(err) => err.into(),
             RunnerError::Reset(err) => err.into(),
+            RunnerError::RecoverWorkspace(err) => err.into(),
             RunnerError::TransactionCommit(err) => err.into(),
             #[cfg(feature = "git")]
             RunnerError::GitImport(err) => err.into(),

@@ -43,6 +43,7 @@ use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
+use jj_lib::working_copy::RecoverWorkspaceError;
 use jj_lib::working_copy::ResetError;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
@@ -225,6 +226,23 @@ pub enum RunnerEvent {
         /// Whether `user.email` is missing.
         missing_email: bool,
     },
+    /// The working copy was found to be stale, but by the time it was locked,
+    /// it had already been updated.
+    WorkingCopyNotStale,
+    /// The stale working copy was updated to `new_commit`.
+    StaleWorkingCopyUpdated {
+        /// The new working-copy commit.
+        new_commit: Commit,
+    },
+    /// The operation the working copy was last updated at couldn't be found, so
+    /// a recovery commit will be created.
+    WorkingCopyOperationNotFound(OpStoreError),
+    /// A recovery commit with the contents of the working copy was created and
+    /// checked out.
+    RecoveryCommitCreated {
+        /// The recovery commit.
+        commit: Commit,
+    },
     /// The working copy contains `.jjconflict*` files, which are used to
     /// represent conflicts in Git commits. This likely means that a conflicted
     /// commit was checked out by Git.
@@ -376,6 +394,9 @@ pub enum RunnerError {
     /// Error resetting the working-copy state.
     #[error(transparent)]
     Reset(#[from] ResetError),
+    /// Error creating a recovery commit.
+    #[error(transparent)]
+    RecoverWorkspace(#[from] RecoverWorkspaceError),
     /// Error committing a transaction.
     #[error(transparent)]
     TransactionCommit(#[from] TransactionCommitError),

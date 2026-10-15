@@ -89,7 +89,6 @@ use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::HexPrefix;
-use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_heads_store;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_store::OperationId;
@@ -621,167 +620,24 @@ impl CommandHelper {
         &self,
         ui: &Ui,
         workspace: Workspace,
-        env: WorkspaceCommandEnvironment,
+        mut env: WorkspaceCommandEnvironment,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
-        let op_id = workspace.working_copy().operation_id();
-        match workspace.repo_loader().load_operation(op_id).await {
-            Ok(op) => {
-                // self.for_workable_repo(), but reuse loaded env.
-                let repo = workspace.load_at(&op).await?;
-                let options = self.runner_options();
-                let may_snapshot_working_copy = !options.ignore_working_copy;
-                let runner = WorkspaceOperationRunner::new(
-                    workspace,
-                    repo,
-                    env.base.clone(),
-                    options,
-                    may_snapshot_working_copy,
-                );
-                let mut workspace_command = WorkspaceCommandHelper::new(ui, runner, env)?;
-                workspace_command.check_working_copy_writable()?;
-                let snapshot_config = workspace_command.load_snapshot_config(ui)?;
-
-                // Snapshot the current working copy on top of the last known working-copy
-                // operation, then merge the divergent operations. The wc_commit_id of the
-                // merged repo wouldn't change because the old one wins, but it's probably
-                // fine if we picked the new wc_commit_id.
-                let stale_stats = workspace_command
-                    .snapshot_working_copy(ui, &snapshot_config, git_import_export_lock)
-                    .await?;
-
-                let stale_wc_commit = workspace_command.get_wc_commit().await?.unwrap();
-
-                let WorkspaceCommandHelper {
-                    runner: WorkspaceOperationRunner { workspace, .. },
-                    env,
-                    ..
-                } = workspace_command;
-                let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
-                let repo = workspace_command.runner.user_repo.repo();
-                let desired_wc_commit = workspace_command
-                    .runner
-                    .prepare_working_copy_mutation()
-                    .await?;
-                let mut locked_ws = workspace_command
-                    .runner
-                    .workspace
-                    .start_working_copy_mutation()
-                    .await?;
-                match WorkingCopyFreshness::check_stale(
-                    locked_ws.locked_wc(),
-                    &desired_wc_commit,
-                    repo,
-                )
-                .await?
-                {
-                    WorkingCopyFreshness::Fresh | WorkingCopyFreshness::Updated(_) => {
-                        drop(locked_ws);
-                        writeln!(
-                            ui.status(),
-                            "Attempted recovery, but the working copy is not stale."
-                        )?;
-                    }
-                    WorkingCopyFreshness::WorkingCopyStale
-                    | WorkingCopyFreshness::SiblingOperation => {
-                        // Reset Git HEAD first if the repo is colocated
-                        #[cfg(feature = "git")]
-                        if workspace_command.env.base.working_copy_shared_with_git()
-                            && workspace_command.runner.options.integrate_operation
-                        {
-                            let workspace_name = workspace_command.env.workspace_name();
-                            let workspace_root = workspace_command.env.workspace_root();
-                            let mut tx = workspace_command
-                                .runner
-                                .options
-                                .start_transaction(repo, workspace_name);
-                            let events = CliRunnerEvents::new(ui, &workspace_command.env);
-                            try_reset_git_head(
-                                &events,
-                                tx.repo_mut(),
-                                workspace_name,
-                                workspace_root,
-                                &desired_wc_commit,
-                                git_import_export_lock,
-                            )
-                            .await?;
-                            if tx.repo().has_changes() {
-                                let repo = workspace_command
-                                    .runner
-                                    .options
-                                    .maybe_commit_transaction(tx, "reset git head")
-                                    .await?;
-                                workspace_command.runner.user_repo = ReadonlyUserRepo::new(
-                                    repo,
-                                    workspace_command.runner.env.new_id_prefix_context(),
-                                );
-                            }
-                        }
-
-                        let stats = update_stale_working_copy(
-                            locked_ws,
-                            workspace_command.runner.user_repo.repo().op_id().clone(),
-                            &stale_wc_commit,
-                            &desired_wc_commit,
-                        )
-                        .await?;
-                        workspace_command
-                            .print_updated_working_copy_stats(
-                                ui,
-                                Some(&stale_wc_commit),
-                                &desired_wc_commit,
-                                &stats,
-                            )
-                            .await?;
-                        writeln!(
-                            ui.status(),
-                            "Updated working copy to fresh commit {}",
-                            short_commit_hash(desired_wc_commit.id())
-                        )?;
-                    }
-                }
-
-                // There may be Git refs to import, so snapshot again. Git HEAD
-                // will also be imported if it was updated after the working
-                // copy became stale. The result wouldn't be ideal, but there
-                // should be no data loss at least.
-                let fresh_stats = workspace_command
-                    .snapshot_impl(ui, &snapshot_config, git_import_export_lock)
-                    .await?;
-                let merged_stats = {
-                    let SnapshotStats {
-                        mut untracked_paths,
-                        mut invalid_utf8_paths,
-                    } = stale_stats;
-                    untracked_paths.extend(fresh_stats.untracked_paths);
-                    invalid_utf8_paths.extend(fresh_stats.invalid_utf8_paths);
-                    SnapshotStats {
-                        untracked_paths,
-                        invalid_utf8_paths,
-                    }
-                };
-                Ok((workspace_command, merged_stats))
-            }
-            Err(e @ OpStoreError::ObjectNotFound { .. }) => {
-                writeln!(
-                    ui.status(),
-                    "Failed to read working copy's current operation; attempting recovery. Error \
-                     message from read attempt: {e}"
-                )?;
-
-                let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
-                let snapshot_config = workspace_command.load_snapshot_config(ui)?;
-                let stats = workspace_command
-                    .create_and_check_out_recovery_commit(
-                        ui,
-                        &snapshot_config,
-                        git_import_export_lock,
-                    )
-                    .await?;
-                Ok((workspace_command, stats))
-            }
-            Err(e) => Err(e.into()),
-        }
+        let snapshot_config = env.load_snapshot_config(ui, workspace.repo_loader().store())?;
+        let events = CliRunnerEvents::new(ui, &env);
+        let (runner, stats) = WorkspaceOperationRunner::recover_stale_working_copy(
+            &events,
+            workspace,
+            env.base.clone(),
+            self.runner_options(),
+            &snapshot_config,
+            git_import_export_lock,
+        )
+        .await?;
+        // The runner may have updated the environment.
+        env.base = runner.env().clone();
+        let workspace_command = WorkspaceCommandHelper::new(ui, runner, env)?;
+        Ok((workspace_command, stats))
     }
 
     /// Loads command environment for the given `workspace`.
@@ -1345,6 +1201,33 @@ impl<'a> CliRunnerEvents<'a> {
                     )
                     .block_on()?;
             }
+            RunnerEvent::WorkingCopyNotStale => {
+                writeln!(
+                    ui.status(),
+                    "Attempted recovery, but the working copy is not stale."
+                )?;
+            }
+            RunnerEvent::StaleWorkingCopyUpdated { new_commit } => {
+                writeln!(
+                    ui.status(),
+                    "Updated working copy to fresh commit {}",
+                    short_commit_hash(new_commit.id())
+                )?;
+            }
+            RunnerEvent::WorkingCopyOperationNotFound(err) => {
+                writeln!(
+                    ui.status(),
+                    "Failed to read working copy's current operation; attempting recovery. Error \
+                     message from read attempt: {err}"
+                )?;
+            }
+            RunnerEvent::RecoveryCommitCreated { commit } => {
+                writeln!(
+                    ui.status(),
+                    "Created and checked out recovery commit {}",
+                    short_commit_hash(commit.id())
+                )?;
+            }
             RunnerEvent::UserIdentityNotConfigured {
                 missing_name,
                 missing_email,
@@ -1644,6 +1527,202 @@ impl WorkspaceOperationRunner {
         let git_import_export_lock = self.lock_git_import_export()?;
         self.finish_transaction_locked(events, tx, description, &git_import_export_lock)
             .await
+    }
+
+    /// Recovers a stale working copy in `workspace`. The working copy is
+    /// snapshotted on top of the operation it was last updated at. Then the
+    /// repo is loaded at the head operation and the working copy is updated to
+    /// the working-copy commit there. If the working copy's operation can't be
+    /// found, a recovery commit with the working copy's contents is created
+    /// instead. Returns the runner at the head operation and the stats from
+    /// snapshotting.
+    pub async fn recover_stale_working_copy(
+        events: &dyn RunnerEvents,
+        workspace: Workspace,
+        env: Arc<WorkspaceEnvironment>,
+        options: RunnerOptions,
+        config: &SnapshotConfig,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<(Self, SnapshotStats), RunnerError> {
+        let op_id = workspace.working_copy().operation_id();
+        match workspace.repo_loader().load_operation(op_id).await {
+            Ok(op) => {
+                let repo = workspace.load_at(&op).await?;
+                let may_snapshot_working_copy = !options.ignore_working_copy;
+                let mut runner = Self::new(
+                    workspace,
+                    repo,
+                    env,
+                    options.clone(),
+                    may_snapshot_working_copy,
+                );
+                runner.check_working_copy_writable()?;
+
+                // Snapshot the current working copy on top of the last known working-copy
+                // operation, then merge the divergent operations. The wc_commit_id of the
+                // merged repo wouldn't change because the old one wins, but it's probably
+                // fine if we picked the new wc_commit_id.
+                let stale_stats = runner
+                    .snapshot_working_copy(events, config, git_import_export_lock)
+                    .await?;
+
+                let stale_wc_commit = runner.get_wc_commit().await?.unwrap();
+
+                let Self { workspace, env, .. } = runner;
+                let mut runner = Self::load_at_head(events, workspace, env, options).await?;
+                runner
+                    .update_stale_working_copy(events, &stale_wc_commit, git_import_export_lock)
+                    .await?;
+
+                // There may be Git refs to import, so snapshot again. Git HEAD
+                // will also be imported if it was updated after the working
+                // copy became stale. The result wouldn't be ideal, but there
+                // should be no data loss at least.
+                let fresh_stats = runner
+                    .snapshot(events, config, git_import_export_lock)
+                    .await?;
+                let merged_stats = {
+                    let SnapshotStats {
+                        mut untracked_paths,
+                        mut invalid_utf8_paths,
+                    } = stale_stats;
+                    untracked_paths.extend(fresh_stats.untracked_paths);
+                    invalid_utf8_paths.extend(fresh_stats.invalid_utf8_paths);
+                    SnapshotStats {
+                        untracked_paths,
+                        invalid_utf8_paths,
+                    }
+                };
+                Ok((runner, merged_stats))
+            }
+            Err(err @ OpStoreError::ObjectNotFound { .. }) => {
+                events
+                    .event(RunnerEvent::WorkingCopyOperationNotFound(err))
+                    .map_err(RunnerError::EventSink)?;
+                let mut runner = Self::load_at_head(events, workspace, env, options).await?;
+                let stats = runner
+                    .create_and_check_out_recovery_commit(events, config, git_import_export_lock)
+                    .await?;
+                Ok((runner, stats))
+            }
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    /// Updates the stale working copy from `stale_wc_commit` to the current
+    /// working-copy commit.
+    async fn update_stale_working_copy(
+        &mut self,
+        events: &dyn RunnerEvents,
+        stale_wc_commit: &Commit,
+        #[cfg_attr(not(feature = "git"), expect(unused_variables))]
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<(), RunnerError> {
+        let desired_wc_commit = self.prepare_working_copy_mutation().await?;
+        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
+        match WorkingCopyFreshness::check_stale(
+            locked_ws.locked_wc(),
+            &desired_wc_commit,
+            self.user_repo.repo(),
+        )
+        .await?
+        {
+            WorkingCopyFreshness::Fresh | WorkingCopyFreshness::Updated(_) => {
+                drop(locked_ws);
+                events
+                    .event(RunnerEvent::WorkingCopyNotStale)
+                    .map_err(RunnerError::EventSink)?;
+            }
+            WorkingCopyFreshness::WorkingCopyStale | WorkingCopyFreshness::SiblingOperation => {
+                // Reset Git HEAD first if the repo is colocated
+                #[cfg(feature = "git")]
+                if self.env.working_copy_shared_with_git() && self.options.integrate_operation {
+                    let workspace_name = self.env.workspace_name();
+                    let workspace_root = self.env.workspace_root();
+                    let mut tx = self
+                        .options
+                        .start_transaction(self.user_repo.repo(), workspace_name);
+                    try_reset_git_head(
+                        events,
+                        tx.repo_mut(),
+                        workspace_name,
+                        workspace_root,
+                        &desired_wc_commit,
+                        git_import_export_lock,
+                    )
+                    .await?;
+                    if tx.repo().has_changes() {
+                        let repo = self
+                            .options
+                            .maybe_commit_transaction(tx, "reset git head")
+                            .await?;
+                        self.user_repo =
+                            ReadonlyUserRepo::new(repo, self.env.new_id_prefix_context());
+                    }
+                }
+
+                let stats = update_stale_working_copy(
+                    locked_ws,
+                    self.user_repo.repo().op_id().clone(),
+                    stale_wc_commit,
+                    &desired_wc_commit,
+                )
+                .await?;
+                events
+                    .event(RunnerEvent::WorkingCopyUpdated {
+                        repo: self.user_repo.clone(),
+                        old_commit: Some(stale_wc_commit.clone()),
+                        new_commit: desired_wc_commit.clone(),
+                        stats,
+                    })
+                    .map_err(RunnerError::EventSink)?;
+                events
+                    .event(RunnerEvent::StaleWorkingCopyUpdated {
+                        new_commit: desired_wc_commit.clone(),
+                    })
+                    .map_err(RunnerError::EventSink)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Creates a commit with the contents of the working copy on top of the
+    /// current working-copy commit and checks it out. This is used when the
+    /// operation the working copy was last updated at has been lost.
+    async fn create_and_check_out_recovery_commit(
+        &mut self,
+        events: &dyn RunnerEvents,
+        config: &SnapshotConfig,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<SnapshotStats, RunnerError> {
+        self.check_working_copy_writable()?;
+
+        let workspace_name = self.workspace.workspace_name().to_owned();
+        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
+        let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
+            locked_ws.locked_wc(),
+            self.user_repo.repo(),
+            workspace_name,
+            "RECOVERY COMMIT FROM `jj workspace update-stale`
+
+This commit contains changes that were written to the working copy by an
+operation that was subsequently lost (or was at least unavailable when you ran
+`jj workspace update-stale`). Because the operation was lost, we don't know
+what the parent commits are supposed to be. That means that the diff compared
+to the current parents may contain changes from multiple commits.
+",
+        )
+        .await?;
+
+        events
+            .event(RunnerEvent::RecoveryCommitCreated {
+                commit: new_commit.clone(),
+            })
+            .map_err(RunnerError::EventSink)?;
+        locked_ws.finish(repo.op_id().clone()).await?;
+        self.user_repo = ReadonlyUserRepo::new(repo, self.env.new_id_prefix_context());
+
+        self.snapshot(events, config, git_import_export_lock).await
     }
 
     /// Rebases descendants of rewritten commits, except those that are
@@ -2213,20 +2292,6 @@ impl WorkspaceCommandHelper {
             .await
     }
 
-    /// Snapshots the working copy without importing from Git, printing events
-    /// to `ui`. See [`WorkspaceOperationRunner::snapshot_working_copy()`].
-    async fn snapshot_working_copy(
-        &mut self,
-        ui: &Ui,
-        config: &SnapshotConfig,
-        git_import_export_lock: &GitImportExportLock,
-    ) -> Result<SnapshotStats, RunnerError> {
-        let events = CliRunnerEvents::new(ui, &self.env);
-        self.runner
-            .snapshot_working_copy(&events, config, git_import_export_lock)
-            .await
-    }
-
     /// Finishes `tx`, printing events to `ui`. See
     /// [`WorkspaceOperationRunner::finish_transaction()`].
     async fn finish_transaction(
@@ -2275,46 +2340,6 @@ impl WorkspaceCommandHelper {
 
     pub fn env(&self) -> &WorkspaceCommandEnvironment {
         &self.env
-    }
-
-    async fn create_and_check_out_recovery_commit(
-        &mut self,
-        ui: &Ui,
-        snapshot_config: &SnapshotConfig,
-        git_import_export_lock: &GitImportExportLock,
-    ) -> Result<SnapshotStats, CommandError> {
-        self.check_working_copy_writable()?;
-
-        let workspace_name = self.workspace_name().to_owned();
-        let mut locked_ws = self.runner.workspace.start_working_copy_mutation().await?;
-        let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
-            locked_ws.locked_wc(),
-            self.runner.user_repo.repo(),
-            workspace_name,
-            "RECOVERY COMMIT FROM `jj workspace update-stale`
-
-This commit contains changes that were written to the working copy by an
-operation that was subsequently lost (or was at least unavailable when you ran
-`jj workspace update-stale`). Because the operation was lost, we don't know
-what the parent commits are supposed to be. That means that the diff compared
-to the current parents may contain changes from multiple commits.
-",
-        )
-        .await?;
-
-        writeln!(
-            ui.status(),
-            "Created and checked out recovery commit {}",
-            short_commit_hash(new_commit.id())
-        )?;
-        locked_ws.finish(repo.op_id().clone()).await?;
-        self.runner.user_repo =
-            ReadonlyUserRepo::new(repo, self.runner.env.new_id_prefix_context());
-
-        let stats = self
-            .snapshot_impl(ui, snapshot_config, git_import_export_lock)
-            .await?;
-        Ok(stats)
     }
 
     pub fn workspace_root(&self) -> &Path {
@@ -2772,25 +2797,6 @@ to the current parents may contain changes from multiple commits.
 
     fn reporter(&self) -> WorkspaceReporter<'_> {
         WorkspaceReporter { env: &self.env }
-    }
-
-    async fn print_updated_working_copy_stats(
-        &self,
-        ui: &Ui,
-        maybe_old_commit: Option<&Commit>,
-        new_commit: &Commit,
-        stats: &CheckoutStats,
-    ) -> Result<(), CommandError> {
-        self.reporter()
-            .print_updated_working_copy_stats(
-                ui,
-                self.repo().as_ref(),
-                self.id_prefix_context(),
-                maybe_old_commit,
-                new_commit,
-                stats,
-            )
-            .await
     }
 
     pub async fn report_repo_conflicts(
@@ -3480,23 +3486,21 @@ async fn update_stale_working_copy(
     op_id: OperationId,
     stale_commit: &Commit,
     new_commit: &Commit,
-) -> Result<CheckoutStats, CommandError> {
+) -> Result<CheckoutStats, RunnerError> {
     // The same check as start_working_copy_mutation(), but with the stale
     // working-copy commit.
     if stale_commit.tree().tree_ids_and_labels()
         != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
     {
-        return Err(RunnerError::ConcurrentWorkingCopyOperation.into());
+        return Err(RunnerError::ConcurrentWorkingCopyOperation);
     }
     let stats = locked_ws
         .locked_wc()
         .check_out(new_commit)
         .await
-        .map_err(|err| {
-            internal_error_with_message(
-                format!("Failed to check out commit {}", new_commit.id().hex()),
-                err,
-            )
+        .map_err(|source| RunnerError::CheckOut {
+            commit_id: new_commit.id().clone(),
+            source,
         })?;
     locked_ws.finish(op_id).await?;
 
