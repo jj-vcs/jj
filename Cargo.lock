@@ -2818,7 +2818,9 @@ name = "jj-frontend"
 version = "0.47.1"
 dependencies = [
  "async-trait",
+ "etcetera",
  "futures 0.3.34",
+ "gix",
  "itertools 0.15.0",
  "jiff",
  "jj-lib",
