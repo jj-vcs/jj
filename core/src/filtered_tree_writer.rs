@@ -55,7 +55,7 @@ impl<'matcher> FilteredTreeWriter<'matcher> {
             return Ok(MergedTree::new(store, tree_ids, labels));
         }
 
-        let roots = self.tree.into_tree_ids();
+        let roots = self.tree.into_tree_ids().into_map(|tree_id| (tree_id, ()));
         let visitor = FilterVisitor {
             matcher: self.matcher,
         };
@@ -69,7 +69,13 @@ struct FilterVisitor<'matcher> {
 }
 
 impl TreeRewriteVisitor for FilterVisitor<'_> {
-    fn visit_tree(&self, tree: &Tree) -> Vec<(RepoPathComponentBuf, RewrittenEntry)> {
+    type Context = ();
+
+    fn visit_tree(
+        &self,
+        tree: &Tree,
+        _context: &(),
+    ) -> Vec<(RepoPathComponentBuf, RewrittenEntry<()>)> {
         let mut new_entries = vec![];
         for entry in tree.entries_non_recursive() {
             let entry_path = tree.dir().join(entry.name());
@@ -85,6 +91,7 @@ impl TreeRewriteVisitor for FilterVisitor<'_> {
                     // Otherwise, we need to filter the subtree
                     RewrittenEntry::Subtree {
                         base_tree_id: sub_tree_id.clone(),
+                        context: (),
                     }
                 }
             } else if self.matcher.matches(&entry_path) {
