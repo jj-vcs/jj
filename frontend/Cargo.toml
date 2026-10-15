@@ -29,6 +29,9 @@ pollster = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
+[dev-dependencies]
+testutils = { workspace = true }
+
 [features]
 default = []
 git = ["jj-lib/git", "dep:etcetera", "dep:gix"]
