@@ -61,6 +61,7 @@ use jj_lib::workspace::Workspace;
 use thiserror::Error;
 use tracing::instrument;
 
+use crate::revset_util::ImmutableHeadsError;
 use crate::revset_util::default_ignored_remote_name;
 use crate::runner::GitImportExportLock;
 use crate::runner::RunnerError;
@@ -71,6 +72,10 @@ pub enum WorkspaceEnvironmentError {
     /// A config value couldn't be read.
     #[error(transparent)]
     Config(#[from] ConfigGetError),
+    /// The `immutable_heads()` revset alias isn't defined. It's defined by
+    /// [`crate::config_util::default_config_layers()`].
+    #[error("The `revset-aliases.immutable_heads()` alias is not defined")]
+    ImmutableHeadsNotDefined,
     /// The configured `immutable_heads()` couldn't be parsed.
     #[error("Invalid `revset-aliases.immutable_heads()`")]
     InvalidImmutableHeads(#[source] RevsetParseError),
@@ -314,7 +319,12 @@ impl WorkspaceEnvironment {
             diagnostics,
             &self.revset_parse_context(),
         )
-        .map_err(WorkspaceEnvironmentError::InvalidImmutableHeads)
+        .map_err(|err| match err {
+            ImmutableHeadsError::NotDefined => WorkspaceEnvironmentError::ImmutableHeadsNotDefined,
+            ImmutableHeadsError::Parse(err) => {
+                WorkspaceEnvironmentError::InvalidImmutableHeads(err)
+            }
+        })
     }
 
     fn load_short_prefixes_expression(
