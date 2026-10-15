@@ -258,6 +258,12 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
         }
         let (dir, tree_id, context) = key;
         let store = self.store.clone();
+        if tree_id == *store.empty_tree_id() {
+            let result = Ok(Tree::empty(store, dir));
+            self.work
+                .push(async move { WorkItem::ReadTree { context, result } });
+            return;
+        }
         self.work.push(async move {
             store
                 .get_tree(dir, &tree_id)
@@ -278,6 +284,14 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
                 .collect(),
         );
         let store = self.store.clone();
+        if tree.is_empty() && !key.0.is_root() {
+            // Empty subtrees are omitted from their parents, so there's no need to write
+            // them
+            let result = Ok(store.empty_tree_id().clone());
+            self.work
+                .push(async move { WorkItem::WrittenTree { key, result } });
+            return;
+        }
         self.work.push(async move {
             let result = store
                 .write_tree(&key.0, tree)
