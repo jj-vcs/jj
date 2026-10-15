@@ -20,6 +20,7 @@ use std::env::split_paths;
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::fmt;
+use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -29,6 +30,8 @@ use std::sync::Mutex;
 
 use etcetera::BaseStrategy as _;
 use itertools::Itertools as _;
+use jj_frontend::config_util;
+use jj_frontend::config_util::ConfigWarning;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLayer;
@@ -1173,48 +1176,32 @@ where
     P: AliasDeclarationParser + Default,
     P::Error: fmt::Display,
 {
-    let mut aliases_map = AliasesMap::new();
-    // Load from all config layers in order. 'f(x)' in default layer should be
-    // overridden by 'f(a)' in user.
-    for layer in config.layers() {
-        let table = match layer.look_up_table(table_name) {
-            Ok(Some(table)) => table,
-            Ok(None) => continue,
-            Err(item) => {
-                return Err(ConfigGetError::Type {
-                    name: table_name.to_string(),
-                    error: format!("Expected a table, but is {}", item.type_name()).into(),
-                    source_path: layer.path.clone(),
-                }
-                .into());
-            }
-        };
-        for (decl, item) in table.iter() {
-            let (definition, doc) = if let Some(t) = item.as_table_like() {
-                let definition = t.get("definition").and_then(|i| i.as_str());
-                let doc = t.get("doc").and_then(|i| i.as_str()).map(|s| s.to_owned());
-                (definition, doc)
-            } else {
-                (item.as_str(), None)
-            };
+    let mut warnings = vec![];
+    let result = config_util::load_aliases_map(&mut warnings, config, table_name);
+    print_config_warnings(ui, &warnings)?;
+    Ok(result?)
+}
 
-            let r = definition
-                .ok_or_else(|| {
-                    format!(
-                        "Expected a string or a table with a `definition` string key, but is {}",
-                        item.type_name()
-                    )
-                })
-                .and_then(|v| aliases_map.insert(decl, v, doc).map_err(|e| format!("{e}")));
-            if let Err(s) = r {
-                writeln!(
-                    ui.warning_default(),
-                    "Failed to load `{table_name}.{decl}`: {s}"
-                )?;
-            }
+/// Prints warnings found while loading configuration.
+pub fn print_config_warnings(ui: &Ui, warnings: &[ConfigWarning]) -> io::Result<()> {
+    for warning in warnings {
+        match warning {
+            ConfigWarning::InvalidAlias {
+                table_name,
+                decl,
+                message,
+            } => writeln!(
+                ui.warning_default(),
+                "Failed to load `{table_name}.{decl}`: {message}"
+            )?,
+            ConfigWarning::RedefinedMutabilityBuiltin { table_name, decl } => writeln!(
+                ui.warning_default(),
+                "Redefining `{table_name}.{decl}` is not recommended; redefine \
+                 `immutable_heads()` instead.",
+            )?,
         }
     }
-    Ok(aliases_map)
+    Ok(())
 }
 
 // Not interested in $UPPER_CASE_VARIABLES

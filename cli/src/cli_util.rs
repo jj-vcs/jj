@@ -50,6 +50,7 @@ use indexmap::IndexSet;
 use indoc::indoc;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_frontend::config_util;
 use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_frontend::runner::GitImportExportLock;
 use jj_frontend::runner::RebaseReason;
@@ -169,6 +170,7 @@ use crate::config::ConfigEnv;
 use crate::config::RawConfig;
 use crate::config::config_from_environment;
 use crate::config::load_aliases_map;
+use crate::config::print_config_warnings;
 use crate::description_util::TextEditor;
 use crate::diff_util;
 use crate::diff_util::DiffFormat;
@@ -2804,18 +2806,20 @@ pub fn load_fileset_aliases(
     ui: &Ui,
     config: &StackedConfig,
 ) -> Result<FilesetAliasesMap, CommandError> {
-    let table_name = ConfigNamePathBuf::from_iter(["fileset-aliases"]);
-    load_aliases_map(ui, config, &table_name)
+    let mut warnings = vec![];
+    let result = config_util::load_fileset_aliases(&mut warnings, config);
+    print_config_warnings(ui, &warnings)?;
+    Ok(result?)
 }
 
 pub fn load_revset_aliases(
     ui: &Ui,
     config: &StackedConfig,
 ) -> Result<RevsetAliasesMap, CommandError> {
-    let table_name = ConfigNamePathBuf::from_iter(["revset-aliases"]);
-    let aliases_map = load_aliases_map(ui, config, &table_name)?;
-    revset_util::warn_user_redefined_builtin(ui, config, &table_name)?;
-    Ok(aliases_map)
+    let mut warnings = vec![];
+    let result = config_util::load_revset_aliases(&mut warnings, config);
+    print_config_warnings(ui, &warnings)?;
+    Ok(result?)
 }
 
 pub fn load_template_aliases(
