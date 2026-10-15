@@ -7795,6 +7795,10 @@ and this project adheres to
 <h2 id="unreleased"><a href="https://github.com/jj-vcs/jj/compare/v0.46.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>In non-colocated workspaces, <code>jj git fetch</code> no longer updates remote-tracking
+  Git refs. Use <code>jj git export</code> to export remote bookmarks to Git.</li>
+</ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
@@ -7839,6 +7843,11 @@ and this project adheres to
   <code>.enabled = true</code> as "valid under more than one of the schemas". This affected
   downstream tools such as editor extensions showing errors in perfectly valid
   config files.</p>
+</li>
+<li>
+<p>Fix a race condition in colocated workspaces where concurrent <code>jj git fetch</code>
+  and <code>jj</code> commands could import partially fetched refs, causing divergence.
+  <a href="https://github.com/jj-vcs/jj/issues/7349">#7349</a></p>
 </li>
 </ul>
 <h2 id="0460-2026-10-07"><a href="https://github.com/jj-vcs/jj/compare/v0.45.1...v0.46.0">0.46.0</a> - 2026-10-07<a class="headerlink" href="#0460-2026-10-07" title="Permanent link">&para;</a></h2>
