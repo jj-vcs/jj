@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use jj_lib::config::ConfigGetError;
+use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
@@ -34,6 +35,20 @@ use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 use thiserror::Error;
+
+/// Returns the default configuration that the logic in this crate depends on,
+/// such as the `trunk()` and `immutable_heads()` revset aliases and the
+/// `snapshot.*` settings. User interfaces should include these layers in
+/// their configuration, before any user configuration.
+pub fn default_config_layers() -> Vec<ConfigLayer> {
+    // Syntax error in default config isn't a user error. That's why defaults are
+    // loaded by separate builder.
+    let parse = |text: &'static str| ConfigLayer::parse(ConfigSource::Default, text).unwrap();
+    vec![
+        parse(include_str!("config/misc.toml")),
+        parse(include_str!("config/revsets.toml")),
+    ]
+}
 
 /// Problem found while loading configuration. Loading continues after these.
 #[derive(Clone, Debug)]
