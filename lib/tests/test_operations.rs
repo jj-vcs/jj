@@ -475,12 +475,17 @@ fn test_reparent_range_branchy() -> TestResult {
 fn test_reparent_discarding_predecessors() -> TestResult {
     let test_repo = TestRepo::init();
     let repo_0 = test_repo.repo;
+    let workspace_name = repo_0.workspace_name();
+    let workspace_type = repo_0.workspace_type();
     let loader = repo_0.loader();
     let op_store = repo_0.op_store();
 
     let repo_at = |id: &OperationId| {
         let op = loader.load_operation(id).block_on().unwrap();
-        loader.load_at(&op).block_on().unwrap()
+        loader
+            .load_at(&op, workspace_name, workspace_type)
+            .block_on()
+            .unwrap()
     };
     let head_commits = |repo: &dyn Repo| {
         repo.view()
@@ -661,7 +666,15 @@ fn test_resolve_op_id() -> TestResult {
     "#);
 
     let repo_loader = repo.loader();
-    let resolve = |op_str: &str| op_walk::resolve_op_for_load(repo_loader, op_str).block_on();
+    let resolve = |op_str: &str| {
+        op_walk::resolve_op_for_load(
+            repo_loader,
+            repo.workspace_name(),
+            repo.workspace_type(),
+            op_str,
+        )
+        .block_on()
+    };
 
     // Full id
     assert_eq!(resolve(&operations[0].id().hex())?, operations[0]);

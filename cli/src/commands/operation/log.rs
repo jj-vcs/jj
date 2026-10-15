@@ -23,7 +23,7 @@ use jj_lib::graph::GraphEdge;
 use jj_lib::graph::reverse_graph;
 use jj_lib::op_walk;
 use jj_lib::operation::Operation;
-use jj_lib::repo::RepoLoader;
+use jj_lib::workspace::Workspace;
 
 use super::diff::parse_op_diff_changes_in;
 use super::diff::show_op_diff;
@@ -112,29 +112,33 @@ pub async fn cmd_op_log(
     if command.is_working_copy_writable() {
         let workspace_command = command.workspace_helper(ui).await?;
         let current_op = workspace_command.repo().operation();
-        let repo_loader = workspace_command.workspace().repo_loader();
-        do_op_log(ui, workspace_command.env(), repo_loader, current_op, args).await
+        do_op_log(
+            ui,
+            workspace_command.env(),
+            workspace_command.workspace(),
+            current_op,
+            args,
+        )
+        .await
     } else {
         // Don't load the repo so that the operation history can be inspected
         // even with a corrupted repo state. For example, you can find the first
         // bad operation id to be abandoned.
         let workspace = command.load_workspace()?;
         let workspace_env = command.workspace_environment(ui, &workspace)?;
-        let repo_loader = workspace.repo_loader();
-        let current_op =
-            command.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
-        do_op_log(ui, &workspace_env, repo_loader, &current_op, args).await
+        let current_op = command.resolve_operation(ui, &workspace)?;
+        do_op_log(ui, &workspace_env, &workspace, &current_op, args).await
     }
 }
 
 async fn do_op_log(
     ui: &mut Ui,
     workspace_env: &WorkspaceCommandEnvironment,
-    repo_loader: &RepoLoader,
+    workspace: &Workspace,
     current_op: &Operation,
     args: &OperationLogArgs,
 ) -> Result<(), CommandError> {
-    let settings = repo_loader.settings();
+    let settings = workspace.repo_loader().settings();
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
@@ -142,7 +146,7 @@ async fn do_op_log(
     let op_node_template: TemplateRenderer<Operation>;
     {
         let language = OperationTemplateLanguage::new(
-            repo_loader,
+            workspace.repo_loader(),
             Some(current_op.id()),
             workspace_env.cwd(),
             workspace_env.operation_template_extensions(),
@@ -173,20 +177,18 @@ async fn do_op_log(
                                op: &Operation,
                                with_content_format: &LogContentFormat| {
             let parent_ops = op.parents().await?;
-            let workspace_name = None;
             let transaction_description = None;
             let command_args = [];
             let merged_parent_op = merge_operations(
                 None,
-                repo_loader,
+                workspace,
                 parent_ops.clone(),
-                workspace_name,
                 transaction_description,
                 &command_args,
             )
             .await?;
-            let parent_repo = repo_loader.load_at(&merged_parent_op).await?;
-            let repo = repo_loader.load_at(op).await?;
+            let parent_repo = workspace.load_at(&merged_parent_op).await?;
+            let repo = workspace.load_at(op).await?;
 
             let id_prefix_context = workspace_env.new_id_prefix_context();
             let commit_summary_template = {

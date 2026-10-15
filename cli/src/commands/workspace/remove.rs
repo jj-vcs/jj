@@ -131,7 +131,7 @@ pub async fn cmd_workspace_remove(
     let mut paths_to_remove = Vec::new();
     for (abs_path, ws_workspace) in workspaces_to_remove {
         let op = ws_workspace.repo_loader().load_operation(&op_id).await?;
-        let ws_repo = ws_workspace.repo_loader().load_at(&op).await?;
+        let ws_repo = ws_workspace.load_at(&op).await?;
         let mut ws_helper = command.for_workable_repo(ui, ws_workspace, ws_repo)?;
         ws_helper.maybe_snapshot(ui).await?;
         // Continue from the operation the snapshot created, so that the next
@@ -142,7 +142,7 @@ pub async fn cmd_workspace_remove(
 
     let workspace = command.load_workspace()?;
     let op = workspace.repo_loader().load_operation(&op_id).await?;
-    let repo = workspace.repo_loader().load_at(&op).await?;
+    let repo = workspace.load_at(&op).await?;
     workspace_command = command.for_workable_repo(ui, workspace, repo)?;
 
     let mut tx = workspace_command.start_transaction();
