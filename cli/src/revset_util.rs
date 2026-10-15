@@ -15,7 +15,6 @@
 //! Utility for parsing and evaluating user-provided revset expressions.
 
 use std::collections::HashMap;
-use std::io;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
@@ -24,9 +23,6 @@ use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::config::ConfigNamePathBuf;
-use jj_lib::config::ConfigSource;
-use jj_lib::config::StackedConfig;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
@@ -159,34 +155,6 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
             .commits(self.repo.store())
             .boxed_local())
     }
-}
-
-pub(super) fn warn_user_redefined_builtin(
-    ui: &Ui,
-    config: &StackedConfig,
-    table_name: &ConfigNamePathBuf,
-) -> io::Result<()> {
-    let checked_mutability_builtins = ["mutable()", "immutable()", "builtin_immutable_heads()"];
-    for layer in config
-        .layers()
-        .iter()
-        .skip_while(|layer| layer.source == ConfigSource::Default)
-    {
-        let Ok(Some(table)) = layer.look_up_table(table_name) else {
-            continue;
-        };
-        for decl in checked_mutability_builtins
-            .iter()
-            .filter(|decl| table.contains_key(decl))
-        {
-            writeln!(
-                ui.warning_default(),
-                "Redefining `{table_name}.{decl}` is not recommended; redefine \
-                 `immutable_heads()` instead.",
-            )?;
-        }
-    }
-    Ok(())
 }
 
 /// Wraps the given `IdPrefixContext` in `SymbolResolver` to be passed in to

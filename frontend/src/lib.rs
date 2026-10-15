@@ -23,6 +23,7 @@
 #![deny(unused_must_use)]
 #![deny(unsafe_code)]
 
+pub mod config_util;
 #[cfg(feature = "git")]
 pub mod git_util;
 pub mod revset_util;
