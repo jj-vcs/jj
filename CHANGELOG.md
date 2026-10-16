@@ -25,6 +25,7 @@ and this project adheres to
   * `%f` now prints only as many digits as needed rather than always 9. Use
     `%9f` or `%N` for the old behavior. Similarly, `%.f` no longer pads to 3, 6,
     or 9 digits, so it formats as `.12` rather than `.120`.
+  * `%Z` now prints a time zone abbreviation. Use `%:z` to get an offset.
   * `%:::z` now includes the minutes of an offset when they are non-zero.
   * New directives and flags such as `%N`, `%Q`, `%^a`, and `%5Y` are now
     accepted. `%#z` no longer panics.
