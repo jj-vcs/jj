@@ -27,6 +27,7 @@ use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::git_backend::JJ_TREES_COMMIT_HEADER;
+use jj_lib::index::Index;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
@@ -168,9 +169,9 @@ fn test_gc() -> TestResult {
         },
     );
 
-    // Empty index, but all kept by file modification time
+    // Empty list of heads, but all kept by file modification time
     // (Beware that this invokes "git gc" and refs will be packed.)
-    get_git_backend(&repo).gc(base_index.as_index(), SystemTime::UNIX_EPOCH)?;
+    get_git_backend(&repo).gc(&[], SystemTime::UNIX_EPOCH)?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -189,8 +190,14 @@ fn test_gc() -> TestResult {
     // have lower precision for example.
     let now = || SystemTime::now() + Duration::from_secs(1);
 
+    let gc = |repo: &Arc<ReadonlyRepo>, index: &dyn Index| -> TestResult {
+        let heads: Vec<_> = index.all_heads_for_gc().unwrap().collect_vec();
+        get_git_backend(repo).gc(&heads, now())?;
+        Ok(())
+    };
+
     // All reachable: redundant no-gc refs will be removed
-    get_git_backend(&repo).gc(repo.index(), now())?;
+    gc(&repo, repo.index())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -209,7 +216,7 @@ fn test_gc() -> TestResult {
     mut_index.add_commit(&commit_e).block_on()?;
     mut_index.add_commit(&commit_f).block_on()?;
     mut_index.add_commit(&commit_h).block_on()?;
-    get_git_backend(&repo).gc(mut_index.as_index(), now())?;
+    gc(&repo, mut_index.as_index())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -225,7 +232,7 @@ fn test_gc() -> TestResult {
     mut_index.add_commit(&commit_b).block_on()?;
     mut_index.add_commit(&commit_c).block_on()?;
     mut_index.add_commit(&commit_f).block_on()?;
-    get_git_backend(&repo).gc(mut_index.as_index(), now())?;
+    gc(&repo, mut_index.as_index())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -237,7 +244,7 @@ fn test_gc() -> TestResult {
     // B|C|F are no longer reachable
     let mut mut_index = base_index.start_modification();
     mut_index.add_commit(&commit_a).block_on()?;
-    get_git_backend(&repo).gc(mut_index.as_index(), now())?;
+    gc(&repo, mut_index.as_index())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -246,7 +253,7 @@ fn test_gc() -> TestResult {
     );
 
     // All unreachable
-    get_git_backend(&repo).gc(base_index.as_index(), now())?;
+    gc(&repo, base_index.as_index())?;
     assert_eq!(collect_no_gc_refs(git_repo_path), hashset! {});
     Ok(())
 }
@@ -296,16 +303,20 @@ fn test_gc_extra_table() -> TestResult {
 
     // Reload repo to invalidate cache in TableStore
     let repo = load_repo();
-    let index = repo.readonly_index().as_index();
+    let heads = repo
+        .readonly_index()
+        .as_index()
+        .all_heads_for_gc()?
+        .collect_vec();
 
     // All segments should be kept by modification time
-    get_git_backend(&repo).gc(index, SystemTime::UNIX_EPOCH)?;
+    get_git_backend(&repo).gc(&heads, SystemTime::UNIX_EPOCH)?;
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 5 + 1);
 
     // All unreachable segments should be removed
     let now = SystemTime::now() + Duration::from_secs(1);
-    get_git_backend(&repo).gc(index, now)?;
+    get_git_backend(&repo).gc(&heads, now)?;
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 2 + 1);
 

@@ -64,7 +64,10 @@ pub async fn cmd_util_gc(
         .await?;
     #[cfg(feature = "git")]
     if let Ok(git_backend) = jj_lib::git::get_git_backend(repo.store()) {
-        git_backend.gc(repo.index(), keep_newer)?;
+        use itertools::Itertools as _;
+
+        let new_heads = repo.index().all_heads_for_gc()?.collect_vec();
+        git_backend.gc(&new_heads, keep_newer)?;
     }
     Ok(())
 }
