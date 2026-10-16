@@ -143,21 +143,8 @@ impl serde::Serialize for Timestamp {
     {
         // TODO: test is_human_readable() to use raw format?
         let t = self.to_zoned().map_err(serde::ser::Error::custom)?;
-        let fraction = if t.subsec_nanosecond() == 0 {
-            ""
-        } else {
-            "%.3f"
-        };
         // Format as RFC 3339 without the timezone annotation in square brackets
-        // to maintain backward compatibility with chrono's format
-        let rfc3339 = if t.offset().seconds() == 0 {
-            // Use "Z" for UTC to match chrono's behavior
-            t.strftime(&format!("%Y-%m-%dT%H:%M:%S{fraction}Z"))
-                .to_string()
-        } else {
-            t.strftime(&format!("%Y-%m-%dT%H:%M:%S{fraction}%:z"))
-                .to_string()
-        };
+        let rfc3339 = t.strftime("%Y-%m-%dT%H:%M:%S%.f%:z").to_string();
         rfc3339.serialize(serializer)
     }
 }
