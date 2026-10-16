@@ -89,6 +89,24 @@ pub mod test_backend;
 /// Convenient return type for test functions.
 pub type TestResult<T = ()> = eyre::Result<T>;
 
+/// Path that `GIT_CONFIG_SYSTEM` and `GIT_CONFIG_GLOBAL` are pointed at so
+/// that neither `git` nor `gix` picks up the user's configuration.
+///
+/// This is `/dev/null` on Unix. On Windows, `/dev/null` is an ordinary path
+/// relative to the current drive, and `gix` would parse whatever happens to
+/// be at `\dev\null`. The `NUL` device isn't an option either, since Git for
+/// Windows 2.52 (ARM64) rejects it with "unable to access 'NUL': Invalid
+/// argument". A file that doesn't exist is skipped by both, so use a path
+/// that can't exist before this process created it.
+pub fn hermetic_git_config_path() -> PathBuf {
+    if cfg!(windows) {
+        let name = format!("jj-test-{}-no-gitconfig", std::process::id());
+        std::env::temp_dir().join(name)
+    } else {
+        PathBuf::from("/dev/null")
+    }
+}
+
 pub const HERMETIC_GIT_CONFIGS: &[(&str, &str)] = &[
     // gitoxide uses "main" as the default branch name, whereas git uses "master". This also
     // prevents git CLI from issuing the initial branch name advice.
@@ -100,11 +118,13 @@ pub const HERMETIC_GIT_CONFIGS: &[(&str, &str)] = &[
 // somewhat tricky because `gix` looks at system and user configuration, and
 // `GitBackend` also calls into `git(1)` for things like garbage collection.
 pub fn hermetic_git() {
+    let config_path = hermetic_git_config_path();
+    let config_path = config_path.to_str().unwrap();
     let mut envs = [
         // Prevent GitBackend from loading user and system configurations. For
         // gitoxide API use in tests, Config::isolated() is probably better.
-        ("GIT_CONFIG_SYSTEM", "/dev/null"),
-        ("GIT_CONFIG_GLOBAL", "/dev/null"),
+        ("GIT_CONFIG_SYSTEM", config_path),
+        ("GIT_CONFIG_GLOBAL", config_path),
     ]
     .map(|(key, value)| (key.to_string(), value.to_string()))
     .to_vec();
