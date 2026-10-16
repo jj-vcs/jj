@@ -167,12 +167,14 @@ pub struct ReadonlyRepo {
     change_id_index: OnceCell<Box<dyn ChangeIdIndex>>,
     // TODO: This should eventually become part of the index and not be stored fully in memory.
     view: View,
+    workspace_name: WorkspaceNameBuf,
 }
 
 impl Debug for ReadonlyRepo {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         f.debug_struct("ReadonlyRepo")
             .field("store", &self.loader.store)
+            .field("workspace_name", &self.workspace_name)
             .finish_non_exhaustive()
     }
 }
@@ -216,6 +218,7 @@ impl ReadonlyRepo {
     pub async fn init(
         settings: &UserSettings,
         repo_path: &Path,
+        workspace_name: &WorkspaceName,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
         workspace_store_initializer: &WorkspaceStoreInitializer<'_>,
@@ -277,15 +280,15 @@ impl ReadonlyRepo {
             .context(&submodule_store_type_path)?;
         let submodule_store = Arc::from(submodule_store);
 
-        let loader = RepoLoader {
-            settings: settings.clone(),
+        let loader = RepoLoader::new(
+            settings.clone(),
             store,
             workspace_store,
             op_store,
             op_heads_store,
             index_store,
             submodule_store,
-        };
+        );
 
         let root_operation = loader.root_operation().await;
         let root_view = root_operation
@@ -306,6 +309,7 @@ impl ReadonlyRepo {
             index,
             change_id_index: OnceCell::new(),
             view: root_view,
+            workspace_name: workspace_name.to_owned(),
         }))
     }
 
@@ -323,6 +327,10 @@ impl ReadonlyRepo {
 
     pub fn view(&self) -> &View {
         &self.view
+    }
+
+    pub fn workspace_name(&self) -> &WorkspaceName {
+        &self.workspace_name
     }
 
     pub fn readonly_index(&self) -> &dyn ReadonlyIndex {
@@ -356,12 +364,14 @@ impl ReadonlyRepo {
     }
 
     pub async fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at_head().await
+        self.loader().load_at_head(self.workspace_name()).await
     }
 
     #[instrument]
     pub async fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at(operation).await
+        self.loader()
+            .load_at(operation, self.workspace_name())
+            .await
     }
 }
 
@@ -800,13 +810,15 @@ impl RepoLoader {
         &self.submodule_store
     }
 
-    pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub async fn load_at_head(
+        &self,
+        workspace_name: &WorkspaceName,
+    ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
             async |op_heads| -> Result<Operation, RepoLoaderError> {
                 assert!(op_heads.len() > 1);
-                let workspace_name = None;
                 let transaction_description = Some("reconcile divergent operations");
                 let transaction_attributes = [];
                 let (merged_repo, _num_rebased) = self
@@ -822,19 +834,24 @@ impl RepoLoader {
         )
         .await?;
         let view = op.view().await?;
-        self.finish_load(op, view).await
+        self.finish_load(op, view, workspace_name).await
     }
 
     #[instrument(skip(self))]
-    pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub async fn load_at(
+        &self,
+        op: &Operation,
+        workspace_name: &WorkspaceName,
+    ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let view = op.view().await?;
-        self.finish_load(op.clone(), view).await
+        self.finish_load(op.clone(), view, workspace_name).await
     }
 
     pub fn create_from(
         &self,
         operation: Operation,
         view: View,
+        workspace_name: &WorkspaceName,
         index: Box<dyn ReadonlyIndex>,
     ) -> Arc<ReadonlyRepo> {
         let repo = ReadonlyRepo {
@@ -843,6 +860,7 @@ impl RepoLoader {
             index,
             change_id_index: OnceCell::new(),
             view,
+            workspace_name: workspace_name.to_owned(),
         };
         Arc::new(repo)
     }
@@ -870,7 +888,7 @@ impl RepoLoader {
     pub async fn merge_operations(
         &self,
         operations: Vec<Operation>,
-        workspace_name: Option<&WorkspaceName>,
+        workspace_name: &WorkspaceName,
         transaction_description: Option<&str>,
         transaction_attributes: impl IntoIterator<Item = (String, String)>,
     ) -> Result<(Arc<ReadonlyRepo>, usize), RepoLoaderError> {
@@ -882,11 +900,11 @@ impl RepoLoader {
         match &operations[..] {
             [] => {
                 let root_operation = self.root_operation().await;
-                let root_repo = self.load_at(&root_operation).await?;
+                let root_repo = self.load_at(&root_operation, workspace_name).await?;
                 return Ok((root_repo, 0));
             }
             [op] => {
-                let repo = self.load_at(op).await?;
+                let repo = self.load_at(op, workspace_name).await?;
                 return Ok((repo, 0));
             }
             _ => {}
@@ -903,10 +921,11 @@ impl RepoLoader {
         // the arguments to that method.
         let mut closest_common_ancestors: HashMap<_, Vec<Operation>> = HashMap::new();
 
-        let mut tx = self.load_at(&operations[0]).await?.start_transaction();
-        if let Some(workspace_name) = workspace_name {
-            tx.set_workspace_name(workspace_name);
-        }
+        let mut tx = self
+            .load_at(&operations[0], workspace_name)
+            .await?
+            .start_transaction();
+        tx.set_workspace_name(workspace_name);
         for (key, value) in transaction_attributes {
             tx.set_attribute(key, value);
         }
@@ -976,19 +995,26 @@ impl RepoLoader {
             stack.push((index, operations, tx));
             // Then we push the ancestor ops to the stack so that we can merge them first.
             // We need to start a separate transaction for this.
-            let new_tx = self.load_at(&ancestor_ops[0]).await?.start_transaction();
+            let new_tx = self
+                .load_at(&ancestor_ops[0], workspace_name)
+                .await?
+                .start_transaction();
             stack.push((1, ancestor_ops.clone(), new_tx));
         }
 
         // We are all done! The result should be in the cache.
         let merged_operation = merged_operations.get(&operation_ids).cloned().unwrap();
-        Ok((self.load_at(&merged_operation).await?, num_rebased))
+        Ok((
+            self.load_at(&merged_operation, workspace_name).await?,
+            num_rebased,
+        ))
     }
 
     async fn finish_load(
         &self,
         operation: Operation,
         view: View,
+        workspace_name: &WorkspaceName,
     ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let index = self
             .index_store
@@ -1000,6 +1026,7 @@ impl RepoLoader {
             index,
             change_id_index: OnceCell::new(),
             view,
+            workspace_name: workspace_name.to_owned(),
         };
         Ok(Arc::new(repo))
     }

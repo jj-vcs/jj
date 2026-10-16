@@ -183,6 +183,7 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
     let repo = ReadonlyRepo::init(
         settings,
         &repo_dir,
+        WorkspaceName::DEFAULT,
         &|settings, store_path| {
             let backend = GitBackend::init_external(settings, store_path, git_repo_path)?;
             Ok(Box::new(backend))
@@ -2425,6 +2426,7 @@ impl GitRepoData {
         let repo = ReadonlyRepo::init(
             &settings,
             &jj_repo_dir,
+            WorkspaceName::DEFAULT,
             &|settings, store_path| {
                 Ok(Box::new(GitBackend::init_external(
                     settings,
@@ -4064,9 +4066,13 @@ fn test_update_intent_to_add_drops_stale_cache_tree() -> TestResult {
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
     testutils::git::init(&workspace_root);
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .block_on()?;
+    let (_workspace, repo) = Workspace::init_external_git(
+        &settings,
+        &workspace_root,
+        WorkspaceName::DEFAULT,
+        &workspace_root.join(".git"),
+    )
+    .block_on()?;
 
     // A nested subtree d/e/f/ plus an unrelated sibling tree sib/.
     let old_files = [
@@ -4153,6 +4159,7 @@ fn test_init() -> TestResult {
     let repo = &ReadonlyRepo::init(
         &settings,
         &jj_repo_dir,
+        WorkspaceName::DEFAULT,
         &|settings, store_path| {
             Ok(Box::new(GitBackend::init_external(
                 settings,
@@ -5275,6 +5282,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
     let jj_repo = ReadonlyRepo::init(
         settings,
         &jj_repo_dir,
+        WorkspaceName::DEFAULT,
         &|settings, store_path| {
             Ok(Box::new(GitBackend::init_external(
                 settings,
@@ -6660,6 +6668,7 @@ fn test_bulk_update_extra_on_import_refs() -> TestResult {
 fn test_rewrite_imported_commit() -> TestResult {
     let test_repo = TestRepo::init_with_backend_and_settings(
         TestRepoBackend::Git,
+        WorkspaceName::DEFAULT,
         &user_settings_without_change_id(),
     );
     let repo = &test_repo.repo;

@@ -475,12 +475,13 @@ fn test_reparent_range_branchy() -> TestResult {
 fn test_reparent_discarding_predecessors() -> TestResult {
     let test_repo = TestRepo::init();
     let repo_0 = test_repo.repo;
+    let workspace_name = repo_0.workspace_name();
     let loader = repo_0.loader();
     let op_store = repo_0.op_store();
 
     let repo_at = |id: &OperationId| {
         let op = loader.load_operation(id).block_on().unwrap();
-        loader.load_at(&op).block_on().unwrap()
+        loader.load_at(&op, workspace_name).block_on().unwrap()
     };
     let head_commits = |repo: &dyn Repo| {
         repo.view()
