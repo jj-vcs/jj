@@ -80,7 +80,6 @@ use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::git::GitSettings;
-use crate::index::Index;
 use crate::lock::FileLock;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
@@ -1568,13 +1567,13 @@ impl GitBackend {
     /// All commits found in the `index` won't be removed. In addition to that,
     /// objects created after `keep_newer` will be preserved. This mitigates a
     /// risk of deleting new commits created concurrently by another process.
-    #[tracing::instrument(skip(self, index))]
-    pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
+    #[tracing::instrument(skip(self, new_heads))]
+    pub fn gc(&self, new_heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()> {
         let git_repo = self.lock_git_repo();
-        let new_heads = index
-            .all_heads_for_gc()
-            .map_err(|err| BackendError::Other(err.into()))?
-            .filter(|id| *id != self.root_commit_id);
+        let new_heads = new_heads
+            .iter()
+            .filter(|id| *id != &self.root_commit_id)
+            .cloned();
         recreate_no_gc_refs(&git_repo, new_heads, keep_newer)?;
 
         // No locking is needed since we aren't going to add new "commits".
