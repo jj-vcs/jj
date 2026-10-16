@@ -4912,10 +4912,10 @@ mod tests {
 
         insta::assert_snapshot!(
             env.render_ok("instant.start().format('%Y%m%d %H:%M:%S %Z')"),
-            @"19700101 00:00:00 +00:00");
+            @"19700101 00:00:00 UTC");
         insta::assert_snapshot!(
             env.render_ok("one_msec.end().format('%Y%m%d %H:%M:%S %Z')"),
-            @"19691231 23:00:00 -01:00");
+            @"19691231 23:00:00 -01");
 
         insta::assert_snapshot!(
             env.render_ok("instant.duration()"), @"less than a microsecond");

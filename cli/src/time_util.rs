@@ -37,12 +37,7 @@ pub fn format_absolute_timestamp_with(
     format: &FormattingItems,
 ) -> Result<String, TimestampOutOfRange> {
     let zoned = timestamp.to_zoned()?;
-    // jj's Timestamp only carries a numeric UTC offset, not an IANA timezone
-    // name. Replace %Z (timezone abbreviation) with %:z (numeric offset) to
-    // match chrono's FixedOffset behavior, where %Z always output the numeric
-    // offset like "+00:00" rather than an abbreviation like "UTC".
-    let format = format.format.replace("%Z", "%:z");
-    Ok(zoned.strftime(&format).to_string())
+    Ok(zoned.strftime(&format.format).to_string())
 }
 
 pub fn format_duration(
