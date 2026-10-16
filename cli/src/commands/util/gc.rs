@@ -16,6 +16,7 @@ use std::slice;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
@@ -62,12 +63,8 @@ pub async fn cmd_util_gc(
     repo.op_store()
         .gc(slice::from_ref(repo.op_id()), keep_newer)
         .await?;
-    #[cfg(feature = "git")]
-    if let Ok(git_backend) = jj_lib::git::get_git_backend(repo.store()) {
-        use itertools::Itertools as _;
 
-        let new_heads = repo.index().all_heads_for_gc()?.collect_vec();
-        git_backend.gc(&new_heads, keep_newer)?;
-    }
+    let new_heads = repo.index().all_heads_for_gc()?.collect_vec();
+    repo.store().backend().gc(&new_heads, keep_newer)?;
     Ok(())
 }

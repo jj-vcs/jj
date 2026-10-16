@@ -22,6 +22,7 @@ use std::fmt::Write as _;
 use std::iter::zip;
 use std::pin::Pin;
 use std::slice;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::AsyncRead;
@@ -874,6 +875,13 @@ pub trait Backend: Any + Send + Sync + Debug {
         root: &CommitId,
         head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>>;
+
+    /// Perform garbage collection.
+    ///
+    /// All commits reachable from `heads` won't be removed. In addition to that,
+    /// objects created after `keep_newer` will be preserved. This mitigates a
+    /// risk of deleting new commits created concurrently by another process.
+    fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()>;
 }
 
 impl dyn Backend {

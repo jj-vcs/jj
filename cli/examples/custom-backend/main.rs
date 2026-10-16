@@ -14,6 +14,7 @@
 
 use std::path::Path;
 use std::pin::Pin;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::AsyncRead;
@@ -205,5 +206,9 @@ impl Backend for JitBackend {
         head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         self.inner.get_copy_records(paths, root, head)
+    }
+
+    fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()> {
+        self.inner.gc(heads, keep_newer)
     }
 }

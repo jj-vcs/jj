@@ -21,6 +21,7 @@ use std::time::SystemTime;
 
 use futures::executor::block_on_stream;
 use itertools::Itertools as _;
+use jj_lib::backend::Backend as _;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::commit::Commit;
