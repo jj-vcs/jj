@@ -5462,15 +5462,15 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("json(email)"), @r#""foo@bar""#);
         insta::assert_snapshot!(
             env.render_ok("json(signature)"),
-            @r#"{"name":"Test User","email":"test.user@example.com","timestamp":"1970-01-01T00:00:00Z"}"#);
+            @r#"{"name":"Test User","email":"test.user@example.com","timestamp":"1970-01-01T00:00:00+00:00"}"#);
         insta::assert_snapshot!(env.render_ok("json(size_hint)"), @"[5,null]");
-        insta::assert_snapshot!(env.render_ok("json(timestamp)"), @r#""1970-01-01T00:00:00Z""#);
+        insta::assert_snapshot!(env.render_ok("json(timestamp)"), @r#""1970-01-01T00:00:00+00:00""#);
         insta::assert_snapshot!(
             env.render_ok("json(timestamp_millis)"),
             @r#""1970-01-01T01:30:01.234+01:30""#);
         insta::assert_snapshot!(
             env.render_ok("json(timestamp_range)"),
-            @r#"{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T23:00:00-01:00"}"#);
+            @r#"{"start":"1970-01-01T00:00:00+00:00","end":"1970-01-01T23:00:00-01:00"}"#);
 
         // AnyList is serializable if the inner type is.
         insta::assert_snapshot!(env.render_ok(r#"json(string_list.map(|s| s))"#), @r#"["foo","bar"]"#);

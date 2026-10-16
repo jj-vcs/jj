@@ -406,7 +406,7 @@ fn test_op_log_template() -> TestResult {
 
     insta::assert_snapshot!(render(r#"json(self) ++ "\n""#), @r#"
     @  {"id":"f63ee16f95539ec5bda4a7178aa3ace2bf594719aa2cc3410cfc4d070cb31ae31225bef146eb2428baf760180976c936cd60891e7a9087e6836d3a315fe81030","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:07+07:00","end":"2001-02-03T04:05:07+07:00"},"description":"add workspace 'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":null,"attributes":{}}
-    ○  {"id":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","parents":[],"time":{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T00:00:00Z"},"description":"","hostname":"","username":"","is_snapshot":false,"workspace_name":null,"attributes":{}}
+    ○  {"id":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","parents":[],"time":{"start":"1970-01-01T00:00:00+00:00","end":"1970-01-01T00:00:00+00:00"},"description":"","hostname":"","username":"","is_snapshot":false,"workspace_name":null,"attributes":{}}
     [EOF]
     "#);
 

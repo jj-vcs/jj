@@ -29,6 +29,8 @@ and this project adheres to
   * `%:::z` now includes the minutes of an offset when they are non-zero.
   * New directives and flags such as `%N`, `%Q`, `%^a`, and `%5Y` are now
     accepted. `%#z` no longer panics.
+  * `json(timestamp)` now prints a UTC time zone offset as `+00:00` instead of
+    `Z`.
 
 ### Deprecations
 
