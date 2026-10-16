@@ -77,6 +77,10 @@ and this project adheres to
   and `jj` commands could import partially fetched refs, causing divergence.
   [#7349](https://github.com/jj-vcs/jj/issues/7349)
 
+* `jj run` now materializes conflicts using `ui.conflict-marker-style` instead
+  of always using the `snapshot` style.
+  [#10390](https://github.com/jj-vcs/jj/issues/10390)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
