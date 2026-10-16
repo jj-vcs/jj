@@ -26,15 +26,18 @@ use jj_lib::config::ConfigSource;
 use jj_lib::evolution::walk_predecessors;
 use jj_lib::index::Index;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_heads_store::OpHeadsKey;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_walk;
 use jj_lib::op_walk::OpsetEvaluationError;
 use jj_lib::op_walk::OpsetResolutionError;
 use jj_lib::operation::Operation;
 use jj_lib::ref_name::WorkspaceName;
+use jj_lib::repo::OpContext;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
+use jj_lib::workspace_store::WorkspaceType;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
@@ -81,7 +84,7 @@ fn test_unpublished_operation() -> TestResult {
     let op_id1 = unpublished_op.operation().id().clone();
     assert_ne!(op_id1, op_id0);
     assert_eq!(list_dir(&op_heads_dir), vec![op_id0.hex()]);
-    unpublished_op.publish().block_on()?;
+    unpublished_op.publish(&OpHeadsKey::Repo).block_on()?;
     assert_eq!(list_dir(&op_heads_dir), vec![op_id1.hex()]);
     Ok(())
 }
@@ -108,7 +111,7 @@ fn test_consecutive_operations() -> TestResult {
     assert_ne!(op_id1, op_id0);
     assert_eq!(list_dir(&op_heads_dir), vec![op_id1.hex()]);
 
-    let repo = repo.reload_at_head(None).block_on()?;
+    let repo = repo.reload_at_head(&OpContext::Repo).block_on()?;
     let mut tx2 = repo.start_transaction();
     write_random_commit(tx2.repo_mut());
     let op_id2 = tx2
@@ -123,7 +126,7 @@ fn test_consecutive_operations() -> TestResult {
 
     // Reloading the repo makes no difference (there are no conflicting operations
     // to resolve).
-    let _repo = repo.reload_at_head(None).block_on()?;
+    let _repo = repo.reload_at_head(&OpContext::Repo).block_on()?;
     assert_eq!(list_dir(&op_heads_dir), vec![op_id2.hex()]);
     Ok(())
 }
@@ -170,7 +173,10 @@ fn test_concurrent_operations() -> TestResult {
 
     // Reloading the repo causes the operations to be merged
     let repo = repo
-        .reload_at_head(Some(WorkspaceName::DEFAULT))
+        .reload_at_head(&OpContext::Workspace {
+            name: WorkspaceName::DEFAULT.to_owned(),
+            workspace_type: WorkspaceType::Regular,
+        })
         .block_on()?;
     let merged_op_id = repo.op_id().clone();
     assert_ne!(merged_op_id, op_id0);
@@ -231,7 +237,10 @@ fn test_isolation() -> TestResult {
     assert_heads(repo.as_ref(), vec![initial.id()]);
     // After reload, the base repo sees both rewrites.
     let repo = repo
-        .reload_at_head(Some(WorkspaceName::DEFAULT))
+        .reload_at_head(&OpContext::Workspace {
+            name: WorkspaceName::DEFAULT.to_owned(),
+            workspace_type: WorkspaceType::Regular,
+        })
         .block_on()?;
     assert_heads(repo.as_ref(), vec![rewrite1.id(), rewrite2.id()]);
     Ok(())
@@ -666,7 +675,9 @@ fn test_resolve_op_id() -> TestResult {
     "#);
 
     let repo_loader = repo.loader();
-    let resolve = |op_str: &str| op_walk::resolve_op_for_load(repo_loader, op_str).block_on();
+    let resolve = |op_str: &str| {
+        op_walk::resolve_op_for_load(repo_loader, &OpHeadsKey::Repo, op_str).block_on()
+    };
 
     // Full id
     assert_eq!(resolve(&operations[0].id().hex())?, operations[0]);

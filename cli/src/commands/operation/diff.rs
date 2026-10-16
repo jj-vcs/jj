@@ -142,7 +142,8 @@ pub async fn cmd_op_diff(
     let to_repo = repo_loader.load_at(&to_op).await?;
 
     // Create a new transaction starting from `to_repo`.
-    let mut tx = to_repo.start_transaction();
+    let mut tx =
+        to_repo.start_transaction_new(Some(workspace_command.workspace().workspace_name()));
     // Merge index from `from_repo` to `to_repo`, so commits in `from_repo` are
     // accessible.
     tx.repo_mut().merge_index(&from_repo)?;
