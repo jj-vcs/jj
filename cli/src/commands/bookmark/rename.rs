@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::repo::Repo as _;
@@ -20,7 +21,6 @@ use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 
 use crate::cli_util::CommandHelper;
-use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::complete;

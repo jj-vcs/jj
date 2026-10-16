@@ -1,0 +1,29 @@
+[package]
+name = "jj-frontend"
+description = "Helpers for building user interfaces for Jujutsu - an experimental version control system"
+
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+include = [
+  "/LICENSE",
+  "/src/"
+]
+
+[dependencies]
+jj-lib = { workspace = true }
+
+[features]
+default = []
+git = ["jj-lib/git"]
+
+[lints]
+workspace = true
