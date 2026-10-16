@@ -1566,7 +1566,7 @@ impl Backend for GitBackend {
     /// objects created after `keep_newer` will be preserved. This mitigates a
     /// risk of deleting new commits created concurrently by another process.
     #[tracing::instrument(skip(self, new_heads))]
-    fn gc(&self, new_heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()> {
+    async fn gc(&self, new_heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()> {
         let git_repo = self.lock_git_repo();
         let new_heads = new_heads
             .iter()

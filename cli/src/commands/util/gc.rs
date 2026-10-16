@@ -65,6 +65,6 @@ pub async fn cmd_util_gc(
         .await?;
 
     let new_heads = repo.index().all_heads_for_gc()?.collect_vec();
-    repo.store().backend().gc(&new_heads, keep_newer)?;
+    repo.store().backend().gc(&new_heads, keep_newer).await?;
     Ok(())
 }

@@ -172,7 +172,9 @@ fn test_gc() -> TestResult {
 
     // Empty list of heads, but all kept by file modification time
     // (Beware that this invokes "git gc" and refs will be packed.)
-    get_git_backend(&repo).gc(&[], SystemTime::UNIX_EPOCH)?;
+    get_git_backend(&repo)
+        .gc(&[], SystemTime::UNIX_EPOCH)
+        .block_on()?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -193,7 +195,7 @@ fn test_gc() -> TestResult {
 
     let gc = |repo: &Arc<ReadonlyRepo>, index: &dyn Index| -> TestResult {
         let heads: Vec<_> = index.all_heads_for_gc().unwrap().collect_vec();
-        get_git_backend(repo).gc(&heads, now())?;
+        get_git_backend(repo).gc(&heads, now()).block_on()?;
         Ok(())
     };
 
@@ -311,13 +313,15 @@ fn test_gc_extra_table() -> TestResult {
         .collect_vec();
 
     // All segments should be kept by modification time
-    get_git_backend(&repo).gc(&heads, SystemTime::UNIX_EPOCH)?;
+    get_git_backend(&repo)
+        .gc(&heads, SystemTime::UNIX_EPOCH)
+        .block_on()?;
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 5 + 1);
 
     // All unreachable segments should be removed
     let now = SystemTime::now() + Duration::from_secs(1);
-    get_git_backend(&repo).gc(&heads, now)?;
+    get_git_backend(&repo).gc(&heads, now).block_on()?;
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 2 + 1);
 
