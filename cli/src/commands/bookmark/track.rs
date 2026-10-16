@@ -17,6 +17,7 @@ use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringExpression;
 
@@ -25,7 +26,6 @@ use super::trackable_remote_bookmarks_matching;
 use super::warn_unmatched_local_or_remote_bookmarks;
 use super::warn_unmatched_remotes;
 use crate::cli_util::CommandHelper;
-use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::commit_templater::CommitRef;

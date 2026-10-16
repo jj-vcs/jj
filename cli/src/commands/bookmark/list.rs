@@ -17,6 +17,7 @@ use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use futures::TryStreamExt as _;
+use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringExpression;
@@ -24,7 +25,6 @@ use jj_lib::str_util::StringExpression;
 use super::warn_unmatched_local_or_remote_bookmarks;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::commit_ref_list;
 use crate::commit_ref_list::RefFilterPredicates;

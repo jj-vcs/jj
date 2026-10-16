@@ -85,6 +85,7 @@ indexmap = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
 jiff = { workspace = true }
+jj-frontend = { workspace = true }
 jj-lib = { workspace = true }
 maplit = { workspace = true }
 mimalloc = { workspace = true }
@@ -138,7 +139,7 @@ jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
 [features]
 default = ["watchman", "git"]
 bench = ["dep:criterion"]
-git = ["jj-lib/git", "dep:gix"]
+git = ["jj-lib/git", "jj-frontend/git", "dep:gix"]
 test-fakes = ["jj-lib/testing"]
 watchman = ["jj-lib/watchman"]
 
