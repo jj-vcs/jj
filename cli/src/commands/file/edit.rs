@@ -120,7 +120,7 @@ pub(crate) async fn cmd_file_edit(
         conflict_marker_style,
         eol_conversion_mode: EolConversionMode::None,
         exec_change_setting: ExecChangeSetting::Auto,
-        fsmonitor_settings: FsmonitorSettings::None,
+        fsmonitor: FsmonitorSettings::None.to_fsmonitor(),
     };
     let mut tree_state = TreeState::init(
         repo.store().clone(),
