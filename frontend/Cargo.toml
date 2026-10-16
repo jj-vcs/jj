@@ -19,8 +19,10 @@ include = [
 ]
 
 [dependencies]
+jiff = { workspace = true }
 jj-lib = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 
 [features]
 default = []
