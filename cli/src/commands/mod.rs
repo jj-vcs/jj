@@ -75,7 +75,7 @@ use clap::builder::styling::AnsiColor;
 use clap_complete::engine::SubcommandCandidates;
 use tracing::instrument;
 
-use crate::cli_util::Args;
+use crate::cli_args::Args;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;

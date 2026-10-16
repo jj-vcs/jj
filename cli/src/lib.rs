@@ -15,6 +15,7 @@
 #![deny(unused_must_use)]
 
 pub mod cleanup_guard;
+pub mod cli_args;
 pub mod cli_util;
 pub mod command_error;
 pub mod commands;
