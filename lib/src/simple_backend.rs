@@ -344,7 +344,7 @@ impl Backend for SimpleBackend {
         Ok(stream::empty().boxed())
     }
 
-    fn gc(&self, _heads: &[CommitId], _keep_newer: SystemTime) -> BackendResult<()> {
+    async fn gc(&self, _heads: &[CommitId], _keep_newer: SystemTime) -> BackendResult<()> {
         Ok(())
     }
 }

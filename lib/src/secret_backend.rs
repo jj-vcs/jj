@@ -201,7 +201,7 @@ impl Backend for SecretBackend {
         self.inner.get_copy_records(paths, root, head)
     }
 
-    fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()> {
-        self.inner.gc(heads, keep_newer)
+    async fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()> {
+        self.inner.gc(heads, keep_newer).await
     }
 }
