@@ -2645,6 +2645,7 @@ dependencies = [
  "itertools 0.15.0",
  "jiff",
  "jj-cli",
+ "jj-frontend",
  "jj-lib",
  "jsonschema",
  "libc",
@@ -2743,6 +2744,13 @@ dependencies = [
  "pest_derive",
  "strsim",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "jj-frontend"
+version = "0.46.0"
+dependencies = [
+ "jj-lib",
 ]
 
 [[package]]

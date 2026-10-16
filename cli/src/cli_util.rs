@@ -52,6 +52,7 @@ use itertools::Itertools as _;
 use jiff::Timestamp;
 use jiff::Zoned;
 use jiff::tz::TimeZone;
+use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -535,9 +536,10 @@ impl CommandHelper {
         let op_head =
             self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
         let repo = workspace.repo_loader().load_at(&op_head).await?;
-        if let Err(err) =
-            revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
-        {
+        if let Err(err) = jj_frontend::revset_util::try_resolve_trunk_alias(
+            repo.as_ref(),
+            &env.revset_parse_context(),
+        ) {
             // The fallback can be builtin_trunk() if we're willing to support
             // inferred trunk forever. (#7990)
             let fallback = "root()";
@@ -1189,7 +1191,7 @@ impl WorkspaceCommandEnvironment {
         ui: &Ui,
     ) -> Result<Arc<UserRevsetExpression>, CommandError> {
         let mut diagnostics = RevsetDiagnostics::new();
-        let expression = revset_util::parse_immutable_heads_expression(
+        let expression = jj_frontend::revset_util::parse_immutable_heads_expression(
             &mut diagnostics,
             &self.revset_parse_context(),
         )
@@ -3478,19 +3480,6 @@ pub async fn update_working_copy(
             )
         })?;
     Ok(stats)
-}
-
-/// Returns the special remote name that should be ignored by default.
-#[cfg_attr(not(feature = "git"), expect(unused_variables))]
-pub fn default_ignored_remote_name(store: &Store) -> Option<&'static RemoteName> {
-    #[cfg(feature = "git")]
-    {
-        use jj_lib::git;
-        if git::get_git_backend(store).is_ok() {
-            return Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO);
-        }
-    }
-    None
 }
 
 /// Whether or not the `bookmark` has any tracked remotes (i.e. is a tracking
