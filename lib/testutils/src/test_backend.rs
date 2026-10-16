@@ -22,6 +22,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::AsyncRead;
@@ -424,6 +425,10 @@ impl Backend for TestBackend {
         _head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         Ok(stream::empty().boxed())
+    }
+
+    fn gc(&self, _heads: &[CommitId], _keep_newer: SystemTime) -> BackendResult<()> {
+        Ok(())
     }
 }
 
