@@ -27,8 +27,8 @@ use jj_lib::file_util::normalize_path;
 use jj_lib::file_util::slash_path;
 use jj_lib::settings::UserSettings;
 
-use crate::cli_util::GlobalArgs;
-use crate::cli_util::expand_args;
+use crate::cli_args::GlobalArgs;
+use crate::cli_args::expand_args;
 use crate::cli_util::find_workspace_dir;
 use crate::cli_util::load_revset_aliases;
 use crate::cli_util::load_template_aliases;
