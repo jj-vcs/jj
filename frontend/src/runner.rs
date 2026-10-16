@@ -21,6 +21,7 @@ use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::gitignore::GitIgnoreFile;
+use jj_lib::lock::FileLock;
 use jj_lib::lock::FileLockError;
 use jj_lib::matchers::Matcher;
 use jj_lib::matchers::NothingMatcher;
@@ -44,6 +45,13 @@ use jj_lib::working_copy::WorkingCopyStateError;
 use thiserror::Error;
 
 use crate::workspace_env::WorkspaceEnvironmentError;
+
+/// A token that holds a lock for git import/export operations in colocated
+/// repositories. For non-colocated repos, this is an empty token (no actual
+/// lock held). The lock is automatically released when this token is dropped.
+pub struct GitImportExportLock {
+    pub(crate) _lock: Option<FileLock>,
+}
 
 /// Options controlling how operations on a workspace interact with the
 /// working copy and the operation log.
