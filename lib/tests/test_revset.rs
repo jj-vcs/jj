@@ -1108,6 +1108,7 @@ fn resolve_commit_ids_in_workspace(
     let workspace_ctx = RevsetWorkspaceContext {
         path_converter: &path_converter,
         workspace_name: workspace.workspace_name(),
+        working_copy: Some(workspace.working_copy()),
     };
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
@@ -1131,6 +1132,50 @@ fn resolve_commit_ids_in_workspace(
         .map(Result::unwrap)
         .collect()
         .block_on()
+}
+
+#[test]
+fn test_evaluate_expression_files_in_sparse_patterns() -> TestResult {
+    let mut test_workspace = TestWorkspace::init();
+    let repo = test_workspace.repo.clone();
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let tree1 = create_tree(&repo, &[(repo_path("dir1/file"), "1")]);
+    let tree2 = create_tree(
+        &repo,
+        &[(repo_path("dir1/file"), "1"), (repo_path("dir2/file"), "2")],
+    );
+    let commit1 = mut_repo
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree1)
+        .write_unwrap();
+    let commit2 = mut_repo
+        .new_commit(vec![commit1.id().clone()], tree2)
+        .write_unwrap();
+
+    let workspace = &mut test_workspace.workspace;
+    let mut locked_ws = workspace.start_working_copy_mutation().block_on()?;
+    locked_ws
+        .locked_wc()
+        .set_sparse_patterns(vec![repo_path("dir1").to_owned()])
+        .block_on()?;
+    locked_ws.finish(repo.op_id().clone()).block_on()?;
+
+    assert_eq!(
+        resolve_commit_ids_in_workspace(mut_repo, "files(sparse())", workspace, None),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids_in_workspace(mut_repo, "files(~sparse())", workspace, None),
+        vec![commit2.id().clone()]
+    );
+    // The sparse patterns are repo-relative regardless of the current directory
+    let cwd = workspace.workspace_root().join("dir2");
+    assert_eq!(
+        resolve_commit_ids_in_workspace(mut_repo, "files(sparse())", workspace, Some(&cwd)),
+        vec![commit1.id().clone()]
+    );
+    Ok(())
 }
 
 #[test]
