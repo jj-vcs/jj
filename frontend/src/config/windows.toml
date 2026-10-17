@@ -1,0 +1,5 @@
+[ui]
+editor = "Notepad"
+
+[merge-tools.vscode]
+program = "code.cmd"
