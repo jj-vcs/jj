@@ -249,9 +249,12 @@ formats as <code dir="auto">2001 M07 8</code> rather than <code dir="auto">07/08
 <li><code dir="auto">%f</code> now prints only as many digits as needed rather than always 9. Use
 <code dir="auto">%9f</code> or <code dir="auto">%N</code> for the old behavior. Similarly, <code dir="auto">%.f</code> no longer pads to 3, 6,
 or 9 digits, so it formats as <code dir="auto">.12</code> rather than <code dir="auto">.120</code>.</li>
+<li><code dir="auto">%Z</code> now prints a time zone abbreviation. Use <code dir="auto">%:z</code> to get an offset.</li>
 <li><code dir="auto">%:::z</code> now includes the minutes of an offset when they are non-zero.</li>
 <li>New directives and flags such as <code dir="auto">%N</code>, <code dir="auto">%Q</code>, <code dir="auto">%^a</code>, and <code dir="auto">%5Y</code> are now
 accepted. <code dir="auto">%#z</code> no longer panics.</li>
+<li><code dir="auto">json(timestamp)</code> now prints a UTC time zone offset as <code dir="auto">+00:00</code> instead of
+<code dir="auto">Z</code>.</li>
 </ul>
 </li>
 </ul>
