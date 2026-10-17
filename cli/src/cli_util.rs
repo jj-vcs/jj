@@ -64,6 +64,7 @@ use jj_frontend::runner::WorkspaceOperationRunner;
 use jj_frontend::runner::resolve_head_operation;
 use jj_frontend::workspace_env::WorkspaceEnvironment;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
+use jj_frontend::workspace_env::find_workspace_dir;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -2320,12 +2321,6 @@ impl WorkspaceCommandTransaction<'_> {
         }
         Ok(())
     }
-}
-
-pub fn find_workspace_dir(cwd: &Path) -> &Path {
-    cwd.ancestors()
-        .find(|path| path.join(".jj").is_dir())
-        .unwrap_or(cwd)
 }
 
 fn map_workspace_load_error(err: WorkspaceLoadError, user_wc_path: Option<&str>) -> CommandError {
