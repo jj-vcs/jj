@@ -40,6 +40,7 @@ use crate::fileset_parser::FunctionCallNode;
 use crate::fileset_parser::UnaryOp;
 use crate::matchers::PathGlobPattern;
 use crate::repo_path::RelativePathParseError;
+use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::ui_path::RepoPathUiConverter;
 use crate::ui_path::UiPathParseError;
@@ -409,6 +410,139 @@ pub fn parse_maybe_bare(
     let node = fileset_parser::expand_aliases(node, context.aliases_map)?;
     // TODO: add basic tree substitution pass to eliminate redundant expressions
     resolve_expression(diagnostics, context, &node)
+}
+
+/// Formats the expression as fileset text with paths relative to the workspace
+/// root.
+///
+/// Parsing the result with [`RepoPathUiConverter::root()`] and no aliases
+/// yields an equivalent expression, so the text can be stored or shared
+/// between workspaces. This holds for every expression [`parse()`] can
+/// produce. A hand-built [`FilePattern::FileGlob`] whose `dir` contains a
+/// letter and whose `pattern` is case-insensitive has no fileset syntax at
+/// all, since `glob-i:` would match the directory case-insensitively too.
+pub fn format_workspace_relative(expression: &FilesetExpression) -> String {
+    let mut text = String::new();
+    write_expression(&mut text, expression, Precedence::Union);
+    text
+}
+
+/// Binding strength of an operator, loosest first.
+///
+/// An operand is parenthesized if it binds more loosely than its position
+/// requires.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+enum Precedence {
+    /// `x | y`
+    Union,
+    /// `x & y`, `x ~ y`
+    Intersection,
+    /// `~x`
+    Negate,
+    /// Patterns and function calls
+    Primary,
+}
+
+fn write_expression(text: &mut String, expression: &FilesetExpression, required: Precedence) {
+    use FilesetExpression as Expr;
+    let precedence = match expression {
+        Expr::UnionAll(operands) if !operands.is_empty() => Precedence::Union,
+        Expr::Difference(lhs, _) if **lhs == Expr::All => Precedence::Negate,
+        Expr::Intersection(..) | Expr::Difference(..) => Precedence::Intersection,
+        _ => Precedence::Primary,
+    };
+    let parenthesize = precedence < required;
+    if parenthesize {
+        text.push('(');
+    }
+    match expression {
+        Expr::None => text.push_str("none()"),
+        Expr::All => text.push_str("all()"),
+        Expr::Pattern(pattern) => write_pattern(text, pattern),
+        Expr::UnionAll(operands) if operands.is_empty() => text.push_str("none()"),
+        Expr::UnionAll(operands) => {
+            for (i, operand) in operands.iter().enumerate() {
+                if i > 0 {
+                    text.push_str(" | ");
+                }
+                write_expression(text, operand, Precedence::Union);
+            }
+        }
+        Expr::Difference(lhs, rhs) if **lhs == Expr::All => {
+            text.push('~');
+            write_expression(text, rhs, Precedence::Negate);
+        }
+        // These operators are left-associative, so only the right operand
+        // needs to bind one level tighter: `a ~ (b ~ c)` keeps its
+        // parentheses while `a ~ b ~ c` doesn't need any.
+        Expr::Intersection(lhs, rhs) => {
+            write_expression(text, lhs, Precedence::Intersection);
+            text.push_str(" & ");
+            write_expression(text, rhs, Precedence::Negate);
+        }
+        Expr::Difference(lhs, rhs) => {
+            write_expression(text, lhs, Precedence::Intersection);
+            text.push_str(" ~ ");
+            write_expression(text, rhs, Precedence::Negate);
+        }
+    }
+    if parenthesize {
+        text.push(')');
+    }
+}
+
+fn write_pattern(text: &mut String, pattern: &FilePattern) {
+    let (kind, value) = match pattern {
+        FilePattern::FilePath(path) => ("file:", path_to_text(path)),
+        FilePattern::PrefixPath(path) => {
+            // A bare path is parsed as a prefix glob, so anchor it explicitly
+            // if it contains glob characters.
+            let value = path_to_text(path);
+            let kind = if value.contains(is_glob_char) { "cwd:" } else { "" };
+            (kind, value)
+        }
+        FilePattern::FileGlob { dir, pattern } => (
+            if pattern.is_case_insensitive() {
+                "glob-i:"
+            } else {
+                "glob:"
+            },
+            glob_to_text(dir, pattern),
+        ),
+        FilePattern::PrefixGlob { dir, pattern } => (
+            if pattern.is_case_insensitive() {
+                "prefix-glob-i:"
+            } else {
+                "prefix-glob:"
+            },
+            glob_to_text(dir, pattern),
+        ),
+    };
+    text.push_str(kind);
+    text.push_str(&fileset_parser::format_symbol(&value));
+}
+
+fn path_to_text(path: &RepoPath) -> String {
+    if path.is_root() {
+        ".".to_owned()
+    } else {
+        path.as_internal_file_string().to_owned()
+    }
+}
+
+fn glob_to_text(dir: &RepoPath, pattern: &PathGlobPattern) -> String {
+    if dir.is_root() {
+        return pattern.as_str().to_owned();
+    }
+    // The directory is matched literally, so its glob characters are escaped.
+    // On Unix, a backslash is an escape character rather than a separator.
+    let dir = dir.as_internal_file_string();
+    let dir = globset::escape(&if cfg!(windows) {
+        dir.to_owned()
+    } else {
+        dir.replace('\\', r"\\")
+    });
+    format!("{dir}/{}", pattern.as_str())
 }
 
 #[cfg(test)]
@@ -1008,5 +1142,92 @@ mod tests {
         )
         "#);
         Ok(())
+    }
+
+    #[test]
+    fn test_format_workspace_relative() {
+        let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
+            path_converter: RepoPathUiConverter::root(),
+            working_copy: None,
+        };
+        // Formatting is only useful if it round trips, so assert that it does.
+        let format = |text: &str| {
+            let expression = parse(&mut FilesetDiagnostics::new(), text, &context).unwrap();
+            let formatted = format_workspace_relative(&expression);
+            let reparsed = parse(&mut FilesetDiagnostics::new(), &formatted, &context).unwrap();
+            assert_eq!(reparsed, expression, "{text:?} formatted as {formatted:?}");
+            formatted
+        };
+
+        insta::assert_snapshot!(format("none()"), @"none()");
+        insta::assert_snapshot!(format("all()"), @"all()");
+        insta::assert_snapshot!(format("."), @".");
+        insta::assert_snapshot!(format("dir/file"), @"dir/file");
+        insta::assert_snapshot!(format("file:dir/file"), @"file:dir/file");
+        insta::assert_snapshot!(format(r#""dir/foo bar""#), @r#""dir/foo bar""#);
+        insta::assert_snapshot!(format(r#"glob:"*.rs""#), @"glob:*.rs");
+        insta::assert_snapshot!(format(r#"glob:"dir/sub/*.rs""#), @"glob:dir/sub/*.rs");
+        insta::assert_snapshot!(format(r#"glob-i:"*.RS""#), @"glob-i:*.RS");
+        // A case-insensitive glob keeps whatever literal prefix the parser
+        // could split off, which never contains a letter
+        insta::assert_snapshot!(format(r#"glob-i:"123/*.RS""#), @"glob-i:123/*.RS");
+        insta::assert_snapshot!(format(r#"glob-i:"dir/*.RS""#), @"glob-i:dir/*.RS");
+        insta::assert_snapshot!(format(r#"prefix-glob:"dir/*""#), @"prefix-glob:dir/*");
+        insta::assert_snapshot!(format(r#"prefix-glob-i:"dir/*""#), @"prefix-glob-i:dir/*");
+        // A literal path with glob characters has to be anchored explicitly
+        insta::assert_snapshot!(format(r#"root:"dir/foo[1]""#), @"cwd:dir/foo[1]");
+
+        // Parentheses are added back only where the grammar needs them
+        insta::assert_snapshot!(format("a | b | c"), @"a | b | c");
+        insta::assert_snapshot!(format("a & b ~ c"), @"a & b ~ c");
+        insta::assert_snapshot!(format("a | b & c"), @"a | b & c");
+        insta::assert_snapshot!(format("a & (b ~ c)"), @"a & (b ~ c)");
+        insta::assert_snapshot!(format("(a | b) & c"), @"(a | b) & c");
+        insta::assert_snapshot!(format("a ~ (b | c)"), @"a ~ (b | c)");
+        insta::assert_snapshot!(format("~a"), @"~a");
+        insta::assert_snapshot!(format("~~a"), @"~~a");
+        insta::assert_snapshot!(format("~(a | b) & ~c"), @"~(a | b) & ~c");
+
+        // Empty unions can't be produced by the parser
+        insta::assert_snapshot!(
+            format_workspace_relative(&FilesetExpression::UnionAll(vec![])), @"none()");
+    }
+
+    #[test]
+    fn test_format_workspace_relative_quoting() {
+        let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
+            path_converter: RepoPathUiConverter::root(),
+            working_copy: None,
+        };
+        // Paths that need quoting or escaping must survive a round trip, or a
+        // stored selection would silently change meaning.
+        for path in ["+foo", "-foo", "JJ:foo", "a b", "a[1]", "a\"b", "a\nb", "a|b", "~a"] {
+            let path = RepoPathBuf::from_internal_string(path).unwrap();
+            for expression in [
+                FilesetExpression::prefix_path(path.clone()),
+                FilesetExpression::file_path(path.clone()),
+            ] {
+                let formatted = format_workspace_relative(&expression);
+                let reparsed =
+                    parse(&mut FilesetDiagnostics::new(), &formatted, &context).unwrap();
+                assert_eq!(reparsed, expression, "formatted as {formatted:?}");
+            }
+        }
+
+        // Glob characters in the literal directory part are escaped, which
+        // moves them into the pattern but preserves the matched paths.
+        let expression = FilesetExpression::pattern(FilePattern::FileGlob {
+            dir: RepoPathBuf::from_internal_string("a[1]").unwrap(),
+            pattern: Box::new(PathGlobPattern::parse("*.rs").unwrap()),
+        });
+        let formatted = format_workspace_relative(&expression);
+        insta::assert_snapshot!(formatted, @"glob:a[[]1[]]/*.rs");
+        let matcher = parse(&mut FilesetDiagnostics::new(), &formatted, &context)
+            .unwrap()
+            .to_matcher();
+        assert!(matcher.matches(RepoPath::from_internal_string("a[1]/x.rs").unwrap()));
+        assert!(!matcher.matches(RepoPath::from_internal_string("a1/x.rs").unwrap()));
     }
 }
