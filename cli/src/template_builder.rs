@@ -1898,15 +1898,12 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             let format_property =
                 expect_stringify_expression(language, diagnostics, build_ctx, format_node)?;
             if let Ok(format) = format_property.extract() {
-                let format = template_parser::catch_aliases(
-                    diagnostics,
-                    format_node,
-                    |_diagnostics, node| {
-                        time_util::FormattingItems::parse(&format).ok_or_else(|| {
-                            TemplateParseError::expression("Invalid time format", node.span)
-                        })
-                    },
-                )?;
+                template_parser::catch_aliases(diagnostics, format_node, |_diagnostics, node| {
+                    time_util::validate_format(&format).map_err(|err| {
+                        TemplateParseError::expression("Invalid time format", node.span)
+                            .with_source(err)
+                    })
+                })?;
                 let out_property = self_property.and_then(move |timestamp| {
                     Ok(time_util::format_absolute_timestamp_with(
                         &timestamp, &format,
@@ -1916,11 +1913,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             } else {
                 let out_property =
                     (self_property, format_property).and_then(move |(timestamp, format)| {
-                        let format =
-                            time_util::FormattingItems::parse(&format).ok_or_else(|| {
-                                let message = format!("Invalid time format: {format}");
-                                TemplatePropertyError(message.into())
-                            })?;
+                        time_util::validate_format(&format)?;
                         Ok(time_util::format_absolute_timestamp_with(
                             &timestamp, &format,
                         )?)
@@ -4805,6 +4798,7 @@ mod tests {
           |           ^--^
           |
           = Invalid time format
+        strftime formatting failed: expected to find specifier directive after flag `_`, but found end of format string
         "#);
 
         // Dynamic format string
@@ -4813,7 +4807,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("t0.format(good_dyn_format)"), @"197001");
         insta::assert_snapshot!(
             env.render_ok("t0.format(bad_dyn_format)"),
-            @"<Error: Invalid time format: %_>");
+            @"<Error: strftime formatting failed: expected to find specifier directive after flag `_`, but found end of format string>");
 
         // Literal alias expansion
         env.add_alias("time_format", r#""%Y-%m-%d""#);
@@ -4832,6 +4826,7 @@ mod tests {
           | ^--^
           |
           = Invalid time format
+        strftime formatting failed: expected to find specifier directive after flag `_`, but found end of format string
         "#);
 
         insta::assert_snapshot!(env.render_ok("t0_plus1.utc()"), @"1970-01-01 00:00:00.000 +00:00");
