@@ -384,14 +384,18 @@ impl<'a> GlobsMatcherBuilder<'a> {
 }
 
 /// Wrapper for a [`Glob`] parsed with `literal_separator = true`.
-#[derive(Clone)]
-pub struct PathGlobPattern(Glob);
+#[derive(Clone, Eq, PartialEq)]
+pub struct PathGlobPattern {
+    glob: Glob,
+    // `Glob` compares and hashes its options, but doesn't expose them.
+    case_insensitive: bool,
+}
 
 impl Debug for PathGlobPattern {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PathGlobPattern")
-            .field("glob", &self.0.glob())
-            .field("re", &self.0.regex())
+            .field("glob", &self.glob.glob())
+            .field("re", &self.glob.regex())
             // Omit opts and tokens
             .finish_non_exhaustive()
     }
@@ -413,17 +417,25 @@ impl PathGlobPattern {
             .literal_separator(true)
             .case_insensitive(icase)
             .build()?;
-        Ok(Self(glob))
+        Ok(Self {
+            glob,
+            case_insensitive: icase,
+        })
     }
 
     /// Returns the original glob pattern.
     pub fn as_str(&self) -> &str {
-        self.0.glob()
+        self.glob.glob()
+    }
+
+    /// Returns true if the pattern was parsed as case-insensitive.
+    pub fn is_case_insensitive(&self) -> bool {
+        self.case_insensitive
     }
 
     /// Returns the regular expression string for this glob.
     pub fn as_regex(&self) -> &str {
-        self.0.regex()
+        self.glob.regex()
     }
 
     fn to_prefix_regex(&self) -> String {
@@ -431,7 +443,7 @@ impl PathGlobPattern {
         // Alternatively, we can construct an anchored regex automaton and test
         // prefix matching by feeding characters one by one.
         let prefix = self
-            .0
+            .glob
             .regex()
             .strip_suffix('$')
             .expect("glob regex should be anchored");
@@ -627,6 +639,18 @@ mod tests {
             builder.add(dir, pattern);
         }
         builder.build()
+    }
+
+    #[test]
+    fn test_path_glob_pattern_eq() {
+        let glob_i = |s| PathGlobPattern::parse_i(s).unwrap();
+        assert_eq!(glob("*.rs"), glob("*.rs"));
+        assert_ne!(glob("*.rs"), glob("*.md"));
+        // Case sensitivity is part of the pattern's identity
+        assert_eq!(glob_i("*.rs"), glob_i("*.rs"));
+        assert_ne!(glob("*.rs"), glob_i("*.rs"));
+        assert!(!glob("*.rs").is_case_insensitive());
+        assert!(glob_i("*.rs").is_case_insensitive());
     }
 
     #[test]

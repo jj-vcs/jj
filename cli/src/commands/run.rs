@@ -37,6 +37,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::fileset::FilesetRules;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::EolConversionMode;
@@ -53,7 +54,6 @@ use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
@@ -182,7 +182,7 @@ struct WorkspacePool {
     clean: bool,
     /// Sparse patterns that influence what parts of the tree are materialized
     /// when running the command. If None, whole tree is materialized.
-    sparsity: Option<Vec<RepoPathBuf>>,
+    sparsity: Option<FilesetRules>,
 }
 
 impl WorkspacePool {
@@ -191,7 +191,7 @@ impl WorkspacePool {
         size: NonZeroUsize,
         auto_tracking_matcher: Box<dyn Matcher>,
         clean: bool,
-        sparsity: Option<Vec<RepoPathBuf>>,
+        sparsity: Option<FilesetRules>,
     ) -> Result<Self, RunError> {
         // The parent() call is needed to not write under `.jj/repo/`.
         let base_path = repo_path.parent().unwrap().join("run").join("default");
@@ -287,7 +287,7 @@ impl WorkspacePool {
             // Users can specify `--sparse-args full` to materialize whole tree,
             // without having to clear the run "workspace" first with `--clean`.
             tree_state
-                .set_sparse_patterns(vec![RepoPathBuf::root()])
+                .set_sparse_patterns(FilesetRules::all())
                 .map_err(|source| RunError::FailedCheckout {
                     commit_id: commit.id().clone(),
                     source,
@@ -822,9 +822,9 @@ pub async fn cmd_run(
 
     let sparsity = match args.sparse_patterns {
         SparseInheritance::Full => None,
-        SparseInheritance::Empty => Some(vec![]),
+        SparseInheritance::Empty => Some(FilesetRules::none()),
         SparseInheritance::Copy => {
-            let sparse_patterns = workspace_command.working_copy().sparse_patterns()?.to_vec();
+            let sparse_patterns = workspace_command.working_copy().sparse_patterns()?.clone();
             Some(sparse_patterns)
         }
     };

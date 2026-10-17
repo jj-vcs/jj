@@ -19,13 +19,15 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
-/// List the patterns that are currently present in the working copy
+/// List the paths that are currently present in the working copy
 ///
 /// By default, a newly cloned or initialized repo will have have a pattern
 /// matching all files from the repo root. That pattern is rendered as `.` (a
-/// single period).
+/// single period). Selections that exclude paths or match them by glob have
+/// no path-list form; use `jj sparse show` for those.
 #[derive(clap::Args, Clone, Debug)]
 pub struct SparseListArgs {}
 
@@ -36,7 +38,12 @@ pub async fn cmd_sparse_list(
     _args: &SparseListArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
-    for path in workspace_command.working_copy().sparse_patterns()? {
+    let rules = workspace_command.working_copy().sparse_patterns()?;
+    let paths = rules.to_path_prefixes().ok_or_else(|| {
+        user_error("The sparse patterns aren't a plain list of paths")
+            .hinted("Use `jj sparse show` instead.")
+    })?;
+    for path in paths {
         writeln!(
             ui.stdout(),
             "{}",

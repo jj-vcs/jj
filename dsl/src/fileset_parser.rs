@@ -40,6 +40,7 @@ use crate::dsl_util::ExpressionFolder;
 use crate::dsl_util::FoldableExpression;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
+use crate::dsl_util::format_string;
 
 mod private {
     use pest_derive::Parser;
@@ -422,6 +423,24 @@ fn parse_expression_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode>
             Ok(ExpressionNode::new(expr, span))
         })
         .parse(pair.into_inner())
+}
+
+/// Checks if the text is a valid identifier
+pub fn is_identifier(text: &str) -> bool {
+    match FilesetParser::parse(Rule::identifier, text) {
+        Ok(mut pairs) => pairs.next().unwrap().as_span().end() == text.len(),
+        Err(_) => false,
+    }
+}
+
+/// Formats a string as a bare identifier, quoting and escaping it if
+/// necessary.
+pub fn format_symbol(literal: &str) -> String {
+    if is_identifier(literal) {
+        literal.to_owned()
+    } else {
+        format_string(literal)
+    }
 }
 
 /// Parses text into expression tree. No name resolution is made at this stage.

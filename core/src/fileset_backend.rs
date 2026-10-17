@@ -19,6 +19,7 @@
 
 use std::iter;
 use std::slice;
+use std::vec;
 
 use crate::matchers::DifferenceMatcher;
 use crate::matchers::EverythingMatcher;
@@ -34,7 +35,7 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 
 /// Basic pattern to match `RepoPath`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FilePattern {
     /// Matches file (or exact) path.
     FilePath(RepoPathBuf),
@@ -72,7 +73,7 @@ impl FilePattern {
 }
 
 /// AST-level representation of the fileset expression.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FilesetExpression {
     /// Matches nothing.
     None,
@@ -174,9 +175,214 @@ impl FilesetExpression {
         })
     }
 
+    /// Returns the path prefixes this expression is a union of, or `None` if
+    /// it is anything else. `all()` is the root prefix.
+    ///
+    /// This is the subset of expressions that a plain list of paths can
+    /// represent, e.g. for `jj sparse list`.
+    pub fn to_path_prefixes(&self) -> Option<Vec<&RepoPath>> {
+        // `Option<Vec<_>>: FromIterator<Option<_>>` stops at the first `None`.
+        self.dfs_pre()
+            .filter_map(|expr| match expr {
+                Self::None | Self::UnionAll(_) => None,
+                Self::All => Some(Some(RepoPath::root())),
+                Self::Pattern(FilePattern::PrefixPath(path)) => Some(Some(&**path)),
+                Self::Pattern(_) | Self::Intersection(..) | Self::Difference(..) => Some(None),
+            })
+            .collect()
+    }
+
+    /// Returns true if this expression obviously matches every path, i.e. if
+    /// it is a union containing the root prefix. A compound expression that
+    /// happens to match everything is not detected.
+    pub fn matches_everything(&self) -> bool {
+        let mut found = false;
+        for expr in self.dfs_pre() {
+            match expr {
+                Self::All => found = true,
+                Self::Pattern(FilePattern::PrefixPath(path)) if path.is_root() => found = true,
+                Self::None | Self::UnionAll(_) | Self::Pattern(_) => {}
+                Self::Intersection(..) | Self::Difference(..) => return false,
+            }
+        }
+        found
+    }
+
     /// Transforms the expression tree to `Matcher` object.
     pub fn to_matcher(&self) -> Box<dyn Matcher> {
         build_union_matcher(self.as_union_all())
+    }
+}
+
+/// Whether a [`FilesetRule`] adds or removes the paths it matches.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FilesetRuleKind {
+    /// Adds the matched paths to the selection.
+    Include,
+    /// Removes the matched paths from the selection.
+    Exclude,
+}
+
+/// One step of a [`FilesetRules`] selection.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FilesetRule {
+    /// Whether the matched paths are added or removed.
+    pub kind: FilesetRuleKind,
+    /// Paths this rule matches.
+    pub expression: FilesetExpression,
+}
+
+/// Include/exclude rules applied in order, starting from no paths.
+///
+/// The last rule matching a path decides whether it is selected. This is the
+/// form in which an incrementally edited selection such as a sparse checkout
+/// is kept: appending a rule never deepens any single [`FilesetExpression`],
+/// so expression depth stays bounded by what the user wrote rather than by how
+/// many times they edited the selection.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct FilesetRules {
+    rules: Vec<FilesetRule>,
+}
+
+impl FilesetRules {
+    /// Rules that select nothing.
+    pub fn none() -> Self {
+        Self::default()
+    }
+
+    /// Rules that select everything.
+    pub fn all() -> Self {
+        Self::from_path_prefixes([RepoPathBuf::root()])
+    }
+
+    /// Rules that include each of the given path prefixes.
+    ///
+    /// The paths are expected to be distinct, so this skips the shadowing
+    /// scan [`Self::push()`] does, which would make bulk construction
+    /// quadratic.
+    pub fn from_path_prefixes(paths: impl IntoIterator<Item = RepoPathBuf>) -> Self {
+        let mut rules: Vec<_> = paths
+            .into_iter()
+            .map(|path| FilesetRule {
+                kind: FilesetRuleKind::Include,
+                expression: FilesetExpression::prefix_path(path),
+            })
+            .collect();
+        // The root prefix selects everything, so it shadows all earlier rules.
+        if let Some(i) = rules
+            .iter()
+            .rposition(|rule| rule.expression.matches_everything())
+        {
+            rules.drain(..i);
+            rules[0].expression = FilesetExpression::all();
+        }
+        Self { rules }
+    }
+
+    /// Returns the path prefixes these rules include, or `None` if they
+    /// exclude anything or match by glob. Inverse of
+    /// [`Self::from_path_prefixes()`].
+    pub fn to_path_prefixes(&self) -> Option<Vec<&RepoPath>> {
+        let mut paths = Vec::new();
+        for rule in &self.rules {
+            if rule.kind != FilesetRuleKind::Include {
+                return None;
+            }
+            paths.extend(rule.expression.to_path_prefixes()?);
+        }
+        Some(paths)
+    }
+
+    /// Returns true if there are no rules, i.e. nothing is selected.
+    pub fn is_empty(&self) -> bool {
+        self.rules.is_empty()
+    }
+
+    /// The rules in application order.
+    pub fn iter(&self) -> slice::Iter<'_, FilesetRule> {
+        self.rules.iter()
+    }
+
+    /// Appends a rule, dropping the rules it makes unreachable.
+    ///
+    /// A path matched by an earlier rule with the same expression is always
+    /// decided by the new rule, so that earlier rule can no longer apply at
+    /// all. A rule matching every path makes every earlier rule unreachable,
+    /// and is normalized to `all()` so that equivalent selections look and
+    /// compare the same.
+    pub fn push(&mut self, kind: FilesetRuleKind, mut expression: FilesetExpression) {
+        if expression.matches_everything() {
+            self.rules.clear();
+            if kind == FilesetRuleKind::Exclude {
+                return;
+            }
+            expression = FilesetExpression::all();
+        } else {
+            self.rules.retain(|rule| rule.expression != expression);
+        }
+        self.rules.push(FilesetRule { kind, expression });
+    }
+
+    /// Builds the equivalent expression.
+    pub fn to_expression(&self) -> FilesetExpression {
+        self.iter().fold(FilesetExpression::none(), |selected, rule| {
+            match (rule.kind, selected) {
+                // Nothing is selected yet, so there is nothing to exclude.
+                (FilesetRuleKind::Exclude, FilesetExpression::None) => FilesetExpression::None,
+                (FilesetRuleKind::Exclude, selected) => {
+                    selected.difference(rule.expression.clone())
+                }
+                (FilesetRuleKind::Include, FilesetExpression::None) => rule.expression.clone(),
+                // Flatten consecutive inclusions into a single union so that
+                // they can share one `Matcher` per pattern kind.
+                (FilesetRuleKind::Include, FilesetExpression::UnionAll(mut operands)) => {
+                    operands.push(rule.expression.clone());
+                    FilesetExpression::UnionAll(operands)
+                }
+                (FilesetRuleKind::Include, selected) => {
+                    FilesetExpression::UnionAll(vec![selected, rule.expression.clone()])
+                }
+            }
+        })
+    }
+
+    /// Transforms the rules to `Matcher` object.
+    pub fn to_matcher(&self) -> Box<dyn Matcher> {
+        self.to_expression().to_matcher()
+    }
+}
+
+impl Extend<FilesetRule> for FilesetRules {
+    fn extend<T: IntoIterator<Item = FilesetRule>>(&mut self, rules: T) {
+        for rule in rules {
+            self.push(rule.kind, rule.expression);
+        }
+    }
+}
+
+impl FromIterator<FilesetRule> for FilesetRules {
+    fn from_iter<T: IntoIterator<Item = FilesetRule>>(rules: T) -> Self {
+        let mut result = Self::none();
+        result.extend(rules);
+        result
+    }
+}
+
+impl IntoIterator for FilesetRules {
+    type IntoIter = vec::IntoIter<FilesetRule>;
+    type Item = FilesetRule;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.rules.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a FilesetRules {
+    type IntoIter = slice::Iter<'a, FilesetRule>;
+    type Item = &'a FilesetRule;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -255,7 +461,12 @@ fn union_all_matchers(matchers: &mut [Option<Box<dyn Matcher>>]) -> Box<dyn Matc
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools as _;
+
     use super::*;
+    use crate::matchers::Visit;
+    use crate::matchers::VisitDirs;
+    use crate::matchers::VisitFiles;
 
     fn repo_path_buf(value: impl Into<String>) -> RepoPathBuf {
         RepoPathBuf::from_internal_string(value).unwrap()
@@ -308,6 +519,232 @@ mod tests {
             )),
             ["a", "b", "c", "d", "e", "f"].map(repo_path_buf)
         );
+    }
+
+    /// Asserts that `visit()` neither prunes away a selected file nor promises
+    /// an unselected one.
+    fn assert_visit_agrees(matcher: &dyn Matcher, dir: &RepoPath, selected: &[(RepoPathBuf, bool)]) {
+        let visit = matcher.visit(dir);
+        for (file, selected) in selected {
+            let Some(tail) = file.strip_prefix(dir) else {
+                continue;
+            };
+            let mut components = tail.components();
+            let name = components.next().expect("file should be under dir");
+            let reachable = match &visit {
+                Visit::AllRecursively => true,
+                Visit::Nothing => false,
+                Visit::Specific { dirs, files } => {
+                    if components.next().is_some() {
+                        matches!(dirs, VisitDirs::All) || matches!(dirs, VisitDirs::Set(d) if d.contains(name))
+                    } else {
+                        matches!(files, VisitFiles::All) || matches!(files, VisitFiles::Set(f) if f.contains(name))
+                    }
+                }
+            };
+            match visit {
+                // `AllRecursively` is a promise, the rest are permissions.
+                Visit::AllRecursively => assert!(*selected, "{dir:?} promises {file:?}"),
+                _ if *selected => assert!(reachable, "{dir:?} hides {file:?}"),
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn test_to_path_prefixes() {
+        let to_prefixes = |expr: &FilesetExpression| {
+            let paths = expr.to_path_prefixes()?;
+            Some(paths.iter().map(|path| path.as_internal_file_string()).join(" "))
+        };
+        let prefix = |path: &str| FilesetExpression::prefix_path(repo_path_buf(path));
+
+        assert_eq!(to_prefixes(&FilesetExpression::none()).as_deref(), Some(""));
+        assert_eq!(to_prefixes(&FilesetExpression::all()).as_deref(), Some(""));
+        assert_eq!(to_prefixes(&prefix("a")).as_deref(), Some("a"));
+        assert_eq!(
+            to_prefixes(&FilesetExpression::union_all(vec![prefix("a"), prefix("b")])).as_deref(),
+            Some("a b")
+        );
+        // Anything that isn't a literal prefix has no path-list equivalent
+        assert_eq!(to_prefixes(&FilesetExpression::file_path(repo_path_buf("a"))), None);
+        assert_eq!(to_prefixes(&prefix("a").difference(prefix("b"))), None);
+        assert_eq!(to_prefixes(&prefix("a").intersection(prefix("b"))), None);
+
+        // Round trips through the path list
+        let rules = FilesetRules::from_path_prefixes(["", "a", "b/c"].map(repo_path_buf));
+        let paths = rules.to_path_prefixes().unwrap();
+        assert_eq!(
+            paths.iter().map(|path| path.as_internal_file_string()).join(" "),
+            " a b/c"
+        );
+        assert_eq!(
+            FilesetRules::from_path_prefixes(paths.into_iter().map(RepoPath::to_owned)),
+            rules
+        );
+        assert_eq!(FilesetRules::all(), FilesetRules::from_path_prefixes([RepoPathBuf::root()]));
+        assert!(FilesetRules::none().to_path_prefixes().unwrap().is_empty());
+
+        let mut rules = FilesetRules::all();
+        rules.push(FilesetRuleKind::Exclude, prefix("a"));
+        assert_eq!(rules.to_path_prefixes(), None);
+
+        // Rules that can never apply again are dropped as they are shadowed
+        rules.push(FilesetRuleKind::Include, prefix("a"));
+        assert_eq!(rules.to_path_prefixes().unwrap().len(), 2);
+        rules.push(FilesetRuleKind::Include, FilesetExpression::all());
+        assert_eq!(rules, FilesetRules::all());
+        let root = || FilesetExpression::prefix_path(RepoPathBuf::root());
+        rules.push(FilesetRuleKind::Exclude, root());
+        assert_eq!(rules, FilesetRules::none());
+        // Anything matching every path is stored as `all()`
+        rules.push(FilesetRuleKind::Include, root());
+        assert_eq!(rules, FilesetRules::all());
+    }
+
+    #[test]
+    fn test_rules_to_expression() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+        let prefix = |path: &str| FilesetExpression::prefix_path(repo_path_buf(path));
+        let to_expression = |kinds: &[FilesetRuleKind]| {
+            let mut rules = FilesetRules::none();
+            for (i, &kind) in kinds.iter().enumerate() {
+                rules.push(kind, prefix(&format!("p{i}")));
+            }
+            rules.to_expression()
+        };
+        use FilesetRuleKind::Exclude;
+        use FilesetRuleKind::Include;
+
+        assert_eq!(FilesetRules::none().to_expression(), FilesetExpression::None);
+        assert_eq!(FilesetRules::all().to_expression(), FilesetExpression::All);
+        // An exclusion with nothing selected yet is a no-op
+        assert_eq!(to_expression(&[Exclude]), FilesetExpression::None);
+        assert_eq!(to_expression(&[Include]), prefix("p0"));
+        // Consecutive inclusions stay in one flat union, so the depth grows
+        // only with the number of include/exclude alternations.
+        insta::assert_debug_snapshot!(
+            to_expression(&[Include, Include, Include, Exclude, Include]), @r#"
+        UnionAll(
+            [
+                Difference(
+                    UnionAll(
+                        [
+                            Pattern(PrefixPath("p0")),
+                            Pattern(PrefixPath("p1")),
+                            Pattern(PrefixPath("p2")),
+                        ],
+                    ),
+                    Pattern(PrefixPath("p3")),
+                ),
+                Pattern(PrefixPath("p4")),
+            ],
+        )
+        "#);
+    }
+
+    #[test]
+    fn test_rules_to_matcher() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+        let prefix = |path: &str| FilesetExpression::prefix_path(repo_path_buf(path));
+
+        // Prefix-only inclusions compile to a single trie
+        let rules = FilesetRules::from_path_prefixes(["a", "b"].map(repo_path_buf));
+        insta::assert_debug_snapshot!(rules.to_matcher(), @r#"
+        PrefixMatcher {
+            tree: Dir {
+                "a": Prefix {},
+                "b": Prefix {},
+            },
+        }
+        "#);
+        assert_eq!(
+            format!("{:?}", FilesetRules::all().to_matcher()),
+            "EverythingMatcher"
+        );
+
+        let mut rules = FilesetRules::all();
+        rules.push(FilesetRuleKind::Exclude, prefix("build"));
+        rules.push(FilesetRuleKind::Include, prefix("build/config"));
+        insta::assert_debug_snapshot!(rules.to_matcher(), @r#"
+        UnionMatcher {
+            input1: DifferenceMatcher {
+                wanted: EverythingMatcher,
+                unwanted: PrefixMatcher {
+                    tree: Dir {
+                        "build": Prefix {},
+                    },
+                },
+            },
+            input2: PrefixMatcher {
+                tree: Dir {
+                    "build": Dir {
+                        "config": Prefix {},
+                    },
+                },
+            },
+        }
+        "#);
+        let matcher = rules.to_matcher();
+        for (path, selected) in [
+            ("src/file", true),
+            ("build/file", false),
+            ("build/config/file", true),
+        ] {
+            assert_eq!(matcher.matches(&repo_path_buf(path)), selected, "{path}");
+        }
+        assert_eq!(matcher.visit(&repo_path_buf("src")), Visit::AllRecursively);
+        assert_eq!(
+            matcher.visit(&repo_path_buf("build/config")),
+            Visit::AllRecursively
+        );
+    }
+
+    #[test]
+    fn test_rules_last_matching_rule_wins() {
+        let prefix = |path: &str| FilesetExpression::prefix_path(repo_path_buf(path));
+        // Atoms deliberately overlap, nest, and include a compound expression
+        // whose `visit()` can only answer "maybe".
+        let atoms = [
+            FilesetExpression::none(),
+            FilesetExpression::all(),
+            prefix("a"),
+            prefix("a/b"),
+            FilesetExpression::file_path(repo_path_buf("a/f")),
+            prefix("a").difference(prefix("a/b")),
+        ];
+        let atom_matchers = atoms.iter().map(FilesetExpression::to_matcher).collect_vec();
+        let files = ["f", "a/f", "a/b/f", "a/b/c/f", "a/c/f", "b/f"].map(repo_path_buf);
+        let dirs = ["", "a", "a/b", "a/b/c", "a/c", "b"].map(repo_path_buf);
+        let kinds = [FilesetRuleKind::Include, FilesetRuleKind::Exclude];
+
+        // Exhaustively compare every ordered triple of rules against a direct
+        // "last rule that matches a path decides" evaluation.
+        for combination in 0..(kinds.len() * atoms.len()).pow(3) {
+            let mut remaining = combination;
+            let mut rules = FilesetRules::none();
+            let mut selected = files.clone().map(|file| (file, false));
+            for _ in 0..3 {
+                let kind = kinds[remaining % kinds.len()];
+                let atom = remaining / kinds.len() % atoms.len();
+                remaining /= kinds.len() * atoms.len();
+                for (file, selected) in &mut selected {
+                    if atom_matchers[atom].matches(file) {
+                        *selected = kind == FilesetRuleKind::Include;
+                    }
+                }
+                rules.push(kind, atoms[atom].clone());
+            }
+            let matcher = rules.to_matcher();
+            for (file, selected) in &selected {
+                assert_eq!(matcher.matches(file), *selected, "{rules:?}: {file:?}");
+            }
+            for dir in &dirs {
+                assert_visit_agrees(&*matcher, dir, &selected);
+            }
+        }
     }
 
     #[test]

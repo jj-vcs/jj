@@ -23,10 +23,30 @@ pub struct FileStateEntry {
     #[prost(message, optional, tag = "2")]
     pub state: ::core::option::Option<FileState>,
 }
+/// One rule of a sparse selection. Rules are applied in order, starting from
+/// no paths; the last rule matching a path decides whether it is checked out.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SparseRule {
+    /// Whether the matched paths are removed from the selection instead of added.
+    #[prost(bool, tag = "1")]
+    pub exclude: bool,
+    /// Fileset expression, with paths relative to the workspace root and all
+    /// aliases already resolved.
+    #[prost(string, tag = "2")]
+    pub fileset: ::prost::alloc::string::String,
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct SparsePatterns {
+    /// Union of path prefixes. Written (and understood by older jj) whenever the
+    /// rules only include literal path prefixes.
+    /// TODO: keep reading this format until at least jj 0.59.
     #[prost(string, repeated, tag = "1")]
     pub prefixes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Takes precedence over `prefixes`, which is left empty in that case. Older
+    /// jj would read those empty prefixes as "check out nothing", so a working
+    /// copy using this field is marked with the `local-fileset` type.
+    #[prost(message, repeated, tag = "2")]
+    pub rules: ::prost::alloc::vec::Vec<SparseRule>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TreeState {

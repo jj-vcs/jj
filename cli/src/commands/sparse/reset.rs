@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::fileset::FilesetRules;
 use tracing::instrument;
 
-use super::update_sparse_patterns_with;
+use super::update_sparse_patterns;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -31,8 +31,12 @@ pub async fn cmd_sparse_reset(
     _args: &SparseResetArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
-    update_sparse_patterns_with(ui, &mut workspace_command, |_ui, _old_patterns| {
-        Ok(vec![RepoPathBuf::root()])
-    })
+    let old_rules = workspace_command.working_copy().sparse_patterns()?.clone();
+    update_sparse_patterns(
+        ui,
+        &mut workspace_command,
+        &old_rules,
+        FilesetRules::all(),
+    )
     .await
 }
