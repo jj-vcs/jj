@@ -245,11 +245,10 @@ pub fn parse_remote_fetch_bookmarks(
     remote_settings: &RemoteSettingsMap,
     name: &RemoteName,
 ) -> Result<Option<StringExpression>, CommandError> {
-    remote_settings
-        .get(name)
-        .and_then(|settings| settings.fetch_bookmarks.as_ref())
-        .map(|text| parse_remote_string_expression(ui, name, text, "fetch-bookmarks"))
-        .transpose()
+    let mut diagnostics = vec![];
+    let result = config_util::parse_remote_fetch_bookmarks(&mut diagnostics, remote_settings, name);
+    print_remote_setting_diagnostics(ui, &diagnostics)?;
+    Ok(result?)
 }
 
 /// Parses the given `remotes.<name>.fetch-tags` setting.
@@ -258,11 +257,10 @@ pub fn parse_remote_fetch_tags(
     remote_settings: &RemoteSettingsMap,
     name: &RemoteName,
 ) -> Result<Option<StringExpression>, CommandError> {
-    remote_settings
-        .get(name)
-        .and_then(|settings| settings.fetch_tags.as_ref())
-        .map(|text| parse_remote_string_expression(ui, name, text, "fetch-tags"))
-        .transpose()
+    let mut diagnostics = vec![];
+    let result = config_util::parse_remote_fetch_tags(&mut diagnostics, remote_settings, name);
+    print_remote_setting_diagnostics(ui, &diagnostics)?;
+    Ok(result?)
 }
 
 fn parse_remote_string_expression(
