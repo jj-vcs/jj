@@ -32,12 +32,12 @@ use std::thread;
 use std::thread::JoinHandle;
 
 use itertools::Itertools as _;
+use jj_frontend::config_util::CommandNameAndArgs;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::StackedConfig;
 use tracing::instrument;
 
 use crate::command_error::CommandError;
-use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::formatter::FormatterFactory;

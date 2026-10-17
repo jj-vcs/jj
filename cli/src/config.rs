@@ -12,16 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Cow;
 use std::collections::BTreeSet;
-use std::collections::HashMap;
-use std::ffi::OsStr;
-use std::ffi::OsString;
 use std::fmt;
 use std::io;
 use std::path::PathBuf;
-use std::process::Command;
-use std::sync::LazyLock;
 
 use itertools::Itertools as _;
 use jj_frontend::config_util;
@@ -34,7 +28,6 @@ use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util::AliasDeclarationParser;
 use jj_lib::dsl_util::AliasesMap;
-use regex::Regex;
 use serde::Serialize as _;
 
 use crate::command_error::CommandError;
@@ -353,107 +346,6 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
     ]
 }
 
-/// Command name and arguments specified by config.
-#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
-#[serde(untagged)]
-pub enum CommandNameAndArgs {
-    String(String),
-    Vec(NonEmptyCommandArgsVec),
-    Structured {
-        env: HashMap<String, String>,
-        command: NonEmptyCommandArgsVec,
-    },
-}
-
-impl CommandNameAndArgs {
-    /// Returns command name without arguments.
-    pub fn split_name(&self) -> Cow<'_, str> {
-        let (name, _) = self.split_name_and_args();
-        name
-    }
-
-    /// Returns command name and arguments.
-    ///
-    /// The command name may be an empty string (as well as each argument.)
-    pub fn split_name_and_args(&self) -> (Cow<'_, str>, Cow<'_, [String]>) {
-        match self {
-            Self::String(s) => {
-                if s.contains('"') || s.contains('\'') {
-                    let mut parts = shlex::Shlex::new(s);
-                    let res = (
-                        parts.next().unwrap_or_default().into(),
-                        parts.by_ref().collect(),
-                    );
-                    if !parts.had_error {
-                        return res;
-                    }
-                }
-                let mut args = s.split(' ').map(|s| s.to_owned());
-                (args.next().unwrap().into(), args.collect())
-            }
-            Self::Vec(NonEmptyCommandArgsVec(a)) => (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..])),
-            Self::Structured {
-                env: _,
-                command: cmd,
-            } => (Cow::Borrowed(&cmd.0[0]), Cow::Borrowed(&cmd.0[1..])),
-        }
-    }
-
-    /// Returns command string only if the underlying type is a string.
-    ///
-    /// Use this to parse enum strings such as `":builtin"`, which can be
-    /// escaped as `[":builtin"]`.
-    pub fn as_str(&self) -> Option<&str> {
-        match self {
-            Self::String(s) => Some(s),
-            Self::Vec(_) | Self::Structured { .. } => None,
-        }
-    }
-
-    /// Returns process builder configured with this.
-    pub fn to_command(&self) -> Command {
-        let empty: HashMap<&str, &str> = HashMap::new();
-        self.to_command_with_variables(&empty)
-    }
-
-    /// Returns process builder configured with this after interpolating
-    /// variables into the arguments.
-    pub fn to_command_with_variables<V: AsRef<OsStr>>(
-        &self,
-        variables: &HashMap<&str, V>,
-    ) -> Command {
-        let (name, args) = self.split_name_and_args();
-        let mut cmd = Command::new(interpolate_variables_single(name.as_ref(), variables));
-        if let Self::Structured { env, .. } = self {
-            cmd.envs(env);
-        }
-        cmd.args(interpolate_variables(&args, variables));
-        cmd
-    }
-}
-
-impl<T: AsRef<str> + ?Sized> From<&T> for CommandNameAndArgs {
-    fn from(s: &T) -> Self {
-        Self::String(s.as_ref().to_owned())
-    }
-}
-
-impl fmt::Display for CommandNameAndArgs {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::String(s) => write!(f, "{s}"),
-            // TODO: format with shell escapes
-            Self::Vec(a) => write!(f, "{}", a.0.join(" ")),
-            Self::Structured { env, command } => {
-                for (k, v) in env {
-                    write!(f, "{k}={v} ")?;
-                }
-                write!(f, "{}", command.0.join(" "))
-            }
-        }
-    }
-}
-
 /// Loads map of `{fileset,revset,template}-aliases` table.
 ///
 /// This function does not handle loading the `aliases` table, which supports
@@ -496,72 +388,11 @@ where
     Ok(result?)
 }
 
-// Not interested in $UPPER_CASE_VARIABLES
-static VARIABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$[a-z0-9_]+\b").unwrap());
-
-pub fn interpolate_variables<A: AsRef<str>, V: AsRef<OsStr>>(
-    args: &[A],
-    variables: &HashMap<&str, V>,
-) -> Vec<OsString> {
-    args.iter()
-        .map(|arg| interpolate_variables_single(arg.as_ref(), variables))
-        .collect()
-}
-
-fn interpolate_variables_single<V: AsRef<OsStr>>(
-    arg: &str,
-    variables: &HashMap<&str, V>,
-) -> OsString {
-    let mut buf = OsString::new();
-    let mut end = 0;
-    for m in VARIABLE_REGEX.find_iter(arg) {
-        let name = &m.as_str()[1..];
-        if let Some(subst) = variables.get(name) {
-            buf.push(&arg[end..m.start()]);
-            buf.push(subst);
-            end = m.end();
-        }
-    }
-    buf.push(&arg[end..]);
-    buf
-}
-
-/// Return all variable names found in the args, without the dollar sign
-pub fn find_all_variables<A: AsRef<str>>(args: &[A]) -> impl Iterator<Item = &str> {
-    let regex = &*VARIABLE_REGEX;
-    args.iter()
-        .flat_map(|arg| regex.find_iter(arg.as_ref()))
-        .map(|single_match| {
-            let s = single_match.as_str();
-            &s[1..]
-        })
-}
-
-/// Wrapper to reject an array without command name.
-// Based on https://github.com/serde-rs/serde/issues/939
-#[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Deserialize)]
-#[serde(try_from = "Vec<String>")]
-pub struct NonEmptyCommandArgsVec(Vec<String>);
-
-impl TryFrom<Vec<String>> for NonEmptyCommandArgsVec {
-    type Error = &'static str;
-
-    fn try_from(args: Vec<String>) -> Result<Self, Self::Error> {
-        if args.is_empty() {
-            Err("command arguments should not be empty")
-        } else {
-            Ok(Self(args))
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
     use std::fmt::Write as _;
 
-    use indoc::indoc;
-    use maplit::hashmap;
     use testutils::TestResult;
 
     use super::*;
@@ -652,76 +483,6 @@ mod tests {
         assert_eq!(name, ConfigNamePathBuf::from_iter(["a = b=c "]));
         assert!(value.is_inline_table());
         assert_eq!(value.to_string(), "{d = 'e=f'}");
-    }
-
-    #[test]
-    fn test_command_args() -> TestResult {
-        let mut config = StackedConfig::empty();
-        config.add_layer(ConfigLayer::parse(
-            ConfigSource::User,
-            indoc! {"
-                    empty_array = []
-                    empty_string = ''
-                    array = ['emacs', '-nw']
-                    string = 'emacs -nw'
-                    string_quoted = '\"spaced path/to/emacs\" -nw'
-                    structured.env = { KEY1 = 'value1', KEY2 = 'value2' }
-                    structured.command = ['emacs', '-nw']
-                "},
-        )?);
-
-        assert!(config.get::<CommandNameAndArgs>("empty_array").is_err());
-
-        let command_args: CommandNameAndArgs = config.get("empty_string")?;
-        assert_eq!(command_args, CommandNameAndArgs::String("".to_owned()));
-        let (name, args) = command_args.split_name_and_args();
-        assert_eq!(name, "");
-        assert!(args.is_empty());
-
-        let command_args: CommandNameAndArgs = config.get("array")?;
-        assert_eq!(
-            command_args,
-            CommandNameAndArgs::Vec(NonEmptyCommandArgsVec(
-                ["emacs", "-nw",].map(|s| s.to_owned()).to_vec()
-            ))
-        );
-        let (name, args) = command_args.split_name_and_args();
-        assert_eq!(name, "emacs");
-        assert_eq!(args, ["-nw"].as_ref());
-
-        let command_args: CommandNameAndArgs = config.get("string")?;
-        assert_eq!(
-            command_args,
-            CommandNameAndArgs::String("emacs -nw".to_owned())
-        );
-        let (name, args) = command_args.split_name_and_args();
-        assert_eq!(name, "emacs");
-        assert_eq!(args, ["-nw"].as_ref());
-
-        let command_args: CommandNameAndArgs = config.get("string_quoted")?;
-        assert_eq!(
-            command_args,
-            CommandNameAndArgs::String("\"spaced path/to/emacs\" -nw".to_owned())
-        );
-        let (name, args) = command_args.split_name_and_args();
-        assert_eq!(name, "spaced path/to/emacs");
-        assert_eq!(args, ["-nw"].as_ref());
-
-        let command_args: CommandNameAndArgs = config.get("structured")?;
-        assert_eq!(
-            command_args,
-            CommandNameAndArgs::Structured {
-                env: hashmap! {
-                    "KEY1".to_string() => "value1".to_string(),
-                    "KEY2".to_string() => "value2".to_string(),
-                },
-                command: NonEmptyCommandArgsVec(["emacs", "-nw",].map(|s| s.to_owned()).to_vec())
-            }
-        );
-        let (name, args) = command_args.split_name_and_args();
-        assert_eq!(name, "emacs");
-        assert_eq!(args, ["-nw"].as_ref());
-        Ok(())
     }
 
     #[test]
@@ -1020,56 +781,5 @@ mod tests {
         "#);
         insta::assert_snapshot!(list(&layers, "a.b.c"), @r#"!a.b.c.f = "0.1""#);
         Ok(())
-    }
-
-    #[test]
-    fn test_interpolate_variables() {
-        let patterns = hashmap! {
-            "left" => "LEFT",
-            "right" => "RIGHT",
-            "left_right" => "$left $right",
-        };
-
-        assert_eq!(
-            interpolate_variables(&["$left", "$1", "$right", "$2"], &patterns),
-            ["LEFT", "$1", "RIGHT", "$2"],
-        );
-
-        // Option-like
-        assert_eq!(
-            interpolate_variables(&["-o$left$right"], &patterns),
-            ["-oLEFTRIGHT"],
-        );
-
-        // Sexp-like
-        assert_eq!(
-            interpolate_variables(&["($unknown $left $right)"], &patterns),
-            ["($unknown LEFT RIGHT)"],
-        );
-
-        // Not a word "$left"
-        assert_eq!(interpolate_variables(&["$lefty"], &patterns), ["$lefty"]);
-
-        // Patterns in pattern: not expanded recursively
-        assert_eq!(
-            interpolate_variables(&["$left_right"], &patterns),
-            ["$left $right"],
-        );
-    }
-
-    #[test]
-    fn test_find_all_variables() {
-        assert_eq!(
-            find_all_variables(&[
-                "$left",
-                "$right",
-                "--two=$1 and $2",
-                "--can-be-part-of-string=$output",
-                "$NOT_CAPITALS",
-                "--can-repeat=$right"
-            ],)
-            .collect_vec(),
-            ["left", "right", "1", "2", "output", "right"],
-        );
     }
 }
