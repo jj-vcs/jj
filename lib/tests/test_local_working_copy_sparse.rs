@@ -14,6 +14,7 @@
 
 use futures::StreamExt as _;
 use itertools::Itertools as _;
+use jj_lib::fileset::FilesetRules;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::repo::Repo as _;
@@ -29,8 +30,8 @@ use testutils::create_tree;
 use testutils::create_tree_with;
 use testutils::repo_path;
 
-fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
-    paths.iter().map(|&path| path.to_owned()).collect()
+fn prefix_paths(paths: &[&RepoPath]) -> FilesetRules {
+    FilesetRules::from_path_prefixes(paths.iter().map(|&path| path.to_owned()))
 }
 
 #[test]
@@ -70,7 +71,7 @@ fn test_sparse_checkout() -> TestResult {
 
     // Set sparse patterns to only dir1/
     let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_path]);
+    let sparse_patterns = prefix_paths(&[dir1_path]);
     let stats = locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns.clone())
@@ -84,7 +85,7 @@ fn test_sparse_checkout() -> TestResult {
             skipped_files: 0,
         }
     );
-    assert_eq!(locked_ws.locked_wc().sparse_patterns()?, sparse_patterns);
+    assert_eq!(locked_ws.locked_wc().sparse_patterns()?, &sparse_patterns);
     assert!(
         !root_file1_path
             .to_fs_path_unchecked(&working_copy_path)
@@ -123,7 +124,7 @@ fn test_sparse_checkout() -> TestResult {
         wc.file_states()?.paths().collect_vec(),
         vec![dir1_file1_path, dir1_file2_path, dir1_subdir1_file1_path]
     );
-    assert_eq!(wc.sparse_patterns()?, sparse_patterns);
+    assert_eq!(wc.sparse_patterns()?, &sparse_patterns);
 
     // Reload the state to check that it was persisted
     let wc = LocalWorkingCopy::load(
@@ -136,11 +137,11 @@ fn test_sparse_checkout() -> TestResult {
         wc.file_states()?.paths().collect_vec(),
         vec![dir1_file1_path, dir1_file2_path, dir1_subdir1_file1_path]
     );
-    assert_eq!(wc.sparse_patterns()?, sparse_patterns);
+    assert_eq!(wc.sparse_patterns()?, &sparse_patterns);
 
     // Set sparse patterns to file2, dir1/subdir1/ and dir2/
     let mut locked_wc = wc.start_mutation().block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[root_file1_path, dir1_subdir1_path, dir2_path]);
+    let sparse_patterns = prefix_paths(&[root_file1_path, dir1_subdir1_path, dir2_path]);
     let stats = locked_wc
         .set_sparse_patterns(sparse_patterns.clone())
         .block_on()?;
@@ -153,7 +154,7 @@ fn test_sparse_checkout() -> TestResult {
             skipped_files: 0,
         }
     );
-    assert_eq!(locked_wc.sparse_patterns()?, sparse_patterns);
+    assert_eq!(locked_wc.sparse_patterns()?, &sparse_patterns);
     assert!(
         root_file1_path
             .to_fs_path_unchecked(&working_copy_path)
@@ -227,7 +228,7 @@ fn test_sparse_commit() -> TestResult {
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_path]);
+    let sparse_patterns = prefix_paths(&[dir1_path]);
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
@@ -265,7 +266,7 @@ fn test_sparse_commit() -> TestResult {
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_path, dir2_path]);
+    let sparse_patterns = prefix_paths(&[dir1_path, dir2_path]);
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
@@ -301,7 +302,7 @@ fn test_sparse_commit_gitignore() -> TestResult {
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_path]);
+    let sparse_patterns = prefix_paths(&[dir1_path]);
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
@@ -367,7 +368,7 @@ fn test_sparse_commit_gitignore_sparsed_away() -> TestResult {
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_subdir1_path]);
+    let sparse_patterns = prefix_paths(&[dir1_subdir1_path]);
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
@@ -446,7 +447,7 @@ fn test_sparse_commit_gitignore_symlink_not_followed() -> TestResult {
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_subdir1_path]);
+    let sparse_patterns = prefix_paths(&[dir1_subdir1_path]);
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
