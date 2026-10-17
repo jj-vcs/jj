@@ -27,6 +27,7 @@ pub mod config_env;
 pub mod config_util;
 #[cfg(feature = "git")]
 pub mod git_util;
+pub mod operation_util;
 pub mod revset_util;
 pub mod runner;
 pub mod workspace_env;

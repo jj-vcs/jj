@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use itertools::Itertools as _;
+use jj_frontend::operation_util::ViewPortions;
+use jj_frontend::operation_util::restore_operation;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 
@@ -23,8 +25,6 @@ use crate::command_error::internal_error;
 use crate::command_error::user_error;
 #[cfg(feature = "git")]
 use crate::commands::git::is_push_operation;
-use crate::commands::operation::DEFAULT_REVERT_WHAT;
-use crate::commands::operation::view_with_desired_portions_restored;
 use crate::ui::Ui;
 
 /// Undo the last operation
@@ -188,12 +188,7 @@ pub async fn cmd_undo(
     }
 
     let mut tx = workspace_command.start_transaction();
-    let new_view = view_with_desired_portions_restored(
-        target_op_parent.view().await?.store_view(),
-        tx.base_repo().view().store_view(),
-        &DEFAULT_REVERT_WHAT,
-    );
-    tx.repo_mut().set_view(new_view);
+    restore_operation(tx.repo_mut(), &target_op_parent, ViewPortions::ALL).await?;
     if let Some(mut formatter) = ui.status_formatter() {
         let template = tx.base_workspace_helper().operation_summary_template();
 

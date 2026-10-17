@@ -27,6 +27,7 @@ use diff::OperationDiffArgs;
 use diff::cmd_op_diff;
 use integrate::OperationIntegrateArgs;
 use integrate::cmd_op_integrate;
+use jj_frontend::operation_util::ViewPortions;
 use log::OperationLogArgs;
 use log::cmd_op_log;
 use restore::OperationRestoreArgs;
@@ -89,29 +90,10 @@ pub(crate) const DEFAULT_REVERT_WHAT: [RevertWhatToRestore; 2] = [
     RevertWhatToRestore::RemoteTracking,
 ];
 
-/// Restore only the portions of the view specified by the `what` argument
-pub(crate) fn view_with_desired_portions_restored(
-    view_being_restored: &jj_lib::op_store::View,
-    current_view: &jj_lib::op_store::View,
-    what: &[RevertWhatToRestore],
-) -> jj_lib::op_store::View {
-    let repo_source = if what.contains(&RevertWhatToRestore::Repo) {
-        view_being_restored
-    } else {
-        current_view
-    };
-    let remote_source = if what.contains(&RevertWhatToRestore::RemoteTracking) {
-        view_being_restored
-    } else {
-        current_view
-    };
-    jj_lib::op_store::View {
-        head_ids: repo_source.head_ids.clone(),
-        local_bookmarks: repo_source.local_bookmarks.clone(),
-        local_tags: repo_source.local_tags.clone(),
-        remote_views: remote_source.remote_views.clone(),
-        git_refs: current_view.git_refs.clone(),
-        git_heads: current_view.git_heads.clone(),
-        wc_commit_ids: repo_source.wc_commit_ids.clone(),
+/// Converts the `--what` arguments to the portions of the view to restore.
+pub(crate) fn view_portions(what: &[RevertWhatToRestore]) -> ViewPortions {
+    ViewPortions {
+        repo: what.contains(&RevertWhatToRestore::Repo),
+        remote_tracking: what.contains(&RevertWhatToRestore::RemoteTracking),
     }
 }

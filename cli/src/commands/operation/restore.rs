@@ -13,11 +13,12 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use jj_frontend::operation_util::restore_operation;
 use jj_lib::object_id::ObjectId as _;
 
 use super::DEFAULT_REVERT_WHAT;
 use super::RevertWhatToRestore;
-use super::view_with_desired_portions_restored;
+use super::view_portions;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -52,12 +53,7 @@ pub async fn cmd_op_restore(
     let mut workspace_command = command.workspace_helper(ui).await?;
     let target_op = workspace_command.resolve_single_op(&args.operation)?;
     let mut tx = workspace_command.start_transaction();
-    let new_view = view_with_desired_portions_restored(
-        target_op.view().await?.store_view(),
-        tx.base_repo().view().store_view(),
-        &args.what,
-    );
-    tx.repo_mut().set_view(new_view);
+    restore_operation(tx.repo_mut(), &target_op, view_portions(&args.what)).await?;
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Restored to operation: ")?;
         let template = tx.base_workspace_helper().operation_summary_template();
