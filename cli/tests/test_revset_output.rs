@@ -419,7 +419,7 @@ fn test_function_name_hint() {
       | ^-----^
       |
       = Function `author_` doesn't exist
-    Hint: Did you mean `author`, `author_date`, `author_email`, `author_name`, `my_author`?
+    Hint: Did you mean `author`, `author_date`, `author_name`, `author_email`, `my_author`?
     [EOF]
     [exit status: 1]
     ");
@@ -441,6 +441,56 @@ fn test_function_name_hint() {
       |
       = Function `bookmark` doesn't exist
     Hint: Did you mean `bookmarks`, `remote_bookmarks`?
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_symbol_name_hint() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let evaluate = |expr| work_dir.run_jj(["log", "-r", expr]);
+
+    for i in 1..=6 {
+        work_dir
+            .run_jj(["bookmark", "create", "-r@", &format!("feature-{i}")])
+            .success();
+    }
+
+    insta::assert_snapshot!(evaluate("feature-9"), @"
+    ------- stderr -------
+    Error: Revision `feature-9` doesn't exist
+    Hint: Did you mean `feature-1`, `feature-2`, `feature-3`, `feature-4`, `feature-5`, or 1 others?
+    [EOF]
+    [exit status: 1]
+    ");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "feature-7"])
+        .success();
+
+    insta::assert_snapshot!(evaluate("feature-9"), @"
+    ------- stderr -------
+    Error: Revision `feature-9` doesn't exist
+    Hint: Did you mean `feature-1`, `feature-2`, `feature-3`, `feature-4`, `feature-5`, or 2 others?
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // 'feature-9' sorts last alphabetically, but it's the most similar name,
+    // so it comes first.
+    for i in 8..=12 {
+        work_dir
+            .run_jj(["bookmark", "create", "-r@", &format!("feature-{i}")])
+            .success();
+    }
+
+    insta::assert_snapshot!(evaluate("feature-9x"), @"
+    ------- stderr -------
+    Error: Revision `feature-9x` doesn't exist
+    Hint: Did you mean `feature-9`, `feature-1`, `feature-2`, `feature-3`, `feature-4`, or 7 others?
     [EOF]
     [exit status: 1]
     ");
