@@ -1,43 +1,27 @@
-use std::sync::LazyLock;
-
 use jj_lib::backend::Timestamp;
 use jj_lib::backend::TimestampOutOfRange;
 
-/// Parsed formatting items which should never contain an error.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FormattingItems {
-    format: String,
-}
-
-impl FormattingItems {
-    /// Parses strftime-like format string.
-    pub fn parse(format: &str) -> Option<Self> {
-        // validate the format string by trying to format a dummy timestamp
-        let dummy_ts = jiff::Timestamp::UNIX_EPOCH;
-        let dummy_zoned = dummy_ts.to_zoned(jiff::tz::TimeZone::UTC);
-        // note that the usage of a `String` is load-bearing; using an `io::sink` will
-        // not result in `write!` returning an error even if the format string
-        // is invalid.
-        jiff::fmt::strtime::format(format, &dummy_zoned).ok()?;
-
-        Some(Self {
-            format: format.to_owned(),
-        })
-    }
+/// Validates the format string by trying to format a dummy timestamp.
+pub fn validate_format(format: &str) -> Result<(), jiff::Error> {
+    let dummy_ts = jiff::Zoned::UNIX_EPOCH;
+    // note that the usage of a `String` is load-bearing; using an `io::sink`
+    // will not result in `write!` returning an error even if the format string
+    // is invalid.
+    jiff::fmt::strtime::format(format, &dummy_ts)?;
+    Ok(())
 }
 
 pub fn format_absolute_timestamp(timestamp: &Timestamp) -> Result<String, TimestampOutOfRange> {
-    static DEFAULT_FORMAT: LazyLock<FormattingItems> =
-        LazyLock::new(|| FormattingItems::parse("%Y-%m-%d %H:%M:%S.%3f %:z").unwrap());
-    format_absolute_timestamp_with(timestamp, &DEFAULT_FORMAT)
+    const DEFAULT_FORMAT: &str = "%Y-%m-%d %H:%M:%S.%3f %:z";
+    format_absolute_timestamp_with(timestamp, DEFAULT_FORMAT)
 }
 
 pub fn format_absolute_timestamp_with(
     timestamp: &Timestamp,
-    format: &FormattingItems,
+    format: &str,
 ) -> Result<String, TimestampOutOfRange> {
     let zoned = timestamp.to_zoned()?;
-    Ok(zoned.strftime(&format.format).to_string())
+    Ok(zoned.strftime(format).to_string())
 }
 
 pub fn format_duration(
