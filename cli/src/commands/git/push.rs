@@ -1460,7 +1460,7 @@ async fn find_default_target_revisions(
     revset_text: &str,
     remote: &RemoteName,
 ) -> Result<HashSet<CommitId>, CommandError> {
-    let mut context = workspace_command.env().revset_parse_context();
+    let mut context = workspace_command.revset_parse_context();
     context
         .local_variables
         .insert("remote", revset::new_string_node(remote.as_str()));
