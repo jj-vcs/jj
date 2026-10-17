@@ -23,6 +23,9 @@ use indoc::indoc;
 use itertools::Itertools as _;
 use jj_frontend::config_env::ConfigEnv;
 use jj_frontend::config_env::config_from_environment;
+use jj_frontend::merge_tools::ExternalMergeTool;
+use jj_frontend::merge_tools::configured_merge_tools;
+use jj_frontend::merge_tools::get_external_tool_config;
 use jj_frontend::workspace_env::find_workspace_dir;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::default_backend_factories::default_workspace_loader_factory;
@@ -39,9 +42,6 @@ use crate::command_error::user_error;
 use crate::config::CONFIG_SCHEMA;
 use crate::config::ConfigArgKind;
 use crate::config::default_config_layers;
-use crate::merge_tools::ExternalMergeTool;
-use crate::merge_tools::configured_merge_tools;
-use crate::merge_tools::get_external_tool_config;
 use crate::ui::Ui;
 
 const BOOKMARK_HELP_TEMPLATE: &str = r#"template-aliases.'bookmark_help()'='''
