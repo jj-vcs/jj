@@ -22,6 +22,7 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use jj_frontend::config_env::ConfigEnvError;
 use jj_frontend::config_util::RemoteSettingParseError;
+use jj_frontend::revset_util::UserRevsetEvaluationError;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::SnapshotConfigError;
 use jj_frontend::runner::StaleWorkingCopyError;
@@ -89,7 +90,6 @@ use crate::merge_tools::MergeToolConfigError;
 use crate::merge_tools::MergeToolPartialResolutionError;
 use crate::revset_util::BookmarkNameParseError;
 use crate::revset_util::TagNameParseError;
-use crate::revset_util::UserRevsetEvaluationError;
 use crate::ui::Ui;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
