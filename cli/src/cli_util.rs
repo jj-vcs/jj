@@ -375,11 +375,13 @@ impl CommandHelper {
         let mut config_env = self.data.config_env.clone();
         let mut raw_config = self.data.raw_config.clone();
         let repo_path = workspace_root.join(".jj").join("repo");
-        config_env.reset_repo_path(&repo_path);
-        with_config_warnings(ui, |w| config_env.reload_repo_config(w, &mut raw_config))?;
-        config_env.reset_workspace_path(workspace_root);
         with_config_warnings(ui, |w| {
-            config_env.reload_workspace_config(w, &mut raw_config)
+            config_env.reset_workspace_and_reload_config(
+                w,
+                &mut raw_config,
+                &repo_path,
+                workspace_root,
+            )
         })?;
         let mut config = config_env.resolve_config(&raw_config)?;
         // No migration messages here, which would usually be emitted before.
@@ -3425,11 +3427,13 @@ impl<'a> CliRunner<'a> {
         config_env.reload_system_config(&mut raw_config)?;
         config_env.reload_user_config(&mut raw_config)?;
         if let Ok(loader) = &maybe_cwd_workspace_loader {
-            config_env.reset_repo_path(loader.repo_path());
-            with_config_warnings(ui, |w| config_env.reload_repo_config(w, &mut raw_config))?;
-            config_env.reset_workspace_path(loader.workspace_root());
             with_config_warnings(ui, |w| {
-                config_env.reload_workspace_config(w, &mut raw_config)
+                config_env.reset_workspace_and_reload_config(
+                    w,
+                    &mut raw_config,
+                    loader.repo_path(),
+                    loader.workspace_root(),
+                )
             })?;
         }
         let mut config = config_env.resolve_config(&raw_config)?;
@@ -3473,11 +3477,13 @@ impl<'a> CliRunner<'a> {
                 .workspace_loader_factory
                 .create(&abs_path)
                 .map_err(|err| map_workspace_load_error(err, Some(path)))?;
-            config_env.reset_repo_path(loader.repo_path());
-            with_config_warnings(ui, |w| config_env.reload_repo_config(w, &mut raw_config))?;
-            config_env.reset_workspace_path(loader.workspace_root());
             with_config_warnings(ui, |w| {
-                config_env.reload_workspace_config(w, &mut raw_config)
+                config_env.reset_workspace_and_reload_config(
+                    w,
+                    &mut raw_config,
+                    loader.repo_path(),
+                    loader.workspace_root(),
+                )
             })?;
             Ok(loader)
         } else {

@@ -574,12 +574,11 @@ impl TryFrom<Vec<String>> for NonEmptyCommandArgsVec {
 
 #[cfg(test)]
 mod tests {
-    
+
     use std::fmt::Write as _;
 
     use indoc::indoc;
     use maplit::hashmap;
-    
     use testutils::TestResult;
 
     use super::*;
