@@ -63,6 +63,7 @@ use crate::command_error::user_error_with_message;
 use crate::config::ConfigEnv;
 use crate::config::RawConfig;
 use crate::config::existing_repo_config_file;
+use crate::config::with_config_warnings;
 use crate::ui::Ui;
 
 /// Commands for working with Git remotes and the underlying Git repo
@@ -161,7 +162,7 @@ fn write_repo_presets(
     if presets.is_default() {
         return Ok(()); // Don't initialize config directory
     }
-    let Some(config_path) = config_env.repo_config_path(ui)? else {
+    let Some(config_path) = with_config_warnings(ui, |w| config_env.repo_config_path(w))? else {
         // We couldn't find the user's home directory, so we skip this step.
         return Ok(());
     };

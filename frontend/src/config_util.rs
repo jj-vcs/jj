@@ -70,6 +70,12 @@ pub enum ConfigWarning {
         /// The alias declaration, e.g. `immutable()`.
         decl: &'static str,
     },
+    /// Something unexpected was found while locating a repo- or
+    /// workspace-specific config file, such as the repo having been copied.
+    SecureConfig {
+        /// Description of the problem.
+        message: String,
+    },
 }
 
 /// Loads map of `{fileset,revset,template}-aliases` table from all config
