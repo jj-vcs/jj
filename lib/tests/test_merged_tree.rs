@@ -46,7 +46,6 @@ use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::tree_builder::TreeBuilder;
 use pollster::FutureExt as _;
 use pretty_assertions::assert_eq;
 use testutils::TestRepo;
@@ -366,10 +365,9 @@ fn test_merged_tree_builder_rejects_unresolved_tree_override() {
 }
 
 #[test]
-fn test_tree_builder_dir_and_child_overrides() -> TestResult {
+fn test_merged_tree_builder_dir_and_child_overrides() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let store = repo.store();
 
     let foo_path = repo_path("foo");
     let foo_a_path = repo_path("foo/a");
@@ -377,64 +375,64 @@ fn test_tree_builder_dir_and_child_overrides() -> TestResult {
     let foo_c_path = repo_path("foo/c");
 
     // Removing directory `foo` while setting `foo/b` discards `foo/a`.
-    let base_tree = create_single_tree(repo, &[(foo_a_path, "1")]);
-    let expected_tree = create_single_tree(repo, &[(foo_b_path, "2")]);
-    let mut builder = TreeBuilder::new(store.clone(), base_tree.id().clone());
-    builder.remove(foo_path.to_owned());
-    builder.set(
+    let base_tree = create_tree(repo, &[(foo_a_path, "1")]);
+    let expected_tree = create_tree(repo, &[(foo_b_path, "2")]);
+    let mut builder = MergedTreeBuilder::new(base_tree);
+    builder.set_or_remove(foo_path.to_owned(), None);
+    builder.set_or_remove_merge(
         foo_b_path.to_owned(),
-        expected_tree.path_value(foo_b_path).block_on()?.unwrap(),
-    );
-    let actual_tree_id = builder.write_tree().block_on()?;
-    assert_eq!(&actual_tree_id, expected_tree.id());
+        expected_tree.path_value(foo_b_path).block_on()?,
+    )?;
+    let actual_tree = builder.write_tree().block_on()?;
+    assert_tree_eq!(actual_tree, expected_tree);
 
     // Replacing directory `foo` with a file while also removing `foo/a`
     // discards `foo/b` and writes `foo` as a file.
-    let base_tree = create_single_tree(repo, &[(foo_a_path, "1"), (foo_b_path, "2")]);
-    let expected_tree = create_single_tree(repo, &[(foo_path, "file")]);
-    let mut builder = TreeBuilder::new(store.clone(), base_tree.id().clone());
-    builder.set(
+    let base_tree = create_tree(repo, &[(foo_a_path, "1"), (foo_b_path, "2")]);
+    let expected_tree = create_tree(repo, &[(foo_path, "file")]);
+    let mut builder = MergedTreeBuilder::new(base_tree);
+    builder.set_or_remove_merge(
         foo_path.to_owned(),
-        expected_tree.path_value(foo_path).block_on()?.unwrap(),
-    );
-    builder.remove(foo_a_path.to_owned());
-    let actual_tree_id = builder.write_tree().block_on()?;
-    assert_eq!(&actual_tree_id, expected_tree.id());
+        expected_tree.path_value(foo_path).block_on()?,
+    )?;
+    builder.set_or_remove(foo_a_path.to_owned(), None);
+    let actual_tree = builder.write_tree().block_on()?;
+    assert_tree_eq!(actual_tree, expected_tree);
 
     // Replacing directory `foo` with another `TreeValue::Tree` while also
     // setting `foo/c` starts from the replacement subtree rather than the base
     // subtree.
-    let base_tree = create_single_tree(repo, &[(foo_a_path, "1")]);
-    let replacement_tree = create_single_tree(repo, &[(foo_b_path, "2")]);
-    let expected_tree = create_single_tree(repo, &[(foo_b_path, "2"), (foo_c_path, "3")]);
-    let mut builder = TreeBuilder::new(store.clone(), base_tree.id().clone());
-    builder.set(
+    let base_tree = create_tree(repo, &[(foo_a_path, "1")]);
+    let replacement_tree = create_tree(repo, &[(foo_b_path, "2")]);
+    let expected_tree = create_tree(repo, &[(foo_b_path, "2"), (foo_c_path, "3")]);
+    let mut builder = MergedTreeBuilder::new(base_tree);
+    builder.set_or_remove_merge(
         foo_path.to_owned(),
-        replacement_tree.path_value(foo_path).block_on()?.unwrap(),
-    );
-    builder.set(
+        replacement_tree.path_value(foo_path).block_on()?,
+    )?;
+    builder.set_or_remove_merge(
         foo_c_path.to_owned(),
-        expected_tree.path_value(foo_c_path).block_on()?.unwrap(),
-    );
-    let actual_tree_id = builder.write_tree().block_on()?;
-    assert_eq!(&actual_tree_id, expected_tree.id());
+        expected_tree.path_value(foo_c_path).block_on()?,
+    )?;
+    let actual_tree = builder.write_tree().block_on()?;
+    assert_tree_eq!(actual_tree, expected_tree);
 
     // Replacing directory `foo` with a file while also setting `foo/c` ignores
     // `foo/c`.
-    let base_tree = create_single_tree(repo, &[(foo_a_path, "1")]);
-    let expected_tree = create_single_tree(repo, &[(foo_path, "file")]);
-    let foo_c_tree = create_single_tree(repo, &[(foo_c_path, "3")]);
-    let mut builder = TreeBuilder::new(store.clone(), base_tree.id().clone());
-    builder.set(
+    let base_tree = create_tree(repo, &[(foo_a_path, "1")]);
+    let expected_tree = create_tree(repo, &[(foo_path, "file")]);
+    let foo_c_tree = create_tree(repo, &[(foo_c_path, "3")]);
+    let mut builder = MergedTreeBuilder::new(base_tree);
+    builder.set_or_remove_merge(
         foo_path.to_owned(),
-        expected_tree.path_value(foo_path).block_on()?.unwrap(),
-    );
-    builder.set(
+        expected_tree.path_value(foo_path).block_on()?,
+    )?;
+    builder.set_or_remove_merge(
         foo_c_path.to_owned(),
-        foo_c_tree.path_value(foo_c_path).block_on()?.unwrap(),
-    );
-    let actual_tree_id = builder.write_tree().block_on()?;
-    assert_eq!(&actual_tree_id, expected_tree.id());
+        foo_c_tree.path_value(foo_c_path).block_on()?,
+    )?;
+    let actual_tree = builder.write_tree().block_on()?;
+    assert_tree_eq!(actual_tree, expected_tree);
     Ok(())
 }
 
@@ -822,8 +820,8 @@ fn test_merged_tree_builder_overrides_below_base_file() -> TestResult {
         )
     );
 
-    // Adding a tree at `path/tree` and then removing everything in it keeps the
-    // file since no value ends up below `path`
+    // Adding a tree at `path/tree` replaces the file even if everything in the
+    // tree is then removed
     let tree_value = create_tree(repo, &[(tree_file_path, "file")])
         .path_value(tree_path)
         .block_on()?;
@@ -834,7 +832,7 @@ fn test_merged_tree_builder_overrides_below_base_file() -> TestResult {
     assert_tree_eq!(
         tree,
         create_conflict(
-            &[(conflicted_path, "side1"), (path, "file")],
+            &[(conflicted_path, "side1")],
             &[(conflicted_path, "base")],
             &[(conflicted_path, "side2"), (child_path, "child")],
         )

@@ -15,12 +15,12 @@
 //! Helps build a new `MergedTree` from a base tree and overrides.
 
 use std::collections::BTreeMap;
-use std::iter::zip;
 
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
-use futures::future::try_join_all;
 use futures::stream;
+use itertools::EitherOrBoth;
+use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::backend::BackendResult;
@@ -31,8 +31,13 @@ use crate::backend::TreeValue;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPathBuf;
-use crate::tree_builder::TreeBuilder;
+use crate::repo_path::RepoPathComponentBuf;
+use crate::repo_path::RepoPathTree;
+use crate::tree::Tree;
 use crate::tree_merge::resolve_file_values;
+use crate::tree_rewriter::RewrittenEntry;
+use crate::tree_rewriter::TreeRewriteVisitor;
+use crate::tree_rewriter::rewrite_trees;
 
 /// Helper for writing trees with conflicts.
 ///
@@ -133,37 +138,136 @@ impl MergedTreeBuilder {
             .buffer_unordered(store.concurrency())
             .try_collect::<()>()
             .await?;
-        // Create a single-tree builder for each base tree
-        let mut tree_builders =
-            base_tree_ids.into_map(|base_tree_id| TreeBuilder::new(store.clone(), base_tree_id));
-        for (path, values) in self.overrides {
-            match values.into_resolved() {
-                Ok(value) => {
-                    // This path was overridden with a resolved value. Apply that to all
-                    // builders.
-                    for builder in &mut tree_builders {
-                        builder.set_or_remove(path.clone(), value.clone());
-                    }
-                }
-                Err(values) => {
-                    // This path was overridden with a conflicted value. Apply each term to
-                    // its corresponding builder.
-                    for (builder, value) in zip(&mut tree_builders, values) {
-                        builder.set_or_remove(path.clone(), value);
-                    }
+        let visitor = OverridesVisitor::new(self.overrides);
+        let root_has_conflict = visitor.overrides.value().has_conflict;
+        let roots = Merge::from_vec(
+            base_tree_ids
+                .into_iter()
+                .enumerate()
+                .map(|(term_index, tree_id)| (tree_id, root_has_conflict.then_some(term_index)))
+                .collect_vec(),
+        );
+        rewrite_trees(&store, roots, &visitor).await
+    }
+}
+
+#[derive(Debug, Default)]
+struct OverrideNode {
+    /// The override at this path, if any.
+    value: Option<MergedTreeValue>,
+    /// Whether there's a conflicted override at or below this path.
+    has_conflict: bool,
+}
+
+/// Applies overrides to each term of a merged tree. The context is the index
+/// of the term if there are conflicted overrides in the tree, or `None` if all
+/// overrides in the tree are resolved and therefore the same for all terms.
+///
+/// The context is part of the key [`rewrite_trees()`] uses for deduplicating
+/// trees. Using `None` where the term doesn't matter means that a tree shared
+/// between terms is read and written only once instead of once per term.
+struct OverridesVisitor {
+    overrides: RepoPathTree<OverrideNode>,
+}
+
+impl OverridesVisitor {
+    fn new(overrides: BTreeMap<RepoPathBuf, MergedTreeValue>) -> Self {
+        let mut tree: RepoPathTree<OverrideNode> = RepoPathTree::default();
+        for (path, value) in overrides {
+            if !value.is_resolved() {
+                for ancestor in path.ancestors() {
+                    tree.add(ancestor).value_mut().has_conflict = true;
                 }
             }
+            tree.add(&path).value_mut().value = Some(value);
         }
-        // TODO: This can be made more efficient. If there's a single resolved conflict
-        // in `dir/file`, we shouldn't have to write the `dir/` and root trees more than
-        // once.
-        let tree_ids = try_join_all(
-            tree_builders
-                .into_iter()
-                .map(|builder| builder.write_tree()),
-        )
-        .await?;
-        let merge = Merge::from_vec(tree_ids);
-        Ok(merge)
+        Self { overrides: tree }
     }
+}
+
+impl TreeRewriteVisitor for OverridesVisitor {
+    type Context = Option<usize>;
+
+    fn visit_tree(
+        &self,
+        tree: &Tree,
+        term_index: &Option<usize>,
+    ) -> Vec<(RepoPathComponentBuf, RewrittenEntry<Option<usize>>)> {
+        let node = self.overrides.get(tree.dir()).unwrap();
+        let children = node.children().sorted_by_key(|(name, _)| *name);
+        let mut new_entries = vec![];
+        for item in tree
+            .data()
+            .entries()
+            .merge_join_by(children, |entry, (name, _)| entry.name().cmp(name))
+        {
+            let (name, base_value, child) = match item {
+                EitherOrBoth::Left(entry) => {
+                    // No overrides at or below this path
+                    new_entries.push((
+                        entry.name().to_owned(),
+                        RewrittenEntry::Value(entry.value().clone()),
+                    ));
+                    continue;
+                }
+                EitherOrBoth::Right((name, child)) => (name, None, child),
+                EitherOrBoth::Both(entry, (name, child)) => (name, Some(entry.value()), child),
+            };
+            let override_node = child.value();
+            let value = match &override_node.value {
+                Some(values) => term_value(values, *term_index).cloned(),
+                None => base_value.cloned(),
+            };
+            if !child.has_children() {
+                if let Some(value) = value {
+                    new_entries.push((name.to_owned(), RewrittenEntry::Value(value)));
+                }
+                continue;
+            }
+            // Overrides below this path are applied to the tree at this path, or
+            // to an empty tree if the path is removed. A non-tree override takes
+            // precedence over them. A non-tree value from the base tree is
+            // replaced by a directory unless they only remove paths.
+            let base_tree_id = match value {
+                Some(TreeValue::Tree(tree_id)) => tree_id,
+                Some(value)
+                    if override_node.value.is_some() || !sets_value_below(child, *term_index) =>
+                {
+                    new_entries.push((name.to_owned(), RewrittenEntry::Value(value)));
+                    continue;
+                }
+                _ => tree.store().empty_tree_id().clone(),
+            };
+            new_entries.push((
+                name.to_owned(),
+                RewrittenEntry::Subtree {
+                    base_tree_id,
+                    context: term_index.filter(|_| override_node.has_conflict),
+                },
+            ));
+        }
+        new_entries
+    }
+}
+
+/// Returns the value of `values` in the term at `term_index`. `term_index` may
+/// be `None` only if `values` is resolved.
+fn term_value(values: &MergedTreeValue, term_index: Option<usize>) -> Option<&TreeValue> {
+    match values.as_resolved() {
+        Some(value) => value.as_ref(),
+        None => values.as_slice()[term_index.unwrap()].as_ref(),
+    }
+}
+
+/// Whether any override below `node` sets a value in the term at
+/// `term_index`.
+fn sets_value_below(node: &RepoPathTree<OverrideNode>, term_index: Option<usize>) -> bool {
+    node.children().any(|(_, child)| {
+        child
+            .value()
+            .value
+            .as_ref()
+            .is_some_and(|values| term_value(values, term_index).is_some())
+            || sets_value_below(child, term_index)
+    })
 }

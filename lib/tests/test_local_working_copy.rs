@@ -32,7 +32,6 @@ use gix::odb::pack::FindExt as _;
 use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
-use jj_lib::backend::TreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -63,7 +62,6 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::secret_backend::SecretBackend;
-use jj_lib::tree_builder::TreeBuilder;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
@@ -570,22 +568,14 @@ fn test_acl() -> TestResult {
 }
 
 #[test]
-fn test_tree_builder_file_directory_transition() -> TestResult {
+fn test_merged_tree_builder_file_directory_transition() -> TestResult {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let store = repo.store();
     let mut ws = test_workspace.workspace;
     let workspace_root = ws.workspace_root().to_owned();
-    let mut check_out_tree = |tree_id: &TreeId| {
-        let tree = repo
-            .store()
-            .get_tree(RepoPathBuf::root(), tree_id)
-            .block_on()
-            .unwrap();
-        let commit = commit_with_tree(
-            repo.store(),
-            MergedTree::resolved(repo.store().clone(), tree.id().clone()),
-        );
+    let mut check_out_tree = |tree: &MergedTree| {
+        let commit = commit_with_tree(repo.store(), tree.clone());
         ws.check_out(repo.op_id().clone(), None, &commit)
             .block_on()
             .unwrap();
@@ -595,49 +585,49 @@ fn test_tree_builder_file_directory_transition() -> TestResult {
     let child_path = repo_path("foo/bar/baz");
 
     // Add file at parent_path
-    let mut tree_builder = TreeBuilder::new(store.clone(), store.empty_tree_id().clone());
-    tree_builder.set(
+    let mut tree_builder = MergedTreeBuilder::new(store.empty_merged_tree());
+    tree_builder.set_or_remove(
         parent_path.to_owned(),
-        TreeValue::File {
+        Some(TreeValue::File {
             id: testutils::write_file(store, parent_path, ""),
             executable: false,
             copy_id: CopyId::placeholder(),
-        },
+        }),
     );
-    let tree_id = tree_builder.write_tree().block_on()?;
-    check_out_tree(&tree_id);
+    let tree = tree_builder.write_tree().block_on()?;
+    check_out_tree(&tree);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(!child_path.to_fs_path_unchecked(&workspace_root).exists());
 
     // Turn parent_path into directory, add file at child_path
-    let mut tree_builder = TreeBuilder::new(store.clone(), tree_id);
-    tree_builder.remove(parent_path.to_owned());
-    tree_builder.set(
+    let mut tree_builder = MergedTreeBuilder::new(tree);
+    tree_builder.set_or_remove(parent_path.to_owned(), None);
+    tree_builder.set_or_remove(
         child_path.to_owned(),
-        TreeValue::File {
+        Some(TreeValue::File {
             id: testutils::write_file(store, child_path, ""),
             executable: false,
             copy_id: CopyId::placeholder(),
-        },
+        }),
     );
-    let tree_id = tree_builder.write_tree().block_on()?;
-    check_out_tree(&tree_id);
+    let tree = tree_builder.write_tree().block_on()?;
+    check_out_tree(&tree);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_dir());
     assert!(child_path.to_fs_path_unchecked(&workspace_root).is_file());
 
     // Turn parent_path back to file
-    let mut tree_builder = TreeBuilder::new(store.clone(), tree_id);
-    tree_builder.remove(child_path.to_owned());
-    tree_builder.set(
+    let mut tree_builder = MergedTreeBuilder::new(tree);
+    tree_builder.set_or_remove(child_path.to_owned(), None);
+    tree_builder.set_or_remove(
         parent_path.to_owned(),
-        TreeValue::File {
+        Some(TreeValue::File {
             id: testutils::write_file(store, parent_path, ""),
             executable: false,
             copy_id: CopyId::placeholder(),
-        },
+        }),
     );
-    let tree_id = tree_builder.write_tree().block_on()?;
-    check_out_tree(&tree_id);
+    let tree = tree_builder.write_tree().block_on()?;
+    check_out_tree(&tree);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(!child_path.to_fs_path_unchecked(&workspace_root).exists());
     Ok(())
