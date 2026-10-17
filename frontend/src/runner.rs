@@ -612,6 +612,12 @@ impl WorkspaceOperationRunner {
         &self.options
     }
 
+    /// Sets [`RunnerOptions::ignore_immutable`], e.g. for a single
+    /// transaction where the user has chosen to rewrite immutable commits.
+    pub fn set_ignore_immutable(&mut self, ignore_immutable: bool) {
+        self.options.ignore_immutable = ignore_immutable;
+    }
+
     /// The name of the workspace.
     pub fn workspace_name(&self) -> &WorkspaceName {
         self.workspace.workspace_name()
