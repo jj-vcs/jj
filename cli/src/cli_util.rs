@@ -1029,30 +1029,31 @@ impl WorkspaceCommandEnvironment {
         Ok(GitImportExportLock { _lock: lock })
     }
 
-    /// Parsing context for fileset expressions specified by command arguments.
+    /// Parsing context for fileset expressions that don't refer to the
+    /// working copy. See [`WorkspaceCommandHelper::fileset_parse_context()`].
     pub(crate) fn fileset_parse_context(&self) -> FilesetParseContext<'_> {
         FilesetParseContext {
             aliases_map: &self.fileset_aliases_map,
             path_converter: &self.path_converter,
+            working_copy: None,
         }
     }
 
     /// Parsing context for fileset expressions loaded from config files.
     pub(crate) fn fileset_parse_context_for_config(&self) -> FilesetParseContext<'_> {
-        static ROOT_PATH_CONVERTER: RepoPathUiConverter = RepoPathUiConverter::Fs {
-            cwd: PathBuf::new(),
-            base: PathBuf::new(),
-        };
         FilesetParseContext {
-            aliases_map: &self.fileset_aliases_map,
-            path_converter: &ROOT_PATH_CONVERTER,
+            path_converter: RepoPathUiConverter::root(),
+            ..self.fileset_parse_context()
         }
     }
 
+    /// Parsing context for revset expressions that don't refer to the working
+    /// copy. See [`WorkspaceCommandHelper::revset_parse_context()`].
     pub(crate) fn revset_parse_context(&self) -> RevsetParseContext<'_> {
         let workspace_context = RevsetWorkspaceContext {
             path_converter: &self.path_converter,
             workspace_name: &self.workspace_name,
+            working_copy: None,
         };
         let now = if let Some(timestamp) = self.settings.commit_timestamp() {
             Timestamp::from_millisecond(timestamp.timestamp.0)

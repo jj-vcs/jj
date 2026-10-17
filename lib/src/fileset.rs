@@ -43,6 +43,7 @@ use crate::repo_path::RelativePathParseError;
 use crate::repo_path::RepoPathBuf;
 use crate::ui_path::RepoPathUiConverter;
 use crate::ui_path::UiPathParseError;
+use crate::working_copy::WorkingCopy;
 
 /// Error occurred during file pattern parsing.
 #[derive(Debug, Error)]
@@ -280,7 +281,7 @@ fn split_glob_path_i(input: &str) -> (&str, &str) {
 
 type FilesetFunction = fn(
     &mut FilesetDiagnostics,
-    &RepoPathUiConverter,
+    &FilesetParseContext,
     &FunctionCallNode,
 ) -> FilesetParseResult<FilesetExpression>;
 
@@ -288,11 +289,11 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, FilesetFunction>> = LazyLock
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map: HashMap<&str, FilesetFunction> = HashMap::new();
-    map.insert("none", |_diagnostics, _path_converter, function| {
+    map.insert("none", |_diagnostics, _context, function| {
         function.expect_no_arguments()?;
         Ok(FilesetExpression::none())
     });
-    map.insert("all", |_diagnostics, _path_converter, function| {
+    map.insert("all", |_diagnostics, _context, function| {
         function.expect_no_arguments()?;
         Ok(FilesetExpression::all())
     });
@@ -301,11 +302,11 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, FilesetFunction>> = LazyLock
 
 fn resolve_function(
     diagnostics: &mut FilesetDiagnostics,
-    path_converter: &RepoPathUiConverter,
+    context: &FilesetParseContext,
     function: &FunctionCallNode,
 ) -> FilesetParseResult<FilesetExpression> {
     if let Some(func) = BUILTIN_FUNCTION_MAP.get(function.name) {
-        func(diagnostics, path_converter, function)
+        func(diagnostics, context, function)
     } else {
         Err(FilesetParseError::new(
             FilesetParseErrorKind::NoSuchFunction {
@@ -319,9 +320,10 @@ fn resolve_function(
 
 fn resolve_expression(
     diagnostics: &mut FilesetDiagnostics,
-    path_converter: &RepoPathUiConverter,
+    context: &FilesetParseContext,
     node: &ExpressionNode,
 ) -> FilesetParseResult<FilesetExpression> {
+    let path_converter = context.path_converter;
     fileset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let wrap_pattern_error =
             |err| FilesetParseError::expression("Invalid file pattern", node.span).with_source(err);
@@ -343,14 +345,14 @@ fn resolve_expression(
                 Ok(FilesetExpression::pattern(pattern))
             }
             ExpressionKind::Unary(op, arg_node) => {
-                let arg = resolve_expression(diagnostics, path_converter, arg_node)?;
+                let arg = resolve_expression(diagnostics, context, arg_node)?;
                 match op {
                     UnaryOp::Negate => Ok(FilesetExpression::all().difference(arg)),
                 }
             }
             ExpressionKind::Binary(op, lhs_node, rhs_node) => {
-                let lhs = resolve_expression(diagnostics, path_converter, lhs_node)?;
-                let rhs = resolve_expression(diagnostics, path_converter, rhs_node)?;
+                let lhs = resolve_expression(diagnostics, context, lhs_node)?;
+                let rhs = resolve_expression(diagnostics, context, rhs_node)?;
                 match op {
                     BinaryOp::Intersection => Ok(lhs.intersection(rhs)),
                     BinaryOp::Difference => Ok(lhs.difference(rhs)),
@@ -359,12 +361,12 @@ fn resolve_expression(
             ExpressionKind::UnionAll(nodes) => {
                 let expressions = nodes
                     .iter()
-                    .map(|node| resolve_expression(diagnostics, path_converter, node))
+                    .map(|node| resolve_expression(diagnostics, context, node))
                     .try_collect()?;
                 Ok(FilesetExpression::union_all(expressions))
             }
             ExpressionKind::FunctionCall(function) => {
-                resolve_function(diagnostics, path_converter, function)
+                resolve_function(diagnostics, context, function)
             }
             ExpressionKind::AliasExpanded(..) => unreachable!(),
         }
@@ -372,12 +374,14 @@ fn resolve_expression(
 }
 
 /// Information needed to parse fileset expression.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct FilesetParseContext<'a> {
     /// Aliases to be expanded.
     pub aliases_map: &'a FilesetAliasesMap,
     /// Context to resolve cwd-relative paths.
     pub path_converter: &'a RepoPathUiConverter,
+    /// Working copy whose selection `sparse()` resolves to, if any.
+    pub working_copy: Option<&'a dyn WorkingCopy>,
 }
 
 /// Parses text into `FilesetExpression` without bare string fallback.
@@ -389,7 +393,7 @@ pub fn parse(
     let node = fileset_parser::parse_program(text)?;
     let node = fileset_parser::expand_aliases(node, context.aliases_map)?;
     // TODO: add basic tree substitution pass to eliminate redundant expressions
-    resolve_expression(diagnostics, context.path_converter, &node)
+    resolve_expression(diagnostics, context, &node)
 }
 
 /// Parses text into `FilesetExpression` with bare string fallback.
@@ -404,7 +408,7 @@ pub fn parse_maybe_bare(
     let node = fileset_parser::parse_program_or_bare_string(text)?;
     let node = fileset_parser::expand_aliases(node, context.aliases_map)?;
     // TODO: add basic tree substitution pass to eliminate redundant expressions
-    resolve_expression(diagnostics, context.path_converter, &node)
+    resolve_expression(diagnostics, context, &node)
 }
 
 #[cfg(test)]
@@ -440,6 +444,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
             },
+            working_copy: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
@@ -507,6 +512,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur*"),
                 base: PathBuf::from("/ws"),
             },
+            working_copy: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
@@ -718,6 +724,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
             },
+            working_copy: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
@@ -839,6 +846,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur*"),
                 base: PathBuf::from("/ws"),
             },
+            working_copy: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
@@ -936,6 +944,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
             },
+            working_copy: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
@@ -968,6 +977,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
             },
+            working_copy: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
