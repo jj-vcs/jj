@@ -23,6 +23,7 @@ mod unset;
 use std::path::PathBuf;
 
 use itertools::Itertools as _;
+use jj_frontend::config_env::ConfigEnv;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use tracing::instrument;
@@ -44,7 +45,6 @@ use self::unset::cmd_config_unset;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
-use crate::config::ConfigEnv;
 use crate::config::with_config_warnings;
 use crate::ui::Ui;
 
@@ -149,7 +149,18 @@ impl ConfigTargetArgs {
         };
         if let Some(file) = &self.file {
             let path = command.cwd().join(file);
-            config_env.resolve_file_to_edit(ui, config, &path)
+            with_config_warnings(ui, |w| config_env.resolve_file_to_edit(w, config, &path))?
+                .ok_or_else(|| {
+                    user_error(format!(
+                        "Configuration file '{}' is not a valid jj configuration file location",
+                        path.display()
+                    ))
+                    .hinted(
+                        "Valid config locations include user configs (`~/.config/jj/config.toml` \
+                         or `conf.d/*.toml`), repo/workspace configs, or files loaded with the \
+                         global flag `--config-file <PATH>`.",
+                    )
+                })
         } else if self.user {
             pick_first(
                 config_env.user_config_files(config)?,
