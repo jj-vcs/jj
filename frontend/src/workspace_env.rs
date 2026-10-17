@@ -66,6 +66,14 @@ use crate::revset_util::default_ignored_remote_name;
 use crate::runner::GitImportExportLock;
 use crate::runner::RunnerError;
 
+/// Returns the closest ancestor of `cwd` (or `cwd` itself) that contains a
+/// `.jj` directory, or `cwd` if there's no such ancestor.
+pub fn find_workspace_dir(cwd: &Path) -> &Path {
+    cwd.ancestors()
+        .find(|path| path.join(".jj").is_dir())
+        .unwrap_or(cwd)
+}
+
 /// Error from loading a [`WorkspaceEnvironment`].
 #[derive(Debug, Error)]
 pub enum WorkspaceEnvironmentError {
