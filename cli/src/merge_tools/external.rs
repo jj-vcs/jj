@@ -10,6 +10,9 @@ use std::sync::Arc;
 
 use bstr::BString;
 use itertools::Itertools as _;
+use jj_frontend::config_util::CommandNameAndArgs;
+use jj_frontend::config_util::find_all_variables;
+use jj_frontend::config_util::interpolate_variables;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -36,9 +39,6 @@ use super::diff_working_copies::DiffType;
 use super::diff_working_copies::check_out_trees;
 use super::diff_working_copies::set_readonly_recursively;
 use super::resolve_files_one_by_one;
-use crate::config::CommandNameAndArgs;
-use crate::config::find_all_variables;
-use crate::config::interpolate_variables;
 use crate::ui::Ui;
 
 /// Merge/diff tool loaded from the settings.
