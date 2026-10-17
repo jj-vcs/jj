@@ -7812,9 +7812,12 @@ and this project adheres to
 <li><code>%f</code> now prints only as many digits as needed rather than always 9. Use
   <code>%9f</code> or <code>%N</code> for the old behavior. Similarly, <code>%.f</code> no longer pads to 3, 6,
   or 9 digits, so it formats as <code>.12</code> rather than <code>.120</code>.</li>
+<li><code>%Z</code> now prints a time zone abbreviation. Use <code>%:z</code> to get an offset.</li>
 <li><code>%:::z</code> now includes the minutes of an offset when they are non-zero.</li>
 <li>New directives and flags such as <code>%N</code>, <code>%Q</code>, <code>%^a</code>, and <code>%5Y</code> are now
   accepted. <code>%#z</code> no longer panics.</li>
+<li><code>json(timestamp)</code> now prints a UTC time zone offset as <code>+00:00</code> instead of
+  <code>Z</code>.</li>
 </ul>
 </li>
 </ul>
