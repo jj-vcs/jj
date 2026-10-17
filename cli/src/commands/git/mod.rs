@@ -25,6 +25,9 @@ mod root;
 use std::io::Write as _;
 
 use clap::Subcommand;
+use jj_frontend::config_env::ConfigEnv;
+use jj_frontend::config_env::RawConfig;
+use jj_frontend::config_env::existing_repo_config_file;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
@@ -60,9 +63,6 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error_with_message;
-use crate::config::ConfigEnv;
-use crate::config::RawConfig;
-use crate::config::existing_repo_config_file;
 use crate::config::with_config_warnings;
 use crate::ui::Ui;
 
