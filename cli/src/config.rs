@@ -196,9 +196,6 @@ pub fn default_config_layers() -> Vec<ConfigLayer> {
         parse(include_str!("config/revsets.toml")),
         parse(include_str!("config/templates.toml")),
     ]);
-    if cfg!(unix) {
-        layers.push(parse(include_str!("config/unix.toml")));
-    }
     if cfg!(windows) {
         layers.push(parse(include_str!("config/windows.toml")));
     }

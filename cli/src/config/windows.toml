@@ -1,6 +1,2 @@
 [ui]
 pager = ":builtin"
-editor = "Notepad"
-
-[merge-tools.vscode]
-program = "code.cmd"

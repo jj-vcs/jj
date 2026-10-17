@@ -24,16 +24,8 @@ disabled-branches = []
 [fileset-aliases]
 # no builtin aliases
 
-[git]
-colocate = true
-object-hash = "sha1"
-private-commits = "none()"
-sign-on-push = false
-track-default-bookmark-on-clone = true
-
 [ui]
 color = "auto"
-diff-formatter = ":color-words"
 graph.style = "curved"
 pager = { command = ["less", "-FRXK"], env = { LESSCHARSET = "utf-8" } }
 paginate = "auto"
