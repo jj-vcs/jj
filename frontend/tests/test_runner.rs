@@ -351,3 +351,23 @@ fn test_reload_at_head() {
     assert_eq!(runner.repo().op_id(), new_repo.op_id());
     assert!(events.take().is_empty());
 }
+
+#[test]
+fn test_set_ignore_immutable() {
+    let events = RecordingEvents::default();
+    let user_config = r#"revset-aliases.'immutable_heads()' = '@'"#;
+    let (_test_env, mut runner, _) = load_runner(&events, user_config, test_options());
+    let wc_commit_id = runner.get_wc_commit_id().unwrap().clone();
+    assert_matches!(
+        runner.check_rewritable([&wc_commit_id]).block_on(),
+        Err(RunnerError::ImmutableCommit { .. })
+    );
+
+    runner.set_ignore_immutable(true);
+    runner.check_rewritable([&wc_commit_id]).block_on().unwrap();
+    runner.set_ignore_immutable(false);
+    assert_matches!(
+        runner.check_rewritable([&wc_commit_id]).block_on(),
+        Err(RunnerError::ImmutableCommit { .. })
+    );
+}
