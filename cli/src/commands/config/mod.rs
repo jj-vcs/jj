@@ -45,6 +45,7 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::config::ConfigEnv;
+use crate::config::with_config_warnings;
 use crate::ui::Ui;
 
 #[derive(clap::Args, Clone, Debug)]
@@ -87,13 +88,11 @@ impl ConfigLevelArgs {
             }
             Ok(paths)
         } else if self.repo {
-            config_env
-                .repo_config_path(ui)?
+            with_config_warnings(ui, |w| config_env.repo_config_path(w))?
                 .map(|p| vec![p])
                 .ok_or_else(|| user_error("No repo config path found"))
         } else if self.workspace {
-            config_env
-                .workspace_config_path(ui)?
+            with_config_warnings(ui, |w| config_env.workspace_config_path(w))?
                 .map(|p| vec![p])
                 .ok_or_else(|| user_error("No workspace config path found"))
         } else {
@@ -158,12 +157,12 @@ impl ConfigTargetArgs {
             )
         } else if self.repo {
             pick_first(
-                config_env.repo_config_files(ui, config)?,
+                with_config_warnings(ui, |w| config_env.repo_config_files(w, config))?,
                 "No repo config path found to edit",
             )
         } else if self.workspace {
             pick_first(
-                config_env.workspace_config_files(ui, config)?,
+                with_config_warnings(ui, |w| config_env.workspace_config_files(w, config))?,
                 "No workspace config path found to edit",
             )
         } else {

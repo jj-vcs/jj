@@ -30,6 +30,7 @@ use std::sync::Mutex;
 
 use etcetera::BaseStrategy as _;
 use itertools::Itertools as _;
+use jj_frontend::config_env::ConfigEnvError;
 use jj_frontend::config_util;
 use jj_frontend::config_util::ConfigWarning;
 use jj_lib::config::ConfigFile;
@@ -46,6 +47,7 @@ use jj_lib::dsl_util::AliasDeclarationParser;
 use jj_lib::dsl_util::AliasesMap;
 use jj_lib::secure_config::LoadedSecureConfig;
 use jj_lib::secure_config::SecureConfig;
+use jj_lib::secure_config::SecureConfigError;
 use rand::SeedableRng as _;
 use rand_chacha::ChaCha20Rng;
 use regex::Regex;
@@ -457,11 +459,11 @@ impl ConfigEnv {
 
     fn load_secure_config(
         &self,
-        ui: &Ui,
+        warnings: &mut Vec<ConfigWarning>,
         config: Option<&SecureConfig>,
         kind: &str,
         force: bool,
-    ) -> Result<Option<LoadedSecureConfig>, CommandError> {
+    ) -> Result<Option<LoadedSecureConfig>, SecureConfigError> {
         Ok(match (config, self.root_config_dir.as_ref()) {
             (Some(config), Some(root_config_dir)) => {
                 let mut guard = self.rng.lock().unwrap();
@@ -470,9 +472,11 @@ impl ConfigEnv {
                 } else {
                     config.maybe_load_config(&mut guard, &root_config_dir.join(kind))
                 }?;
-                for warning in &loaded_config.warnings {
-                    writeln!(ui.warning_default(), "{warning}")?;
-                }
+                warnings.extend(loaded_config.warnings.iter().map(|message| {
+                    ConfigWarning::SecureConfig {
+                        message: message.clone(),
+                    }
+                }));
                 Some(loaded_config)
             }
             _ => None,
@@ -499,10 +503,11 @@ impl ConfigEnv {
     /// The parent directory for the new file may be created by this function.
     /// If the user configuration path is unknown, this function returns an
     /// empty `Vec`.
-    pub fn user_config_files(&self, config: &RawConfig) -> Result<Vec<ConfigFile>, CommandError> {
-        config_files_for(config, ConfigSource::User, || {
-            Ok(self.new_user_config_file()?)
-        })
+    pub fn user_config_files(
+        &self,
+        config: &RawConfig,
+    ) -> Result<Vec<ConfigFile>, ConfigLoadError> {
+        config_files_for(config, ConfigSource::User, || self.new_user_config_file())
     }
 
     fn new_user_config_file(&self) -> Result<Option<ConfigFile>, ConfigLoadError> {
@@ -544,18 +549,24 @@ impl ConfigEnv {
     }
 
     /// Returns a path to the existing repo-specific config file.
-    fn maybe_repo_config_path(&self, ui: &Ui) -> Result<Option<PathBuf>, CommandError> {
+    fn maybe_repo_config_path(
+        &self,
+        warnings: &mut Vec<ConfigWarning>,
+    ) -> Result<Option<PathBuf>, SecureConfigError> {
         Ok(self
-            .load_secure_config(ui, self.repo_config.as_ref(), REPO_CONFIG_DIR, false)?
+            .load_secure_config(warnings, self.repo_config.as_ref(), REPO_CONFIG_DIR, false)?
             .and_then(|c| c.config_file))
     }
 
     /// Returns a path to the existing repo-specific config file.
     /// If the config file does not exist, will create a new config ID and
     /// create a new directory for this.
-    pub fn repo_config_path(&self, ui: &Ui) -> Result<Option<PathBuf>, CommandError> {
+    pub fn repo_config_path(
+        &self,
+        warnings: &mut Vec<ConfigWarning>,
+    ) -> Result<Option<PathBuf>, SecureConfigError> {
         Ok(self
-            .load_secure_config(ui, self.repo_config.as_ref(), REPO_CONFIG_DIR, true)?
+            .load_secure_config(warnings, self.repo_config.as_ref(), REPO_CONFIG_DIR, true)?
             .and_then(|c| c.config_file))
     }
 
@@ -575,15 +586,20 @@ impl ConfigEnv {
     /// have at most one config file.
     pub fn repo_config_files(
         &self,
-        ui: &Ui,
+        warnings: &mut Vec<ConfigWarning>,
         config: &RawConfig,
-    ) -> Result<Vec<ConfigFile>, CommandError> {
-        config_files_for(config, ConfigSource::Repo, || self.new_repo_config_file(ui))
+    ) -> Result<Vec<ConfigFile>, ConfigEnvError> {
+        config_files_for(config, ConfigSource::Repo, || {
+            self.new_repo_config_file(warnings)
+        })
     }
 
-    fn new_repo_config_file(&self, ui: &Ui) -> Result<Option<ConfigFile>, CommandError> {
+    fn new_repo_config_file(
+        &self,
+        warnings: &mut Vec<ConfigWarning>,
+    ) -> Result<Option<ConfigFile>, ConfigEnvError> {
         Ok(self
-            .repo_config_path(ui)?
+            .repo_config_path(warnings)?
             // The path doesn't usually exist, but we shouldn't overwrite it
             // with an empty config if it did exist.
             .map(|path| ConfigFile::load_or_empty(ConfigSource::Repo, path))
@@ -592,10 +608,14 @@ impl ConfigEnv {
 
     /// Loads repo-specific config file into the given `config`. The old
     /// repo-config layer will be replaced if any.
-    #[instrument(skip(ui))]
-    pub fn reload_repo_config(&self, ui: &Ui, config: &mut RawConfig) -> Result<(), CommandError> {
+    #[instrument(skip(warnings))]
+    pub fn reload_repo_config(
+        &self,
+        warnings: &mut Vec<ConfigWarning>,
+        config: &mut RawConfig,
+    ) -> Result<(), ConfigEnvError> {
         config.as_mut().remove_layers(ConfigSource::Repo);
-        if let Some(path) = self.maybe_repo_config_path(ui)?
+        if let Some(path) = self.maybe_repo_config_path(warnings)?
             && path.exists()
         {
             config.as_mut().load_file(ConfigSource::Repo, path)?;
@@ -610,10 +630,13 @@ impl ConfigEnv {
     }
 
     /// Returns a path to the workspace-specific config file, if it exists.
-    fn maybe_workspace_config_path(&self, ui: &Ui) -> Result<Option<PathBuf>, CommandError> {
+    fn maybe_workspace_config_path(
+        &self,
+        warnings: &mut Vec<ConfigWarning>,
+    ) -> Result<Option<PathBuf>, SecureConfigError> {
         Ok(self
             .load_secure_config(
-                ui,
+                warnings,
                 self.workspace_config.as_ref(),
                 WORKSPACE_CONFIG_DIR,
                 false,
@@ -624,10 +647,13 @@ impl ConfigEnv {
     /// Returns a path to the existing workspace-specific config file.
     /// If the config file does not exist, will create a new config ID and
     /// create a new directory for this.
-    pub fn workspace_config_path(&self, ui: &Ui) -> Result<Option<PathBuf>, CommandError> {
+    pub fn workspace_config_path(
+        &self,
+        warnings: &mut Vec<ConfigWarning>,
+    ) -> Result<Option<PathBuf>, SecureConfigError> {
         Ok(self
             .load_secure_config(
-                ui,
+                warnings,
                 self.workspace_config.as_ref(),
                 WORKSPACE_CONFIG_DIR,
                 true,
@@ -651,31 +677,34 @@ impl ConfigEnv {
     /// `Vec` should have at most one config file.
     pub fn workspace_config_files(
         &self,
-        ui: &Ui,
+        warnings: &mut Vec<ConfigWarning>,
         config: &RawConfig,
-    ) -> Result<Vec<ConfigFile>, CommandError> {
+    ) -> Result<Vec<ConfigFile>, ConfigEnvError> {
         config_files_for(config, ConfigSource::Workspace, || {
-            self.new_workspace_config_file(ui)
+            self.new_workspace_config_file(warnings)
         })
     }
 
-    fn new_workspace_config_file(&self, ui: &Ui) -> Result<Option<ConfigFile>, CommandError> {
+    fn new_workspace_config_file(
+        &self,
+        warnings: &mut Vec<ConfigWarning>,
+    ) -> Result<Option<ConfigFile>, ConfigEnvError> {
         Ok(self
-            .workspace_config_path(ui)?
+            .workspace_config_path(warnings)?
             .map(|path| ConfigFile::load_or_empty(ConfigSource::Workspace, path))
             .transpose()?)
     }
 
     /// Loads workspace-specific config file into the given `config`. The old
     /// workspace-config layer will be replaced if any.
-    #[instrument(skip(ui))]
+    #[instrument(skip(warnings))]
     pub fn reload_workspace_config(
         &self,
-        ui: &Ui,
+        warnings: &mut Vec<ConfigWarning>,
         config: &mut RawConfig,
-    ) -> Result<(), CommandError> {
+    ) -> Result<(), ConfigEnvError> {
         config.as_mut().remove_layers(ConfigSource::Workspace);
-        if let Some(path) = self.maybe_workspace_config_path(ui)?
+        if let Some(path) = self.maybe_workspace_config_path(warnings)?
             && path.exists()
         {
             config.as_mut().load_file(ConfigSource::Workspace, path)?;
@@ -696,6 +725,17 @@ impl ConfigEnv {
         config: &RawConfig,
         path: &Path,
     ) -> Result<ConfigFile, CommandError> {
+        with_config_warnings(ui, |warnings| {
+            self.resolve_file_to_edit_impl(warnings, config, path)
+        })
+    }
+
+    fn resolve_file_to_edit_impl(
+        &self,
+        warnings: &mut Vec<ConfigWarning>,
+        config: &RawConfig,
+        path: &Path,
+    ) -> Result<ConfigFile, CommandError> {
         let canonical_path = dunce::canonicalize(path).ok();
         let matches_path = |p: &Path| p == path || Some(p) == canonical_path.as_deref();
 
@@ -711,7 +751,7 @@ impl ConfigEnv {
         }
 
         // 2. Check repo config path (even if not yet created on disk)
-        if let Ok(Some(repo_path)) = self.repo_config_path(ui)
+        if let Ok(Some(repo_path)) = self.repo_config_path(warnings)
             && matches_path(&repo_path)
         {
             if let Some(parent) = path.parent() {
@@ -721,7 +761,7 @@ impl ConfigEnv {
         }
 
         // 3. Check workspace config path (even if not yet created on disk)
-        if let Ok(Some(workspace_path)) = self.workspace_config_path(ui)
+        if let Ok(Some(workspace_path)) = self.workspace_config_path(warnings)
             && matches_path(&workspace_path)
         {
             if let Some(parent) = path.parent() {
@@ -778,11 +818,11 @@ pub fn existing_repo_config_file(config: &RawConfig) -> Option<ConfigFile> {
         .find_map(|layer| ConfigFile::from_layer(layer.clone()).ok())
 }
 
-fn config_files_for(
+fn config_files_for<E>(
     config: &RawConfig,
     source: ConfigSource,
-    new_file: impl FnOnce() -> Result<Option<ConfigFile>, CommandError>,
-) -> Result<Vec<ConfigFile>, CommandError> {
+    new_file: impl FnOnce() -> Result<Option<ConfigFile>, E>,
+) -> Result<Vec<ConfigFile>, E> {
     let mut files = config
         .as_ref()
         .layers_for(source)
@@ -1200,9 +1240,27 @@ pub fn print_config_warnings(ui: &Ui, warnings: &[ConfigWarning]) -> io::Result<
                 "Redefining `{table_name}.{decl}` is not recommended; redefine \
                  `immutable_heads()` instead.",
             )?,
+            ConfigWarning::SecureConfig { message } => {
+                writeln!(ui.warning_default(), "{message}")?;
+            }
         }
     }
     Ok(())
+}
+
+/// Calls `f` with a list for collecting configuration warnings, and prints the
+/// collected warnings before returning the result of `f`.
+pub fn with_config_warnings<T, E>(
+    ui: &Ui,
+    f: impl FnOnce(&mut Vec<ConfigWarning>) -> Result<T, E>,
+) -> Result<T, CommandError>
+where
+    CommandError: From<E>,
+{
+    let mut warnings = vec![];
+    let result = f(&mut warnings);
+    print_config_warnings(ui, &warnings)?;
+    Ok(result?)
 }
 
 // Not interested in $UPPER_CASE_VARIABLES

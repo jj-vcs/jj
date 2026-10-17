@@ -1228,10 +1228,12 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
     config_env.reload_user_config(&mut raw_config).ok();
     if let Ok(loader) = &maybe_cwd_workspace_loader {
         config_env.reset_repo_path(loader.repo_path());
-        config_env.reload_repo_config(&ui, &mut raw_config).ok();
+        config_env
+            .reload_repo_config(&mut vec![], &mut raw_config)
+            .ok();
         config_env.reset_workspace_path(loader.workspace_root());
         config_env
-            .reload_workspace_config(&ui, &mut raw_config)
+            .reload_workspace_config(&mut vec![], &mut raw_config)
             .ok();
     }
     let mut config = config_env.resolve_config(&raw_config)?;
@@ -1250,10 +1252,12 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
         // Try to update repo-specific config on a best-effort basis.
         if let Ok(loader) = default_workspace_loader_factory().create(&cwd.join(&repository)) {
             config_env.reset_repo_path(loader.repo_path());
-            config_env.reload_repo_config(&ui, &mut raw_config).ok();
+            config_env
+                .reload_repo_config(&mut vec![], &mut raw_config)
+                .ok();
             config_env.reset_workspace_path(loader.workspace_root());
             config_env
-                .reload_workspace_config(&ui, &mut raw_config)
+                .reload_workspace_config(&mut vec![], &mut raw_config)
                 .ok();
             if let Ok(new_config) = config_env.resolve_config(&raw_config) {
                 config = new_config;

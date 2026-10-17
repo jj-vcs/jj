@@ -20,6 +20,7 @@ use std::iter;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use jj_frontend::config_env::ConfigEnvError;
 use jj_frontend::config_util::RemoteSettingParseError;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::SnapshotConfigError;
@@ -941,6 +942,15 @@ impl From<BisectionError> for CommandError {
         match err {
             BisectionError::BackendError(_) => user_error(err),
             BisectionError::RevsetEvaluationError(_) => user_error(err),
+        }
+    }
+}
+
+impl From<ConfigEnvError> for CommandError {
+    fn from(err: ConfigEnvError) -> Self {
+        match err {
+            ConfigEnvError::SecureConfig(err) => err.into(),
+            ConfigEnvError::Load(err) => err.into(),
         }
     }
 }
