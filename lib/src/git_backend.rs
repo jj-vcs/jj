@@ -900,11 +900,10 @@ fn to_ref_deletion(git_ref: gix::refs::Reference) -> gix::refs::transaction::Ref
 /// unreachable and non-head refs.
 fn recreate_no_gc_refs(
     git_repo: &gix::Repository,
-    new_heads: impl IntoIterator<Item = CommitId>,
+    new_heads: &HashSet<&CommitId>,
     keep_newer: SystemTime,
 ) -> BackendResult<()> {
     // Calculate diff between existing no-gc refs and new heads.
-    let new_heads: HashSet<CommitId> = new_heads.into_iter().collect();
     let mut no_gc_refs_to_keep_count: usize = 0;
     let mut no_gc_refs_to_delete: Vec<gix::refs::Reference> = Vec::new();
     let git_references = git_repo
@@ -964,7 +963,7 @@ fn recreate_no_gc_refs(
     // It's slow to delete packed refs one by one, so update refs all at once.
     let ref_edits = itertools::chain(
         no_gc_refs_to_delete.into_iter().map(to_ref_deletion),
-        new_heads.iter().map(to_no_gc_ref_update),
+        new_heads.iter().copied().map(to_no_gc_ref_update),
     );
     git_repo
         .edit_references(ref_edits)
@@ -1571,8 +1570,8 @@ impl Backend for GitBackend {
         let new_heads = new_heads
             .iter()
             .filter(|id| *id != &self.root_commit_id)
-            .cloned();
-        recreate_no_gc_refs(&git_repo, new_heads, keep_newer)?;
+            .collect();
+        recreate_no_gc_refs(&git_repo, &new_heads, keep_newer)?;
 
         // No locking is needed since we aren't going to add new "commits".
         let table = self.cached_extra_metadata_table()?;
