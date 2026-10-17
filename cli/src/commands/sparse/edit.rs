@@ -16,6 +16,8 @@ use std::fmt::Write as _;
 use std::path::Path;
 
 use itertools::Itertools as _;
+use jj_frontend::text_editor::LineNumber;
+use jj_frontend::text_editor::TextEditor;
 use jj_lib::repo_path::RepoPathBuf;
 use tracing::instrument;
 
@@ -24,8 +26,6 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error_with_message;
-use crate::description_util::LineNumber;
-use crate::description_util::TextEditor;
 use crate::ui::Ui;
 
 /// Start an editor to update the patterns that are present in the working copy
