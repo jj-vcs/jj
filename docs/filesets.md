@@ -85,6 +85,10 @@ You can also specify patterns by using functions.
 
 * `all()`: Matches everything.
 * `none()`: Matches nothing.
+* `sparse()`: Matches the paths selected by the current workspace's sparse
+  patterns (see `jj sparse`). Those paths are relative to the workspace root,
+  whatever the current directory is. Only available in filesets given as
+  command arguments, not in templates or configuration.
 
 ## Aliases
 
@@ -142,4 +146,20 @@ Split a revision in two, putting `foo` into the second commit.
 
 ```shell
 jj split '~foo'
+```
+
+Select a sparse checkout that excludes `build/`, then put one of its
+subdirectories back:
+
+```shell
+jj sparse set 'all() ~ build'
+jj sparse set --include build/config
+jj sparse show
+```
+
+Keep only the Rust sources of the current sparse checkout. `sparse()` refers
+to the selection as it was before the command:
+
+```shell
+jj sparse set 'sparse() & glob:"**/*.rs"'
 ```
