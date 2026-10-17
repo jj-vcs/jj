@@ -30,6 +30,8 @@ use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
+use jj_frontend::revset_util::UserRevsetEvaluationError;
+use jj_frontend::revset_util::default_symbol_resolver;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -106,8 +108,6 @@ use crate::operation_templater::OperationTemplateBuildFnTable;
 use crate::operation_templater::OperationTemplateEnvironment;
 use crate::operation_templater::OperationTemplatePropertyKind;
 use crate::operation_templater::OperationTemplatePropertyVar;
-use crate::revset_util;
-use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_builder;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
@@ -1654,7 +1654,7 @@ fn evaluate_revset_expression(
     id_prefix_context: &IdPrefixContext,
     expression: &UserRevsetExpression,
 ) -> Result<Box<dyn Revset>, UserRevsetEvaluationError> {
-    let symbol_resolver = revset_util::default_symbol_resolver(
+    let symbol_resolver = default_symbol_resolver(
         repo,
         revset_parse_context.extensions.symbol_resolvers(),
         id_prefix_context,
