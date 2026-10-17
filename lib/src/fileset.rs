@@ -21,6 +21,9 @@ use std::sync::LazyLock;
 use itertools::Itertools as _;
 pub use jj_core::fileset_backend::FilePattern;
 pub use jj_core::fileset_backend::FilesetExpression;
+pub use jj_core::fileset_backend::FilesetRule;
+pub use jj_core::fileset_backend::FilesetRuleKind;
+pub use jj_core::fileset_backend::FilesetRules;
 use thiserror::Error;
 
 use crate::dsl_util::collect_similar;

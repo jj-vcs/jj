@@ -67,6 +67,19 @@ pub enum RepoPathUiConverter {
 }
 
 impl RepoPathUiConverter {
+    /// Converter for paths relative to the workspace root, independent of any
+    /// working directory.
+    ///
+    /// Use this where paths must round-trip through text that is stored or
+    /// shared between workspaces, such as configuration files.
+    pub fn root() -> &'static Self {
+        static ROOT: RepoPathUiConverter = RepoPathUiConverter::Fs {
+            cwd: PathBuf::new(),
+            base: PathBuf::new(),
+        };
+        &ROOT
+    }
+
     /// Format a path for display in the UI.
     pub fn format_file_path(&self, file: &RepoPath) -> String {
         match self {
