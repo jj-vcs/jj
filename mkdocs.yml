@@ -178,6 +178,7 @@ nav: # This lists all the files that become part of the documentation
       - git-submodule-storage: 'design/git-submodule-storage.md'
       - JJ run: 'design/run.md'
       - Sparse patterns v2: 'design/sparse-v2.md'
+      - Fileset-based sparse checkouts: 'design/fileset-sparse-checkout.md'
       - Tracking branches: 'design/tracking-branches.md'
       - Copy tracking and tracing: 'design/copy-tracking.md'
       - Secure config: 'design/secure-config.md'
