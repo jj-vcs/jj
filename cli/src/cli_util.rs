@@ -54,6 +54,10 @@ use jj_frontend::config_env::ConfigEnv;
 use jj_frontend::config_env::RawConfig;
 use jj_frontend::config_env::config_from_environment;
 use jj_frontend::config_util;
+use jj_frontend::merge_tools::DiffEditor;
+use jj_frontend::merge_tools::MergeEditor;
+use jj_frontend::merge_tools::MergeToolConfigError;
+use jj_frontend::merge_tools::MergeToolConfigWarning;
 use jj_frontend::revset_util::RevsetExpressionEvaluator;
 use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_frontend::runner::GitImportExportLock;
@@ -183,10 +187,7 @@ use crate::diff_util::DiffRenderer;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
-use crate::merge_tools::DiffEditor;
-use crate::merge_tools::MergeEditor;
-use crate::merge_tools::MergeToolConfigError;
-use crate::merge_tools::MergeToolConfigWarning;
+use crate::merge_tools::TerminalBuiltinMergeTool;
 use crate::operation_templater::OperationTemplateLanguage;
 use crate::operation_templater::OperationTemplateLanguageExtension;
 use crate::revset_util;
@@ -1516,13 +1517,8 @@ impl WorkspaceCommandHelper {
     ) -> Result<DiffEditor, CommandError> {
         let base_ignores = self.base_ignores()?;
         let conflict_marker_style = self.env.conflict_marker_style();
-        if let Some(name) = tool_name {
-            Ok(DiffEditor::with_name(
-                name,
-                self.settings(),
-                base_ignores,
-                conflict_marker_style,
-            )?)
+        let editor = if let Some(name) = tool_name {
+            DiffEditor::with_name(name, self.settings(), base_ignores, conflict_marker_style)?
         } else {
             let mut warnings = vec![];
             let result = DiffEditor::from_settings(
@@ -1532,8 +1528,9 @@ impl WorkspaceCommandHelper {
                 conflict_marker_style,
             );
             print_merge_tool_config_warnings(ui, &warnings);
-            Ok(result?)
-        }
+            result?
+        };
+        Ok(editor.with_builtin_tool(Arc::new(TerminalBuiltinMergeTool)))
     }
 
     /// Conditionally loads diff editor from the settings.
@@ -1561,15 +1558,16 @@ impl WorkspaceCommandHelper {
         tool_name: Option<&str>,
     ) -> Result<MergeEditor, MergeToolConfigError> {
         let conflict_marker_style = self.env.conflict_marker_style();
-        if let Some(name) = tool_name {
-            MergeEditor::with_name(name, self.settings(), conflict_marker_style)
+        let editor = if let Some(name) = tool_name {
+            MergeEditor::with_name(name, self.settings(), conflict_marker_style)?
         } else {
             let mut warnings = vec![];
             let result =
                 MergeEditor::from_settings(&mut warnings, self.settings(), conflict_marker_style);
             print_merge_tool_config_warnings(ui, &warnings);
-            result
-        }
+            result?
+        };
+        Ok(editor.with_builtin_tool(Arc::new(TerminalBuiltinMergeTool)))
     }
 
     /// Loads text editor from the settings.

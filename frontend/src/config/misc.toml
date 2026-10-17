@@ -2,3 +2,6 @@
 max-new-file-size = "1MiB"
 auto-track = "all()"
 auto-update-stale = false
+
+[ui]
+diff-instructions = true

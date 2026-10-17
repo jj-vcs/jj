@@ -19,6 +19,8 @@ include = [
 ]
 
 [dependencies]
+async-trait = { workspace = true }
+bstr = { workspace = true }
 dunce = { workspace = true }
 etcetera = { workspace = true }
 futures = { workspace = true }
@@ -26,6 +28,7 @@ gix = { workspace = true, optional = true }
 itertools = { workspace = true }
 jiff = { workspace = true }
 jj-lib = { workspace = true }
+maplit = { workspace = true }
 pollster = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
@@ -39,7 +42,7 @@ whoami = { workspace = true }
 
 [dev-dependencies]
 indoc = { workspace = true }
-maplit = { workspace = true }
+insta = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }
 
