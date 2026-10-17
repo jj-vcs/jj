@@ -418,6 +418,427 @@ fn test_tree_builder_dir_and_child_overrides() -> TestResult {
     );
     let actual_tree_id = builder.write_tree().block_on()?;
     assert_eq!(&actual_tree_id, expected_tree.id());
+
+    // Replacing directory `foo` with a file while also setting `foo/c` ignores
+    // `foo/c`.
+    let base_tree = create_single_tree(repo, &[(foo_a_path, "1")]);
+    let expected_tree = create_single_tree(repo, &[(foo_path, "file")]);
+    let foo_c_tree = create_single_tree(repo, &[(foo_c_path, "3")]);
+    let mut builder = TreeBuilder::new(store.clone(), base_tree.id().clone());
+    builder.set(
+        foo_path.to_owned(),
+        expected_tree.path_value(foo_path).block_on()?.unwrap(),
+    );
+    builder.set(
+        foo_c_path.to_owned(),
+        foo_c_tree.path_value(foo_c_path).block_on()?.unwrap(),
+    );
+    let actual_tree_id = builder.write_tree().block_on()?;
+    assert_eq!(&actual_tree_id, expected_tree.id());
+    Ok(())
+}
+
+/// Test that resolved overrides are applied to all terms of a conflicted base
+/// tree, including in directories that are shared between the terms.
+#[test]
+fn test_merged_tree_builder_resolved_overrides_on_conflict() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let conflicted_path = repo_path("dir/conflicted");
+    let unchanged_path = repo_path("dir/unchanged");
+    let shared_path = repo_path("shared/file");
+    let added_path = repo_path("shared/added");
+    let base = create_single_tree(
+        repo,
+        &[
+            (conflicted_path, "base"),
+            (unchanged_path, "unchanged"),
+            (shared_path, "shared"),
+        ],
+    );
+    let side1 = create_single_tree(
+        repo,
+        &[
+            (conflicted_path, "side1"),
+            (unchanged_path, "unchanged"),
+            (shared_path, "shared"),
+        ],
+    );
+    let side2 = create_single_tree(
+        repo,
+        &[
+            (conflicted_path, "side2"),
+            (unchanged_path, "unchanged"),
+            (shared_path, "shared"),
+        ],
+    );
+    let base_tree = MergedTree::new(
+        store.clone(),
+        Merge::from_vec(vec![
+            side1.id().clone(),
+            base.id().clone(),
+            side2.id().clone(),
+        ]),
+        ConflictLabels::from_vec(vec!["side 1".into(), "base".into(), "side 2".into()]),
+    );
+
+    let values = create_tree(
+        repo,
+        &[(conflicted_path, "resolved"), (added_path, "added")],
+    );
+    let mut tree_builder = MergedTreeBuilder::new(base_tree);
+    tree_builder.set_or_remove_merge(
+        conflicted_path.to_owned(),
+        values.path_value(conflicted_path).block_on()?,
+    )?;
+    tree_builder.set_or_remove_merge(
+        added_path.to_owned(),
+        values.path_value(added_path).block_on()?,
+    )?;
+    let tree = tree_builder.write_tree().block_on()?;
+    let expected = create_single_tree(
+        repo,
+        &[
+            (conflicted_path, "resolved"),
+            (unchanged_path, "unchanged"),
+            (shared_path, "shared"),
+            (added_path, "added"),
+        ],
+    );
+    assert_eq!(*tree.tree_ids(), Merge::resolved(expected.id().clone()));
+    Ok(())
+}
+
+/// Test that each term of a conflicted override is applied to the
+/// corresponding term of the base tree, including in directories that don't
+/// exist in the base tree.
+#[test]
+fn test_merged_tree_builder_conflicted_override() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let conflicted_path = repo_path("conflicted");
+    let added_path = repo_path("new_dir/subdir/added");
+    let base = create_single_tree(repo, &[(conflicted_path, "base")]);
+    let side1 = create_single_tree(repo, &[(conflicted_path, "side1")]);
+    let side2 = create_single_tree(repo, &[(conflicted_path, "side2")]);
+    let labels = ConflictLabels::from_vec(vec!["side 1".into(), "base".into(), "side 2".into()]);
+    let base_tree = MergedTree::new(
+        store.clone(),
+        Merge::from_vec(vec![
+            side1.id().clone(),
+            base.id().clone(),
+            side2.id().clone(),
+        ]),
+        labels.clone(),
+    );
+
+    // An add/add conflict
+    let added_tree = MergedTree::new(
+        store.clone(),
+        Merge::from_vec(vec![
+            create_single_tree(repo, &[(added_path, "side1")])
+                .id()
+                .clone(),
+            store.empty_tree_id().clone(),
+            create_single_tree(repo, &[(added_path, "side2")])
+                .id()
+                .clone(),
+        ]),
+        labels.clone(),
+    );
+    let mut tree_builder = MergedTreeBuilder::new(base_tree);
+    tree_builder.set_or_remove_merge(
+        added_path.to_owned(),
+        added_tree.path_value(added_path).block_on()?,
+    )?;
+    let tree = tree_builder.write_tree().block_on()?;
+    let expected_side1 =
+        create_single_tree(repo, &[(conflicted_path, "side1"), (added_path, "side1")]);
+    let expected_side2 =
+        create_single_tree(repo, &[(conflicted_path, "side2"), (added_path, "side2")]);
+    assert_tree_eq!(
+        tree,
+        MergedTree::new(
+            store.clone(),
+            Merge::from_vec(vec![
+                expected_side1.id().clone(),
+                base.id().clone(),
+                expected_side2.id().clone(),
+            ]),
+            labels,
+        )
+    );
+    Ok(())
+}
+
+/// Test a conflicted override at a path that also has a removal below it. The
+/// subtree should be replaced by each term of the conflicted override.
+#[test]
+fn test_merged_tree_builder_conflicted_override_with_removal_below() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let conflicted_path = repo_path("conflicted");
+    let dir_path = repo_path("dir");
+    let dir_file_path = repo_path("dir/file");
+    let labels = ConflictLabels::from_vec(vec!["side 1".into(), "base".into(), "side 2".into()]);
+    let create_conflict =
+        |side1: &[(&RepoPath, &str)], base: &[(&RepoPath, &str)], side2: &[(&RepoPath, &str)]| {
+            MergedTree::new(
+                store.clone(),
+                Merge::from_vec(vec![
+                    create_single_tree(repo, side1).id().clone(),
+                    create_single_tree(repo, base).id().clone(),
+                    create_single_tree(repo, side2).id().clone(),
+                ]),
+                labels.clone(),
+            )
+        };
+    let base_tree = create_conflict(
+        &[(conflicted_path, "side1"), (dir_file_path, "file")],
+        &[(conflicted_path, "base"), (dir_file_path, "file")],
+        &[(conflicted_path, "side2"), (dir_file_path, "file")],
+    );
+
+    // Replace the directory by a modify/delete conflict
+    let dir_values = create_conflict(&[(dir_path, "side1")], &[], &[(dir_path, "side2")]);
+    let mut tree_builder = MergedTreeBuilder::new(base_tree);
+    tree_builder.set_or_remove_merge(
+        dir_path.to_owned(),
+        dir_values.path_value(dir_path).block_on()?,
+    )?;
+    tree_builder.set_or_remove(dir_file_path.to_owned(), None);
+    let tree = tree_builder.write_tree().block_on()?;
+    assert_tree_eq!(
+        tree,
+        create_conflict(
+            &[(conflicted_path, "side1"), (dir_path, "side1")],
+            &[(conflicted_path, "base")],
+            &[(conflicted_path, "side2"), (dir_path, "side2")],
+        )
+    );
+    Ok(())
+}
+
+/// Test a resolved override with a file at a path that has conflicted
+/// overrides below it. The override at the path should take precedence in all
+/// terms.
+#[test]
+fn test_merged_tree_builder_resolved_override_with_conflicted_overrides_below() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let conflicted_path = repo_path("conflicted");
+    let dir_path = repo_path("dir");
+    let dir_file_path = repo_path("dir/file");
+    let labels = ConflictLabels::from_vec(vec!["side 1".into(), "base".into(), "side 2".into()]);
+    let create_conflict =
+        |side1: &[(&RepoPath, &str)], base: &[(&RepoPath, &str)], side2: &[(&RepoPath, &str)]| {
+            MergedTree::new(
+                store.clone(),
+                Merge::from_vec(vec![
+                    create_single_tree(repo, side1).id().clone(),
+                    create_single_tree(repo, base).id().clone(),
+                    create_single_tree(repo, side2).id().clone(),
+                ]),
+                labels.clone(),
+            )
+        };
+    let base_tree = create_conflict(
+        &[(conflicted_path, "side1")],
+        &[(conflicted_path, "base")],
+        &[(conflicted_path, "side2")],
+    );
+
+    let dir_value = create_tree(repo, &[(dir_path, "file")]);
+    // An add/add conflict
+    let dir_file_values = create_conflict(
+        &[(dir_file_path, "side1")],
+        &[],
+        &[(dir_file_path, "side2")],
+    );
+    let mut tree_builder = MergedTreeBuilder::new(base_tree);
+    tree_builder.set_or_remove_merge(
+        dir_path.to_owned(),
+        dir_value.path_value(dir_path).block_on()?,
+    )?;
+    tree_builder.set_or_remove_merge(
+        dir_file_path.to_owned(),
+        dir_file_values.path_value(dir_file_path).block_on()?,
+    )?;
+    let tree = tree_builder.write_tree().block_on()?;
+    assert_tree_eq!(
+        tree,
+        create_conflict(
+            &[(conflicted_path, "side1"), (dir_path, "file")],
+            &[(conflicted_path, "base"), (dir_path, "file")],
+            &[(conflicted_path, "side2"), (dir_path, "file")],
+        )
+    );
+    Ok(())
+}
+
+/// Test that overrides below a path are applied to the tree at the path if
+/// there's an override with a tree at the path.
+#[test]
+fn test_merged_tree_builder_tree_override_with_overrides_below() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let dir_path = repo_path("dir");
+    let base_file_path = repo_path("dir/base");
+    let override_file_path = repo_path("dir/override");
+    let added_file_path = repo_path("dir/added");
+    let base_tree = create_tree(repo, &[(base_file_path, "base")]);
+    let values = create_tree(
+        repo,
+        &[(override_file_path, "override"), (added_file_path, "added")],
+    );
+    let dir_value = create_tree(repo, &[(override_file_path, "override")])
+        .path_value(dir_path)
+        .block_on()?;
+
+    // The base tree's `dir` is ignored, and `dir/added` is added to the tree at
+    // `dir`
+    let mut tree_builder = MergedTreeBuilder::new(base_tree.clone());
+    tree_builder.set_or_remove_merge(dir_path.to_owned(), dir_value.clone())?;
+    tree_builder.set_or_remove_merge(
+        added_file_path.to_owned(),
+        values.path_value(added_file_path).block_on()?,
+    )?;
+    let tree = tree_builder.write_tree().block_on()?;
+    assert_tree_eq!(tree, values);
+
+    // If the tree at `dir` becomes empty, `dir` is removed
+    let mut tree_builder = MergedTreeBuilder::new(base_tree);
+    tree_builder.set_or_remove_merge(dir_path.to_owned(), dir_value)?;
+    tree_builder.set_or_remove(override_file_path.to_owned(), None);
+    let tree = tree_builder.write_tree().block_on()?;
+    assert_tree_eq!(tree, create_tree(repo, &[]));
+    Ok(())
+}
+
+/// Test replacing a file by a directory and a directory by a file.
+#[test]
+fn test_merged_tree_builder_file_dir_replacement() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let file_path = repo_path("file");
+    let file_child_path = repo_path("file/child");
+    let dir_path = repo_path("dir");
+    let dir_child_path = repo_path("dir/child");
+    let base_tree = create_tree(repo, &[(file_path, "file"), (dir_child_path, "child")]);
+
+    let values = create_tree(
+        repo,
+        &[(file_child_path, "new child"), (dir_path, "new file")],
+    );
+    let mut tree_builder = MergedTreeBuilder::new(base_tree);
+    tree_builder.set_or_remove(file_path.to_owned(), None);
+    tree_builder.set_or_remove_merge(
+        file_child_path.to_owned(),
+        values.path_value(file_child_path).block_on()?,
+    )?;
+    tree_builder
+        .set_or_remove_merge(dir_path.to_owned(), values.path_value(dir_path).block_on()?)?;
+    tree_builder.set_or_remove(dir_child_path.to_owned(), None);
+    let tree = tree_builder.write_tree().block_on()?;
+    assert_eq!(*tree.tree_ids(), *values.tree_ids());
+    Ok(())
+}
+
+/// Test overrides below a path that's a file in some terms of the base tree
+/// and a directory in others. The file is replaced by a directory only if an
+/// override below it sets a value.
+#[test]
+fn test_merged_tree_builder_overrides_below_base_file() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let conflicted_path = repo_path("conflicted");
+    let path = repo_path("path");
+    let child_path = repo_path("path/child");
+    let added_path = repo_path("path/added");
+    let tree_path = repo_path("path/tree");
+    let tree_file_path = repo_path("path/tree/file");
+    let labels = ConflictLabels::from_vec(vec!["side 1".into(), "base".into(), "side 2".into()]);
+    let create_conflict =
+        |side1: &[(&RepoPath, &str)], base: &[(&RepoPath, &str)], side2: &[(&RepoPath, &str)]| {
+            MergedTree::new(
+                store.clone(),
+                Merge::from_vec(vec![
+                    create_single_tree(repo, side1).id().clone(),
+                    create_single_tree(repo, base).id().clone(),
+                    create_single_tree(repo, side2).id().clone(),
+                ]),
+                labels.clone(),
+            )
+        };
+    let base_tree = create_conflict(
+        &[(conflicted_path, "side1"), (path, "file")],
+        &[(conflicted_path, "base")],
+        &[(conflicted_path, "side2"), (child_path, "child")],
+    );
+
+    // Removing `path/child` keeps the file
+    let mut tree_builder = MergedTreeBuilder::new(base_tree.clone());
+    tree_builder.set_or_remove(child_path.to_owned(), None);
+    let tree = tree_builder.write_tree().block_on()?;
+    assert_tree_eq!(
+        tree,
+        create_conflict(
+            &[(conflicted_path, "side1"), (path, "file")],
+            &[(conflicted_path, "base")],
+            &[(conflicted_path, "side2")],
+        )
+    );
+
+    // Adding `path/added` replaces the file
+    let values = create_tree(repo, &[(added_path, "added")]);
+    let mut tree_builder = MergedTreeBuilder::new(base_tree.clone());
+    tree_builder.set_or_remove_merge(
+        added_path.to_owned(),
+        values.path_value(added_path).block_on()?,
+    )?;
+    let tree = tree_builder.write_tree().block_on()?;
+    assert_tree_eq!(
+        tree,
+        create_conflict(
+            &[(conflicted_path, "side1"), (added_path, "added")],
+            &[(conflicted_path, "base"), (added_path, "added")],
+            &[
+                (conflicted_path, "side2"),
+                (child_path, "child"),
+                (added_path, "added"),
+            ],
+        )
+    );
+
+    // Adding a tree at `path/tree` and then removing everything in it keeps the
+    // file since no value ends up below `path`
+    let tree_value = create_tree(repo, &[(tree_file_path, "file")])
+        .path_value(tree_path)
+        .block_on()?;
+    let mut tree_builder = MergedTreeBuilder::new(base_tree);
+    tree_builder.set_or_remove_merge(tree_path.to_owned(), tree_value)?;
+    tree_builder.set_or_remove(tree_file_path.to_owned(), None);
+    let tree = tree_builder.write_tree().block_on()?;
+    assert_tree_eq!(
+        tree,
+        create_conflict(
+            &[(conflicted_path, "side1"), (path, "file")],
+            &[(conflicted_path, "base")],
+            &[(conflicted_path, "side2"), (child_path, "child")],
+        )
+    );
     Ok(())
 }
 
