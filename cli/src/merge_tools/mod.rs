@@ -51,7 +51,6 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
-use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::working_copy::SnapshotError;
 use thiserror::Error;
 
@@ -65,7 +64,6 @@ use self::external::ExternalToolError;
 use self::external::edit_diff_external;
 pub use self::external::generate_diff;
 pub use self::external::invoke_external_diff;
-use crate::ui::Ui;
 
 const BUILTIN_EDITOR_NAME: &str = ":builtin";
 const TEXT_EDITOR_TOOL_NAME: &str = ":editor";
@@ -214,9 +212,21 @@ impl DiffEditTool {
     }
 }
 
+/// Non-fatal problem found while loading the merge tool configuration.
+#[derive(Clone, Debug)]
+pub enum MergeToolConfigWarning {
+    /// No editor was configured, so the default one is used.
+    DefaultEditor {
+        /// The config key that wasn't set, e.g. `ui.merge-editor`.
+        config_key: &'static str,
+        /// The name of the default editor.
+        name: &'static str,
+    },
+}
+
 /// Finds the appropriate tool for diff editing or merges
 fn editor_args_from_settings(
-    ui: &Ui,
+    warnings: &mut Vec<MergeToolConfigWarning>,
     settings: &UserSettings,
     key: &'static str,
 ) -> Result<CommandNameAndArgs, ConfigGetError> {
@@ -226,12 +236,10 @@ fn editor_args_from_settings(
         Ok(args)
     } else {
         let default_editor = BUILTIN_EDITOR_NAME;
-        writeln!(
-            ui.hint_default(),
-            "Using default editor '{default_editor}'; run `jj config set --user {key} :builtin` \
-             to disable this message."
-        )
-        .ok();
+        warnings.push(MergeToolConfigWarning::DefaultEditor {
+            config_key: key,
+            name: default_editor,
+        });
         Ok(default_editor.into())
     }
 }
@@ -281,12 +289,12 @@ impl DiffEditor {
 
     /// Loads the default diff editor from the settings.
     pub fn from_settings(
-        ui: &Ui,
+        warnings: &mut Vec<MergeToolConfigWarning>,
         settings: &UserSettings,
         base_ignores: Arc<GitIgnoreFile>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
-        let args = editor_args_from_settings(ui, settings, "ui.diff-editor")?;
+        let args = editor_args_from_settings(warnings, settings, "ui.diff-editor")?;
         let tool = if let Some(name) = args.as_str() {
             DiffEditTool::get_tool_config(settings, name)?
         } else {
@@ -421,7 +429,6 @@ impl MergeToolFile {
 #[derive(Clone, Debug)]
 pub struct MergeEditor {
     tool: MergeTool,
-    path_converter: RepoPathUiConverter,
     conflict_marker_style: ConflictMarkerStyle,
 }
 
@@ -431,35 +438,32 @@ impl MergeEditor {
     pub fn with_name(
         name: &str,
         settings: &UserSettings,
-        path_converter: RepoPathUiConverter,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
         let tool = MergeTool::get_tool_config(settings, name)?
             .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_program(name)));
-        Self::new_inner(name, tool, path_converter, conflict_marker_style)
+        Self::new_inner(name, tool, conflict_marker_style)
     }
 
     /// Loads the default 3-way merge editor from the settings.
     pub fn from_settings(
-        ui: &Ui,
+        warnings: &mut Vec<MergeToolConfigWarning>,
         settings: &UserSettings,
-        path_converter: RepoPathUiConverter,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
-        let args = editor_args_from_settings(ui, settings, "ui.merge-editor")?;
+        let args = editor_args_from_settings(warnings, settings, "ui.merge-editor")?;
         let tool = if let Some(name) = args.as_str() {
             MergeTool::get_tool_config(settings, name)?
         } else {
             None
         }
         .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_merge_args(&args)));
-        Self::new_inner(&args, tool, path_converter, conflict_marker_style)
+        Self::new_inner(&args, tool, conflict_marker_style)
     }
 
     fn new_inner(
         name: impl ToString,
         tool: MergeTool,
-        path_converter: RepoPathUiConverter,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
         if let MergeTool::External(mergetool) = &tool
@@ -471,15 +475,16 @@ impl MergeEditor {
         }
         Ok(Self {
             tool,
-            path_converter,
             conflict_marker_style,
         })
     }
 
-    /// Starts a merge editor for the specified files.
+    /// Starts a merge editor for the specified files. For tools that resolve
+    /// the files one at a time, `on_resolving_file` is called before each
+    /// file.
     pub async fn edit_files(
         &self,
-        ui: &Ui,
+        on_resolving_file: &mut dyn FnMut(&RepoPath),
         tree: &MergedTree,
         repo_paths: &[&RepoPath],
     ) -> Result<(MergedTree, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
@@ -505,8 +510,7 @@ impl MergeEditor {
             }
             MergeTool::TextEditor(editor) => {
                 resolve_files_one_by_one(
-                    ui,
-                    &self.path_converter,
+                    on_resolving_file,
                     tree,
                     &merge_tool_files,
                     async |merge_tool_file, tree_builder| {
@@ -532,8 +536,7 @@ impl MergeEditor {
             }
             MergeTool::External(editor) => {
                 external::run_mergetool_external(
-                    ui,
-                    &self.path_converter,
+                    on_resolving_file,
                     editor,
                     tree,
                     &merge_tool_files,
@@ -549,10 +552,10 @@ impl MergeEditor {
 /// `resolve_file`, which should record the result in the tree builder passed
 /// to it. If resolving a file fails after at least one file has been
 /// resolved, the partially-resolved tree is returned along with the error so
-/// that the caller can save the resolved files.
+/// that the caller can save the resolved files. `on_resolving_file` is called
+/// before each file.
 async fn resolve_files_one_by_one(
-    ui: &Ui,
-    path_converter: &RepoPathUiConverter,
+    on_resolving_file: &mut dyn FnMut(&RepoPath),
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
     resolve_file: impl AsyncFn(
@@ -563,11 +566,7 @@ async fn resolve_files_one_by_one(
     let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     let mut partial_resolution_error = None;
     for (i, merge_tool_file) in merge_tool_files.iter().enumerate() {
-        writeln!(
-            ui.status(),
-            "Resolving conflicts in: {}",
-            path_converter.format_file_path(&merge_tool_file.repo_path)
-        )?;
+        on_resolving_file(&merge_tool_file.repo_path);
         match resolve_file(merge_tool_file, &mut tree_builder).await {
             Ok(()) => {}
             Err(err) if i == 0 => {
@@ -777,10 +776,9 @@ mod tests {
     fn test_get_diff_editor_from_settings() {
         let get = |text| {
             let config = config_from_string(text);
-            let ui = Ui::with_config(&config).unwrap();
             let settings = testutils::user_settings_from_config(config);
             DiffEditor::from_settings(
-                &ui,
+                &mut vec![],
                 &settings,
                 GitIgnoreFile::empty(),
                 ConflictMarkerStyle::Diff,
@@ -995,11 +993,7 @@ mod tests {
         let get = |name, config_text| {
             let config = config_from_string(config_text);
             let settings = testutils::user_settings_from_config(config);
-            let path_converter = RepoPathUiConverter::Fs {
-                cwd: "".into(),
-                base: "".into(),
-            };
-            MergeEditor::with_name(name, &settings, path_converter, ConflictMarkerStyle::Diff)
+            MergeEditor::with_name(name, &settings, ConflictMarkerStyle::Diff)
                 .map(|editor| editor.tool)
         };
 
@@ -1054,13 +1048,8 @@ mod tests {
     fn test_get_merge_editor_from_settings() {
         let get = |text| {
             let config = config_from_string(text);
-            let ui = Ui::with_config(&config).unwrap();
             let settings = testutils::user_settings_from_config(config);
-            let path_converter = RepoPathUiConverter::Fs {
-                cwd: "".into(),
-                base: "".into(),
-            };
-            MergeEditor::from_settings(&ui, &settings, path_converter, ConflictMarkerStyle::Diff)
+            MergeEditor::from_settings(&mut vec![], &settings, ConflictMarkerStyle::Diff)
                 .map(|editor| editor.tool)
         };
 

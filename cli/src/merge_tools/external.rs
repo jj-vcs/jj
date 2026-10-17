@@ -25,8 +25,8 @@ use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
+use jj_lib::repo_path::RepoPath;
 use jj_lib::store::Store;
-use jj_lib::ui_path::RepoPathUiConverter;
 use thiserror::Error;
 
 use super::ConflictResolveError;
@@ -39,7 +39,6 @@ use super::diff_working_copies::DiffType;
 use super::diff_working_copies::check_out_trees;
 use super::diff_working_copies::set_readonly_recursively;
 use super::resolve_files_one_by_one;
-use crate::ui::Ui;
 
 /// Merge/diff tool loaded from the settings.
 #[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
@@ -322,8 +321,7 @@ async fn run_mergetool_external_single_file(
 }
 
 pub async fn run_mergetool_external(
-    ui: &Ui,
-    path_converter: &RepoPathUiConverter,
+    on_resolving_file: &mut dyn FnMut(&RepoPath),
     editor: &ExternalMergeTool,
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
@@ -332,8 +330,7 @@ pub async fn run_mergetool_external(
     // TODO: add support for "dir" invocation mode, similar to the
     // "diff-invocation-mode" config option for diffs
     resolve_files_one_by_one(
-        ui,
-        path_converter,
+        on_resolving_file,
         tree,
         merge_tool_files,
         async |merge_tool_file, tree_builder| {
@@ -413,15 +410,17 @@ pub async fn edit_diff_external(
 }
 
 /// Generates textual diff by the specified `tool` and writes into `writer`.
+/// The tool's stderr is redirected to `stderr`. Returns the tool's exit status
+/// if it wasn't one of the expected ones.
 pub async fn generate_diff(
-    ui: &Ui,
     writer: &mut dyn Write,
+    stderr: Stdio,
     trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     tool: &ExternalMergeTool,
     default_conflict_marker_style: ConflictMarkerStyle,
     width: usize,
-) -> Result<(), DiffGenerateError> {
+) -> Result<Option<ExitStatus>, DiffGenerateError> {
     let conflict_marker_style = tool
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
@@ -430,17 +429,20 @@ pub async fn generate_diff(
     diff_wc.set_right_readonly()?;
     let mut patterns = diff_wc.to_command_variables(true);
     patterns.insert("width", width.to_string().into());
-    invoke_external_diff(ui, writer, tool, diff_wc.temp_dir(), &patterns)
+    invoke_external_diff(writer, stderr, tool, diff_wc.temp_dir(), &patterns)
 }
 
-/// Invokes the specified `tool` directing its output into `writer`.
+/// Invokes the specified `tool` directing its output into `writer` and its
+/// stderr into `stderr`. Returns the tool's exit status if it wasn't one of the
+/// expected ones. That isn't an error since some tools, like the traditional
+/// diff command, exit with non-zero status if the inputs are different.
 pub fn invoke_external_diff(
-    ui: &Ui,
     writer: &mut dyn Write,
+    stderr: Stdio,
     tool: &ExternalMergeTool,
     diff_dir: &Path,
     patterns: &HashMap<&str, OsString>,
-) -> Result<(), DiffGenerateError> {
+) -> Result<Option<ExitStatus>, DiffGenerateError> {
     // TODO: Somehow propagate --color to the external command?
     let mut cmd = Command::new(&tool.program);
     let mut patterns = patterns.clone();
@@ -458,7 +460,7 @@ pub fn invoke_external_diff(
     let mut child = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(ui.stderr_for_child().map_err(ExternalToolError::Io)?)
+        .stderr(stderr)
         .spawn()
         .map_err(|source| ExternalToolError::FailedToExecute {
             tool_binary: tool.program.clone(),
@@ -472,13 +474,6 @@ pub fn invoke_external_diff(
     let exit_ok = exit_status
         .code()
         .is_some_and(|status| tool.diff_expected_exit_codes.contains(&status));
-    if !exit_ok {
-        writeln!(
-            ui.warning_default(),
-            "Tool exited with {exit_status} (run with --debug to see the exact invocation).",
-        )
-        .ok();
-    }
     copy_result.map_err(ExternalToolError::Io)?;
-    Ok(())
+    Ok((!exit_ok).then_some(exit_status))
 }
