@@ -30,4 +30,5 @@ pub mod git_util;
 pub mod operation_util;
 pub mod revset_util;
 pub mod runner;
+pub mod text_editor;
 pub mod workspace_env;

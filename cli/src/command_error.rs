@@ -29,6 +29,8 @@ use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::SnapshotConfigError;
 use jj_frontend::runner::StaleWorkingCopyError;
 use jj_frontend::runner::WorkingCopyNotWritableReason;
+use jj_frontend::text_editor::TempTextEditError;
+use jj_frontend::text_editor::TextEditError;
 use jj_frontend::workspace_env::WorkspaceEnvironmentError;
 use jj_lib::absorb::AbsorbError;
 use jj_lib::backend::BackendError;
@@ -80,8 +82,6 @@ use thiserror::Error;
 use crate::cli_util::CliEventSinkError;
 use crate::cli_util::short_operation_hash;
 use crate::description_util::ParseBulkEditMessageError;
-use crate::description_util::TempTextEditError;
-use crate::description_util::TextEditError;
 use crate::diff_util::DiffRenderError;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
@@ -702,12 +702,6 @@ impl From<TempTextEditError> for CommandError {
         let mut cmd_err = user_error(err);
         cmd_err.extend_hints(hint);
         cmd_err
-    }
-}
-
-impl From<TempTextEditError> for ConvergeError {
-    fn from(err: TempTextEditError) -> Self {
-        Self::Other(Box::new(err))
     }
 }
 
