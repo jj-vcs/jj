@@ -12,18 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use itertools::Itertools as _;
+use jj_frontend::operation_util::UndoError;
 use jj_frontend::operation_util::ViewPortions;
+use jj_frontend::operation_util::find_redo_target;
 use jj_frontend::operation_util::restore_operation;
-use jj_lib::object_id::ObjectId as _;
-use jj_lib::op_store::OperationId;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::short_operation_hash;
 use crate::command_error::CommandError;
-use crate::command_error::internal_error;
 use crate::command_error::user_error;
-use crate::commands::undo::UNDO_OP_DESC_PREFIX;
 use crate::ui::Ui;
 
 /// Redo the most recently undone operation
@@ -47,146 +44,43 @@ pub struct RedoArgs {
     allow_cross_workspace: bool,
 }
 
-const REDO_OP_DESC_PREFIX: &str = "redo: restore to operation ";
-
 pub async fn cmd_redo(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &RedoArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
-
-    let mut target_op = workspace_command.repo().operation().clone();
-
-    // Growing the "redo-stack" works very similar to the
-    // [undo-stack](./undo.rs). `jj redo` and `jj undo` track their stacks
-    // separately.
-    //
-    // - If the operation to redo is a regular one (neither an undo- or
-    //   redo-operation): Fail, because there is nothing to redo.
-    // - If the operation to redo is an undo-operation, try to redo it (by restoring
-    //   its parent operation).
-    // - If the operation to redo is a redo-operation itself, redo the operation the
-    //   early redo-operation restored to.
-    // - If the operation to restore to is a redo-operation itself, restore directly
-    //   to the original operation. This avoids creating a linked list of
-    //   redo-operations, which subsequently may have to be walked with an
-    //   inefficient loop.
-    //
-    // This described behavior leads to "jumping over" old redo-stacks if the
-    // current one grows into it. Consider the following op-log example, where
-    // redo-stacks are shown on the left and undo-stacks on the right:
-    //
-    // +------- "redo: restore C" * I
-    // |                          |
-    // | +----- "redo: restore D" * H
-    // | |                        |
-    // | |                        * G "undo: restore A" -------+
-    // | |                        |                            |
-    // | |   +- "redo: restore D" * F                          |
-    // | |   |                    |                            |
-    // | |   |                    * E "undo: restore A" ---+   |
-    // | |   |                    |                        |   |
-    // | +-> +---------------->   * D "undo: restore B" -+ |   |
-    // |                          |                      | |   |
-    // +---------------------->   * C                    | |   |
-    //                            |                      | |   |
-    //                            * B   <----------------+ |   |
-    //                            |                        |   |
-    //                            * A   <------------------+ <-+
-    //
-    // The first interesting operation here is H:
-    // - Attempt to redo G.
-    // - G is an undo-operation, so attempt to restore its parent F.
-    // - F is a redo-operation. Restore its original operation D, instead of F.
-    //
-    // The operation I is also noteworthy:
-    // - Attempt to redo H.
-    // - H is a redo-operation restoring to D, so attempt to redo D.
-    // - D is an undo-operation. Redo it by restoring its parent C.
-    //
-    if let Some(target_op_hex) = target_op
-        .metadata()
-        .description
-        .strip_prefix(REDO_OP_DESC_PREFIX)
-    {
-        let target_op_id = OperationId::try_from_hex(target_op_hex).ok_or_else(|| {
-            internal_error("Failed to parse ID of target operation in redo-stack")
-        })?;
-        target_op = workspace_command
-            .repo()
-            .loader()
-            .load_operation(&target_op_id)
-            .await?;
-    }
-
-    if !target_op
-        .metadata()
-        .description
-        .starts_with(UNDO_OP_DESC_PREFIX)
-    {
-        // cannot redo a non-undo-operation
-        return Err(user_error("Nothing to redo"));
-    }
-
-    if !args.allow_cross_workspace
-        && let Some(op_workspace_name) = &target_op.metadata().workspace_name
-        && op_workspace_name != workspace_command.workspace_name()
-    {
-        return Err(user_error(format!(
+    let target = find_redo_target(
+        workspace_command.repo(),
+        workspace_command.workspace_name(),
+        args.allow_cross_workspace,
+    )
+    .await
+    .map_err(|err| match err {
+        UndoError::OtherWorkspace {
+            operation,
+            workspace_name,
+        } => user_error(format!(
             "Refusing to redo operation {} because it was performed in workspace {}",
-            short_operation_hash(target_op.id()),
-            op_workspace_name.as_symbol()
+            short_operation_hash(&operation),
+            workspace_name.as_symbol()
         ))
         .hinted(
             "Use `--allow-cross-workspace` to redo it anyway, or use `jj op revert` to revert a \
              specific undo operation",
-        ));
-    }
-
-    let mut target_op_parent = target_op
-        .parents()
-        .await?
-        .into_iter()
-        .exactly_one()
-        .map_err(|_| internal_error("Undo operation should have a single parent"))?;
-
-    // Avoid the creation of a linked list by restoring to the original
-    // operation directly, if we're about to restore a redo-operation. If
-    // we didn't do this, repeated calls of `jj undo; jj redo` would create
-    // an ever-growing linked list of redo-operations that restore each
-    // other. Calling `jj redo` one more time would have to redo a potential
-    // undo-operation at the very beginning of the linked list, which would
-    // require walking the entire thing unnecessarily.
-    if let Some(target_op_parent_hex) = target_op_parent
-        .metadata()
-        .description
-        .strip_prefix(REDO_OP_DESC_PREFIX)
-    {
-        let target_op_parent_id =
-            OperationId::try_from_hex(target_op_parent_hex).ok_or_else(|| {
-                internal_error("Failed to parse ID of target operation's parent in redo-stack")
-            })?;
-        target_op_parent = workspace_command
-            .repo()
-            .loader()
-            .load_operation(&target_op_parent_id)
-            .await?;
-    }
+        ),
+        err => err.into(),
+    })?;
 
     let mut tx = workspace_command.start_transaction();
-    restore_operation(tx.repo_mut(), &target_op_parent, ViewPortions::ALL).await?;
+    restore_operation(tx.repo_mut(), &target.restore_to, ViewPortions::ALL).await?;
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Restored to operation: ")?;
         let template = tx.base_workspace_helper().operation_summary_template();
-        template.format(&target_op_parent, formatter.as_mut())?;
+        template.format(&target.restore_to, formatter.as_mut())?;
         writeln!(formatter)?;
     }
-    tx.finish(
-        ui,
-        format!("{REDO_OP_DESC_PREFIX}{}", target_op_parent.id().hex()),
-    )
-    .await?;
+    tx.finish(ui, target.description()).await?;
 
     Ok(())
 }
