@@ -78,6 +78,24 @@ pub enum ConfigWarning {
     },
 }
 
+impl fmt::Display for ConfigWarning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidAlias {
+                table_name,
+                decl,
+                message,
+            } => write!(f, "Failed to load `{table_name}.{decl}`: {message}"),
+            Self::RedefinedMutabilityBuiltin { table_name, decl } => write!(
+                f,
+                "Redefining `{table_name}.{decl}` is not recommended; redefine \
+                 `immutable_heads()` instead."
+            ),
+            Self::SecureConfig { message } => write!(f, "{message}"),
+        }
+    }
+}
+
 /// Loads map of `{fileset,revset,template}-aliases` table from all config
 /// layers. Invalid aliases are skipped and reported in `warnings`.
 ///

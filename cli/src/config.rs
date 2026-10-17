@@ -476,24 +476,7 @@ where
 /// Prints warnings found while loading configuration.
 pub fn print_config_warnings(ui: &Ui, warnings: &[ConfigWarning]) -> io::Result<()> {
     for warning in warnings {
-        match warning {
-            ConfigWarning::InvalidAlias {
-                table_name,
-                decl,
-                message,
-            } => writeln!(
-                ui.warning_default(),
-                "Failed to load `{table_name}.{decl}`: {message}"
-            )?,
-            ConfigWarning::RedefinedMutabilityBuiltin { table_name, decl } => writeln!(
-                ui.warning_default(),
-                "Redefining `{table_name}.{decl}` is not recommended; redefine \
-                 `immutable_heads()` instead.",
-            )?,
-            ConfigWarning::SecureConfig { message } => {
-                writeln!(ui.warning_default(), "{message}")?;
-            }
-        }
+        writeln!(ui.warning_default(), "{warning}")?;
     }
     Ok(())
 }
