@@ -280,24 +280,29 @@ impl OpStore for SimpleOpStore {
             let name = entry.file_name().into_string().ok()?;
             ViewId::try_from_hex(name)
         };
+        let entry_mtime = |entry: &fs::DirEntry| -> Result<SystemTime, PathError> {
+            let path = entry.path();
+            let metadata = entry.metadata().context(&path)?;
+            Ok(metadata.modified().expect("unsupported platform?"))
+        };
+        let remove_file = |path: &Path| -> Result<(), PathError> {
+            tracing::trace!(?path, "removing");
+            fs::remove_file(path).context(path)
+        };
         let remove_file_if_not_new = |entry: &fs::DirEntry| -> Result<(), PathError> {
             let path = entry.path();
             // Check timestamp, but there's still TOCTOU problem if an existing
             // file is renewed.
-            let metadata = entry.metadata().context(&path)?;
-            let mtime = metadata.modified().expect("unsupported platform?");
-            if mtime > keep_newer {
+            if entry_mtime(entry)? > keep_newer {
                 tracing::trace!(?path, "not removing");
                 Ok(())
             } else {
-                tracing::trace!(?path, "removing");
-                fs::remove_file(&path).context(&path)
+                remove_file(&path)
             }
         };
 
         // Reachable objects are resolved without considering the keep_newer
-        // parameter. We could collect ancestors of the "new" operations here,
-        // but more files can be added anyway after that.
+        // parameter.
         let read_op = |id: &OperationId| {
             self.read_operation(id)
                 .block_on()
@@ -309,15 +314,13 @@ impl OpStore for SimpleOpStore {
             |(_, data)| data.parents.iter().map(read_op).collect_vec(),
         )
         .try_collect()?;
-        let reachable_views: HashSet<&ViewId> =
-            reachable_ops.values().map(|data| &data.view_id).collect();
-        tracing::info!(
-            reachable_op_count = reachable_ops.len(),
-            reachable_view_count = reachable_views.len(),
-            "collected reachable objects"
-        );
 
-        let prune_ops = || -> Result<(), PathError> {
+        // Unreachable operations newer than keep_newer are preserved, to
+        // mitigate a risk of deleting a head created concurrently by another
+        // process. They are collected first and filtered below, because an
+        // operation can only be preserved if its parents are preserved too.
+        let collect_recent_ops = || -> Result<HashMap<OperationId, Operation>, PathError> {
+            let mut recent_ops = HashMap::new();
             let op_dir = self.operations_dir();
             for entry in op_dir.read_dir().context(&op_dir)? {
                 let entry = entry.context(&op_dir)?;
@@ -328,10 +331,66 @@ impl OpStore for SimpleOpStore {
                 if reachable_ops.contains_key(&id) {
                     continue;
                 }
-                // If the operation was added after collecting reachable_views,
-                // its view mtime would also be renewed. So there's no need to
-                // update the reachable_views set to preserve the view.
+                if entry_mtime(&entry)? > keep_newer {
+                    if let Ok(data) = self.read_operation(&id).block_on() {
+                        recent_ops.insert(id, data);
+                    }
+                    // If the operation can't be read, leave it to the timestamp
+                    // check of a later gc instead of failing this one.
+                    continue;
+                }
                 remove_file_if_not_new(&entry)?;
+            }
+            Ok(recent_ops)
+        };
+        let recent_ops = collect_recent_ops().map_err(|err| OpStoreError::Other(err.into()))?;
+
+        // A recent operation is preserved only if all of its parents are
+        // preserved as well, which keeps the kept set closed under parents. A
+        // concurrently created operation is based on a published head, so it and
+        // its recent ancestors are preserved. An operation orphaned by a rewrite
+        // such as `jj op abandon`, on the other hand, refers to the abandoned
+        // range: preserving it would keep that whole range alive, and its parent
+        // reference would dangle as soon as the range is pruned. Dropping an
+        // operation can orphan the recent operations that point at it, so this
+        // is repeated until nothing more can be preserved.
+        let mut keep_ops = reachable_ops.clone();
+        // The root operation has no parents and is never pruned, so it can
+        // always serve as a parent of a preserved operation.
+        keep_ops.insert(
+            self.root_operation_id.clone(),
+            self.read_operation(&self.root_operation_id).block_on()?,
+        );
+        loop {
+            let kept_count = keep_ops.len();
+            for (id, data) in &recent_ops {
+                if keep_ops.contains_key(id) {
+                    continue;
+                }
+                if data.parents.iter().all(|id| keep_ops.contains_key(id)) {
+                    keep_ops.insert(id.clone(), data.clone());
+                }
+            }
+            if keep_ops.len() == kept_count {
+                break;
+            }
+        }
+
+        let keep_views: HashSet<&ViewId> = keep_ops.values().map(|data| &data.view_id).collect();
+        tracing::info!(
+            kept_op_count = keep_ops.len(),
+            kept_view_count = keep_views.len(),
+            "collected kept objects"
+        );
+
+        // Remove the recent operations that couldn't be preserved.
+        let prune_ops = || -> Result<(), PathError> {
+            let op_dir = self.operations_dir();
+            for id in recent_ops.keys() {
+                if keep_ops.contains_key(id) {
+                    continue;
+                }
+                remove_file(&op_dir.join(id.hex()))?;
             }
             Ok(())
         };
@@ -345,9 +404,12 @@ impl OpStore for SimpleOpStore {
                     tracing::trace!(?entry, "skipping invalid file name");
                     continue;
                 };
-                if reachable_views.contains(&id) {
+                if keep_views.contains(&id) {
                     continue;
                 }
+                // If the view was added after keep_views was collected, its
+                // mtime would also be renewed. So there's no need to add it to
+                // keep_views to preserve it.
                 remove_file_if_not_new(&entry)?;
             }
             Ok(())
