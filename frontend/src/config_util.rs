@@ -248,6 +248,34 @@ pub fn parse_remote_string_expression(
     })
 }
 
+/// Parses the `remotes.<name>.fetch-bookmarks` setting, if set. Any non-fatal
+/// problems are added to `diagnostics`.
+pub fn parse_remote_fetch_bookmarks(
+    diagnostics: &mut Vec<RemoteSettingDiagnostics>,
+    remote_settings: &RemoteSettingsMap,
+    name: &RemoteName,
+) -> Result<Option<StringExpression>, RemoteSettingParseError> {
+    remote_settings
+        .get(name)
+        .and_then(|settings| settings.fetch_bookmarks.as_ref())
+        .map(|text| parse_remote_string_expression(diagnostics, name, text, "fetch-bookmarks"))
+        .transpose()
+}
+
+/// Parses the `remotes.<name>.fetch-tags` setting, if set. Any non-fatal
+/// problems are added to `diagnostics`.
+pub fn parse_remote_fetch_tags(
+    diagnostics: &mut Vec<RemoteSettingDiagnostics>,
+    remote_settings: &RemoteSettingsMap,
+    name: &RemoteName,
+) -> Result<Option<StringExpression>, RemoteSettingParseError> {
+    remote_settings
+        .get(name)
+        .and_then(|settings| settings.fetch_tags.as_ref())
+        .map(|text| parse_remote_string_expression(diagnostics, name, text, "fetch-tags"))
+        .transpose()
+}
+
 /// Parses the given `remotes.<name>.auto-track-bookmarks` settings into a map
 /// of string matchers.
 pub fn parse_remote_auto_track_bookmarks_map(
