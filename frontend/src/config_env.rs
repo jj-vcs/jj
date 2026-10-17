@@ -124,22 +124,74 @@ fn create_dir_all(path: &Path) -> std::io::Result<()> {
     dir.create(path)
 }
 
-// The struct exists so that we can mock certain global values in unit tests.
+/// Values from the process environment that a [`ConfigEnv`] is created from.
 #[derive(Clone, Default, Debug)]
-struct UnresolvedConfigEnv {
-    user_config_dir: Option<PathBuf>,
-    home_dir: Option<PathBuf>,
-    jj_config: Option<String>,
-    system_config_dir: Option<PathBuf>,
+pub struct ConfigEnvInputs {
+    /// The platform-specific user config directory, such as `~/.config`. The
+    /// user's jj config is in the `jj` subdirectory.
+    pub user_config_dir: Option<PathBuf>,
+    /// The user's home directory.
+    pub home_dir: Option<PathBuf>,
+    /// The value of `$JJ_CONFIG`. If set, these paths are loaded instead of
+    /// the system and user config files.
+    pub jj_config: Option<String>,
+    /// The system config directory, such as `/etc`.
+    pub system_config_dir: Option<PathBuf>,
+    /// The host name, which conditional config can match on.
+    pub hostname: Option<String>,
+    /// The environment variables, which conditional config can match on.
+    pub environment: HashMap<String, String>,
+    /// Seed for generating new repo and workspace config IDs. They're random
+    /// if this is unset.
+    pub randomness_seed: Option<u64>,
 }
 
-impl UnresolvedConfigEnv {
+impl ConfigEnvInputs {
+    /// Reads the inputs from the process environment.
+    pub fn from_environment() -> Self {
+        let user_config_dir = etcetera::choose_base_strategy()
+            .ok()
+            .map(|s| s.config_dir());
+
+        // Canonicalize home so it can be compared with canonicalized paths such
+        // as the cwd in the CLI. $HOME might point to symlink.
+        let home_dir = etcetera::home_dir()
+            .ok()
+            .map(|d| dunce::canonicalize(&d).unwrap_or(d));
+
+        let system_config_dir = if cfg!(unix) {
+            Some("/etc".into())
+        } else {
+            None
+        };
+
+        let environment = env::vars_os()
+            .filter_map(|(k, v)| {
+                // Silently ignore non-Unicode environment variables. Don't panic like vars()
+                let k = k.into_string().ok()?;
+                let v = v.into_string().ok()?;
+                Some((k, v))
+            })
+            .collect();
+        Self {
+            user_config_dir,
+            home_dir,
+            jj_config: env::var("JJ_CONFIG").ok(),
+            system_config_dir,
+            hostname: whoami::hostname().ok(),
+            environment,
+            randomness_seed: env::var("JJ_RANDOMNESS_SEED")
+                .ok()
+                .and_then(|s| s.parse().ok()),
+        }
+    }
+
     fn root_config_dir(&self) -> Option<PathBuf> {
         self.user_config_dir.as_deref().map(|c| c.join("jj"))
     }
 
-    fn resolve_user(self) -> Vec<ConfigPath> {
-        if let Some(paths) = self.jj_config {
+    fn resolve_user(&self) -> Vec<ConfigPath> {
+        if let Some(paths) = &self.jj_config {
             return split_paths(&paths)
                 .filter(|path| !path.as_os_str().is_empty())
                 .map(ConfigPath::new)
@@ -147,7 +199,7 @@ impl UnresolvedConfigEnv {
         }
 
         let mut paths = vec![];
-        let home_config_path = self.home_dir.map(|mut home_dir| {
+        let home_config_path = self.home_dir.clone().map(|mut home_dir| {
             home_dir.push(".jjconfig.toml");
             ConfigPath::new(home_dir)
         });
@@ -156,7 +208,7 @@ impl UnresolvedConfigEnv {
             config_dir.push("config.toml");
             ConfigPath::new(config_dir)
         });
-        let platform_config_dir = self.user_config_dir.map(|mut config_dir| {
+        let platform_config_dir = self.user_config_dir.clone().map(|mut config_dir| {
             config_dir.push("jj");
             config_dir.push("conf.d");
             ConfigPath::new(config_dir)
@@ -219,57 +271,29 @@ pub struct ConfigEnv {
 impl ConfigEnv {
     /// Initializes configuration loader based on environment variables.
     pub fn from_environment() -> Self {
-        let user_config_dir = etcetera::choose_base_strategy()
-            .ok()
-            .map(|s| s.config_dir());
+        Self::new(ConfigEnvInputs::from_environment())
+    }
 
-        // Canonicalize home so it can be compared with canonicalized paths such
-        // as the cwd in the CLI. $HOME might point to symlink.
-        let home_dir = etcetera::home_dir()
-            .ok()
-            .map(|d| dunce::canonicalize(&d).unwrap_or(d));
-
-        let system_config_dir = if cfg!(unix) {
-            Some("/etc".into())
-        } else {
-            None
-        };
-
-        let env = UnresolvedConfigEnv {
-            user_config_dir,
-            home_dir: home_dir.clone(),
-            jj_config: env::var("JJ_CONFIG").ok(),
-            system_config_dir,
-        };
-        let environment = env::vars_os()
-            .filter_map(|(k, v)| {
-                // Silently ignore non-Unicode environment variables. Don't panic like vars()
-                let k = k.into_string().ok()?;
-                let v = v.into_string().ok()?;
-                Some((k, v))
-            })
-            .collect();
+    /// Initializes configuration loader based on the given inputs.
+    pub fn new(inputs: ConfigEnvInputs) -> Self {
         Self {
-            home_dir,
-            root_config_dir: env.root_config_dir(),
+            home_dir: inputs.home_dir.clone(),
+            root_config_dir: inputs.root_config_dir(),
             repo_path: None,
             workspace_path: None,
-            system_config_paths: env.resolve_system(),
-            user_config_paths: env.resolve_user(),
+            system_config_paths: inputs.resolve_system(),
+            user_config_paths: inputs.resolve_user(),
             repo_config: None,
             workspace_config: None,
             command: None,
-            hostname: whoami::hostname().ok(),
-            environment,
+            hostname: inputs.hostname,
+            environment: inputs.environment,
             // We would ideally use JjRng, but that requires the seed from the
             // config, which requires the config to be loaded.
-            rng: Arc::new(Mutex::new(
-                if let Ok(Ok(value)) = env::var("JJ_RANDOMNESS_SEED").map(|s| s.parse::<u64>()) {
-                    ChaCha20Rng::seed_from_u64(value)
-                } else {
-                    rand::make_rng()
-                },
-            )),
+            rng: Arc::new(Mutex::new(match inputs.randomness_seed {
+                Some(seed) => ChaCha20Rng::seed_from_u64(seed),
+                None => rand::make_rng(),
+            })),
         }
     }
 
@@ -801,7 +825,7 @@ mod tests {
 
     struct TestCase {
         files: &'static [&'static str],
-        env: UnresolvedConfigEnv,
+        env: ConfigEnvInputs,
         wants: Vec<Want>,
     }
 
@@ -843,7 +867,7 @@ mod tests {
     fn config_path_home_existing() -> TestCase {
         TestCase {
             files: &["home/.jjconfig.toml"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 home_dir: Some("home".into()),
                 ..Default::default()
             },
@@ -854,7 +878,7 @@ mod tests {
     fn config_path_home_new() -> TestCase {
         TestCase {
             files: &[],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 home_dir: Some("home".into()),
                 ..Default::default()
             },
@@ -865,7 +889,7 @@ mod tests {
     fn config_path_home_existing_platform_new() -> TestCase {
         TestCase {
             files: &["home/.jjconfig.toml"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 home_dir: Some("home".into()),
                 user_config_dir: Some("config".into()),
                 ..Default::default()
@@ -880,7 +904,7 @@ mod tests {
     fn config_path_platform_existing() -> TestCase {
         TestCase {
             files: &["config/jj/config.toml"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 home_dir: Some("home".into()),
                 user_config_dir: Some("config".into()),
                 ..Default::default()
@@ -892,7 +916,7 @@ mod tests {
     fn config_path_platform_new() -> TestCase {
         TestCase {
             files: &[],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 user_config_dir: Some("config".into()),
                 ..Default::default()
             },
@@ -903,7 +927,7 @@ mod tests {
     fn config_path_new_prefer_platform() -> TestCase {
         TestCase {
             files: &[],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 home_dir: Some("home".into()),
                 user_config_dir: Some("config".into()),
                 ..Default::default()
@@ -915,7 +939,7 @@ mod tests {
     fn config_path_jj_config_existing() -> TestCase {
         TestCase {
             files: &["custom.toml"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 jj_config: Some("custom.toml".into()),
                 ..Default::default()
             },
@@ -926,7 +950,7 @@ mod tests {
     fn config_path_jj_config_new() -> TestCase {
         TestCase {
             files: &[],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 jj_config: Some("custom.toml".into()),
                 ..Default::default()
             },
@@ -937,7 +961,7 @@ mod tests {
     fn config_path_jj_config_existing_multiple() -> TestCase {
         TestCase {
             files: &["custom1.toml", "custom2.toml"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 jj_config: Some(
                     join_paths(["custom1.toml", "custom2.toml"])
                         .unwrap()
@@ -956,7 +980,7 @@ mod tests {
     fn config_path_jj_config_new_multiple() -> TestCase {
         TestCase {
             files: &["custom1.toml"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 jj_config: Some(
                     join_paths(["custom1.toml", "custom2.toml"])
                         .unwrap()
@@ -972,7 +996,7 @@ mod tests {
     fn config_path_jj_config_empty_paths_filtered() -> TestCase {
         TestCase {
             files: &["custom1.toml"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 jj_config: Some(
                     join_paths(["custom1.toml", "", "custom2.toml"])
                         .unwrap()
@@ -988,7 +1012,7 @@ mod tests {
     fn config_path_jj_config_empty() -> TestCase {
         TestCase {
             files: &[],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 jj_config: Some("".to_owned()),
                 ..Default::default()
             },
@@ -999,7 +1023,7 @@ mod tests {
     fn config_path_config_pick_platform() -> TestCase {
         TestCase {
             files: &["config/jj/config.toml"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 home_dir: Some("home".into()),
                 user_config_dir: Some("config".into()),
                 ..Default::default()
@@ -1011,7 +1035,7 @@ mod tests {
     fn config_path_config_pick_home() -> TestCase {
         TestCase {
             files: &["home/.jjconfig.toml"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 home_dir: Some("home".into()),
                 user_config_dir: Some("config".into()),
                 ..Default::default()
@@ -1026,7 +1050,7 @@ mod tests {
     fn config_path_platform_new_conf_dir_existing() -> TestCase {
         TestCase {
             files: &["config/jj/conf.d/_"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 home_dir: Some("home".into()),
                 user_config_dir: Some("config".into()),
                 ..Default::default()
@@ -1041,7 +1065,7 @@ mod tests {
     fn config_path_platform_existing_conf_dir_existing() -> TestCase {
         TestCase {
             files: &["config/jj/config.toml", "config/jj/conf.d/_"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 home_dir: Some("home".into()),
                 user_config_dir: Some("config".into()),
                 ..Default::default()
@@ -1060,7 +1084,7 @@ mod tests {
                 "config/jj/config.toml",
                 "home/.jjconfig.toml",
             ],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 home_dir: Some("home".into()),
                 user_config_dir: Some("config".into()),
                 ..Default::default()
@@ -1134,7 +1158,7 @@ mod tests {
     fn system_config_path_existing() -> TestCase {
         TestCase {
             files: &["system/jj/config.toml", "system/jj/conf.d/_"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 system_config_dir: Some("system".into()),
                 ..Default::default()
             },
@@ -1148,7 +1172,7 @@ mod tests {
     fn system_config_path_jj_config() -> TestCase {
         TestCase {
             files: &["system/jj/config.toml"],
-            env: UnresolvedConfigEnv {
+            env: ConfigEnvInputs {
                 jj_config: Some("custom.toml".into()),
                 system_config_dir: Some("system".into()),
                 ..Default::default()
@@ -1199,11 +1223,10 @@ mod tests {
         tmp
     }
 
-    fn resolve_config_env(env: &UnresolvedConfigEnv, root: &Path) -> ConfigEnv {
-        let home_dir = env.home_dir.as_ref().map(|p| root.join(p));
-        let env = UnresolvedConfigEnv {
+    fn resolve_config_env(env: &ConfigEnvInputs, root: &Path) -> ConfigEnv {
+        let env = ConfigEnvInputs {
             user_config_dir: env.user_config_dir.as_ref().map(|p| root.join(p)),
-            home_dir: home_dir.clone(),
+            home_dir: env.home_dir.as_ref().map(|p| root.join(p)),
             jj_config: env.jj_config.as_ref().map(|p| {
                 join_paths(split_paths(p).map(|p| {
                     if p.as_os_str().is_empty() {
@@ -1216,20 +1239,10 @@ mod tests {
                 .unwrap()
             }),
             system_config_dir: env.system_config_dir.as_ref().map(|p| root.join(p)),
-        };
-        ConfigEnv {
-            home_dir,
-            root_config_dir: None,
-            repo_path: None,
-            workspace_path: None,
-            system_config_paths: env.resolve_system(),
-            user_config_paths: env.resolve_user(),
-            repo_config: None,
-            workspace_config: None,
-            command: None,
             hostname: None,
             environment: HashMap::new(),
-            rng: Arc::new(Mutex::new(ChaCha20Rng::seed_from_u64(0))),
-        }
+            randomness_seed: Some(0),
+        };
+        ConfigEnv::new(env)
     }
 }
