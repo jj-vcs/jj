@@ -3,5 +3,13 @@ max-new-file-size = "1MiB"
 auto-track = "all()"
 auto-update-stale = false
 
+[git]
+colocate = true
+object-hash = "sha1"
+private-commits = "none()"
+sign-on-push = false
+track-default-bookmark-on-clone = true
+
 [ui]
+diff-formatter = ":color-words"
 diff-instructions = true
