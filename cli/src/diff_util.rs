@@ -24,6 +24,7 @@ use std::ops::Range;
 use std::path;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::ExitStatus;
 
 use bstr::BStr;
 use bstr::BString;
@@ -562,9 +563,10 @@ impl<'a> DiffRenderer<'a> {
                         }
                         DiffToolMode::Dir => {
                             let mut writer = formatter.raw()?;
+                            let stderr = ui.stderr_for_child().map_err(DiffRenderError::Io)?;
                             generate_diff(
-                                ui,
                                 writer.as_mut(),
+                                stderr,
                                 trees,
                                 matcher,
                                 tool,
@@ -572,6 +574,7 @@ impl<'a> DiffRenderer<'a> {
                                 width,
                             )
                             .await
+                            .map(|exit_status| warn_unexpected_exit_status(ui, exit_status))
                             .map_err(DiffRenderError::DiffGenerate)
                         }
                     }?;
@@ -1733,10 +1736,23 @@ pub async fn show_file_by_file_diff(
         };
 
         let mut writer = formatter.raw()?;
-        invoke_external_diff(ui, writer.as_mut(), tool, temp_dir.path(), &patterns)
-            .map_err(DiffRenderError::DiffGenerate)?;
+        let stderr = ui.stderr_for_child().map_err(DiffRenderError::Io)?;
+        let exit_status =
+            invoke_external_diff(writer.as_mut(), stderr, tool, temp_dir.path(), &patterns)
+                .map_err(DiffRenderError::DiffGenerate)?;
+        warn_unexpected_exit_status(ui, exit_status);
     }
     Ok::<(), DiffRenderError>(())
+}
+
+fn warn_unexpected_exit_status(ui: &Ui, exit_status: Option<ExitStatus>) {
+    if let Some(exit_status) = exit_status {
+        writeln!(
+            ui.warning_default(),
+            "Tool exited with {exit_status} (run with --debug to see the exact invocation).",
+        )
+        .ok();
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
