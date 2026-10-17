@@ -298,6 +298,22 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, FilesetFunction>> = LazyLock
         function.expect_no_arguments()?;
         Ok(FilesetExpression::all())
     });
+    map.insert("sparse", |_diagnostics, context, function| {
+        function.expect_no_arguments()?;
+        // Resolved lazily, so that parsing a fileset without sparse() never
+        // loads the working copy state.
+        let working_copy = context.working_copy.ok_or_else(|| {
+            FilesetParseError::expression(
+                "sparse() is not available in this context",
+                function.name_span,
+            )
+        })?;
+        let rules = working_copy.sparse_patterns().map_err(|err| {
+            FilesetParseError::expression("Failed to read the sparse patterns", function.name_span)
+                .with_source(err)
+        })?;
+        Ok(rules.to_expression())
+    });
     map
 });
 
@@ -1098,6 +1114,10 @@ mod tests {
             ],
         }
         "#);
+        // There's no workspace to read the sparse patterns from
+        insta::assert_debug_snapshot!(
+            parse("sparse()").unwrap_err().kind(),
+            @r#"Expression("sparse() is not available in this context")"#);
         Ok(())
     }
 
