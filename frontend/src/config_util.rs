@@ -44,18 +44,25 @@ use thiserror::Error;
 
 /// Returns the default configuration that the logic in this crate depends on,
 /// such as the `trunk()` and `immutable_heads()` revset aliases, the
-/// `snapshot.*` settings, and the arguments for known merge tools. User
-/// interfaces should include these layers in
+/// `snapshot.*` and `git.*` settings, the text editor, and the arguments for
+/// known merge tools. User interfaces should include these layers in
 /// their configuration, before any user configuration.
 pub fn default_config_layers() -> Vec<ConfigLayer> {
     // Syntax error in default config isn't a user error. That's why defaults are
     // loaded by separate builder.
     let parse = |text: &'static str| ConfigLayer::parse(ConfigSource::Default, text).unwrap();
-    vec![
+    let mut layers = vec![
         parse(include_str!("config/merge_tools.toml")),
         parse(include_str!("config/misc.toml")),
         parse(include_str!("config/revsets.toml")),
-    ]
+    ];
+    if cfg!(unix) {
+        layers.push(parse(include_str!("config/unix.toml")));
+    }
+    if cfg!(windows) {
+        layers.push(parse(include_str!("config/windows.toml")));
+    }
+    layers
 }
 
 /// Problem found while loading configuration. Loading continues after these.
