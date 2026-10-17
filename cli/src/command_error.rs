@@ -23,6 +23,7 @@ use itertools::Itertools as _;
 use jj_frontend::config_env::ConfigEnvError;
 use jj_frontend::config_util::RemoteSettingParseError;
 use jj_frontend::operation_util::RevertOperationError;
+use jj_frontend::operation_util::UndoError;
 use jj_frontend::revset_util::UserRevsetEvaluationError;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::SnapshotConfigError;
@@ -569,6 +570,20 @@ impl From<RevertOperationError> for CommandError {
             }
             RevertOperationError::OpStore(err) => err.into(),
             RevertOperationError::RepoLoader(err) => err.into(),
+        }
+    }
+}
+
+impl From<UndoError> for CommandError {
+    fn from(err: UndoError) -> Self {
+        match err {
+            UndoError::RootOperation
+            | UndoError::MergeOperation
+            | UndoError::NothingToRedo
+            | UndoError::OtherWorkspace { .. } => user_error(err),
+            UndoError::InvalidStackEntry { .. }
+            | UndoError::UndoOperationWithMultipleParents { .. } => internal_error(err),
+            UndoError::OpStore(err) => err.into(),
         }
     }
 }
