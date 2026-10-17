@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCompleter;
+use jj_frontend::config_util::CommandNameAndArgs;
 use jj_lib::bisect::BisectionResult;
 use jj_lib::bisect::Bisector;
 use jj_lib::bisect::Evaluation;
@@ -30,7 +31,6 @@ use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::complete;
-use crate::config::CommandNameAndArgs;
 use crate::ui::Ui;
 
 /// Run a given command to find the first bad revision

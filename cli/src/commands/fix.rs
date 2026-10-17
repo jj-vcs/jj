@@ -21,6 +21,7 @@ use clap_complete::ArgValueCompleter;
 use futures::AsyncReadExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
+use jj_frontend::config_util::CommandNameAndArgs;
 use jj_lib::backend::FileId;
 use jj_lib::commit::Commit;
 use jj_lib::fileset;
@@ -51,7 +52,6 @@ use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::print_parse_diagnostics;
 use crate::complete;
-use crate::config::CommandNameAndArgs;
 use crate::ui::Ui;
 
 /// Update files with formatting fixes or other changes

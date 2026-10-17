@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use bstr::ByteSlice as _;
 use futures::future::try_join_all;
+use jj_frontend::config_util::CommandNameAndArgs;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::FileId;
@@ -61,7 +62,6 @@ use self::external::ExternalToolError;
 use self::external::edit_diff_external;
 pub use self::external::generate_diff;
 pub use self::external::invoke_external_diff;
-use crate::config::CommandNameAndArgs;
 use crate::description_util::LineNumber;
 use crate::description_util::TextEditError;
 use crate::description_util::TextEditor;
