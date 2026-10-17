@@ -505,29 +505,7 @@ impl WorkspaceOperationRunner {
         options: RunnerOptions,
         may_snapshot_working_copy: bool,
     ) -> Result<Self, RunnerError> {
-        if let Err(error) =
-            crate::revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
-        {
-            // The fallback can be builtin_trunk() if we're willing to support
-            // inferred trunk forever. (#7990)
-            let fallback = "root()";
-            events
-                .event(RunnerEvent::TrunkAliasFallback {
-                    error: &error,
-                    fallback,
-                })
-                .map_err(RunnerError::EventSink)?;
-            let env = Arc::make_mut(&mut env);
-            env.revset_aliases_map
-                .insert("trunk()", fallback, None)
-                .expect("valid syntax");
-            let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
-            let result = env.reload_revset_expressions(&mut diagnostics);
-            events
-                .event(RunnerEvent::EnvironmentDiagnostics(&diagnostics))
-                .map_err(RunnerError::EventSink)?;
-            result?;
-        }
+        apply_trunk_alias_fallback(events, &repo, &mut env)?;
         Ok(Self::new(
             workspace,
             repo,
@@ -535,6 +513,25 @@ impl WorkspaceOperationRunner {
             options,
             may_snapshot_working_copy,
         ))
+    }
+
+    /// Reloads the repo at the head operation, e.g. after another process
+    /// has modified the repo. Concurrent operations are handled like in
+    /// [`Self::load_at_head()`], and the `trunk()` revset alias is checked
+    /// like in [`Self::load_at()`].
+    pub async fn reload_at_head(&mut self, events: &dyn RunnerEvents) -> Result<(), RunnerError> {
+        let repo_loader = self.workspace.repo_loader();
+        let op_head = resolve_head_operation(
+            events,
+            repo_loader,
+            self.workspace.workspace_name(),
+            &self.options,
+        )
+        .await?;
+        let repo = repo_loader.load_at(&op_head).await?;
+        apply_trunk_alias_fallback(events, &repo, &mut self.env)?;
+        self.repo = repo;
+        Ok(())
     }
 
     /// The workspace.
@@ -1523,6 +1520,40 @@ async fn try_reset_git_head(
         }
         Err(err) => Err(err.into()),
     }
+}
+
+/// Checks that the `trunk()` revset alias can be resolved in `repo`. If it
+/// can't, it's temporarily set to `root()` in `env` so revsets that use it can
+/// still be evaluated.
+fn apply_trunk_alias_fallback(
+    events: &dyn RunnerEvents,
+    repo: &ReadonlyRepo,
+    env: &mut Arc<WorkspaceEnvironment>,
+) -> Result<(), RunnerError> {
+    if let Err(error) =
+        crate::revset_util::try_resolve_trunk_alias(repo, &env.revset_parse_context())
+    {
+        // The fallback can be builtin_trunk() if we're willing to support
+        // inferred trunk forever. (#7990)
+        let fallback = "root()";
+        events
+            .event(RunnerEvent::TrunkAliasFallback {
+                error: &error,
+                fallback,
+            })
+            .map_err(RunnerError::EventSink)?;
+        let env = Arc::make_mut(env);
+        env.revset_aliases_map
+            .insert("trunk()", fallback, None)
+            .expect("valid syntax");
+        let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
+        let result = env.reload_revset_expressions(&mut diagnostics);
+        events
+            .event(RunnerEvent::EnvironmentDiagnostics(&diagnostics))
+            .map_err(RunnerError::EventSink)?;
+        result?;
+    }
+    Ok(())
 }
 
 async fn rebase_mutable_descendants(
