@@ -612,13 +612,9 @@ impl WorkspaceOperationRunner {
             .await
     }
 
-    /// Recovers a stale working copy in `workspace`. The working copy is
-    /// snapshotted on top of the operation it was last updated at. Then the
-    /// repo is loaded at the head operation and the working copy is updated to
-    /// the working-copy commit there. If the working copy's operation can't be
-    /// found, a recovery commit with the working copy's contents is created
-    /// instead. Returns the runner at the head operation and the stats from
-    /// snapshotting.
+    /// Recovers a stale working copy in `workspace`. See
+    /// [`Self::recover_stale()`]. Returns the runner at the head operation and
+    /// the stats from snapshotting.
     pub async fn recover_stale_working_copy(
         events: &dyn RunnerEvents,
         workspace: Workspace,
@@ -627,66 +623,85 @@ impl WorkspaceOperationRunner {
         config: &SnapshotConfig,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(Self, SnapshotStats), RunnerError> {
-        let op_id = workspace.working_copy().operation_id();
-        match workspace.repo_loader().load_operation(op_id).await {
+        // Start at the working copy's operation if possible, so
+        // recover_stale() doesn't have to load the repo again.
+        let repo_loader = workspace.repo_loader();
+        let op = match repo_loader
+            .load_operation(workspace.working_copy().operation_id())
+            .await
+        {
+            Ok(op) => op,
+            Err(_) => repo_loader.root_operation().await,
+        };
+        let repo = repo_loader.load_at(&op).await?;
+        let may_snapshot_working_copy = !options.ignore_working_copy;
+        let mut runner = Self::new(workspace, repo, env, options, may_snapshot_working_copy);
+        let stats = runner
+            .recover_stale(events, config, git_import_export_lock)
+            .await?;
+        Ok((runner, stats))
+    }
+
+    /// Recovers a stale working copy. The working copy is snapshotted on top
+    /// of the operation it was last updated at. Then the repo is loaded at the
+    /// head operation and the working copy is updated to the working-copy
+    /// commit there. If the working copy's operation can't be found, a
+    /// recovery commit with the working copy's contents is created instead.
+    /// Returns the stats from snapshotting.
+    pub async fn recover_stale(
+        &mut self,
+        events: &dyn RunnerEvents,
+        config: &SnapshotConfig,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<SnapshotStats, RunnerError> {
+        let repo_loader = self.workspace.repo_loader();
+        let op_id = self.workspace.working_copy().operation_id();
+        match repo_loader.load_operation(op_id).await {
             Ok(op) => {
-                let repo = workspace.repo_loader().load_at(&op).await?;
-                let may_snapshot_working_copy = !options.ignore_working_copy;
-                let mut runner = Self::new(
-                    workspace,
-                    repo,
-                    env,
-                    options.clone(),
-                    may_snapshot_working_copy,
-                );
-                runner.check_working_copy_writable()?;
+                if self.repo.op_id() != op.id() {
+                    self.repo = repo_loader.load_at(&op).await?;
+                }
+                self.check_working_copy_writable()?;
 
                 // Snapshot the current working copy on top of the last known working-copy
                 // operation, then merge the divergent operations. The wc_commit_id of the
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
-                let stale_stats = runner
+                let stale_stats = self
                     .snapshot_working_copy(events, config, git_import_export_lock)
                     .await?;
 
-                let stale_wc_commit = runner.get_wc_commit().await?.unwrap();
+                let stale_wc_commit = self.get_wc_commit().await?.unwrap();
 
-                let Self { workspace, env, .. } = runner;
-                let mut runner = Self::load_at_head(events, workspace, env, options).await?;
-                runner
-                    .update_stale_working_copy(events, &stale_wc_commit, git_import_export_lock)
+                self.reload_at_head(events).await?;
+                self.update_stale_working_copy(events, &stale_wc_commit, git_import_export_lock)
                     .await?;
 
                 // There may be Git refs to import, so snapshot again. Git HEAD
                 // will also be imported if it was updated after the working
                 // copy became stale. The result wouldn't be ideal, but there
                 // should be no data loss at least.
-                let fresh_stats = runner
+                let fresh_stats = self
                     .snapshot(events, config, git_import_export_lock)
                     .await?;
-                let merged_stats = {
-                    let SnapshotStats {
-                        mut untracked_paths,
-                        mut invalid_utf8_paths,
-                    } = stale_stats;
-                    untracked_paths.extend(fresh_stats.untracked_paths);
-                    invalid_utf8_paths.extend(fresh_stats.invalid_utf8_paths);
-                    SnapshotStats {
-                        untracked_paths,
-                        invalid_utf8_paths,
-                    }
-                };
-                Ok((runner, merged_stats))
+                let SnapshotStats {
+                    mut untracked_paths,
+                    mut invalid_utf8_paths,
+                } = stale_stats;
+                untracked_paths.extend(fresh_stats.untracked_paths);
+                invalid_utf8_paths.extend(fresh_stats.invalid_utf8_paths);
+                Ok(SnapshotStats {
+                    untracked_paths,
+                    invalid_utf8_paths,
+                })
             }
             Err(err @ OpStoreError::ObjectNotFound { .. }) => {
                 events
                     .event(RunnerEvent::WorkingCopyOperationNotFound(&err))
                     .map_err(RunnerError::EventSink)?;
-                let mut runner = Self::load_at_head(events, workspace, env, options).await?;
-                let stats = runner
-                    .create_and_check_out_recovery_commit(events, config, git_import_export_lock)
-                    .await?;
-                Ok((runner, stats))
+                self.reload_at_head(events).await?;
+                self.create_and_check_out_recovery_commit(events, config, git_import_export_lock)
+                    .await
             }
             Err(err) => Err(err.into()),
         }
