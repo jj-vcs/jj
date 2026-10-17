@@ -2816,6 +2816,7 @@ name = "jj-frontend"
 version = "0.47.1"
 dependencies = [
  "async-trait",
+ "dunce",
  "etcetera",
  "futures 0.3.34",
  "gix",
@@ -2823,9 +2824,14 @@ dependencies = [
  "jiff",
  "jj-lib",
  "pollster",
+ "rand 0.10.3",
+ "rand_chacha",
+ "tempfile",
+ "test-case",
  "testutils",
  "thiserror 2.0.21",
  "tracing",
+ "whoami",
 ]
 
 [[package]]
