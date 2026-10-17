@@ -1591,11 +1591,13 @@ impl WorkspaceCommandHelper {
         revision_arg: &RevisionArg,
     ) -> Result<Commit, CommandError> {
         let expression = self.parse_revset(ui, revision_arg)?;
-        revset_util::evaluate_revset_to_single_commit(&expression)
-            .await
-            .map_err(|err| {
-                err.to_command_error(revision_arg.as_ref(), &self.commit_summary_template())
-            })
+        expression.evaluate_to_single_commit().await.map_err(|err| {
+            revset_util::revset_evaluation_size_error(
+                err,
+                revision_arg.as_ref(),
+                &self.commit_summary_template(),
+            )
+        })
     }
 
     /// Evaluates revset expressions to set of commit IDs. The
