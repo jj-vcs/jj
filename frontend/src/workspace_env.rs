@@ -62,6 +62,7 @@ use thiserror::Error;
 use tracing::instrument;
 
 use crate::revset_util::ImmutableHeadsError;
+use crate::revset_util::RevsetExpressionEvaluator;
 use crate::revset_util::default_ignored_remote_name;
 use crate::runner::GitImportExportLock;
 use crate::runner::RunnerError;
@@ -278,6 +279,34 @@ impl WorkspaceEnvironment {
             extensions: &self.revset_extensions,
             workspace: Some(workspace_context),
         }
+    }
+
+    /// Parses a user-provided revset expression in the context of this
+    /// workspace. Non-fatal problems are added to `diagnostics`.
+    pub fn parse_revset(
+        &self,
+        diagnostics: &mut RevsetDiagnostics,
+        revset_str: &str,
+    ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
+        revset::parse(diagnostics, revset_str, &self.revset_parse_context())
+    }
+
+    /// Creates an evaluator of `expression` in `repo`, which should be a repo
+    /// loaded for this workspace. Short commit and change ID prefixes are
+    /// resolved within `id_prefix_context`, which is usually created by
+    /// [`Self::new_id_prefix_context()`].
+    pub fn revset_evaluator<'repo>(
+        &self,
+        repo: &'repo dyn Repo,
+        id_prefix_context: &'repo IdPrefixContext,
+        expression: Arc<UserRevsetExpression>,
+    ) -> RevsetExpressionEvaluator<'repo> {
+        RevsetExpressionEvaluator::new(
+            repo,
+            self.revset_extensions.clone(),
+            id_prefix_context,
+            expression,
+        )
     }
 
     /// Creates fresh new context which manages cache of short commit/change ID
