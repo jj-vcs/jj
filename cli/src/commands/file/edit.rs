@@ -18,6 +18,7 @@ use clap_complete::ArgValueCompleter;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::backend::TreeValue;
 use jj_lib::file_util::IoResultExt as _;
+use jj_lib::fileset::FilesetRules;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::EolConversionMode;
@@ -130,7 +131,7 @@ pub(crate) async fn cmd_file_edit(
     )
     .map_err(user_error)?;
     tree_state
-        .set_sparse_patterns(vec![repo_path.clone()])
+        .set_sparse_patterns(FilesetRules::from_path_prefixes([repo_path.clone()]))
         .map_err(internal_error)?;
     tree_state.check_out(&tree).map_err(internal_error)?;
 
