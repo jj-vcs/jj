@@ -99,6 +99,10 @@ pub fn default_working_copy_factories() -> WorkingCopyFactories {
         LocalWorkingCopy::NAME.to_owned(),
         Box::new(LocalWorkingCopyFactory {}),
     );
+    factories.insert(
+        LocalWorkingCopy::FILESET_NAME.to_owned(),
+        Box::new(LocalWorkingCopyFactory {}),
+    );
     factories
 }
 

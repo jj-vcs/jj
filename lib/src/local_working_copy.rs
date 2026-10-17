@@ -1295,6 +1295,13 @@ impl TreeState {
             path: self.state_path.clone(),
             source,
         };
+        // Mark the format before writing state that older jj can't read, and
+        // unmark it only once legacy-readable state has been persisted. A
+        // failed write then always leaves the marker on the safe side.
+        let rules_format = self.sparse_patterns.to_path_prefixes().is_none();
+        if rules_format {
+            set_sparse_format(&self.state_path, rules_format).map_err(wrap_write_err)?;
+        }
         let mut temp_file = NamedTempFile::new_in(&self.state_path).map_err(wrap_write_err)?;
         temp_file
             .as_file_mut()
@@ -1312,6 +1319,14 @@ impl TreeState {
                 source,
             }
         })?;
+        if !rules_format {
+            set_sparse_format(&self.state_path, rules_format).map_err(|source| {
+                TreeStateError::WriteTreeState {
+                    path: self.state_path.clone(),
+                    source,
+                }
+            })?;
+        }
         Ok(())
     }
 
@@ -3171,6 +3186,9 @@ mod tests {
     use maplit::hashset;
 
     use super::*;
+    use crate::fileset::FilePattern;
+    use crate::fileset::FilesetExpression;
+    use crate::matchers::PathGlobPattern;
 
     fn repo_path(value: &str) -> &RepoPath {
         RepoPath::from_internal_string(value).unwrap()
@@ -3354,6 +3372,158 @@ mod tests {
             prefixed_states.get_at(repo_path("b#"), repo_path_component("#")),
             None
         );
+    }
+
+    /// Encodes and decodes through the actual wire format, so that a field
+    /// number or type mismatch can't be hidden by sharing Rust structs.
+    fn sparse_patterns_round_trip(rules: &FilesetRules) -> FilesetRules {
+        let proto = sparse_patterns_to_proto(rules);
+        let proto = crate::protos::local_working_copy::SparsePatterns::decode(
+            proto.encode_to_vec().as_slice(),
+        )
+        .unwrap();
+        sparse_patterns_from_proto(Some(&proto)).unwrap()
+    }
+
+    #[test]
+    fn test_sparse_patterns_proto_round_trip() {
+        let prefix = |path| FilesetExpression::prefix_path(repo_path(path).to_owned());
+        let glob = |dir, pattern, icase| FilePattern::FileGlob {
+            dir: repo_path(dir).to_owned(),
+            pattern: Box::new(if icase {
+                PathGlobPattern::parse_i(pattern)
+            } else {
+                PathGlobPattern::parse(pattern)
+            }
+            .unwrap()),
+        };
+
+        let mut rules = FilesetRules::all();
+        assert_eq!(sparse_patterns_round_trip(&rules), rules);
+        rules.push(FilesetRuleKind::Exclude, prefix("dir"));
+        rules.push(
+            FilesetRuleKind::Include,
+            FilesetExpression::pattern(glob("dir", "*.rs", false)),
+        );
+        rules.push(
+            FilesetRuleKind::Include,
+            FilesetExpression::pattern(glob("", "*.MD", true)),
+        );
+        rules.push(
+            FilesetRuleKind::Include,
+            FilesetExpression::union_all(vec![prefix("a"), prefix("b")])
+                .intersection(FilesetExpression::file_path(repo_path("a/f").to_owned())),
+        );
+        assert_eq!(sparse_patterns_round_trip(&rules), rules);
+
+        // Appending rules must not deepen the stored expressions
+        let mut rules = FilesetRules::all();
+        for n in 0..1000 {
+            let path = RepoPathBuf::from_internal_string(format!("excluded{n}")).unwrap();
+            rules.push(FilesetRuleKind::Exclude, FilesetExpression::prefix_path(path));
+        }
+        assert_eq!(sparse_patterns_round_trip(&rules), rules);
+    }
+
+    #[test]
+    fn test_sparse_patterns_legacy_proto() {
+        use crate::protos::local_working_copy::SparsePatterns;
+        let from_prefixes = |prefixes: &[&str]| {
+            let proto = SparsePatterns {
+                prefixes: prefixes.iter().map(|&prefix| prefix.to_owned()).collect(),
+                rules: vec![],
+            };
+            sparse_patterns_from_proto(Some(&proto)).unwrap()
+        };
+
+        // A missing message predates sparse checkouts entirely
+        assert_eq!(
+            sparse_patterns_from_proto(None).unwrap(),
+            FilesetRules::all()
+        );
+        assert_eq!(from_prefixes(&[]), FilesetRules::none());
+        assert_eq!(from_prefixes(&[""]), FilesetRules::all());
+        assert_eq!(
+            from_prefixes(&["dir1", "dir2"]),
+            FilesetRules::from_path_prefixes(["dir1", "dir2"].map(|p| repo_path(p).to_owned()))
+        );
+
+        // Selections that older jj understands keep using its field, so that
+        // downgrading doesn't need `jj sparse reset`.
+        #[derive(prost::Message)]
+        struct LegacySparsePatterns {
+            #[prost(string, repeated, tag = "1")]
+            prefixes: Vec<String>,
+        }
+        for (rules, prefixes) in [
+            (FilesetRules::all(), vec![""]),
+            (FilesetRules::none(), vec![]),
+            (
+                FilesetRules::from_path_prefixes(["a", "b"].map(|p| repo_path(p).to_owned())),
+                vec!["a", "b"],
+            ),
+        ] {
+            let proto = sparse_patterns_to_proto(&rules);
+            assert!(proto.rules.is_empty());
+            let legacy =
+                LegacySparsePatterns::decode(proto.encode_to_vec().as_slice()).unwrap();
+            assert_eq!(legacy.prefixes, prefixes);
+            assert_eq!(sparse_patterns_round_trip(&rules), rules);
+        }
+    }
+
+    #[test]
+    fn test_sparse_patterns_reject_invalid_proto() {
+        use crate::protos::local_working_copy::SparsePatterns;
+        use crate::protos::local_working_copy::SparseRule;
+        let from_fileset = |fileset: &str| {
+            sparse_patterns_from_proto(Some(&SparsePatterns {
+                prefixes: vec![],
+                rules: vec![SparseRule {
+                    exclude: false,
+                    fileset: fileset.to_owned(),
+                }],
+            }))
+        };
+        assert!(from_fileset("a | b").is_ok());
+        assert!(from_fileset("a |").is_err());
+        assert!(from_fileset("../escape").is_err());
+        assert!(from_fileset("glob:\"[\"").is_err());
+        // Aliases are resolved when the selection is set, so a stored name is
+        // just a path
+        assert_eq!(
+            from_fileset("my-alias").unwrap(),
+            FilesetRules::from_path_prefixes([repo_path("my-alias").to_owned()])
+        );
+    }
+
+    #[test]
+    fn test_sparse_format_marker() {
+        let dir = tempfile::tempdir().unwrap();
+        let marker_path = dir.path().join("type");
+
+        // A `TreeState` used on its own has no marker to maintain
+        set_sparse_format(dir.path(), true).unwrap();
+        assert!(!marker_path.exists());
+
+        // A custom working copy owns its own marker
+        for custom in ["custom", "conflicts"] {
+            fs::write(&marker_path, custom).unwrap();
+            set_sparse_format(dir.path(), true).unwrap();
+            set_sparse_format(dir.path(), false).unwrap();
+            assert_eq!(fs::read_to_string(&marker_path).unwrap(), custom);
+        }
+
+        fs::write(&marker_path, LocalWorkingCopy::NAME).unwrap();
+        for (rules, expected) in [
+            (true, LocalWorkingCopy::FILESET_NAME),
+            (true, LocalWorkingCopy::FILESET_NAME),
+            (false, LocalWorkingCopy::NAME),
+            (false, LocalWorkingCopy::NAME),
+        ] {
+            set_sparse_format(dir.path(), rules).unwrap();
+            assert_eq!(fs::read_to_string(&marker_path).unwrap(), expected);
+        }
     }
 
     #[test]
