@@ -116,9 +116,22 @@ pub(crate) async fn cmd_resolve(
         .collect_vec();
     workspace_command.check_rewritable([commit.id()]).await?;
     let merge_editor = workspace_command.merge_editor(ui, args.tool.as_deref())?;
+    let path_converter = workspace_command.path_converter().clone();
     let mut tx = workspace_command.start_transaction();
-    let (new_tree, partial_resolution_error) =
-        merge_editor.edit_files(ui, &tree, &repo_paths).await?;
+    let (new_tree, partial_resolution_error) = merge_editor
+        .edit_files(
+            &mut |repo_path| {
+                writeln!(
+                    ui.status(),
+                    "Resolving conflicts in: {}",
+                    path_converter.format_file_path(repo_path)
+                )
+                .ok();
+            },
+            &tree,
+            &repo_paths,
+        )
+        .await?;
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&commit)
