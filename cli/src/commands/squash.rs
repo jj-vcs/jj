@@ -20,6 +20,7 @@ use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use indoc::formatdoc;
+use jj_frontend::revset_util::RevsetEvaluationSizeError;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::matchers::Matcher;
@@ -46,8 +47,7 @@ use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
 use crate::description_util::try_combine_messages;
-use crate::revset_util::RevsetEvaluationSizeError;
-use crate::revset_util::evaluate_revset_to_single_commit;
+use crate::revset_util::revset_evaluation_size_error;
 use crate::ui::Ui;
 
 /// Move changes from a revision into another revision
@@ -220,11 +220,13 @@ pub(crate) async fn cmd_squash(
     } else {
         let revision_arg = args.revision.as_ref().unwrap_or(&RevisionArg::AT);
         let source_expression = workspace_command.parse_revset(ui, revision_arg)?;
-        let source = evaluate_revset_to_single_commit(&source_expression)
+        let source = source_expression
+            .evaluate_to_single_commit()
             .await
             .map_err(|err| {
-                let was_multiple = matches!(err, RevsetEvaluationSizeError::Multiple(_, _));
-                let command_error = err.to_command_error(
+                let was_multiple = matches!(err, RevsetEvaluationSizeError::Multiple { .. });
+                let command_error = revset_evaluation_size_error(
+                    err,
                     revision_arg.as_ref(),
                     &workspace_command.commit_summary_template(),
                 );

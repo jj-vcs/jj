@@ -17,13 +17,10 @@
 use std::collections::HashMap;
 use std::io;
 
-use futures::StreamExt as _;
-use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_frontend::config_util;
 use jj_frontend::config_util::RemoteSettingDiagnostics;
-use jj_frontend::revset_util::RevsetExpressionEvaluator;
-use jj_frontend::revset_util::UserRevsetEvaluationError;
+use jj_frontend::revset_util::RevsetEvaluationSizeError;
 use jj_lib::commit::Commit;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
@@ -46,62 +43,27 @@ use crate::formatter::Formatter;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
-/// Error when evaluating a revset into a single commit.
-#[derive(Debug)]
-pub enum RevsetEvaluationSizeError {
-    /// The revset evaluated to no commits.
-    Empty,
-    /// The revset evaluated to multiple commits. The vector only contains a few
-    /// commits (enough for an error message), and the bool indicates whether
-    /// there were more; do not expect this to be the entire evaluated revset.
-    Multiple(Vec<Commit>, bool),
-    /// An error occurred during revset evaluation; size unknown.
-    Other(UserRevsetEvaluationError),
-}
-
-impl RevsetEvaluationSizeError {
-    pub fn to_command_error(
-        self,
-        revision_str: &str,
-        commit_summary_template: &TemplateRenderer<'_, Commit>,
-    ) -> CommandError {
-        match self {
-            Self::Empty => user_error(format!(
-                "Revset `{revision_str}` didn't resolve to any revisions"
-            )),
-            Self::Multiple(commits, has_more) => format_multiple_revisions_error(
+/// Converts a [`RevsetEvaluationSizeError`] for `revision_str` to a
+/// [`CommandError`], listing the commits with `commit_summary_template` if
+/// there were multiple.
+pub fn revset_evaluation_size_error(
+    err: RevsetEvaluationSizeError,
+    revision_str: &str,
+    commit_summary_template: &TemplateRenderer<'_, Commit>,
+) -> CommandError {
+    match err {
+        RevsetEvaluationSizeError::Empty => user_error(format!(
+            "Revset `{revision_str}` didn't resolve to any revisions"
+        )),
+        RevsetEvaluationSizeError::Multiple { commits, has_more } => {
+            format_multiple_revisions_error(
                 revision_str,
                 &commits,
                 has_more,
                 commit_summary_template,
-            ),
-            Self::Other(error) => error.into(),
+            )
         }
-    }
-}
-
-pub(super) async fn evaluate_revset_to_single_commit(
-    expression: &RevsetExpressionEvaluator<'_>,
-) -> Result<Commit, RevsetEvaluationSizeError> {
-    // The number of commits to pass to the error (will be shown in the error
-    // message).
-    let max_commits = 5;
-    let mut commits: Vec<_> = expression
-        .evaluate_to_commits()
-        .map_err(RevsetEvaluationSizeError::Other)?
-        .take(max_commits + 1)
-        .try_collect()
-        .await
-        .map_err(UserRevsetEvaluationError::Evaluation)
-        .map_err(RevsetEvaluationSizeError::Other)?;
-    match commits.as_slice() {
-        [commit] => Ok(commit.clone()),
-        [] => Err(RevsetEvaluationSizeError::Empty),
-        _ => {
-            let has_more = commits.len() > max_commits;
-            commits.truncate(max_commits);
-            Err(RevsetEvaluationSizeError::Multiple(commits, has_more))
-        }
+        RevsetEvaluationSizeError::Other(error) => error.into(),
     }
 }
 
