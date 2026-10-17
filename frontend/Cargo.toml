@@ -32,6 +32,7 @@ rand_chacha = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 shlex = { workspace = true }
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 whoami = { workspace = true }
@@ -39,7 +40,6 @@ whoami = { workspace = true }
 [dev-dependencies]
 indoc = { workspace = true }
 maplit = { workspace = true }
-tempfile = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }
 

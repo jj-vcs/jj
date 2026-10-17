@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use jj_frontend::text_editor::LineNumber;
 use jj_lib::config::ConfigLayer;
 use tracing::instrument;
 
@@ -19,7 +20,6 @@ use super::ConfigTargetArgs;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::print_error_sources;
-use crate::description_util::LineNumber;
 use crate::ui::Ui;
 
 /// Start an editor on a jj config file.
