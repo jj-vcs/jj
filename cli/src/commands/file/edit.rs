@@ -15,6 +15,8 @@
 use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
+use jj_frontend::text_editor::LineNumber;
+use jj_frontend::text_editor::TempTextEditError;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::backend::TreeValue;
 use jj_lib::file_util::IoResultExt as _;
@@ -37,8 +39,6 @@ use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::complete;
-use crate::description_util::LineNumber;
-use crate::description_util::TempTextEditError;
 use crate::ui::Ui;
 
 /// Edit the contents of a file in a revision

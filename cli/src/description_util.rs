@@ -1,31 +1,19 @@
 use std::collections::HashMap;
-use std::ffi::OsString;
 use std::fmt::Write as _;
-use std::fs;
-use std::io;
 use std::io::Write as _;
-use std::num::NonZero;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::ExitStatus;
 
 use bstr::ByteVec as _;
 use indexmap::IndexMap;
 use indoc::indoc;
 use itertools::FoldWhile;
 use itertools::Itertools as _;
-use jj_frontend::config_util::CommandNameAndArgs;
-use jj_frontend::config_util::find_all_variables;
+use jj_frontend::text_editor::LineNumber;
+use jj_frontend::text_editor::TextEditor;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit_builder::DetachedCommitBuilder;
-use jj_lib::config::ConfigGetError;
-use jj_lib::file_util::IoResultExt as _;
-use jj_lib::file_util::PathError;
-use jj_lib::settings::UserSettings;
 use jj_lib::trailer::parse_description_trailers;
 use jj_lib::trailer::parse_trailers;
-use maplit::hashmap;
 use thiserror::Error;
 
 use crate::cli_util::WorkspaceCommandTransaction;
@@ -36,116 +24,6 @@ use crate::formatter::PlainTextFormatter;
 use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
-
-/// 1-based line number.
-pub type LineNumber = NonZero<u32>;
-
-#[derive(Debug, Error)]
-pub enum TextEditError {
-    #[error("Failed to run editor '{name}'")]
-    FailedToRun { name: String, source: io::Error },
-    #[error("Editor '{command}' exited with {status}")]
-    ExitStatus { command: String, status: ExitStatus },
-}
-
-#[derive(Debug, Error)]
-#[error("Failed to edit {name}", name = name.as_deref().unwrap_or("file"))]
-pub struct TempTextEditError {
-    #[source]
-    pub error: Box<dyn std::error::Error + Send + Sync>,
-    /// Short description of the edited content.
-    pub name: Option<String>,
-    /// Path to the temporary file.
-    pub path: Option<PathBuf>,
-}
-
-impl TempTextEditError {
-    fn new(error: Box<dyn std::error::Error + Send + Sync>, path: Option<PathBuf>) -> Self {
-        Self {
-            error,
-            name: None,
-            path,
-        }
-    }
-
-    /// Adds short description of the edited content.
-    pub fn with_name(mut self, name: impl Into<String>) -> Self {
-        self.name = Some(name.into());
-        self
-    }
-}
-
-/// Configured text editor.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TextEditor {
-    editor: CommandNameAndArgs,
-}
-
-impl TextEditor {
-    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        let editor = settings.get("ui.editor")?;
-        Ok(Self { editor })
-    }
-
-    /// Opens the given `path` in editor.
-    pub fn edit_file(&self, path: impl AsRef<Path>, line: LineNumber) -> Result<(), TextEditError> {
-        let path = path.as_ref();
-        let (name, args) = self.editor.split_name_and_args();
-        let vars: HashMap<&str, OsString> = hashmap! {
-            "path" => path.into(),
-            "line" => line.to_string().into(),
-        };
-        let mut cmd = self.editor.to_command_with_variables(&vars);
-        if !find_all_variables(&args).contains("path") {
-            cmd.arg(path);
-        }
-        tracing::info!(?cmd, "running editor");
-        let status = cmd.status().map_err(|source| TextEditError::FailedToRun {
-            name: name.into_owned(),
-            source,
-        })?;
-        if status.success() {
-            Ok(())
-        } else {
-            let command = self.editor.to_string();
-            Err(TextEditError::ExitStatus { command, status })
-        }
-    }
-
-    /// Writes the given `content` to temporary file and opens it in editor.
-    pub fn edit_str(
-        &self,
-        content: impl AsRef<[u8]>,
-        suffix: Option<&str>,
-        line: LineNumber,
-    ) -> Result<String, TempTextEditError> {
-        let path = self
-            .write_temp_file(content.as_ref(), suffix)
-            .map_err(|err| TempTextEditError::new(err.into(), None))?;
-        self.edit_file(&path, line)
-            .map_err(|err| TempTextEditError::new(err.into(), Some(path.clone())))?;
-        let edited = fs::read_to_string(&path)
-            .context(&path)
-            .map_err(|err| TempTextEditError::new(err.into(), Some(path.clone())))?;
-        // Delete the file only if everything went well.
-        fs::remove_file(path).ok();
-        Ok(edited)
-    }
-
-    fn write_temp_file(&self, content: &[u8], suffix: Option<&str>) -> Result<PathBuf, PathError> {
-        let dir = tempfile::env::temp_dir();
-        let mut file = tempfile::Builder::new()
-            .prefix("editor-")
-            .suffix(suffix.unwrap_or(""))
-            .tempfile_in(&dir)
-            .context(&dir)?;
-        file.write_all(content).context(file.path())?;
-        let (_, path) = file
-            .keep()
-            .or_else(|err| Err(err.error).context(err.file.path()))?;
-        Ok(path)
-    }
-}
 
 fn append_blank_line(text: &mut String) {
     if !text.is_empty() && !text.ends_with('\n') {
