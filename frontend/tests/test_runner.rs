@@ -15,9 +15,16 @@
 use std::assert_matches;
 use std::cell::RefCell;
 use std::fs;
+use std::slice;
 use std::sync::Arc;
 
+use futures::TryStreamExt as _;
 use jj_frontend::config_util;
+use jj_frontend::operation_util::UndoError;
+use jj_frontend::operation_util::ViewPortions;
+use jj_frontend::operation_util::find_redo_target;
+use jj_frontend::operation_util::find_undo_target;
+use jj_frontend::operation_util::restore_operation;
 use jj_frontend::revset_util::RevsetEvaluationSizeError;
 use jj_frontend::revset_util::UserRevsetEvaluationError;
 use jj_frontend::runner::RunnerError;
@@ -31,6 +38,7 @@ use jj_frontend::workspace_env::WorkspaceEnvironment;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
+use jj_lib::op_walk;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::RevsetDiagnostics;
@@ -248,4 +256,73 @@ fn test_resolve_revisions() {
         env.parse_revset(&mut RevsetDiagnostics::new(), "@(")
             .is_err()
     );
+}
+
+#[test]
+fn test_undo_redo_and_op_log() {
+    let events = RecordingEvents::default();
+    let (_test_env, mut runner, _) = load_runner(&events, "", test_options());
+    let old_wc_commit = runner.get_wc_commit().block_on().unwrap().unwrap();
+    let workspace_name = runner.workspace_name().to_owned();
+
+    // Nothing to redo after a regular operation
+    assert_matches!(
+        find_redo_target(runner.repo(), &workspace_name, false).block_on(),
+        Err(UndoError::NothingToRedo)
+    );
+
+    // Check out a new commit
+    let mut tx = runner.start_transaction();
+    let new_wc_commit = tx
+        .repo_mut()
+        .check_out(workspace_name.clone(), &old_wc_commit)
+        .block_on()
+        .unwrap();
+    runner
+        .finish_transaction(&events, tx, "new commit")
+        .block_on()
+        .unwrap();
+    let new_commit_op = runner.repo().operation().clone();
+    assert_eq!(runner.get_wc_commit_id(), Some(new_wc_commit.id()));
+
+    // Undo it
+    let target = find_undo_target(runner.repo(), &workspace_name, false)
+        .block_on()
+        .unwrap();
+    assert_eq!(target.operation.id(), new_commit_op.id());
+    let mut tx = runner.start_transaction();
+    restore_operation(tx.repo_mut(), &target.restore_to, ViewPortions::ALL)
+        .block_on()
+        .unwrap();
+    runner
+        .finish_transaction(&events, tx, target.description())
+        .block_on()
+        .unwrap();
+    assert_eq!(runner.get_wc_commit_id(), Some(old_wc_commit.id()));
+
+    // Redo it
+    let target = find_redo_target(runner.repo(), &workspace_name, false)
+        .block_on()
+        .unwrap();
+    assert_eq!(target.restore_to.id(), new_commit_op.id());
+    let mut tx = runner.start_transaction();
+    restore_operation(tx.repo_mut(), &target.restore_to, ViewPortions::ALL)
+        .block_on()
+        .unwrap();
+    runner
+        .finish_transaction(&events, tx, target.description())
+        .block_on()
+        .unwrap();
+    assert_eq!(runner.get_wc_commit_id(), Some(new_wc_commit.id()));
+
+    // The operation log can be walked from the current operation
+    let descriptions: Vec<_> = op_walk::walk_ancestors(slice::from_ref(runner.repo().operation()))
+        .map_ok(|op| op.metadata().description.clone())
+        .try_collect()
+        .block_on()
+        .unwrap();
+    assert_eq!(descriptions.len(), 5);
+    assert!(descriptions[0].starts_with("redo: restore to operation "));
+    assert!(descriptions[1].starts_with("undo: restore to operation "));
+    assert_eq!(descriptions[2], "new commit");
 }
