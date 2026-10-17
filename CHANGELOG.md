@@ -70,6 +70,9 @@ and this project adheres to
 
 * Fixed tag deletion with `jj git fetch --tag=NAME`.
 
+* `jj workspace remove` can now remove stale workspaces.
+  [#10276](https://github.com/jj-vcs/jj/issues/10276)
+
 * Fixed issue with `config-schema.json` where Taplo (TOML parsing library) would
   flag any `aliases` defined as a table but without an explicit
   `.enabled = true` as "valid under more than one of the schemas". This affected
