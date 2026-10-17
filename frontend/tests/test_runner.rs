@@ -323,3 +323,27 @@ fn test_undo_redo_and_op_log() {
     assert!(descriptions[1].starts_with("undo: restore to operation "));
     assert_eq!(descriptions[2], "new commit");
 }
+
+#[test]
+fn test_reload_at_head() {
+    let events = RecordingEvents::default();
+    let (_test_env, mut runner, _) = load_runner(&events, "", test_options());
+
+    // Another process creates an operation
+    let repo = runner.workspace().load_at_head().block_on().unwrap();
+    let mut tx = repo.start_transaction();
+    tx.repo_mut()
+        .new_commit(
+            vec![repo.store().root_commit_id().clone()],
+            repo.store().empty_merged_tree(),
+        )
+        .write()
+        .block_on()
+        .unwrap();
+    let new_repo = tx.commit("concurrent").block_on().unwrap();
+    assert_ne!(runner.repo().op_id(), new_repo.op_id());
+
+    runner.reload_at_head(&events).block_on().unwrap();
+    assert_eq!(runner.repo().op_id(), new_repo.op_id());
+    assert!(events.take().is_empty());
+}
