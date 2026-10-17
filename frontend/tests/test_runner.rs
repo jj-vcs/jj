@@ -18,6 +18,8 @@ use std::fs;
 use std::sync::Arc;
 
 use jj_frontend::config_util;
+use jj_frontend::revset_util::RevsetEvaluationSizeError;
+use jj_frontend::revset_util::UserRevsetEvaluationError;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::RunnerEvent;
 use jj_frontend::runner::RunnerEvents;
@@ -31,6 +33,7 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
+use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetExtensions;
 use pollster::FutureExt as _;
 use testutils::TestEnvironment;
@@ -206,5 +209,43 @@ fn test_check_rewritable() {
     assert_matches!(
         runner.check_rewritable([&root_commit_id]).block_on(),
         Err(RunnerError::RootCommitImmutable { .. })
+    );
+}
+
+#[test]
+fn test_resolve_revisions() {
+    let events = RecordingEvents::default();
+    let (_test_env, runner, _) = load_runner(&events, "", test_options());
+    let env = runner.env();
+    let repo = runner.repo().as_ref();
+    let id_prefix_context = env.new_id_prefix_context();
+    let wc_commit = runner.get_wc_commit().block_on().unwrap().unwrap();
+    let resolve = |revset_str: &str| {
+        let mut diagnostics = RevsetDiagnostics::new();
+        let expression = env.parse_revset(&mut diagnostics, revset_str).unwrap();
+        assert!(diagnostics.is_empty());
+        env.revset_evaluator(repo, &id_prefix_context, expression)
+            .evaluate_to_single_commit()
+            .block_on()
+    };
+
+    assert_eq!(resolve("@").unwrap().id(), wc_commit.id());
+    let change_id_prefix = &wc_commit.change_id().reverse_hex()[..12];
+    assert_eq!(resolve(change_id_prefix).unwrap().id(), wc_commit.id());
+    assert_matches!(resolve("none()"), Err(RevsetEvaluationSizeError::Empty));
+    assert_matches!(
+        resolve("root() | @"),
+        Err(RevsetEvaluationSizeError::Multiple { commits, has_more: false })
+            if commits.len() == 2
+    );
+    assert_matches!(
+        resolve("nonexistent"),
+        Err(RevsetEvaluationSizeError::Other(
+            UserRevsetEvaluationError::Resolution(_)
+        ))
+    );
+    assert!(
+        env.parse_revset(&mut RevsetDiagnostics::new(), "@(")
+            .is_err()
     );
 }
