@@ -23,6 +23,7 @@ use indoc::indoc;
 use itertools::Itertools as _;
 use jj_frontend::config_env::ConfigEnv;
 use jj_frontend::config_env::config_from_environment;
+use jj_frontend::workspace_env::find_workspace_dir;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::file_util::normalize_path;
@@ -31,7 +32,6 @@ use jj_lib::settings::UserSettings;
 
 use crate::cli_args::GlobalArgs;
 use crate::cli_args::expand_args;
-use crate::cli_util::find_workspace_dir;
 use crate::cli_util::load_revset_aliases;
 use crate::cli_util::load_template_aliases;
 use crate::command_error::CommandError;
