@@ -178,6 +178,9 @@ and this project adheres to
 * The hunk headers of `diff.color-words.conflict = "pair"` now include the
   conflict labels of the compared terms.
 
+* Added `git.ignore-filters` setting to specify what filtered files in
+  `.gitattributes` are ignored by `jj`. Defaults to `["lfs"]`.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
