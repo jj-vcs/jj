@@ -19,6 +19,7 @@ use std::num::NonZeroU32;
 use std::path::Path;
 
 use itertools::Itertools as _;
+use jj_frontend::config_env::ConfigEnv;
 use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
@@ -43,7 +44,6 @@ use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
-use crate::config::ConfigEnv;
 use crate::git_util::GitSubprocessUi;
 use crate::git_util::absolute_git_url;
 use crate::git_util::load_git_import_options;
