@@ -114,7 +114,6 @@ use jj_lib::repo::StoreLoadError;
 use jj_lib::repo::merge_factories_map;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::revset;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetAliasesMap;
 use jj_lib::revset::RevsetDiagnostics;
@@ -1639,8 +1638,10 @@ impl WorkspaceCommandHelper {
         revision_arg: &RevisionArg,
     ) -> Result<RevsetExpressionEvaluator<'_>, CommandError> {
         let mut diagnostics = RevsetDiagnostics::new();
-        let context = self.env.revset_parse_context();
-        let expression = revset::parse(&mut diagnostics, revision_arg.as_ref(), &context)?;
+        let expression = self
+            .env
+            .base
+            .parse_revset(&mut diagnostics, revision_arg.as_ref())?;
         print_parse_diagnostics(ui, "In revset expression", &diagnostics)?;
         Ok(self.attach_revset_evaluator(expression))
     }
@@ -1652,10 +1653,9 @@ impl WorkspaceCommandHelper {
         revision_args: &[RevisionArg],
     ) -> Result<RevsetExpressionEvaluator<'_>, CommandError> {
         let mut diagnostics = RevsetDiagnostics::new();
-        let context = self.env.revset_parse_context();
         let expressions: Vec<_> = revision_args
             .iter()
-            .map(|arg| revset::parse(&mut diagnostics, arg.as_ref(), &context))
+            .map(|arg| self.env.base.parse_revset(&mut diagnostics, arg.as_ref()))
             .try_collect()?;
         print_parse_diagnostics(ui, "In revset expression", &diagnostics)?;
         let expression = RevsetExpression::union_all(&expressions);
@@ -1666,12 +1666,9 @@ impl WorkspaceCommandHelper {
         &self,
         expression: Arc<UserRevsetExpression>,
     ) -> RevsetExpressionEvaluator<'_> {
-        RevsetExpressionEvaluator::new(
-            self.repo().as_ref(),
-            self.env.command.revset_extensions().clone(),
-            self.id_prefix_context(),
-            expression,
-        )
+        self.env
+            .base
+            .revset_evaluator(self.repo().as_ref(), self.id_prefix_context(), expression)
     }
 
     pub fn id_prefix_context(&self) -> &IdPrefixContext {
