@@ -12,20 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Revset helpers for the workspace configuration.
+//! Helpers for parsing and evaluating revsets in a workspace.
 
 use std::sync::Arc;
 
+use futures::StreamExt as _;
+use futures::stream::LocalBoxStream;
+use jj_lib::backend::CommitId;
+use jj_lib::commit::Commit;
+use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
+use jj_lib::revset::ResolvedRevset;
 use jj_lib::revset::ResolvedRevsetExpression;
+use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetDiagnostics;
+use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetExtensions;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetResolutionError;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::SymbolResolver;
+use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::store::Store;
 use thiserror::Error;
@@ -90,4 +101,120 @@ pub fn try_resolve_trunk_alias(
     let resolved = expression.resolve_user_expression(repo, &symbol_resolver)?;
     let (expression, _other_repos) = resolved.into_inner();
     Ok(Some(expression))
+}
+
+/// Error from evaluating a user-provided revset expression.
+#[derive(Debug, Error)]
+pub enum UserRevsetEvaluationError {
+    /// A symbol in the expression couldn't be resolved.
+    #[error(transparent)]
+    Resolution(RevsetResolutionError),
+    /// The resolved expression couldn't be evaluated.
+    #[error(transparent)]
+    Evaluation(RevsetEvaluationError),
+}
+
+/// Wrapper around `UserRevsetExpression` to provide convenient methods.
+pub struct RevsetExpressionEvaluator<'repo> {
+    repo: &'repo dyn Repo,
+    extensions: Arc<RevsetExtensions>,
+    id_prefix_context: &'repo IdPrefixContext,
+    expression: Arc<UserRevsetExpression>,
+}
+
+impl<'repo> RevsetExpressionEvaluator<'repo> {
+    /// Creates an evaluator of `expression` in `repo`. Short commit and change
+    /// ID prefixes are resolved within `id_prefix_context`.
+    pub fn new(
+        repo: &'repo dyn Repo,
+        extensions: Arc<RevsetExtensions>,
+        id_prefix_context: &'repo IdPrefixContext,
+        expression: Arc<UserRevsetExpression>,
+    ) -> Self {
+        Self {
+            repo,
+            extensions,
+            id_prefix_context,
+            expression,
+        }
+    }
+
+    /// Returns the underlying expression.
+    pub fn expression(&self) -> &Arc<UserRevsetExpression> {
+        &self.expression
+    }
+
+    /// Intersects the underlying expression with the `other` expression.
+    pub fn intersect_with(&mut self, other: &Arc<UserRevsetExpression>) {
+        self.expression = self.expression.intersection(other);
+    }
+
+    /// Resolves user symbols in the expression, returns new expression.
+    ///
+    /// Note that this discards any extra index data needed to evaluate
+    /// `at_operation()` expressions pointing to operations whose commits
+    /// aren't indexed in the current repo. Use [`Self::evaluate()`] if the
+    /// expression is to be evaluated as is.
+    // TODO: migrate most callers to `evaluate()` or to `resolve_revset`, so
+    // callers don't drop the merged_index on the floor when the expression
+    // contains an `at_operation(OP, x)`. This can be done over time.
+    pub fn resolve(&self) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+        let (expression, _other_repos) = self.resolve_revset()?.into_inner();
+        Ok(expression)
+    }
+
+    /// Resolves user symbols in the expression.
+    pub fn resolve_revset(&self) -> Result<ResolvedRevset<'_>, RevsetResolutionError> {
+        let symbol_resolver = default_symbol_resolver(
+            self.repo,
+            self.extensions.symbol_resolvers(),
+            self.id_prefix_context,
+        );
+        self.expression
+            .resolve_user_expression(self.repo, &symbol_resolver)
+    }
+
+    /// Evaluates the expression.
+    pub fn evaluate(&self) -> Result<Box<dyn Revset>, UserRevsetEvaluationError> {
+        self.resolve_revset()
+            .map_err(UserRevsetEvaluationError::Resolution)?
+            .evaluate()
+            .map_err(UserRevsetEvaluationError::Evaluation)
+    }
+
+    /// Evaluates the expression to an iterator over commit ids. Entries are
+    /// sorted in reverse topological order.
+    pub fn evaluate_to_commit_ids(
+        &self,
+    ) -> Result<
+        LocalBoxStream<'static, Result<CommitId, RevsetEvaluationError>>,
+        UserRevsetEvaluationError,
+    > {
+        Ok(self.evaluate()?.stream())
+    }
+
+    /// Evaluates the expression to an iterator over commit objects. Entries are
+    /// sorted in reverse topological order.
+    pub fn evaluate_to_commits(
+        &self,
+    ) -> Result<
+        LocalBoxStream<'repo, Result<Commit, RevsetEvaluationError>>,
+        UserRevsetEvaluationError,
+    > {
+        Ok(self
+            .evaluate()?
+            .stream()
+            .commits(self.repo.store())
+            .boxed_local())
+    }
+}
+
+/// Wraps the given `IdPrefixContext` in `SymbolResolver` to be passed in to
+/// `evaluate()`.
+pub fn default_symbol_resolver<'a>(
+    repo: &'a dyn Repo,
+    extensions: &[impl AsRef<dyn SymbolResolverExtension>],
+    id_prefix_context: &'a IdPrefixContext,
+) -> SymbolResolver<'a> {
+    SymbolResolver::new(repo, extensions).with_id_prefix_context(id_prefix_context)
 }
