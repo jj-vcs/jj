@@ -6,6 +6,7 @@ use std::sync::Arc;
 use futures::StreamExt as _;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
+use jj_frontend::merge_tools::MergeToolFile;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeValue;
@@ -37,8 +38,6 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
 use thiserror::Error;
-
-use super::MergeToolFile;
 
 #[derive(Debug, Error)]
 pub enum BuiltinToolError {

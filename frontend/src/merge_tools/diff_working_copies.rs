@@ -31,12 +31,16 @@ use thiserror::Error;
 use super::DiffEditError;
 use super::external::ExternalToolError;
 
+/// Error from writing trees to temporary directories for a diff tool.
 #[derive(Debug, Error)]
 pub enum DiffCheckoutError {
+    /// The files couldn't be written.
     #[error("Failed to write directories to diff")]
     Checkout(#[from] CheckoutError),
+    /// The temporary directory couldn't be created.
     #[error("Error setting up temporary directory")]
     SetUpDir(#[source] std::io::Error),
+    /// The temporary working copy state couldn't be set up.
     #[error(transparent)]
     TreeState(#[from] TreeStateError),
 }

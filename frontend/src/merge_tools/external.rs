@@ -10,9 +10,6 @@ use std::sync::Arc;
 
 use bstr::BString;
 use itertools::Itertools as _;
-use jj_frontend::config_util::CommandNameAndArgs;
-use jj_frontend::config_util::find_all_variables;
-use jj_frontend::config_util::interpolate_variables;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -39,6 +36,9 @@ use super::diff_working_copies::DiffType;
 use super::diff_working_copies::check_out_trees;
 use super::diff_working_copies::set_readonly_recursively;
 use super::resolve_files_one_by_one;
+use crate::config_util::CommandNameAndArgs;
+use crate::config_util::find_all_variables;
+use crate::config_util::interpolate_variables;
 
 /// Merge/diff tool loaded from the settings.
 #[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
@@ -89,6 +89,7 @@ pub struct ExternalMergeTool {
     pub conflict_marker_style: Option<ConflictMarkerStyle>,
 }
 
+/// How to invoke a diff tool.
 #[derive(serde::Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum DiffToolMode {
@@ -122,6 +123,7 @@ impl Default for ExternalMergeTool {
 }
 
 impl ExternalMergeTool {
+    /// Creates a tool that runs `program` with the default arguments.
     pub fn with_program(program: impl Into<String>) -> Self {
         Self {
             program: program.into(),
@@ -129,14 +131,17 @@ impl ExternalMergeTool {
         }
     }
 
+    /// Creates a tool for generating diffs with the given command.
     pub fn with_diff_args(command_args: &CommandNameAndArgs) -> Self {
         Self::with_args_inner(command_args, |tool| &mut tool.diff_args)
     }
 
+    /// Creates a tool for editing diffs with the given command.
     pub fn with_edit_args(command_args: &CommandNameAndArgs) -> Self {
         Self::with_args_inner(command_args, |tool| &mut tool.edit_args)
     }
 
+    /// Creates a tool for resolving conflicts with the given command.
     pub fn with_merge_args(command_args: &CommandNameAndArgs) -> Self {
         Self::with_args_inner(command_args, |tool| &mut tool.merge_args)
     }
@@ -157,25 +162,40 @@ impl ExternalMergeTool {
     }
 }
 
+/// Error from running an external tool.
 #[derive(Debug, Error)]
 pub enum ExternalToolError {
+    /// The temporary directory couldn't be created.
     #[error("Error setting up temporary directory")]
     SetUpDir(#[source] std::io::Error),
+    /// The tool couldn't be started.
     // TODO: Remove the "(run with --debug to see the exact invocation)"
     // from this and other errors. Print it as a hint but only if --debug is *not* set.
     #[error("Error executing '{tool_binary}' (run with --debug to see the exact invocation)")]
     FailedToExecute {
+        /// The program that couldn't be started.
         tool_binary: String,
+        /// The underlying error.
         #[source]
         source: std::io::Error,
     },
+    /// The tool exited with a failure status.
     #[error("Tool exited with {exit_status} (run with --debug to see the exact invocation)")]
-    ToolAborted { exit_status: ExitStatus },
+    ToolAborted {
+        /// The exit status.
+        exit_status: ExitStatus,
+    },
+    /// The tool indicated that conflicts remain, but its output didn't have
+    /// valid conflict markers.
     #[error(
         "Tool exited with {exit_status}, but did not produce valid conflict markers (run with \
          --debug to see the exact invocation)"
     )]
-    InvalidConflictMarkers { exit_status: ExitStatus },
+    InvalidConflictMarkers {
+        /// The exit status.
+        exit_status: ExitStatus,
+    },
+    /// An I/O error occurred.
     #[error("I/O error")]
     Io(#[source] std::io::Error),
 }
