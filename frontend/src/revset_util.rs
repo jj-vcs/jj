@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::stream::LocalBoxStream;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -207,6 +208,51 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
             .commits(self.repo.store())
             .boxed_local())
     }
+
+    /// Evaluates the expression to a single commit. Returns an error if the
+    /// expression evaluates to no commits or to multiple commits.
+    pub async fn evaluate_to_single_commit(&self) -> Result<Commit, RevsetEvaluationSizeError> {
+        // The number of commits to pass to the error (will be shown in the error
+        // message).
+        let max_commits = 5;
+        let mut commits: Vec<_> = self
+            .evaluate_to_commits()
+            .map_err(RevsetEvaluationSizeError::Other)?
+            .take(max_commits + 1)
+            .try_collect()
+            .await
+            .map_err(UserRevsetEvaluationError::Evaluation)
+            .map_err(RevsetEvaluationSizeError::Other)?;
+        match commits.as_slice() {
+            [commit] => Ok(commit.clone()),
+            [] => Err(RevsetEvaluationSizeError::Empty),
+            _ => {
+                let has_more = commits.len() > max_commits;
+                commits.truncate(max_commits);
+                Err(RevsetEvaluationSizeError::Multiple { commits, has_more })
+            }
+        }
+    }
+}
+
+/// Error when evaluating a revset into a single commit.
+#[derive(Debug, Error)]
+pub enum RevsetEvaluationSizeError {
+    /// The revset evaluated to no commits.
+    #[error("The revset didn't resolve to any revisions")]
+    Empty,
+    /// The revset evaluated to multiple commits.
+    #[error("The revset resolved to more than one revision")]
+    Multiple {
+        /// A few of the commits (enough for an error message); do not expect
+        /// this to be the entire evaluated revset.
+        commits: Vec<Commit>,
+        /// Whether there were more commits than those in `commits`.
+        has_more: bool,
+    },
+    /// An error occurred during revset evaluation; size unknown.
+    #[error(transparent)]
+    Other(UserRevsetEvaluationError),
 }
 
 /// Wraps the given `IdPrefixContext` in `SymbolResolver` to be passed in to
