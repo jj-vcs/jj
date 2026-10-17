@@ -186,6 +186,7 @@ use crate::formatter::FormatterExt as _;
 use crate::merge_tools::DiffEditor;
 use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;
+use crate::merge_tools::MergeToolConfigWarning;
 use crate::operation_templater::OperationTemplateLanguage;
 use crate::operation_templater::OperationTemplateLanguageExtension;
 use crate::revset_util;
@@ -1523,12 +1524,15 @@ impl WorkspaceCommandHelper {
                 conflict_marker_style,
             )?)
         } else {
-            Ok(DiffEditor::from_settings(
-                ui,
+            let mut warnings = vec![];
+            let result = DiffEditor::from_settings(
+                &mut warnings,
                 self.settings(),
                 base_ignores,
                 conflict_marker_style,
-            )?)
+            );
+            print_merge_tool_config_warnings(ui, &warnings);
+            Ok(result?)
         }
     }
 
@@ -1558,19 +1562,13 @@ impl WorkspaceCommandHelper {
     ) -> Result<MergeEditor, MergeToolConfigError> {
         let conflict_marker_style = self.env.conflict_marker_style();
         if let Some(name) = tool_name {
-            MergeEditor::with_name(
-                name,
-                self.settings(),
-                self.path_converter().clone(),
-                conflict_marker_style,
-            )
+            MergeEditor::with_name(name, self.settings(), conflict_marker_style)
         } else {
-            MergeEditor::from_settings(
-                ui,
-                self.settings(),
-                self.path_converter().clone(),
-                conflict_marker_style,
-            )
+            let mut warnings = vec![];
+            let result =
+                MergeEditor::from_settings(&mut warnings, self.settings(), conflict_marker_style);
+            print_merge_tool_config_warnings(ui, &warnings);
+            result
         }
     }
 
@@ -2288,6 +2286,21 @@ impl WorkspaceCommandTransaction<'_> {
                 .await?;
         }
         Ok(())
+    }
+}
+
+fn print_merge_tool_config_warnings(ui: &Ui, warnings: &[MergeToolConfigWarning]) {
+    for warning in warnings {
+        match warning {
+            MergeToolConfigWarning::DefaultEditor { config_key, name } => {
+                writeln!(
+                    ui.hint_default(),
+                    "Using default editor '{name}'; run `jj config set --user {config_key} \
+                     :builtin` to disable this message."
+                )
+                .ok();
+            }
+        }
     }
 }
 
