@@ -17,6 +17,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::collections::hash_map::Entry;
 use std::future::poll_fn;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -108,6 +109,7 @@ pub(crate) async fn rewrite_trees<V: TreeRewriteVisitor>(
         visitor,
         work: LimitedFutures::new(store.concurrency()),
         scheduled_trees: HashSet::new(),
+        pending_reads: HashMap::new(),
         rewritten_trees: HashMap::new(),
         unfinished_trees: HashMap::new(),
         parent_trees: HashMap::new(),
@@ -130,10 +132,7 @@ type EntryKey<C> = (TreeKey<C>, usize);
 #[derive(Debug)]
 enum WorkItem<C> {
     // A base tree that has been read.
-    ReadTree {
-        context: C,
-        result: BackendResult<Tree>,
-    },
+    ReadTree(BackendResult<Tree>),
     // A rewritten tree that has been written.
     WrittenTree {
         key: TreeKey<C>,
@@ -158,6 +157,9 @@ struct TreeRewriter<'visitor, V: TreeRewriteVisitor> {
     // work is done in, so the keys are just sequence numbers.
     work: LimitedFutures<'static, WorkItem<V::Context>>,
     scheduled_trees: HashSet<TreeKey<V::Context>>,
+    // Contexts to rewrite each tree in once it has been read. A tree that appears
+    // in multiple contexts is read only once.
+    pending_reads: HashMap<(RepoPathBuf, TreeId), Vec<V::Context>>,
     // Map from original tree to the ID of the rewritten tree
     rewritten_trees: HashMap<TreeKey<V::Context>, TreeId>,
     unfinished_trees: HashMap<TreeKey<V::Context>, UnfinishedTree>,
@@ -169,9 +171,15 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
     async fn run(&mut self) -> BackendResult<()> {
         while let Some(item) = poll_fn(|cx| self.work.poll_next(cx)).await {
             match item {
-                WorkItem::ReadTree { context, result } => {
+                WorkItem::ReadTree(result) => {
                     let tree = result?;
-                    self.process_tree(&tree, context);
+                    let contexts = self
+                        .pending_reads
+                        .remove(&(tree.dir().to_owned(), tree.id().clone()))
+                        .unwrap();
+                    for context in contexts {
+                        self.process_tree(&tree, context);
+                    }
                 }
                 WorkItem::WrittenTree { key, result } => {
                     let tree_id = result?;
@@ -262,19 +270,24 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
             return;
         }
         let (dir, tree_id, context) = key;
+        match self.pending_reads.entry((dir.clone(), tree_id.clone())) {
+            Entry::Occupied(mut entry) => {
+                // Already being read in another context
+                entry.get_mut().push(context);
+                return;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(vec![context]);
+            }
+        }
         let store = self.store.clone();
         if tree_id == *store.empty_tree_id() {
             let result = Ok(Tree::empty(store, dir));
-            self.work
-                .push(async move { WorkItem::ReadTree { context, result } });
+            self.work.push(async move { WorkItem::ReadTree(result) });
             return;
         }
-        self.work.push(async move {
-            store
-                .get_tree(dir, &tree_id)
-                .map(|result| WorkItem::ReadTree { context, result })
-                .await
-        });
+        self.work
+            .push(async move { store.get_tree(dir, &tree_id).map(WorkItem::ReadTree).await });
     }
 
     /// Writes the rewritten tree, or reuses `base_tree` if the rewritten tree
