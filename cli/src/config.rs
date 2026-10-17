@@ -192,7 +192,6 @@ pub fn default_config_layers() -> Vec<ConfigLayer> {
     layers.extend([
         parse(include_str!("config/colors.toml")),
         parse(include_str!("config/hints.toml")),
-        parse(include_str!("config/merge_tools.toml")),
         parse(include_str!("config/misc.toml")),
         parse(include_str!("config/revsets.toml")),
         parse(include_str!("config/templates.toml")),

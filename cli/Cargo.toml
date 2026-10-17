@@ -65,6 +65,7 @@ name = "datatest_runner"
 harness = false
 
 [dependencies]
+async-trait = { workspace = true }
 ansi-to-tui = { workspace = true }
 bstr = { workspace = true }
 clap = { workspace = true }
@@ -125,7 +126,6 @@ nix = { workspace = true, features = [ "signal" ] }
 [dev-dependencies]
 anstream = { workspace = true }
 assert_cmd = { workspace = true }
-async-trait = { workspace = true }
 datatest-stable = { workspace = true }
 insta = { workspace = true }
 jsonschema = { workspace = true }
