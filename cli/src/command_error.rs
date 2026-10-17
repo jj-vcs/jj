@@ -22,6 +22,7 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use jj_frontend::config_env::ConfigEnvError;
 use jj_frontend::config_util::RemoteSettingParseError;
+use jj_frontend::operation_util::RevertOperationError;
 use jj_frontend::revset_util::UserRevsetEvaluationError;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::SnapshotConfigError;
@@ -557,6 +558,18 @@ impl From<OpStoreError> for CommandError {
 impl From<RepoLoaderError> for CommandError {
     fn from(err: RepoLoaderError) -> Self {
         internal_error_with_message("Failed to load the repo", err)
+    }
+}
+
+impl From<RevertOperationError> for CommandError {
+    fn from(err: RevertOperationError) -> Self {
+        match err {
+            RevertOperationError::RootOperation | RevertOperationError::MergeOperation => {
+                user_error(err)
+            }
+            RevertOperationError::OpStore(err) => err.into(),
+            RevertOperationError::RepoLoader(err) => err.into(),
+        }
     }
 }
 

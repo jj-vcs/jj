@@ -13,17 +13,15 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools as _;
+use jj_frontend::operation_util::revert_operation;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::operation::Operation;
-use jj_lib::repo::Repo as _;
 
 use super::DEFAULT_REVERT_WHAT;
 use super::RevertWhatToRestore;
-use super::view_with_desired_portions_restored;
+use super::view_portions;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -58,25 +56,8 @@ pub async fn cmd_op_revert(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
     let target_op = workspace_command.resolve_single_op(&args.operation)?;
-    let target_op_parent = match target_op.parents().await?.into_iter().at_most_one() {
-        Ok(Some(op)) => op,
-        Ok(None) => return Err(user_error("Cannot revert root operation")),
-        Err(_) => return Err(user_error("Cannot revert a merge operation")),
-    };
-
     let mut tx = workspace_command.start_transaction();
-    let repo_loader = tx.base_repo().loader();
-    let repo_at_target_op = &repo_loader.load_at(&target_op).await?;
-    let repo_at_target_op_parent = &repo_loader.load_at(&target_op_parent).await?;
-    tx.repo_mut()
-        .merge(repo_at_target_op, repo_at_target_op_parent)
-        .await?;
-    let new_view = view_with_desired_portions_restored(
-        tx.repo().view().store_view(),
-        tx.base_repo().view().store_view(),
-        &args.what,
-    );
-    tx.repo_mut().set_view(new_view);
+    revert_operation(tx.repo_mut(), &target_op, view_portions(&args.what)).await?;
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Reverted operation: ")?;
         let template = tx.base_workspace_helper().operation_summary_template();
