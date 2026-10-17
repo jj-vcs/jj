@@ -563,6 +563,22 @@ impl ConfigEnv {
         Ok(())
     }
 
+    /// Sets the repo and workspace paths, and loads their config files into
+    /// the given `config`. The old repo- and workspace-config layers will be
+    /// replaced if any.
+    pub fn reset_workspace_and_reload_config(
+        &mut self,
+        warnings: &mut Vec<ConfigWarning>,
+        config: &mut RawConfig,
+        repo_path: &Path,
+        workspace_root: &Path,
+    ) -> Result<(), ConfigEnvError> {
+        self.reset_repo_path(repo_path);
+        self.reload_repo_config(warnings, config)?;
+        self.reset_workspace_path(workspace_root);
+        self.reload_workspace_config(warnings, config)
+    }
+
     /// Returns the configuration file at the specified `path` for modification.
     ///
     /// Validates that the path is a recognized Jujutsu configuration location
