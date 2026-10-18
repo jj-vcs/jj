@@ -12,6 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Git interoperability functions.
+//!
+//! # Reference handling
+//!
+//! * `jj git import` applies the diff between `git_refs` and `remotes[]`.
+//!   `git_refs` is always copied from the backing Git repo.
+//! * `jj git export` copies jj's `remotes` view back to the Git repo. If a ref
+//!   in the Git repo has been updated since the last import, the ref isn't
+//!   exported.
+//! * `jj op restore` never rolls back `git_refs`.
+
 #![expect(missing_docs)]
 
 use std::borrow::Borrow;

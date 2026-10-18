@@ -58,9 +58,6 @@ target there, `jj log` will show the bookmark name with an asterisk suffix (e.g.
 `main*`). That is meant to remind you that you may want to push the bookmark to
 some remote.
 
-If you want to know the internals of bookmark tracking, consult the
-[Design Doc][design].
-
 ### Terminology summary
 
 - A **remote bookmark** is a bookmark ref on the remote. `jj` can find out its
@@ -231,4 +228,3 @@ For example, `jj bookmark create BOOKMARK-NAME -r@` can be abbreviated as
 `jj b c BOOKMARK-NAME -r@`.
 
 [colocated-workspaces]: git-compatibility.md#colocated-jujutsugit-workspaces
-[design]: design/tracking-branches.md
