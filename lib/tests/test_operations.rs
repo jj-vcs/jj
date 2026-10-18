@@ -31,6 +31,7 @@ use jj_lib::op_walk;
 use jj_lib::op_walk::OpsetEvaluationError;
 use jj_lib::op_walk::OpsetResolutionError;
 use jj_lib::operation::Operation;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
@@ -107,7 +108,7 @@ fn test_consecutive_operations() -> TestResult {
     assert_ne!(op_id1, op_id0);
     assert_eq!(list_dir(&op_heads_dir), vec![op_id1.hex()]);
 
-    let repo = repo.reload_at_head().block_on()?;
+    let repo = repo.reload_at_head(None).block_on()?;
     let mut tx2 = repo.start_transaction();
     write_random_commit(tx2.repo_mut());
     let op_id2 = tx2
@@ -122,7 +123,7 @@ fn test_consecutive_operations() -> TestResult {
 
     // Reloading the repo makes no difference (there are no conflicting operations
     // to resolve).
-    let _repo = repo.reload_at_head().block_on()?;
+    let _repo = repo.reload_at_head(None).block_on()?;
     assert_eq!(list_dir(&op_heads_dir), vec![op_id2.hex()]);
     Ok(())
 }
@@ -168,7 +169,9 @@ fn test_concurrent_operations() -> TestResult {
     assert_eq!(actual_heads_on_disk, expected_heads_on_disk);
 
     // Reloading the repo causes the operations to be merged
-    let repo = repo.reload_at_head().block_on()?;
+    let repo = repo
+        .reload_at_head(Some(WorkspaceName::DEFAULT))
+        .block_on()?;
     let merged_op_id = repo.op_id().clone();
     assert_ne!(merged_op_id, op_id0);
     assert_ne!(merged_op_id, op_id1);
@@ -227,7 +230,9 @@ fn test_isolation() -> TestResult {
     tx2.commit("transaction 2").block_on()?;
     assert_heads(repo.as_ref(), vec![initial.id()]);
     // After reload, the base repo sees both rewrites.
-    let repo = repo.reload_at_head().block_on()?;
+    let repo = repo
+        .reload_at_head(Some(WorkspaceName::DEFAULT))
+        .block_on()?;
     assert_heads(repo.as_ref(), vec![rewrite1.id(), rewrite2.id()]);
     Ok(())
 }

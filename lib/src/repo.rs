@@ -355,8 +355,11 @@ impl ReadonlyRepo {
         Transaction::new(mut_repo, self.settings())
     }
 
-    pub async fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at_head().await
+    pub async fn reload_at_head(
+        &self,
+        workspace_name: Option<&WorkspaceName>,
+    ) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader().load_at_head(workspace_name).await
     }
 
     #[instrument]
@@ -417,7 +420,7 @@ pub type OpStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
     + 'a;
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
-pub type OpHeadsStoreInitializer<'a> = 
+pub type OpHeadsStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, &OperationId)
     -> Result<Box<dyn OpHeadsStore>, BackendInitError>
     + 'a;
@@ -800,13 +803,15 @@ impl RepoLoader {
         &self.submodule_store
     }
 
-    pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub async fn load_at_head(
+        &self,
+        workspace_name: Option<&WorkspaceName>,
+    ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
             async |op_heads| -> Result<Operation, RepoLoaderError> {
                 assert!(op_heads.len() > 1);
-                let workspace_name = None;
                 let transaction_description = Some("reconcile divergent operations");
                 let transaction_attributes = [];
                 let (merged_repo, _num_rebased) = self
