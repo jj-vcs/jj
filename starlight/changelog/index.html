@@ -307,6 +307,10 @@ by an hour. Likely a niche bug fix, but a bug fix nonetheless!</p>
 <p>Fixed tag deletion with <code dir="auto">jj git fetch --tag=NAME</code>.</p>
 </li>
 <li>
+<p><code dir="auto">jj workspace remove</code> can now remove stale workspaces.
+<a href="https://github.com/jj-vcs/jj/issues/10276">#10276</a></p>
+</li>
+<li>
 <p>Fixed issue with <code dir="auto">config-schema.json</code> where Taplo (TOML parsing library) would
 flag any <code dir="auto">aliases</code> defined as a table but without an explicit
 <code dir="auto">.enabled = true</code> as "valid under more than one of the schemas". This affected
