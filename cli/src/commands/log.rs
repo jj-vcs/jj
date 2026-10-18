@@ -161,7 +161,7 @@ pub(crate) async fn cmd_log(
     let revset = revset_expression.evaluate()?;
 
     if args.count {
-        let (lower, upper) = revset.count_estimate()?;
+        let (lower, upper) = revset.count_estimate().await?;
         let limit = args.limit.unwrap_or(usize::MAX);
         let count = if limit <= lower {
             limit
@@ -397,7 +397,7 @@ pub(crate) async fn cmd_log(
                  this is often not useful because all non-empty commits touch '.'. If you meant \
                  to show the working copy commit, pass -r '@' instead."
             )?;
-        } else if revset.is_empty()?
+        } else if revset.is_empty().await?
             && workspace_command
                 .parse_revset(ui, &RevisionArg::from(only_path.to_owned()))
                 .is_ok()

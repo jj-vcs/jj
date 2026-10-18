@@ -774,11 +774,13 @@ async fn compute_operation_commits_diff(
     let elided_newly_visible_estimate = newly_visible_expr
         .minus(&to_op_diff_changes_expr)
         .evaluate(repo)?
-        .count_estimate()?;
+        .count_estimate()
+        .await?;
     let elided_newly_hidden_estimate = newly_hidden_expr
         .minus(&from_op_diff_changes_expr)
         .evaluate(repo)?
-        .count_estimate()?;
+        .count_estimate()
+        .await?;
 
     // Collect hidden commits to find abandoned/rewritten changes.
     let mut hidden_commits_by_change: HashMap<ChangeId, CommitId> = HashMap::new();

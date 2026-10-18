@@ -2090,7 +2090,8 @@ to the current parents may contain changes from multiple commits.
             let (lower_bound, upper_bound) = immutable_expr
                 .intersection(&to_rewrite_expr.descendants())
                 .evaluate(repo)?
-                .count_estimate()?;
+                .count_estimate()
+                .await?;
             let exact = upper_bound == Some(lower_bound);
             let or_more = if exact { "" } else { " or more" };
             error.add_hint(format!(
@@ -2160,6 +2161,7 @@ to the current parents may contain changes from multiple commits.
                 .evaluate(tx.repo())
                 .map_err(snapshot_command_error)?
                 .is_empty()
+                .await
                 .map_err(snapshot_command_error)?;
             let mut_repo = tx.repo_mut();
             let new_wc_commit;
@@ -2390,7 +2392,8 @@ to the current parents may contain changes from multiple commits.
             && !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
                 .evaluate(tx.repo())?
-                .is_empty()?
+                .is_empty()
+                .await?
         {
             let new_wc_commit = tx
                 .repo_mut()
