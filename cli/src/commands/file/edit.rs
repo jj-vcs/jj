@@ -131,8 +131,9 @@ pub(crate) async fn cmd_file_edit(
     .map_err(user_error)?;
     tree_state
         .set_sparse_patterns(vec![repo_path.clone()])
+        .await
         .map_err(internal_error)?;
-    tree_state.check_out(&tree).map_err(internal_error)?;
+    tree_state.check_out(&tree).await.map_err(internal_error)?;
 
     let file_path = repo_path
         .to_fs_path(tree_state.working_copy_path())

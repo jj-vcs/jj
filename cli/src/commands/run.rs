@@ -279,6 +279,7 @@ impl WorkspacePool {
         if let Some(sparse_patterns) = &self.sparsity {
             tree_state
                 .set_sparse_patterns(sparse_patterns.clone())
+                .await
                 .map_err(|source| RunError::FailedCheckout {
                     commit_id: commit.id().clone(),
                     source,
@@ -288,6 +289,7 @@ impl WorkspacePool {
             // without having to clear the run "workspace" first with `--clean`.
             tree_state
                 .set_sparse_patterns(vec![RepoPathBuf::root()])
+                .await
                 .map_err(|source| RunError::FailedCheckout {
                     commit_id: commit.id().clone(),
                     source,
@@ -296,6 +298,7 @@ impl WorkspacePool {
 
         tree_state
             .check_out(&commit.tree())
+            .await
             .map_err(|source| RunError::FailedCheckout {
                 commit_id: commit.id().clone(),
                 source,
@@ -346,12 +349,13 @@ impl WorkspacePool {
                 }
             }
             if !added_paths.is_empty() {
-                tree_state.check_out(&original_tree).map_err(|source| {
-                    RunError::FailedCheckout {
+                tree_state
+                    .check_out(&original_tree)
+                    .await
+                    .map_err(|source| RunError::FailedCheckout {
                         commit_id: commit.id().clone(),
                         source,
-                    }
-                })?;
+                    })?;
             }
         }
 
