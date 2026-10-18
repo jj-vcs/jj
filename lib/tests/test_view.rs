@@ -859,7 +859,7 @@ fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
     tx_f.repo_mut().rebase_descendants().block_on()?;
     let repo_f = tx_f.commit("F").block_on()?;
 
-    let repo = repo_f.reload_at_head().block_on()?;
+    let repo = repo_f.reload_at_head(None).block_on()?;
     let heads = repo.view().heads();
     assert_eq!(*heads, hashset![commit_m.id().clone()]);
     assert_eq!(
