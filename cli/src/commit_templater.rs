@@ -1882,7 +1882,9 @@ impl CommitRef {
             .get_or_try_init(|| {
                 let self_ids = self.target.present_adds().cloned().collect_vec();
                 let other_ids = tracking.target.present_adds().cloned().collect_vec();
-                Ok(revset::walk_revs(repo, &self_ids, &other_ids)?.count_estimate()?)
+                Ok(revset::walk_revs(repo, &self_ids, &other_ids)?
+                    .count_estimate()
+                    .block_on()?)
             })
             .copied()
     }
@@ -1897,7 +1899,9 @@ impl CommitRef {
             .get_or_try_init(|| {
                 let self_ids = self.target.present_adds().cloned().collect_vec();
                 let other_ids = tracking.target.present_adds().cloned().collect_vec();
-                Ok(revset::walk_revs(repo, &other_ids, &self_ids)?.count_estimate()?)
+                Ok(revset::walk_revs(repo, &other_ids, &self_ids)?
+                    .count_estimate()
+                    .block_on()?)
             })
             .copied()
     }

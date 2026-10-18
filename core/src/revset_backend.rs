@@ -22,6 +22,7 @@ use std::fmt;
 use std::ops::Range;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use futures::Stream;
 use futures::StreamExt as _;
 use futures::future::LocalBoxFuture;
@@ -273,6 +274,7 @@ pub enum ResolvedExpression {
 }
 
 /// Result of evaluating a revset expression.
+#[async_trait(?Send)]
 pub trait Revset: fmt::Debug {
     /// Streams in topological order with children before parents.
     // TODO: Relax to BoxStream?
@@ -296,13 +298,13 @@ pub trait Revset: fmt::Debug {
         Self: 'a;
 
     /// Returns true if iterator will emit no commit.
-    fn is_empty(&self) -> Result<bool, RevsetEvaluationError>;
+    async fn is_empty(&self) -> Result<bool, RevsetEvaluationError>;
 
     /// Inclusive lower bound and, optionally, inclusive upper bound of how many
     /// commits are in the revset. The implementation can use its discretion as
     /// to how much effort should be put into the estimation, and how accurate
     /// the resulting estimate should be.
-    fn count_estimate(&self) -> Result<(usize, Option<usize>), RevsetEvaluationError>;
+    async fn count_estimate(&self) -> Result<(usize, Option<usize>), RevsetEvaluationError>;
 
     /// Returns a closure that checks if a commit is contained within the
     /// revset.

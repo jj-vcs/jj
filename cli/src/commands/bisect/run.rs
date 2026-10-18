@@ -194,7 +194,8 @@ pub(crate) async fn cmd_bisect_run(
             jj_lib::bisect::NextStep::Evaluate(commit) => {
                 {
                     let mut formatter = ui.stdout_formatter();
-                    let (lower, upper) = bisector.remaining_revset().await?.count_estimate()?;
+                    let (lower, upper) =
+                        bisector.remaining_revset().await?.count_estimate().await?;
                     let lower_steps = ((lower + 1) as f64).log2().ceil() as usize;
                     if upper == Some(lower) {
                         writeln!(

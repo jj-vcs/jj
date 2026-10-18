@@ -26,6 +26,7 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use bstr::BString;
 use futures::StreamExt as _;
 use futures::stream::LocalBoxStream;
@@ -151,6 +152,7 @@ impl<I> fmt::Debug for RevsetImpl<I> {
     }
 }
 
+#[async_trait(?Send)]
 impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
     fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
     where
@@ -188,11 +190,11 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
         futures::stream::iter(self.iter_graph_impl(skip_transitive_edges)).boxed_local()
     }
 
-    fn is_empty(&self) -> Result<bool, RevsetEvaluationError> {
+    async fn is_empty(&self) -> Result<bool, RevsetEvaluationError> {
         Ok(self.positions().next().transpose()?.is_none())
     }
 
-    fn count_estimate(&self) -> Result<(usize, Option<usize>), RevsetEvaluationError> {
+    async fn count_estimate(&self) -> Result<(usize, Option<usize>), RevsetEvaluationError> {
         if cfg!(feature = "testing") {
             // Exercise the estimation feature in tests. (If we ever have a Revset
             // implementation in production code that returns estimates, we can probably
