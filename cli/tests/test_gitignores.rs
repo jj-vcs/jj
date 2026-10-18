@@ -17,6 +17,7 @@ use std::io::Write as _;
 use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::symlink_file;
 use testutils::TestResult;
+use testutils::git;
 
 use crate::common::TestEnvironment;
 
@@ -96,6 +97,44 @@ fn test_gitignores_relative_excludes_file_path() -> TestResult {
     let output = test_env.run_jj_in(".", ["-Rrepo", "diff", "-s"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     A repo/not-ignored
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
+fn test_gitignores_in_git_worktree() -> TestResult {
+    let test_env = TestEnvironment::default();
+    let main_repo_path = test_env.env_root().join("main-repo");
+    git::init(&main_repo_path);
+    git::add_worktree(&main_repo_path, test_env.env_root().join("worktree"), None);
+    let work_dir = test_env.work_dir("worktree");
+    work_dir.run_jj(["git", "init", "--colocate"]).success();
+
+    // Track file1 before it gets ignored
+    work_dir.write_file("file1", "contents");
+    let output = work_dir.run_jj(["diff", "-s"]);
+    insta::assert_snapshot!(output, @"
+    A file1
+    [EOF]
+    ");
+
+    // Git reads info/exclude from the common dir, not from the worktree's
+    // .git/worktrees/<name> dir
+    let mut file = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(main_repo_path.join(".git").join("info").join("exclude"))?;
+    file.write_all(b"file1\nfile2\n")?;
+    drop(file);
+
+    work_dir.write_file("file2", "contents");
+    work_dir.write_file("file3", "contents");
+
+    work_dir.run_jj(["file", "untrack", "file1"]).success();
+    let output = work_dir.run_jj(["diff", "-s"]);
+    insta::assert_snapshot!(output, @"
+    A file3
     [EOF]
     ");
     Ok(())
