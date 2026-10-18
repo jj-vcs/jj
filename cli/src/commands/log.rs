@@ -244,7 +244,7 @@ pub(crate) async fn cmd_log(
         if !args.no_graph {
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-            let mut stream: LocalBoxStream<_> = {
+            let stream: LocalBoxStream<_> = {
                 let mut topo_order = TopoGroupedGraph::new(revset.stream_graph(), |id| id);
 
                 let mut prio_stream = prio_revset.evaluate_to_commit_ids()?;
@@ -264,7 +264,14 @@ pub(crate) async fn cmd_log(
                     forward_stream.boxed_local()
                 }
             };
-            while let Some((commit_id, edges)) = stream.try_next().await? {
+            let mut stream = stream
+                .map(async |result| {
+                    let (commit_id, edges) = result?;
+                    let commit = store.get_commit_async(&commit_id).await?;
+                    Ok::<_, CommandError>((commit, edges))
+                })
+                .buffered(store.concurrency());
+            while let Some((commit, edges)) = stream.try_next().await? {
                 // The graph is keyed by (CommitId, is_synthetic)
                 let mut graphlog_edges = vec![];
                 // TODO: Should we update revset.stream_graph() to yield a `has_missing` flag
@@ -294,8 +301,7 @@ pub(crate) async fn cmd_log(
                     graphlog_edges.push(GraphEdge::missing((missing_edge_id, false)));
                 }
                 let mut buffer = vec![];
-                let key = (commit_id, false);
-                let commit = store.get_commit_async(&key.0).await?;
+                let key = (commit.id().clone(), false);
                 update_unmatched_explicit_paths(&commit).await?;
                 let within_graph =
                     with_content_format.sub_width(graph.width(&key, &graphlog_edges));
