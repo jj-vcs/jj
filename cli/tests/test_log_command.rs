@@ -1065,6 +1065,36 @@ fn test_log_filtered_by_path() {
 }
 
 #[test]
+fn test_log_filtered_by_path_deleted_in_working_copy() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["new", "-m", "second"]).success();
+    work_dir.remove_file("file1");
+
+    // The path is absent from the tree of the displayed revision, but it does
+    // exist in its ancestors, so no warning should be shown.
+    let output = work_dir.run_jj(["log", "-r", "@", "-T", "description", "file1"]);
+    insta::assert_snapshot!(output, @"
+    @  second
+    │
+    ~
+    [EOF]
+    ");
+
+    // A path that never existed still warns.
+    let output = work_dir.run_jj(["log", "-r", "@", "-T", "description", "nonexistent"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_log_limit() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
