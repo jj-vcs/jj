@@ -215,7 +215,12 @@ async fn snapshot_workspace(
         locked_ws.locked_wc().snapshot(&options).await?
     };
     print_snapshot_stats(ui, &stats, env.path_converter())?;
-    // TODO: error out if stats.untracked_paths isn't empty?
+    if !stats.untracked_paths.is_empty() || !stats.invalid_utf8_paths.is_empty() {
+        return Err(user_error(format!(
+            "Cannot remove workspace '{name}' with unsnapshotted changes",
+            name = workspace_name.as_symbol()
+        )));
+    }
     if new_tree.tree_ids_and_labels() == wc_commit.tree().tree_ids_and_labels() {
         return Ok(None);
     }

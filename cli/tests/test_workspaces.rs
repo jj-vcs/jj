@@ -1764,10 +1764,33 @@ fn test_workspaces_remove_snapshots_before_removal() {
     let secondary_dir = test_env.work_dir("secondary");
     secondary_dir.write_file("unsnapshotted.txt", "important data");
 
+    let output = main_dir.run_jj([
+        "workspace",
+        "remove",
+        "secondary",
+        "--config=snapshot.max-new-file-size=10",
+    ]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    ------- stderr -------
+    Warning: Refused to snapshot some files:
+      ../secondary/unsnapshotted.txt: 14.0B (14 bytes); the maximum size allowed is 10.0B (10 bytes)
+    Hint: This is to prevent large files from being added by accident. To fix this:
+      * Add the file(s) to `.gitignore`
+      * Run `jj config set --repo snapshot.max-new-file-size 14`
+        This will increase the maximum file size allowed for new files, in this repository only.
+      * Run `jj --config snapshot.max-new-file-size=14 status`
+        This will increase the maximum file size allowed for new files, for this command only.
+    Error: Cannot remove workspace 'secondary' with unsnapshotted changes
+    [EOF]
+    [exit status: 1]
+    ");
+
+    assert!(test_env.env_root().join("secondary").exists());
+
     let output = main_dir.run_jj(["workspace", "remove", "secondary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
-    Snapshot commit created for workspace 'secondary': 0e481f0a039f
+    Snapshot commit created for workspace 'secondary': ff0805347b96
     Removed workspace directory "$TEST_ENV/secondary".
     [EOF]
     "#);
@@ -1778,7 +1801,7 @@ fn test_workspaces_remove_snapshots_before_removal() {
     insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 504e3d8c
     │  (empty) (no description set)
-    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:10 0e481f0a
+    │ ○  mzvwutvl test.user@example.com 2001-02-03 08:05:11 ff080534
     │ │  SNAPSHOT OF REMOVED WORKSPACE `secondary`
     │ │  A unsnapshotted.txt
     │ ○  pmmvwywv test.user@example.com 2001-02-03 08:05:09 058f604d
