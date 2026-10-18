@@ -12,23 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt::Write as _;
-use std::path::Path;
-
-use itertools::Itertools as _;
-use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::fileset::FilesetDiagnostics;
+use jj_lib::fileset::FilesetParseContext;
+use jj_lib::ui_path::RepoPathUiConverter;
 use tracing::instrument;
 
-use super::update_sparse_patterns_with;
+use super::format_sparse_rules;
+use super::parse_sparse_rules;
+use super::update_sparse_patterns;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::command_error::internal_error;
-use crate::command_error::user_error_with_message;
+use crate::command_error::print_parse_diagnostics;
 use crate::description_util::LineNumber;
-use crate::description_util::TextEditor;
 use crate::ui::Ui;
 
-/// Start an editor to update the patterns that are present in the working copy
+const INSTRUCTIONS: &str = r#"JJ: Lines starting with "+" add, and lines starting with "-" remove, the files
+JJ: matched by a fileset expression, starting from no files. Paths are relative
+JJ: to the workspace root. Lines starting with "JJ:" are ignored.
+"#;
+
+/// Start an editor to update the rules that decide which paths are present in
+/// the working copy
+///
+/// The rules are edited in the format printed by `jj sparse show` (check out
+/// `jj sparse --help`). Unlike in other commands, paths are relative to the
+/// workspace root, so editing from a subdirectory leaves existing rules
+/// unchanged.
 #[derive(clap::Args, Clone, Debug)]
 pub struct SparseEditArgs {}
 
@@ -38,47 +47,30 @@ pub async fn cmd_sparse_edit(
     command: &CommandHelper,
     _args: &SparseEditArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui).await?;
-    let editor = workspace_command.text_editor()?;
-    update_sparse_patterns_with(ui, &mut workspace_command, |_ui, old_patterns| {
-        let mut new_patterns = edit_sparse(&editor, old_patterns)?;
-        new_patterns.sort_unstable();
-        new_patterns.dedup();
-        Ok(new_patterns)
-    })
-    .await
-}
-
-fn edit_sparse(
-    editor: &TextEditor,
-    sparse: &[RepoPathBuf],
-) -> Result<Vec<RepoPathBuf>, CommandError> {
-    let mut content = String::new();
-    for sparse_path in sparse {
-        // Invalid path shouldn't block editing. Edited paths will be validated.
-        let workspace_relative_sparse_path = sparse_path.to_fs_path_unchecked(Path::new(""));
-        let path_string = workspace_relative_sparse_path.to_str().ok_or_else(|| {
-            internal_error(format!(
-                "Stored sparse path is not valid utf-8: {}",
-                workspace_relative_sparse_path.display()
-            ))
-        })?;
-        writeln!(&mut content, "{path_string}").unwrap();
-    }
-
-    let content = editor
-        .edit_str(content, Some(".jjsparse"), LineNumber::MIN)
+    let workspace_command = command.workspace_helper(ui).await?;
+    workspace_command.check_working_copy_writable()?;
+    let old_rules = workspace_command.working_copy().sparse_patterns()?.clone();
+    let content = workspace_command
+        .text_editor()?
+        .edit_str(
+            format_sparse_rules(&old_rules) + INSTRUCTIONS,
+            Some(".jjsparse"),
+            LineNumber::MIN,
+        )
         .map_err(|err| err.with_name("sparse patterns"))?;
 
-    content
-        .lines()
-        .filter(|line| !line.starts_with("JJ:"))
-        .map(|line| line.trim())
-        .filter(|line| !line.is_empty())
-        .map(|line| {
-            RepoPathBuf::from_relative_path(line).map_err(|err| {
-                user_error_with_message(format!("Failed to parse sparse pattern: {line}"), err)
-            })
-        })
-        .try_collect()
+    let mut diagnostics = FilesetDiagnostics::new();
+    let new_rules = {
+        let context = FilesetParseContext {
+            path_converter: RepoPathUiConverter::root(),
+            ..workspace_command.fileset_parse_context()
+        };
+        parse_sparse_rules(&mut diagnostics, &context, &content)?
+    };
+    print_parse_diagnostics(ui, "In sparse rule", &diagnostics)?;
+
+    // fresh snapshot time: the editor may also have changed tracked files,
+    // and a new exclusion could have aborted them
+    let mut workspace_command = command.workspace_helper(ui).await?;
+    update_sparse_patterns(ui, &mut workspace_command, &old_rules, new_rules).await
 }

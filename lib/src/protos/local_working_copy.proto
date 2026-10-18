@@ -42,8 +42,25 @@ message FileStateEntry {
   FileState state = 2;
 }
 
+// One rule of a sparse selection. Rules are applied in order, starting from
+// no paths; the last rule matching a path decides whether it is checked out.
+message SparseRule {
+  // Whether the matched paths are removed from the selection instead of added.
+  bool exclude = 1;
+  // Fileset expression, with paths relative to the workspace root and all
+  // aliases already resolved.
+  string fileset = 2;
+}
+
 message SparsePatterns {
+  // Union of path prefixes. Written (and understood by older jj) whenever the
+  // rules only include literal path prefixes.
+  // TODO: keep reading this format until at least jj 0.59.
   repeated string prefixes = 1;
+  // Takes precedence over `prefixes`, which is left empty in that case. Older
+  // jj would read those empty prefixes as "check out nothing", so a working
+  // copy using this field is marked with the `local-fileset` type.
+  repeated SparseRule rules = 2;
 }
 
 message TreeState {

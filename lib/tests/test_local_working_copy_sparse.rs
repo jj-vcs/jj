@@ -14,8 +14,13 @@
 
 use futures::StreamExt as _;
 use itertools::Itertools as _;
+use jj_lib::fileset::FilePattern;
+use jj_lib::fileset::FilesetExpression;
+use jj_lib::fileset::FilesetRuleKind;
+use jj_lib::fileset::FilesetRules;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::matchers::EverythingMatcher;
+use jj_lib::matchers::PathGlobPattern;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -29,8 +34,8 @@ use testutils::create_tree;
 use testutils::create_tree_with;
 use testutils::repo_path;
 
-fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
-    paths.iter().map(|&path| path.to_owned()).collect()
+fn prefix_paths(paths: &[&RepoPath]) -> FilesetRules {
+    FilesetRules::from_path_prefixes(paths.iter().map(|&path| path.to_owned()))
 }
 
 #[test]
@@ -70,7 +75,7 @@ fn test_sparse_checkout() -> TestResult {
 
     // Set sparse patterns to only dir1/
     let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_path]);
+    let sparse_patterns = prefix_paths(&[dir1_path]);
     let stats = locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns.clone())
@@ -84,7 +89,7 @@ fn test_sparse_checkout() -> TestResult {
             skipped_files: 0,
         }
     );
-    assert_eq!(locked_ws.locked_wc().sparse_patterns()?, sparse_patterns);
+    assert_eq!(locked_ws.locked_wc().sparse_patterns()?, &sparse_patterns);
     assert!(
         !root_file1_path
             .to_fs_path_unchecked(&working_copy_path)
@@ -123,7 +128,7 @@ fn test_sparse_checkout() -> TestResult {
         wc.file_states()?.paths().collect_vec(),
         vec![dir1_file1_path, dir1_file2_path, dir1_subdir1_file1_path]
     );
-    assert_eq!(wc.sparse_patterns()?, sparse_patterns);
+    assert_eq!(wc.sparse_patterns()?, &sparse_patterns);
 
     // Reload the state to check that it was persisted
     let wc = LocalWorkingCopy::load(
@@ -136,11 +141,11 @@ fn test_sparse_checkout() -> TestResult {
         wc.file_states()?.paths().collect_vec(),
         vec![dir1_file1_path, dir1_file2_path, dir1_subdir1_file1_path]
     );
-    assert_eq!(wc.sparse_patterns()?, sparse_patterns);
+    assert_eq!(wc.sparse_patterns()?, &sparse_patterns);
 
     // Set sparse patterns to file2, dir1/subdir1/ and dir2/
     let mut locked_wc = wc.start_mutation().block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[root_file1_path, dir1_subdir1_path, dir2_path]);
+    let sparse_patterns = prefix_paths(&[root_file1_path, dir1_subdir1_path, dir2_path]);
     let stats = locked_wc
         .set_sparse_patterns(sparse_patterns.clone())
         .block_on()?;
@@ -153,7 +158,7 @@ fn test_sparse_checkout() -> TestResult {
             skipped_files: 0,
         }
     );
-    assert_eq!(locked_wc.sparse_patterns()?, sparse_patterns);
+    assert_eq!(locked_wc.sparse_patterns()?, &sparse_patterns);
     assert!(
         root_file1_path
             .to_fs_path_unchecked(&working_copy_path)
@@ -227,7 +232,7 @@ fn test_sparse_commit() -> TestResult {
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_path]);
+    let sparse_patterns = prefix_paths(&[dir1_path]);
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
@@ -265,7 +270,7 @@ fn test_sparse_commit() -> TestResult {
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_path, dir2_path]);
+    let sparse_patterns = prefix_paths(&[dir1_path, dir2_path]);
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
@@ -301,7 +306,7 @@ fn test_sparse_commit_gitignore() -> TestResult {
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_path]);
+    let sparse_patterns = prefix_paths(&[dir1_path]);
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
@@ -367,7 +372,7 @@ fn test_sparse_commit_gitignore_sparsed_away() -> TestResult {
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_subdir1_path]);
+    let sparse_patterns = prefix_paths(&[dir1_subdir1_path]);
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
@@ -446,7 +451,7 @@ fn test_sparse_commit_gitignore_symlink_not_followed() -> TestResult {
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let sparse_patterns = to_owned_path_vec(&[dir1_subdir1_path]);
+    let sparse_patterns = prefix_paths(&[dir1_subdir1_path]);
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
@@ -479,5 +484,99 @@ fn test_sparse_commit_gitignore_symlink_not_followed() -> TestResult {
             dir1_subdir1_file1_path,
         ]
     );
+    Ok(())
+}
+
+#[test]
+fn test_sparse_checkout_rules() -> TestResult {
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+
+    let root_file = repo_path("file.rs");
+    let dir1_file_rs = repo_path("dir1/file.rs");
+    let dir1_file_md = repo_path("dir1/file.md");
+    let dir1_subdir1_file_rs = repo_path("dir1/subdir1/file.rs");
+    let dir2_file = repo_path("dir2/file.rs");
+
+    let tree = create_tree(
+        repo,
+        &[
+            (root_file, "contents"),
+            (dir1_file_rs, "contents"),
+            (dir1_file_md, "contents"),
+            (dir1_subdir1_file_rs, "contents"),
+            (dir2_file, "contents"),
+        ],
+    );
+    let commit = commit_with_tree(repo.store(), tree);
+    test_workspace
+        .workspace
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()?;
+    let ws = &mut test_workspace.workspace;
+
+    // `+ glob:"**/*.rs"`, `- dir1/subdir1`, `+ dir2`
+    let mut sparse_patterns = FilesetRules::from_iter([]);
+    sparse_patterns.push(
+        FilesetRuleKind::Include,
+        FilesetExpression::pattern(FilePattern::FileGlob {
+            dir: RepoPathBuf::root(),
+            pattern: Box::new(PathGlobPattern::parse("**/*.rs")?),
+        }),
+    );
+    sparse_patterns.push(
+        FilesetRuleKind::Exclude,
+        FilesetExpression::prefix_path(repo_path("dir1").to_owned()),
+    );
+    sparse_patterns.push(
+        FilesetRuleKind::Include,
+        FilesetExpression::prefix_path(repo_path("dir1/subdir1").to_owned()),
+    );
+
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
+    locked_ws
+        .locked_wc()
+        .set_sparse_patterns(sparse_patterns.clone())
+        .block_on()?;
+    locked_ws.finish(repo.op_id().clone()).block_on()?;
+
+    for (path, present) in [
+        (root_file, true),
+        (dir1_file_rs, false),
+        (dir1_file_md, false),
+        // Re-included by the last rule, even though its parent is excluded
+        (dir1_subdir1_file_rs, true),
+        (dir2_file, true),
+    ] {
+        assert_eq!(
+            path.to_fs_path_unchecked(ws.workspace_root()).exists(),
+            present,
+            "{path:?}"
+        );
+    }
+
+    // Reload the state to check that the rules were persisted
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
+    let wc = LocalWorkingCopy::load(
+        repo.store().clone(),
+        ws.workspace_root().to_path_buf(),
+        wc.state_path().to_path_buf(),
+        repo.settings(),
+    )?;
+    assert_eq!(
+        wc.file_states()?.paths().collect_vec(),
+        vec![dir1_subdir1_file_rs, dir2_file, root_file]
+    );
+    assert_eq!(wc.sparse_patterns()?, &sparse_patterns);
+
+    // Rules that older jj can't represent switch the working copy format
+    let type_path = wc.state_path().join("type");
+    assert_eq!(std::fs::read_to_string(&type_path)?, "local-fileset");
+    let mut locked_wc = wc.start_mutation().block_on()?;
+    locked_wc
+        .set_sparse_patterns(FilesetRules::all())
+        .block_on()?;
+    locked_wc.finish(repo.op_id().clone()).block_on()?;
+    assert_eq!(std::fs::read_to_string(&type_path)?, "local");
     Ok(())
 }

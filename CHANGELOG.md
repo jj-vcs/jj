@@ -12,6 +12,13 @@ and this project adheres to
 
 ### Breaking changes
 
+* `jj sparse edit` now edits the `+`/`-` rules printed by `jj sparse show`
+  instead of a bare list of paths, and its paths are relative to the workspace
+  root rather than the current directory. `jj sparse list` is unchanged.
+
+* The Rust `WorkingCopy::sparse_patterns()` and `set_sparse_patterns()` methods
+  now use `FilesetRules` instead of `Vec<RepoPathBuf>`.
+
 * In non-colocated workspaces, `jj git fetch` no longer updates remote-tracking
   Git refs. Use `jj git export` to export remote bookmarks to Git.
 
@@ -34,7 +41,29 @@ and this project adheres to
 
 ### Deprecations
 
+* `jj sparse set --add/--remove` are deprecated in favor of
+  `--include/--exclude`. The new flags take filesets with cwd-relative paths,
+  and `--exclude` removes the matching files instead of deleting an exact
+  `--add`ed entry.
+
 ### New features
+
+* Sparse checkouts now accept arbitrary filesets and exclusions, e.g.
+  `jj sparse set 'all() ~ build'`. The selection is a list of rules applied in
+  order; `jj sparse show` prints them and `jj sparse edit` edits them.
+  [#1896](https://github.com/jj-vcs/jj/issues/1896),
+  [#7815](https://github.com/jj-vcs/jj/issues/7815)
+
+* New `sparse()` fileset function matching the paths selected by the current
+  workspace, e.g. `jj log -r 'files(sparse())'`. Aliases and `sparse()` are
+  resolved when the selection is set, so later config changes don't
+  reinterpret it.
+  [#7816](https://github.com/jj-vcs/jj/issues/7816)
+
+* A selection that isn't a plain list of paths is stored in the
+  `local-fileset` working-copy format, which older jj versions refuse to open.
+  `jj sparse reset` restores the format they understand, and ordinary
+  prefix-only selections keep using it.
 
 * `jj git push` with `git.sign-on-push` enabled now signs commits in a
   separate transaction before the push, so commits stay signed if the push
