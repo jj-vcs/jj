@@ -17,12 +17,12 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
+use futures::FutureExt as _;
 use futures::Stream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 
 use crate::dag_walk_async;
 use crate::op_store::OpStoreResult;
@@ -88,28 +88,31 @@ pub fn walk_ancestors_range(
         .cloned()
         .map(OperationByEndTime)
         .collect_vec();
+    let unwanted_ids: HashSet<_> = root_ops.iter().map(|op| op.id().clone()).collect();
 
-    // Consume items until root_ops to get rid of unwanted ops.
-    let leading_items = if root_ops.is_empty() {
-        vec![]
-    } else {
-        let unwanted_ids = root_ops.iter().map(|op| op.id().clone()).collect();
-        collect_ancestors_until_roots(&mut start_ops, unwanted_ids)
-    };
+    async move {
+        // Consume items until root_ops to get rid of unwanted ops.
+        let leading_items = if unwanted_ids.is_empty() {
+            vec![]
+        } else {
+            collect_ancestors_until_roots(&mut start_ops, unwanted_ids).await
+        };
 
-    // Lazily load operations based on timestamp-based heuristic. This works so long
-    // as the operation history is mostly linear.
-    let trailing_stream = dag_walk_async::topo_order_reverse_lazy(
-        start_ops.into_iter().map(Ok),
-        |OperationByEndTime(op)| op.id().clone(),
-        op_parents,
-        |_| panic!("graph has cycle"),
-    )
-    .map_ok(|OperationByEndTime(op)| op);
-    stream::iter(leading_items).chain(trailing_stream)
+        // Lazily load operations based on timestamp-based heuristic. This works so
+        // long as the operation history is mostly linear.
+        let trailing_stream = dag_walk_async::topo_order_reverse_lazy(
+            start_ops.into_iter().map(Ok),
+            |OperationByEndTime(op)| op.id().clone(),
+            op_parents,
+            |_| panic!("graph has cycle"),
+        )
+        .map_ok(|OperationByEndTime(op)| op);
+        stream::iter(leading_items).chain(trailing_stream)
+    }
+    .flatten_stream()
 }
 
-fn collect_ancestors_until_roots(
+async fn collect_ancestors_until_roots(
     start_ops: &mut Vec<OperationByEndTime>,
     mut unwanted_ids: HashSet<OperationId>,
 ) -> Vec<OpStoreResult<Operation>> {
@@ -119,7 +122,7 @@ fn collect_ancestors_until_roots(
         op_parents,
         |_| panic!("graph has cycle"),
     )
-    .block_on()
+    .await
     {
         Ok(sorted_ops) => sorted_ops,
         Err(err) => return vec![Err(err)],
