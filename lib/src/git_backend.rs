@@ -30,6 +30,7 @@ use std::str::Utf8Error;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+use std::time::Duration;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -190,6 +191,9 @@ pub struct GitBackend {
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
     git_executable: PathBuf,
     write_change_id_header: bool,
+    /// Simulated per-read latency for benchmarking concurrency.
+    // TODO: Remove before merging. This is only for local experiments.
+    fake_latency: Option<Duration>,
 }
 
 impl GitBackend {
@@ -216,6 +220,7 @@ impl GitBackend {
             cached_extra_metadata: Mutex::new(None),
             git_executable: git_settings.executable_path,
             write_change_id_header: git_settings.write_change_id_header,
+            fake_latency: fake_latency_from_env(),
         }
     }
 
@@ -1104,7 +1109,7 @@ impl Backend for GitBackend {
     }
 
     fn concurrency(&self) -> usize {
-        1
+        if self.fake_latency.is_some() { 100 } else { 1 }
     }
 
     async fn read_file(
@@ -1112,6 +1117,7 @@ impl Backend for GitBackend {
         _path: &RepoPath,
         id: &FileId,
     ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
+        self.simulate_read_latency("file", id).await;
         let data = self.read_file_sync(id)?;
         Ok(Box::pin(Cursor::new(data)))
     }
@@ -1129,6 +1135,7 @@ impl Backend for GitBackend {
     }
 
     async fn read_symlink(&self, _path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
+        self.simulate_read_latency("symlink", id).await;
         let locked_repo = self.lock_git_repo();
         let git_blob_id = validate_git_object_id(&locked_repo, id)?;
         let mut blob = locked_repo
@@ -1169,6 +1176,7 @@ impl Backend for GitBackend {
         if id == &self.empty_tree_id {
             return Ok(Tree::default());
         }
+        self.simulate_read_latency("tree", id).await;
 
         let locked_repo = self.lock_git_repo();
         let git_tree_id = validate_git_object_id(&locked_repo, id)?;
@@ -1291,6 +1299,7 @@ impl Backend for GitBackend {
             ));
         }
 
+        self.simulate_read_latency("commit", id).await;
         let mut commit = {
             let locked_repo = self.lock_git_repo();
             let git_commit_id = validate_git_object_id(&locked_repo, id)?;
@@ -1659,6 +1668,35 @@ recover.
             source: Box::new(err),
         })?;
     Ok(id.detach())
+}
+
+/// Reads the simulated per-read latency from
+/// `JJ_GIT_BACKEND_FAKE_LATENCY_MS`.
+// TODO: Remove before merging. This is only for local experiments.
+fn fake_latency_from_env() -> Option<Duration> {
+    let ms: u64 = std::env::var("JJ_GIT_BACKEND_FAKE_LATENCY_MS")
+        .ok()?
+        .parse()
+        .ok()?;
+    Some(Duration::from_millis(ms))
+}
+
+impl GitBackend {
+    /// Runtime-agnostic sleep (the CLI drives futures with pollster, so
+    /// there's no tokio timer available). Spawns a thread per sleep, which is
+    /// fine for experiments.
+    async fn simulate_read_latency(&self, kind: &str, id: &impl ObjectId) {
+        let Some(duration) = self.fake_latency else {
+            return;
+        };
+        eprintln!("fake-latency-read {kind} {}", id.hex());
+        let (sender, receiver) = futures::channel::oneshot::channel();
+        std::thread::spawn(move || {
+            std::thread::sleep(duration);
+            sender.send(()).ok();
+        });
+        receiver.await.ok();
+    }
 }
 
 #[cfg(test)]
