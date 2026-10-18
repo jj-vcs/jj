@@ -22,8 +22,10 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
+use futures::future;
+use futures::stream::BoxStream;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::BackendResult;
@@ -39,6 +41,9 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
 use crate::store::Store;
+use crate::tree_walk::OrderedTreeWalk;
+use crate::tree_walk::TreeWalkQueue;
+use crate::tree_walk::TreeWalkVisitor;
 
 /// A tree object read from the backend, along with its ID, its directory
 /// path, and the store it came from.
@@ -124,12 +129,18 @@ impl Tree {
         self.data.entries()
     }
 
-    /// Iterates recursively over the non-tree entries matching `matcher`.
+    /// Stream of the non-tree entries matching `matcher`, in path order.
+    /// Subtrees are visited recursively.
     pub fn entries_matching<'matcher>(
         &self,
         matcher: &'matcher dyn Matcher,
-    ) -> TreeEntriesIterator<'matcher> {
-        TreeEntriesIterator::new(self.clone(), matcher)
+    ) -> BoxStream<'matcher, (RepoPathBuf, BackendResult<TreeValue>)> {
+        let mut queue = TreeWalkQueue::new(self.store.concurrency());
+        if !matcher.visit(&self.dir).is_nothing() {
+            queue.schedule(self.dir.clone(), future::ready(Ok(self.clone())));
+        }
+        let visitor = TreeEntriesVisitor { matcher };
+        OrderedTreeWalk::new(visitor, queue).boxed()
     }
 
     /// Looks up the value of the entry named `basename` directly in this tree.
@@ -167,10 +178,6 @@ impl Tree {
         }
     }
 
-    async fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Self {
-        self.store.get_tree(subdir, id).await.unwrap()
-    }
-
     /// Look up the tree at the given path.
     pub async fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
         let mut current_tree = self.clone();
@@ -191,65 +198,40 @@ impl Tree {
     }
 }
 
-/// Iterator over the non-tree entries in a tree and its subtrees, filtered by
-/// a [`Matcher`]. Returned by [`Tree::entries_matching()`].
-pub struct TreeEntriesIterator<'matcher> {
-    stack: Vec<TreeEntriesDirItem>,
+/// Visits the entries in a tree, reading subtrees concurrently.
+struct TreeEntriesVisitor<'matcher> {
     matcher: &'matcher dyn Matcher,
 }
 
-struct TreeEntriesDirItem {
-    tree: Tree,
-    entries: Vec<(RepoPathBuf, TreeValue)>,
-}
+impl<'matcher> TreeWalkVisitor<'matcher> for TreeEntriesVisitor<'matcher> {
+    type Work = Tree;
+    type Item = TreeValue;
 
-impl From<Tree> for TreeEntriesDirItem {
-    fn from(tree: Tree) -> Self {
-        let mut entries = tree
-            .entries_non_recursive()
-            .map(|entry| (tree.dir().join(entry.name()), entry.value().clone()))
-            .collect_vec();
-        entries.reverse();
-        Self { tree, entries }
-    }
-}
-
-impl<'matcher> TreeEntriesIterator<'matcher> {
-    fn new(tree: Tree, matcher: &'matcher dyn Matcher) -> Self {
-        // TODO: Restrict walk according to Matcher::visit()
-        Self {
-            stack: vec![TreeEntriesDirItem::from(tree)],
-            matcher,
-        }
-    }
-}
-
-impl Iterator for TreeEntriesIterator<'_> {
-    type Item = (RepoPathBuf, TreeValue);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(top) = self.stack.last_mut() {
-            if let Some((path, value)) = top.entries.pop() {
-                match value {
-                    TreeValue::Tree(id) => {
-                        // TODO: Handle the other cases (specific files and trees)
-                        if self.matcher.visit(&path).is_nothing() {
-                            continue;
-                        }
-                        let subtree = top.tree.known_sub_tree(path, &id).block_on();
-                        self.stack.push(TreeEntriesDirItem::from(subtree));
+    fn visit(
+        &self,
+        dir: &RepoPath,
+        tree: Self::Work,
+        queue: &mut TreeWalkQueue<'matcher, Self::Work, Self::Item>,
+    ) {
+        for entry in tree.entries_non_recursive() {
+            let path = dir.join(entry.name());
+            match entry.value() {
+                TreeValue::Tree(id) => {
+                    // TODO: Handle the other cases (specific files and trees)
+                    if self.matcher.visit(&path).is_nothing() {
+                        continue;
                     }
-                    value => {
-                        if self.matcher.matches(&path) {
-                            return Some((path, value));
-                        }
+                    let store = tree.store.clone();
+                    let id = id.clone();
+                    queue.schedule(path.clone(), async move { store.get_tree(path, &id).await });
+                }
+                value => {
+                    if self.matcher.matches(&path) {
+                        queue.emit(path, value.clone());
                     }
                 }
-            } else {
-                self.stack.pop();
             }
         }
-        None
     }
 }
 
