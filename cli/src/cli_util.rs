@@ -534,7 +534,7 @@ impl CommandHelper {
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let op_head =
             self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
-        let repo = workspace.repo_loader().load_at(&op_head).await?;
+        let repo = workspace.load_at(&op_head).await?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
         {
@@ -632,7 +632,7 @@ impl CommandHelper {
         match workspace.repo_loader().load_operation(op_id).await {
             Ok(op) => {
                 // self.for_workable_repo(), but reuse loaded env.
-                let repo = workspace.repo_loader().load_at(&op).await?;
+                let repo = workspace.load_at(&op).await?;
                 let may_snapshot_working_copy = !self.global_args().ignore_working_copy;
                 let mut workspace_command = WorkspaceCommandHelper::new(
                     ui,

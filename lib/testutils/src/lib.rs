@@ -398,10 +398,7 @@ impl TestWorkspace {
     }
 
     pub async fn reload_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        self.workspace
-            .repo_loader()
-            .load_at_head(Some(self.workspace.workspace_name()))
-            .await
+        self.workspace.load_at_head().await
     }
 
     /// Snapshots the working copy and returns the tree. Updates the working

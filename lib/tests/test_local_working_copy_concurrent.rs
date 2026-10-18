@@ -63,7 +63,7 @@ fn test_concurrent_checkout() -> TestResult {
             &default_working_copy_factories(),
         )?;
         // Reload commit from the store associated with the workspace
-        let repo = ws2.repo_loader().load_at(repo.operation()).block_on()?;
+        let repo = ws2.load_at(repo.operation()).block_on()?;
         let commit2 = repo.store().get_commit(commit2.id())?;
         ws2.check_out(repo.op_id().clone(), Some(&tree1), &commit2)
             .block_on()?;
@@ -130,11 +130,7 @@ fn test_checkout_parallel() -> TestResult {
                 )
                 .unwrap();
                 // Reload commit from the store associated with the workspace
-                let repo = workspace
-                    .repo_loader()
-                    .load_at(repo.operation())
-                    .block_on()
-                    .unwrap();
+                let repo = workspace.load_at(repo.operation()).block_on().unwrap();
                 let commit = repo.store().get_commit(commit.id()).unwrap();
                 // The operation ID is not correct, but that doesn't matter for this test
                 let stats = workspace
