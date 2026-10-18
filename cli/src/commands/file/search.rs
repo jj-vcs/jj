@@ -100,7 +100,7 @@ pub(crate) async fn cmd_file_search(
     .map_err(cli_error)?;
     let pattern_matcher = pattern.to_matcher();
     let mut entries = tree
-        .entries_stream_matching(file_matcher.as_ref())
+        .entries_matching(file_matcher.as_ref())
         .map(async |(path, value)| -> BackendResult<_> {
             let mut materialized =
                 materialize_tree_value(store.as_ref(), &path, value?, tree.labels()).await?;

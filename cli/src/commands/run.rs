@@ -331,7 +331,7 @@ impl WorkspacePool {
                 })?;
             let post_snapshot_tree = tree_state.current_tree().clone();
             let original_tree = commit.tree();
-            let mut diff = original_tree.diff_stream(&post_snapshot_tree, &EverythingMatcher);
+            let mut diff = original_tree.diff(&post_snapshot_tree, &EverythingMatcher);
             let mut added_paths = Vec::new();
             while let Some(entry) = diff.next().await {
                 let values = entry.values?;

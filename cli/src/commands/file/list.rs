@@ -82,7 +82,7 @@ pub(crate) async fn cmd_file_list(
 
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
-    let mut entries = tree.entries_stream_matching(matcher.as_ref());
+    let mut entries = tree.entries_matching(matcher.as_ref());
     while let Some((path, value)) = entries.next().await {
         let entry = TreeEntry {
             path,

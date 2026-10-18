@@ -117,7 +117,7 @@ pub async fn split_hunks_to_trees(
     let right_tree = &source.source_tree;
     // TODO: enable copy tracking if we add support for annotate and merge
     let copy_records = CopyRecords::default();
-    let tree_diff = left_tree.diff_stream_with_copies(right_tree, matcher, &copy_records);
+    let tree_diff = left_tree.diff_with_copies(right_tree, matcher, &copy_records);
     let mut diff_stream = materialized_diff_stream(
         repo.store(),
         tree_diff,

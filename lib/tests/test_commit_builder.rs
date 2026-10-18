@@ -57,7 +57,7 @@ fn config_with_commit_timestamp(timestamp: &str) -> StackedConfig {
 
 fn diff_paths(from_tree: &MergedTree, to_tree: &MergedTree) -> Vec<RepoPathBuf> {
     from_tree
-        .diff_stream(to_tree, &EverythingMatcher)
+        .diff(to_tree, &EverythingMatcher)
         .map(|diff| {
             diff.values.unwrap();
             diff.path

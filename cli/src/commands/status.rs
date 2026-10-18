@@ -156,11 +156,7 @@ pub(crate) async fn cmd_status(
         }
 
         if status.commit.has_conflict() {
-            let conflicts: Vec<_> = status
-                .tree
-                .conflicts_stream_matching(&matcher)
-                .collect()
-                .await;
+            let conflicts: Vec<_> = status.tree.conflicts_matching(&matcher).collect().await;
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"

@@ -1444,7 +1444,7 @@ async fn has_diff_from_parent(
     let from_tree = merge_commit_trees_no_resolve(store, index, &parents).await?;
     let to_tree = commit.tree();
     // TODO: handle copy tracking
-    let mut tree_diff = from_tree.diff_stream(&to_tree, matcher);
+    let mut tree_diff = from_tree.diff(&to_tree, matcher);
     // TODO: Resolve values concurrently
     while let Some(entry) = tree_diff.next().await {
         let mut values = entry.values?;
@@ -1470,7 +1470,7 @@ async fn matches_diff_from_parent(
     let from_tree = merge_commit_trees_no_resolve(store, index, &parents).await?;
     let to_tree = commit.tree();
     // TODO: handle copy tracking
-    let mut tree_diff = from_tree.diff_stream(&to_tree, files_matcher);
+    let mut tree_diff = from_tree.diff(&to_tree, files_matcher);
     // TODO: Resolve values concurrently
     while let Some(entry) = tree_diff.next().await {
         let mut values = entry.values?;

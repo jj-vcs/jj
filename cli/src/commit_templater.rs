@@ -1529,7 +1529,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let out_property = self_property.and_then(move |commit| {
                 let tree = commit.tree();
                 let entries: Vec<_> = tree
-                    .entries_stream_matching(&*matcher)
+                    .entries_matching(&*matcher)
                     .map(|(path, value)| value.map(|value| TreeEntry { path, value }))
                     .try_collect()
                     .block_on()?;
@@ -1545,7 +1545,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let out_property = self_property.and_then(|commit| {
                 let tree = commit.tree();
                 let entries: Vec<_> = tree
-                    .conflicts_stream()
+                    .conflicts()
                     .map(|(path, value)| value.map(|value| TreeEntry { path, value }))
                     .try_collect()
                     .block_on()?;
@@ -2503,7 +2503,7 @@ impl TreeDiff {
 
     fn diff_stream(&self) -> BoxStream<'_, CopiesTreeDiffEntry> {
         self.from_tree
-            .diff_stream_with_copies(&self.to_tree, &*self.matcher, &self.copy_records)
+            .diff_with_copies(&self.to_tree, &*self.matcher, &self.copy_records)
     }
 
     async fn collect_entries(&self) -> BackendResult<Vec<TreeDiffEntry>> {

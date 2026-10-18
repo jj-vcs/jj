@@ -951,7 +951,7 @@ fn test_path_value_and_entries() -> TestResult {
 
     // Test entries()
     let actual_entries: Vec<_> = merged_tree
-        .entries_stream()
+        .entries()
         .map(|(path, result)| (path, result.unwrap()))
         .collect()
         .block_on();
@@ -980,7 +980,7 @@ fn test_path_value_and_entries() -> TestResult {
         &file_dir_conflict_sub_path,
     ]);
     let actual_entries: Vec<_> = merged_tree
-        .entries_stream_matching(&matcher)
+        .entries_matching(&matcher)
         .map(|(path, result)| (path, result.unwrap()))
         .collect()
         .block_on();
@@ -1255,7 +1255,7 @@ fn test_conflict_iterator() -> TestResult {
         ConflictLabels::from_vec(vec!["side 1".into(), "base 1".into(), "side 2".into()]),
     );
     let conflicts: Vec<_> = tree
-        .conflicts_stream()
+        .conflicts()
         .map(|(path, conflict)| (path, conflict.unwrap()))
         .collect()
         .block_on();
@@ -1293,7 +1293,7 @@ fn test_conflict_iterator() -> TestResult {
     // We can filter conflicts using a matcher
     let matcher = PrefixMatcher::new([file_conflict_path, dir_file_path]);
     let conflicts: Vec<_> = tree
-        .conflicts_stream_matching(&matcher)
+        .conflicts_matching(&matcher)
         .map(|(path, conflict)| (path, conflict.unwrap()))
         .collect()
         .block_on();
@@ -1310,12 +1310,12 @@ fn test_conflict_iterator() -> TestResult {
 
     // A resolved tree has no conflicts
     let resolved_tree = MergedTree::resolved(repo.store().clone(), side1.id().clone());
-    assert_eq!(resolved_tree.conflicts_stream().count().block_on(), 0);
+    assert_eq!(resolved_tree.conflicts().count().block_on(), 0);
 
     // After we resolve conflicts, there are only non-trivial conflicts left
     let tree = tree.resolve().block_on()?;
     let conflicts: Vec<_> = tree
-        .conflicts_stream()
+        .conflicts()
         .map(|(path, conflict)| (path, conflict.unwrap()))
         .collect()
         .block_on();
@@ -1386,7 +1386,7 @@ fn test_conflict_iterator_higher_arity() -> TestResult {
         ]),
     );
     let conflicts: Vec<_> = tree
-        .conflicts_stream()
+        .conflicts()
         .map(|(path, conflict)| (path, conflict.unwrap()))
         .collect()
         .block_on();
@@ -1739,7 +1739,7 @@ fn test_diff_resolved() -> TestResult {
     let after_merged = MergedTree::resolved(repo.store().clone(), after.id().clone());
 
     let diff: Vec<_> = before_merged
-        .diff_stream(&after_merged, &EverythingMatcher)
+        .diff(&after_merged, &EverythingMatcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -1825,7 +1825,7 @@ fn test_diff_copy_tracing() -> TestResult {
         create_copy_records(&[(removed_path, added_path), (modified_path, copied_path)]);
 
     let diff: Vec<_> = before_merged
-        .diff_stream_with_copies(&after_merged, &EverythingMatcher, &copy_records)
+        .diff_with_copies(&after_merged, &EverythingMatcher, &copy_records)
         .map(|diff| (diff.path, diff.values.unwrap()))
         .collect()
         .block_on();
@@ -1903,7 +1903,7 @@ fn test_diff_copy_tracing_file_and_dir() -> TestResult {
         (repo_path("c"), repo_path("c/file")),
     ]);
     let diff: Vec<_> = before
-        .diff_stream_with_copies(&after, &EverythingMatcher, &copy_records)
+        .diff_with_copies(&after, &EverythingMatcher, &copy_records)
         .map(|diff| (diff.path, diff.values.unwrap()))
         .collect()
         .block_on();
@@ -2041,7 +2041,7 @@ fn test_diff_conflicted() -> TestResult {
 
     // Test the forwards diff
     let actual_diff: Vec<_> = left_merged
-        .diff_stream(&right_merged, &EverythingMatcher)
+        .diff(&right_merged, &EverythingMatcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -2061,7 +2061,7 @@ fn test_diff_conflicted() -> TestResult {
     diff_stream_sequential_equals_concurrent(&left_merged, &right_merged, &EverythingMatcher);
     // Test the reverse diff
     let actual_diff: Vec<_> = right_merged
-        .diff_stream(&left_merged, &EverythingMatcher)
+        .diff(&left_merged, &EverythingMatcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -2198,7 +2198,7 @@ fn test_diff_dir_file() -> TestResult {
     // Test the forwards diff
     {
         let actual_diff: Vec<_> = left_merged
-            .diff_stream(&right_merged, &EverythingMatcher)
+            .diff(&right_merged, &EverythingMatcher)
             .map(diff_entry_tuple)
             .collect()
             .block_on();
@@ -2243,7 +2243,7 @@ fn test_diff_dir_file() -> TestResult {
     // Test the reverse diff
     {
         let actual_diff: Vec<_> = right_merged
-            .diff_stream(&left_merged, &EverythingMatcher)
+            .diff(&left_merged, &EverythingMatcher)
             .map(diff_entry_tuple)
             .collect()
             .block_on();
@@ -2289,7 +2289,7 @@ fn test_diff_dir_file() -> TestResult {
     {
         let matcher = FilesMatcher::new([&path1]);
         let actual_diff: Vec<_> = left_merged
-            .diff_stream(&right_merged, &matcher)
+            .diff(&right_merged, &matcher)
             .map(diff_entry_tuple)
             .collect()
             .block_on();
@@ -2305,7 +2305,7 @@ fn test_diff_dir_file() -> TestResult {
     {
         let matcher = FilesMatcher::new([path1.join(file)]);
         let actual_diff: Vec<_> = left_merged
-            .diff_stream(&right_merged, &matcher)
+            .diff(&right_merged, &matcher)
             .map(diff_entry_tuple)
             .collect()
             .block_on();
@@ -2324,7 +2324,7 @@ fn test_diff_dir_file() -> TestResult {
     {
         let matcher = PrefixMatcher::new([&path1]);
         let actual_diff: Vec<_> = left_merged
-            .diff_stream(&right_merged, &matcher)
+            .diff(&right_merged, &matcher)
             .map(diff_entry_tuple)
             .collect()
             .block_on();
@@ -2346,7 +2346,7 @@ fn test_diff_dir_file() -> TestResult {
     {
         let matcher = FilesMatcher::new([&path6]);
         let actual_diff: Vec<_> = left_merged
-            .diff_stream(&right_merged, &matcher)
+            .diff(&right_merged, &matcher)
             .map(diff_entry_tuple)
             .collect()
             .block_on();
@@ -2810,7 +2810,7 @@ fn test_diff_with_trees_dir_added_removed() -> TestResult {
 
     // Forward diff: tree1 -> tree2 (Directory "dir" added)
     let diff: Vec<_> = tree1_merged
-        .diff_stream_with_trees(&tree2_merged, &EverythingMatcher)
+        .diff_with_trees(&tree2_merged, &EverythingMatcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -2836,7 +2836,7 @@ fn test_diff_with_trees_dir_added_removed() -> TestResult {
 
     // Reverse diff: tree2 -> tree1 (Directory "dir" removed)
     let diff_rev: Vec<_> = tree2_merged
-        .diff_stream_with_trees(&tree1_merged, &EverythingMatcher)
+        .diff_with_trees(&tree1_merged, &EverythingMatcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -2867,7 +2867,7 @@ fn test_diff_with_trees_recursive_modification() -> TestResult {
     let merged2 = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
 
     let diff: Vec<_> = merged1
-        .diff_stream_with_trees(&merged2, &EverythingMatcher)
+        .diff_with_trees(&merged2, &EverythingMatcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -2919,7 +2919,7 @@ fn test_diff_with_trees_no_modifications() -> TestResult {
     let tree2_merged = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
 
     let diff: Vec<_> = tree1_merged
-        .diff_stream_with_trees(&tree2_merged, &EverythingMatcher)
+        .diff_with_trees(&tree2_merged, &EverythingMatcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -2929,7 +2929,7 @@ fn test_diff_with_trees_no_modifications() -> TestResult {
 
     // Reverse diff
     let diff_rev: Vec<_> = tree2_merged
-        .diff_stream_with_trees(&tree1_merged, &EverythingMatcher)
+        .diff_with_trees(&tree1_merged, &EverythingMatcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -2963,7 +2963,7 @@ fn test_diff_with_trees_files_matcher_for_file() -> TestResult {
     assert!(matcher.matches(path_b));
 
     let diff: Vec<_> = merged1
-        .diff_stream_with_trees(&merged2, &matcher)
+        .diff_with_trees(&merged2, &matcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -3008,7 +3008,7 @@ fn test_diff_with_trees_glob_matcher_for_path() -> TestResult {
     assert!(!matcher.matches(path_b));
 
     let diff: Vec<_> = merged1
-        .diff_stream_with_trees(&merged2, &matcher)
+        .diff_with_trees(&merged2, &matcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -3062,7 +3062,7 @@ fn test_diff_with_trees_files_matcher_for_intermediate_directory() -> TestResult
     // merged_tree.rs implementation (if something doesn't need to be visited
     // but matches, we visit it anyway).
     let diff: Vec<_> = merged1
-        .diff_stream_with_trees(&merged2, &matcher)
+        .diff_with_trees(&merged2, &matcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
@@ -3155,7 +3155,7 @@ fn collect_diffs(
     left: &MergedTree,
     right: &MergedTree,
 ) -> Vec<(RepoPathBuf, Merge<CopyHistoryDiffTerm>)> {
-    left.diff_stream_with_copy_history(right, &EverythingMatcher)
+    left.diff_with_copy_history(right, &EverythingMatcher)
         .map(|diff| (diff.target_path, diff.diffs.unwrap()))
         .collect()
         .block_on()

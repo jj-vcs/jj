@@ -2222,7 +2222,7 @@ async fn build_index_from_merged_tree(
                 TreeValue::Symlink(id) => (id.as_bytes(), gix::index::entry::Mode::SYMLINK),
                 TreeValue::Tree(_) => {
                     // This case is only possible if there is a file-directory conflict, since
-                    // `MergedTree::entries_stream` handles the recursion otherwise. We only
+                    // `MergedTree::entries` handles the recursion otherwise. We only
                     // materialize a file in the working copy for file-directory conflicts, so we
                     // don't add the tree to the index here either.
                     return;
@@ -2245,7 +2245,7 @@ async fn build_index_from_merged_tree(
 
     let mut has_many_sided_conflict = false;
 
-    let mut entries = merged_tree.entries_stream();
+    let mut entries = merged_tree.entries();
     while let Some((path, entry)) = entries.next().await {
         let entry = entry?;
         if let Some(resolved) = entry.as_resolved() {
@@ -2342,7 +2342,7 @@ async fn update_intent_to_add_impl(
     old_tree: &MergedTree,
     new_tree: &MergedTree,
 ) -> Result<(), GitResetHeadError> {
-    let mut diff_stream = old_tree.diff_stream(new_tree, &EverythingMatcher);
+    let mut diff_stream = old_tree.diff(new_tree, &EverythingMatcher);
     let mut added_paths = vec![];
     let mut removed_paths = HashSet::new();
     while let Some(TreeDiffEntry { path, values }) = diff_stream.next().await {

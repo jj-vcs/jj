@@ -259,7 +259,7 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
     async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
         let conflicts = commit
             .tree()
-            .conflicts_stream()
+            .conflicts()
             .map(|(path, _value)| format!("{}\n", path.as_internal_file_string()))
             .collect::<String>()
             .await;

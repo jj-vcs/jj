@@ -80,7 +80,7 @@ pub async fn cmd_debug_tree(
                 .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))
                 .await?;
             let tree = commit.tree();
-            tree.entries_stream_matching(matcher.as_ref())
+            tree.entries_matching(matcher.as_ref())
         };
     while let Some((path, value)) = entries.next().await {
         let ui_path = workspace_command.format_file_path(&path);

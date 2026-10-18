@@ -148,7 +148,7 @@ pub(crate) async fn check_out_trees(
     let store = trees.before.store();
     let changed_files: Vec<_> = trees
         .before
-        .diff_stream(trees.after, matcher)
+        .diff(trees.after, matcher)
         .map(|TreeDiffEntry { path, .. }| path)
         .collect()
         .await;

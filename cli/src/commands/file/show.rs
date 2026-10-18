@@ -135,7 +135,7 @@ pub(crate) async fn cmd_file_show(
         &workspace_command,
         &template,
         &tree,
-        tree.entries_stream_matching(matcher.as_ref())
+        tree.entries_matching(matcher.as_ref())
             .map(|(path, value)| value.map(|value| TreeEntry { path, value })),
     )
     .await?;

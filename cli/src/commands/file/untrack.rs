@@ -61,7 +61,7 @@ pub(crate) async fn cmd_file_untrack(
     // Create a new tree without the unwanted files
     let mut tree_builder = MergedTreeBuilder::new(wc_commit.tree());
     let wc_tree = wc_commit.tree();
-    let mut entries = wc_tree.entries_stream_matching(matcher.as_ref());
+    let mut entries = wc_tree.entries_matching(matcher.as_ref());
     while let Some((path, _value)) = entries.next().await {
         tree_builder.set_or_remove(path, None);
     }
@@ -79,7 +79,7 @@ pub(crate) async fn cmd_file_untrack(
     let (new_wc_tree, stats) = locked_ws.locked_wc().snapshot(&options).await?;
     if new_wc_tree.tree_ids() != new_commit.tree_ids() {
         let added_back: Vec<_> = new_wc_tree
-            .entries_stream_matching(matcher.as_ref())
+            .entries_matching(matcher.as_ref())
             .collect()
             .await;
         if !added_back.is_empty() {

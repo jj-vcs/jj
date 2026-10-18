@@ -91,7 +91,7 @@ pub(crate) async fn cmd_resolve(
         .resolve_single_rev(ui, &args.revision)
         .await?;
     let tree = commit.tree();
-    let conflicts: Vec<_> = tree.conflicts_stream_matching(&matcher).collect().await;
+    let conflicts: Vec<_> = tree.conflicts_matching(&matcher).collect().await;
 
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree]).await?;
 
@@ -139,7 +139,7 @@ pub(crate) async fn cmd_resolve(
         && new_commit.has_conflict()
     {
         let new_tree = new_commit.tree();
-        let new_conflicts: Vec<_> = new_tree.conflicts_stream().collect().await;
+        let new_conflicts: Vec<_> = new_tree.conflicts().collect().await;
         writeln!(
             formatter.labeled("warning").with_heading("Warning: "),
             "After this operation, some files at this revision still have conflicts:"
