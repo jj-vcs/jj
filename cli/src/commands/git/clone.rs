@@ -29,6 +29,7 @@ use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringExpression;
 use jj_lib::workspace::Workspace;
@@ -223,6 +224,7 @@ pub async fn cmd_git_clone(
             ui,
             command,
             &canonical_wc_path,
+            WorkspaceName::DEFAULT,
             colocate,
             object_hash.into(),
         )
@@ -325,14 +327,15 @@ async fn init_workspace(
     ui: &Ui,
     command: &CommandHelper,
     wc_path: &Path,
+    workspace_name: &WorkspaceName,
     colocate: bool,
     object_hash: gix::hash::Kind,
 ) -> Result<(WorkspaceCommandHelper, ConfigEnv), CommandError> {
     let (settings, config_env) = command.settings_for_new_workspace(ui, wc_path)?;
     let (workspace, repo) = if colocate {
-        Workspace::init_colocated_git(&settings, wc_path, object_hash).await?
+        Workspace::init_colocated_git(&settings, wc_path, workspace_name, object_hash).await?
     } else {
-        Workspace::init_internal_git(&settings, wc_path, object_hash).await?
+        Workspace::init_internal_git(&settings, wc_path, workspace_name, object_hash).await?
     };
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     maybe_add_gitignore(&workspace_command)?;
