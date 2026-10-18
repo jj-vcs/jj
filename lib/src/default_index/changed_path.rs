@@ -579,7 +579,7 @@ pub(super) async fn collect_changed_paths(
     let store = commit.store();
     let from_tree = merge_commit_trees_no_resolve(store, index, &parents).await?;
     let to_tree = commit.tree();
-    let tree_diff = from_tree.diff_stream(&to_tree, &EverythingMatcher);
+    let tree_diff = from_tree.diff(&to_tree, &EverythingMatcher);
     let paths = tree_diff
         .map(|entry| entry.values.map(|values| (entry.path, values)))
         .try_filter_map(async |(path, mut diff)| {

@@ -253,7 +253,7 @@ pub async fn fix_files(
         };
 
         // TODO: handle copy tracking
-        let mut diff_stream = diff_base_tree.diff_stream(&commit.tree(), &matcher);
+        let mut diff_stream = diff_base_tree.diff(&commit.tree(), &matcher);
         while let Some(TreeDiffEntry {
             path: repo_path,
             values,

@@ -67,7 +67,7 @@ pub(crate) async fn cmd_file_delete(
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree]).await?;
 
     let mut tree_builder = MergedTreeBuilder::new(commit.tree());
-    let mut entries = tree.entries_stream_matching(matcher.as_ref());
+    let mut entries = tree.entries_matching(matcher.as_ref());
     while let Some((path, _value)) = entries.next().await {
         tree_builder.set_or_remove(path, None);
     }

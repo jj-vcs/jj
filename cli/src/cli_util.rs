@@ -2337,7 +2337,7 @@ to the current parents may contain changes from multiple commits.
             && let Some(mut formatter) = ui.status_formatter()
             && new_commit.has_conflict()
         {
-            let conflicts = new_commit.tree().conflicts_stream().collect().await;
+            let conflicts = new_commit.tree().conflicts().collect().await;
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"

@@ -1410,7 +1410,7 @@ impl TreeState {
         if cfg!(debug_assertions) {
             let tree_paths: HashSet<_> = self
                 .tree
-                .entries_stream_matching(sparse_matcher.as_ref())
+                .entries_matching(sparse_matcher.as_ref())
                 .filter_map(async |(path, result)| result.is_ok().then_some(path))
                 .collect()
                 .await;
@@ -2543,7 +2543,7 @@ impl TreeState {
         };
 
         let mut diff_stream = old_tree
-            .diff_stream_for_file_system(new_tree, matcher)
+            .diff_for_file_system(new_tree, matcher)
             .map(async |TreeDiffEntry { path, values }| match values {
                 Ok(diff) => {
                     let result =
@@ -2559,7 +2559,7 @@ impl TreeState {
         // labels did, we still need to re-materialize it in the working copy. We don't
         // need to do this if the conflicts have different numbers of sides though since
         // these conflicts are considered different, so they will be materialized by
-        // `MergedTree::diff_stream_for_file_system` already.
+        // `MergedTree::diff_for_file_system` already.
         let mut conflicts_to_rematerialize: HashMap<RepoPathBuf, MergedTreeValue> =
             if old_tree.tree_ids().num_sides() == new_tree.tree_ids().num_sides()
                 && old_tree.labels() != new_tree.labels()
@@ -2568,7 +2568,7 @@ impl TreeState {
                 // but it could be difficult since the diff stream is not sorted in the same
                 // order as the conflicts stream.
                 new_tree
-                    .conflicts_stream_matching(matcher)
+                    .conflicts_matching(matcher)
                     .map(|(path, value)| value.map(|value| (path, value)))
                     .try_collect()
                     .await?
@@ -2604,9 +2604,7 @@ impl TreeState {
         let matcher = self.sparse_matcher();
         let mut changed_file_states = Vec::new();
         let mut deleted_files = HashSet::new();
-        let mut diff_stream = self
-            .tree
-            .diff_stream_for_file_system(new_tree, matcher.as_ref());
+        let mut diff_stream = self.tree.diff_for_file_system(new_tree, matcher.as_ref());
         while let Some(TreeDiffEntry { path, values }) = diff_stream.next().await {
             let after = values?.after;
             if after.is_absent() {

@@ -196,12 +196,12 @@ impl MergedTree {
     /// subtrees and yields conflicts in those, but only if all sides are
     /// trees, so tree/file conflicts will be reported as a single conflict, not
     /// one for each path in the tree.
-    pub fn conflicts_stream(&self) -> TreeConflictsStream<'static> {
-        self.conflicts_stream_matching(&EverythingMatcher)
+    pub fn conflicts(&self) -> TreeConflictsStream<'static> {
+        self.conflicts_matching(&EverythingMatcher)
     }
 
-    /// Like `conflicts_stream()` but restricted by a matcher.
-    pub fn conflicts_stream_matching<'matcher>(
+    /// Like `conflicts()` but restricted by a matcher.
+    pub fn conflicts_matching<'matcher>(
         &self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeConflictsStream<'matcher> {
@@ -270,12 +270,12 @@ impl MergedTree {
     /// replaced by symlink in one side of the conflict), then the entry for
     /// `foo` itself will be emitted, but no entries from inside `foo/` from
     /// either of the trees will be.
-    pub fn entries_stream(&self) -> TreeEntriesStream<'static> {
-        self.entries_stream_matching(&EverythingMatcher)
+    pub fn entries(&self) -> TreeEntriesStream<'static> {
+        self.entries_matching(&EverythingMatcher)
     }
 
-    /// Like `entries_stream()` but restricted by a matcher.
-    pub fn entries_stream_matching<'matcher>(
+    /// Like `entries()` but restricted by a matcher.
+    pub fn entries_matching<'matcher>(
         &self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeEntriesStream<'matcher> {
@@ -297,7 +297,7 @@ impl MergedTree {
     }
 
     /// Stream of the differences between this tree and another tree.
-    fn diff_stream_internal<'matcher>(
+    fn diff_internal<'matcher>(
         &self,
         other: &Self,
         matcher: &'matcher dyn Matcher,
@@ -306,31 +306,31 @@ impl MergedTree {
     }
 
     /// Stream of the differences between this tree and another tree.
-    pub fn diff_stream<'matcher>(
+    pub fn diff<'matcher>(
         &self,
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        stream_without_trees(self.diff_stream_internal(other, matcher))
+        stream_without_trees(self.diff_internal(other, matcher))
     }
 
-    /// Like `diff_stream()` but trees with diffs themselves are also included.
-    pub fn diff_stream_with_trees<'matcher>(
+    /// Like `diff()` but trees with diffs themselves are also included.
+    pub fn diff_with_trees<'matcher>(
         &self,
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        self.diff_stream_internal(other, matcher)
+        self.diff_internal(other, matcher)
     }
 
-    /// Like `diff_stream()` but files in a removed tree will be returned before
+    /// Like `diff()` but files in a removed tree will be returned before
     /// a file that replaces it.
-    pub fn diff_stream_for_file_system<'matcher>(
+    pub fn diff_for_file_system<'matcher>(
         &self,
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        DiffStreamForFileSystem::new(self.diff_stream_internal(other, matcher)).boxed()
+        DiffStreamForFileSystem::new(self.diff_internal(other, matcher)).boxed()
     }
 
     /// Returns a slice of this tree filtered by the matcher. The returned tree
@@ -341,24 +341,24 @@ impl MergedTree {
         FilteredTreeWriter::new(self, matcher).write().await
     }
 
-    /// Like `diff_stream()` but takes the given copy records into account.
-    pub fn diff_stream_with_copies<'a>(
+    /// Like `diff()` but takes the given copy records into account.
+    pub fn diff_with_copies<'a>(
         &self,
         other: &Self,
         matcher: &'a dyn Matcher,
         copy_records: &'a CopyRecords,
     ) -> BoxStream<'a, CopiesTreeDiffEntry> {
-        let stream = self.diff_stream(other, matcher);
+        let stream = self.diff(other, matcher);
         copies_tree_diff_stream(stream, self.clone(), other.clone(), copy_records)
     }
 
-    /// Like `diff_stream()` but takes CopyHistory into account.
-    pub fn diff_stream_with_copy_history<'a>(
+    /// Like `diff()` but takes CopyHistory into account.
+    pub fn diff_with_copy_history<'a>(
         &'a self,
         other: &'a Self,
         matcher: &'a dyn Matcher,
     ) -> BoxStream<'a, CopyHistoryTreeDiffEntry> {
-        let stream = self.diff_stream(other, matcher);
+        let stream = self.diff(other, matcher);
         CopyHistoryDiffStream::new(stream, self, other).boxed()
     }
 
@@ -405,15 +405,15 @@ pub struct TreeDiffEntry {
     pub values: BackendResult<Diff<MergedTreeValue>>,
 }
 
-/// Type alias for the result from `MergedTree::conflicts_stream()`.
+/// Type alias for the result from `MergedTree::conflicts()`.
 pub type TreeConflictsStream<'matcher> =
     BoxStream<'matcher, (RepoPathBuf, BackendResult<MergedTreeValue>)>;
 
-/// Type alias for the result from `MergedTree::entries_stream()`.
+/// Type alias for the result from `MergedTree::entries()`.
 pub type TreeEntriesStream<'matcher> =
     BoxStream<'matcher, (RepoPathBuf, BackendResult<MergedTreeValue>)>;
 
-/// Type alias for the result from `MergedTree::diff_stream()`. We use a
+/// Type alias for the result from `MergedTree::diff()`. We use a
 /// `Stream` instead of an `Iterator` so high-latency backends (e.g. cloud-based
 /// ones) can fetch trees asynchronously.
 pub type TreeDiffStream<'matcher> = BoxStream<'matcher, TreeDiffEntry>;
@@ -577,7 +577,7 @@ pub struct TreeDiffStreamImpl<'matcher> {
 
 impl<'matcher> TreeDiffStreamImpl<'matcher> {
     /// Creates a iterator over the differences between two trees. Generally
-    /// prefer `MergedTree::diff_stream()` of calling this directly.
+    /// prefer `MergedTree::diff()` of calling this directly.
     ///
     /// `max_concurrent_reads` is the maximum number of paths to read trees for
     /// concurrently. There will often be twice as many pending

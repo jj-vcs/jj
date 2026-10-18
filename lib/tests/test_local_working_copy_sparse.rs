@@ -254,7 +254,7 @@ fn test_sparse_commit() -> TestResult {
     // tree.
     let modified_tree = test_workspace.snapshot()?;
     let diff: Vec<_> = tree
-        .diff_stream(&modified_tree, &EverythingMatcher)
+        .diff(&modified_tree, &EverythingMatcher)
         .collect()
         .block_on();
     assert_eq!(diff.len(), 1);
@@ -276,7 +276,7 @@ fn test_sparse_commit() -> TestResult {
     // updated in the tree.
     let modified_tree = test_workspace.snapshot()?;
     let diff: Vec<_> = tree
-        .diff_stream(&modified_tree, &EverythingMatcher)
+        .diff(&modified_tree, &EverythingMatcher)
         .collect()
         .block_on();
     assert_eq!(diff.len(), 2);
@@ -323,10 +323,7 @@ fn test_sparse_commit_gitignore() -> TestResult {
     // Create a tree from the working copy. Only dir1/file2 should be updated in the
     // tree because dir1/file1 is ignored.
     let modified_tree = test_workspace.snapshot()?;
-    let entries = modified_tree
-        .entries_stream()
-        .collect::<Vec<_>>()
-        .block_on();
+    let entries = modified_tree.entries().collect::<Vec<_>>().block_on();
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].0.as_ref(), dir1_file2_path);
     Ok(())
@@ -397,7 +394,7 @@ fn test_sparse_commit_gitignore_sparsed_away() -> TestResult {
     // only file3 should be tracked (in addition to the sparsed-away files.)
     let modified_tree = test_workspace.snapshot()?;
     let entries = modified_tree
-        .entries_stream()
+        .entries()
         .map(|(path, _)| path)
         .collect::<Vec<_>>()
         .block_on();
@@ -467,7 +464,7 @@ fn test_sparse_commit_gitignore_symlink_not_followed() -> TestResult {
     // The symlink contributes no patterns, so the new file is tracked.
     let modified_tree = test_workspace.snapshot()?;
     let entries = modified_tree
-        .entries_stream()
+        .entries()
         .map(|(path, _)| path)
         .collect::<Vec<_>>()
         .block_on();

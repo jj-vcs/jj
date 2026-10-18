@@ -383,7 +383,7 @@ pub struct CopyHistoryDiffStream<'a> {
 impl<'a> CopyHistoryDiffStream<'a> {
     /// Creates an iterator over the differences between two trees, taking copy
     /// history into account. Generally prefer
-    /// `MergedTree::diff_stream_with_copy_history()` instead of calling this
+    /// `MergedTree::diff_with_copy_history()` instead of calling this
     /// directly.
     pub fn new(
         inner: TreeDiffStream<'a>,

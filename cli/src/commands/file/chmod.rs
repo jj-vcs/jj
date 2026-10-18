@@ -84,7 +84,7 @@ pub(crate) async fn cmd_file_chmod(
     let mut tx = workspace_command.start_transaction();
 
     let mut tree_builder = MergedTreeBuilder::new(commit.tree());
-    let mut entries = tree.entries_stream_matching(matcher.as_ref());
+    let mut entries = tree.entries_matching(matcher.as_ref());
     while let Some((repo_path, result)) = entries.next().await {
         let mut tree_value = result?;
         let user_error_with_path = |msg: &str| {

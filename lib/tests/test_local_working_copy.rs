@@ -1460,7 +1460,7 @@ fn test_snapshot_special_file() -> TestResult {
         .block_on()?;
     // Only the regular files should be in the tree
     assert_eq!(
-        tree.entries_stream()
+        tree.entries()
             .map(|(path, _value)| path)
             .collect::<Vec<_>>()
             .block_on(),
@@ -1478,7 +1478,7 @@ fn test_snapshot_special_file() -> TestResult {
     let tree = test_workspace.snapshot()?;
     // Only the regular file should be in the tree
     assert_eq!(
-        tree.entries_stream()
+        tree.entries()
             .map(|(path, _value)| path)
             .collect::<Vec<_>>()
             .block_on(),
@@ -1531,7 +1531,7 @@ fn test_snapshot_non_utf8_path() -> TestResult {
     // Only the path with a valid UTF-8 name should be in the tree. The
     // directory isn't descended into, so it's reported as a single path.
     assert_eq!(
-        tree.entries_stream()
+        tree.entries()
             .map(|(path, _value)| path)
             .collect::<Vec<_>>()
             .block_on(),
@@ -1572,7 +1572,7 @@ fn test_gitignores() -> TestResult {
 
     let tree1 = test_workspace.snapshot()?;
     let files1 = tree1
-        .entries_stream()
+        .entries()
         .map(|(name, _value)| name)
         .collect::<Vec<_>>()
         .block_on();
@@ -1600,7 +1600,7 @@ fn test_gitignores() -> TestResult {
 
     let tree2 = test_workspace.snapshot()?;
     let files2 = tree2
-        .entries_stream()
+        .entries()
         .map(|(name, _value)| name)
         .collect::<Vec<_>>()
         .block_on();
@@ -1647,7 +1647,7 @@ fn test_gitignores_walk() -> TestResult {
 
     let tree1 = test_workspace.snapshot()?;
     let files1 = tree1
-        .entries_stream()
+        .entries()
         .map(|(name, _value)| name)
         .collect::<Vec<_>>()
         .block_on();

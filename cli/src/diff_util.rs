@@ -484,7 +484,7 @@ impl<'a> DiffRenderer<'a> {
         let diff_stream = || {
             trees
                 .before
-                .diff_stream_with_copies(trees.after, matcher, copy_records)
+                .diff_with_copies(trees.after, matcher, copy_records)
         };
         let conflict_labels = trees.map(|tree| tree.labels());
 

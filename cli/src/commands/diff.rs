@@ -210,7 +210,7 @@ pub(crate) async fn cmd_diff(
 
     ui.request_pager();
     if let Some(template) = &maybe_template {
-        let tree_diff = from_tree.diff_stream_with_copies(&to_tree, &matcher, &copy_records);
+        let tree_diff = from_tree.diff_with_copies(&to_tree, &matcher, &copy_records);
         show_templated(ui.stdout_formatter().as_mut(), tree_diff, template).await?;
     }
     diff_renderer
