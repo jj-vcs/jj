@@ -55,6 +55,7 @@ use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
@@ -354,6 +355,7 @@ impl TestWorkspace {
         let (workspace, repo) = Workspace::init_with_backend(
             settings,
             &workspace_root,
+            WorkspaceName::DEFAULT,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             signer,
         )
@@ -374,6 +376,7 @@ impl TestWorkspace {
         let (workspace, repo) = Workspace::init_colocated_git(
             &user_settings(),
             &workspace_root,
+            WorkspaceName::DEFAULT,
             gix::hash::Kind::default(),
         )
         .block_on()

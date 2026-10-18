@@ -17,6 +17,7 @@ use std::thread;
 
 use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_working_copy_factory;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::Workspace;
@@ -157,7 +158,8 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
 
     let ws1_root = test_env.root().join(OsStr::from_bytes(b"ws1_root\xe0"));
     std::fs::create_dir(&ws1_root)?;
-    let (ws1, repo) = Workspace::init_simple(&settings, &ws1_root).block_on()?;
+    let (ws1, repo) =
+        Workspace::init_simple(&settings, &ws1_root, WorkspaceName::DEFAULT).block_on()?;
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_env.root().join(OsStr::from_bytes(b"ws2_root\xe0"));

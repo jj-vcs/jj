@@ -4156,9 +4156,13 @@ fn test_update_intent_to_add_drops_stale_cache_tree() -> TestResult {
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
     testutils::git::init(&workspace_root);
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .block_on()?;
+    let (_workspace, repo) = Workspace::init_external_git(
+        &settings,
+        &workspace_root,
+        WorkspaceName::DEFAULT,
+        &workspace_root.join(".git"),
+    )
+    .block_on()?;
 
     // A nested subtree d/e/f/ plus an unrelated sibling tree sib/.
     let old_files = [

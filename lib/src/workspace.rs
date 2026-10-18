@@ -194,11 +194,19 @@ impl Workspace {
     pub async fn init_simple(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer =
             &|_settings, store_path| Ok(Box::new(SimpleBackend::init(store_path)));
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer).await
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            workspace_name,
+            backend_initializer,
+            signer,
+        )
+        .await
     }
 
     /// Initializes a workspace with a new Git backend and bare Git repo in
@@ -207,6 +215,7 @@ impl Workspace {
     pub async fn init_internal_git(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
         object_hash: gix::hash::Kind,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer = &|settings, store_path| {
@@ -217,7 +226,14 @@ impl Workspace {
             )?))
         };
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer).await
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            workspace_name,
+            backend_initializer,
+            signer,
+        )
+        .await
     }
 
     /// Initializes a workspace with a new Git backend and Git repo that shares
@@ -226,6 +242,7 @@ impl Workspace {
     pub async fn init_colocated_git(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
         object_hash: gix::hash::Kind,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
@@ -249,7 +266,14 @@ impl Workspace {
             Ok(Box::new(backend))
         };
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer).await
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            workspace_name,
+            &backend_initializer,
+            signer,
+        )
+        .await
     }
 
     /// Initializes a workspace with an existing Git repo at the specified path.
@@ -260,6 +284,7 @@ impl Workspace {
     pub async fn init_external_git(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
         git_repo_path: &Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
@@ -289,13 +314,21 @@ impl Workspace {
             Ok(Box::new(backend))
         };
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer).await
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            workspace_name,
+            &backend_initializer,
+            signer,
+        )
+        .await
     }
 
     #[expect(clippy::too_many_arguments)]
     pub async fn init_with_factories(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
         workspace_store_initializer: &WorkspaceStoreInitializer<'_>,
@@ -304,7 +337,6 @@ impl Workspace {
         index_store_initializer: &IndexStoreInitializer<'_>,
         submodule_store_initializer: &SubmoduleStoreInitializer<'_>,
         working_copy_factory: &dyn WorkingCopyFactory,
-        workspace_name: WorkspaceNameBuf,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
         async {
@@ -332,7 +364,7 @@ impl Workspace {
                 workspace_root,
                 &jj_dir,
                 working_copy_factory,
-                workspace_name,
+                workspace_name.to_owned(),
             )
             .await?;
             let repo_loader = repo.loader().clone();
@@ -352,12 +384,14 @@ impl Workspace {
     pub async fn init_with_backend(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         Self::init_with_factories(
             user_settings,
             workspace_root,
+            workspace_name,
             backend_initializer,
             signer,
             ReadonlyRepo::default_workspace_store_initializer(),
@@ -366,7 +400,6 @@ impl Workspace {
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
             &*default_working_copy_factory(),
-            WorkspaceName::DEFAULT.to_owned(),
         )
         .await
     }
