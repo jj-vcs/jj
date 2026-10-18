@@ -363,7 +363,7 @@ async fn configure_remote(
         .repo_loader()
         .load_operation(workspace_command.repo().op_id())
         .await?;
-    let repo = workspace.repo_loader().load_at(&op).await?;
+    let repo = workspace.load_at(&op).await?;
     command.for_workable_repo(ui, workspace, repo)
 }
 

@@ -34,6 +34,7 @@ use crate::file_util::PathError;
 use crate::merged_tree::MergedTree;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OperationId;
+use crate::operation::Operation;
 use crate::ref_name::WorkspaceName;
 use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::BackendInitializer;
@@ -45,6 +46,7 @@ use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RepoInitError;
 use crate::repo::RepoLoader;
+use crate::repo::RepoLoaderError;
 use crate::repo::StoreFactories;
 use crate::repo::StoreLoadError;
 use crate::repo::SubmoduleStoreInitializer;
@@ -488,6 +490,16 @@ impl Workspace {
 
     pub fn working_copy(&self) -> &dyn WorkingCopy {
         self.working_copy.as_ref()
+    }
+
+    pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        self.repo_loader()
+            .load_at_head(Some(self.workspace_name()))
+            .await
+    }
+
+    pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        self.repo_loader().load_at(op).await
     }
 
     pub async fn start_working_copy_mutation(
