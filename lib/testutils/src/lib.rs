@@ -26,6 +26,7 @@ use std::process::Stdio;
 use std::sync::Arc;
 
 use futures::AsyncReadExt as _;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::Backend;
@@ -732,7 +733,12 @@ pub fn dump_tree(merged_tree: &MergedTree) -> String {
     writeln!(&mut buf, "merged tree (sides: {})", trees.num_sides()).unwrap();
     for tree in &trees {
         writeln!(&mut buf, "  tree {}", tree.id()).unwrap();
-        for (path, entry) in tree.entries_matching(&EverythingMatcher) {
+        let entries: Vec<_> = tree
+            .entries_matching(&EverythingMatcher)
+            .map(|(path, entry)| (path, entry.unwrap()))
+            .collect()
+            .block_on();
+        for (path, entry) in entries {
             match entry {
                 TreeValue::File {
                     id,
