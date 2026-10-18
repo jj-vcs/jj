@@ -173,14 +173,13 @@ async fn do_op_log(
                                op: &Operation,
                                with_content_format: &LogContentFormat| {
             let parent_ops = op.parents().await?;
-            let workspace_name = None;
             let transaction_description = None;
             let command_args = [];
             let merged_parent_op = merge_operations(
                 None,
                 repo_loader,
                 parent_ops.clone(),
-                workspace_name,
+                Some(workspace_env.workspace_name()),
                 transaction_description,
                 &command_args,
             )
