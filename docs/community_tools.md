@@ -108,9 +108,9 @@ Find it [here][jj-idea] and [here (Marketplace)][jj-idea-marketplace].
 
 ## PSCompletions
 
-PSCompletions is a completion manager for a better and simpler tab-completion experience in PowerShell.
+PSCompletions is powerful shell completions for PowerShell and other shells, powered by Rust and Lua.
 
-It can provide completions via `psc add jj`, or offer a better completion menu for the official completions.
+It can provide completions via `psc add jj`, or offer a better interactive menu for the official completions.
 
 Find it [here][PSCompletions].
 
