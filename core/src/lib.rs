@@ -28,6 +28,7 @@
 extern crate self as jj_core;
 
 pub mod backend;
+mod cached_loader;
 pub mod commit;
 pub mod conflict_labels;
 pub mod content_hash;
