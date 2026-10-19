@@ -375,7 +375,8 @@ impl ReadonlyRepo {
         self.loader.settings()
     }
 
-    // TODO: XXX:W migrate most callers to start_transaction_new and get rid of this method.
+    // TODO: XXX:W IMPORTANT migrate most callers to start_transaction_new and get rid of this method.
+    // TODO: XXX:W IMPORTANT maybe there should be a single start_transaction with an OpContext argument?
     pub fn start_transaction(self: &Arc<Self>) -> Transaction {
         self.start_transaction_new(None)
     }

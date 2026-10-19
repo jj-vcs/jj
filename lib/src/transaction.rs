@@ -130,7 +130,7 @@ impl Transaction {
         self.op_metadata.is_snapshot = is_snapshot;
     }
 
-    // TODO: XXX:W pass the WorkspaceName in the transaction constructor instead.
+    // TODO: XXX:W pass Option<&WorkspaceName> in the transaction constructor instead.
     pub fn set_workspace_name(&mut self, workspace_name: &WorkspaceName) {
         self.op_metadata.workspace_name = Some(workspace_name.to_owned());
     }

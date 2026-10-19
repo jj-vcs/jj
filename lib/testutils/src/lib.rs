@@ -484,7 +484,10 @@ impl TestWorkspace {
     }
 }
 
-// TODO: XXX:W pass workspace_name and workspace_type.
+// TODO: XXX:W commit_transactions should be private and should take Option<workspace name & type>.
+// There should be commit_transactions methods in TestEnvironment and TestWorkspace calling this.
+// TestEnvironment should have Option<workspace name & type>, and should register a workspace with those are set.
+// TestWorkspace should have workspace_name (it already gets WorkspaceType via the workspace field) 
 pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
     let repo_loader = txs[0].base_repo().loader().clone();
     let mut op_ids = vec![];

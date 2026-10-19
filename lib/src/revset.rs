@@ -290,6 +290,12 @@ pub enum RevsetExpression<St: ExpressionState> {
     /// Resolves visibility within the specified repo state.
     ///
     /// Commits referenced by the `candidates` expression are also scoped.
+    // TODO: XXX:W IT WOULD BE AWESOME if the output of jj log -r `at_workspace(WS, x) | y`
+    // would show commits which are visible in WS (in the x expression) but NOT in the current
+    // as 'WS'. I believe today they appear as 'hidden', which is a bit confusing. Furthermore,
+    // if the revset is jj log -r `at_workspace(WS1, x) | at_workspace(WS2, y) | z` it would be
+    // awesome if the output showed 'WS1' and 'WS2' at the right places, but what about commits
+    // that match the first two predicates but are not visible in the current workspace?
     WithinVisibility {
         candidates: Arc<Self>,
         /// Copy of `repo.view().heads()` at the operation.
@@ -2952,6 +2958,7 @@ fn resolve_commit_ref(
             Ok(vec![commit_id])
         }
         RevsetCommitRef::WorkingCopy(name) => {
+            // TODO: XXX:W This does not work for independent wortkspaces.
             if let Some(commit_id) = repo.view().get_wc_commit_id(name) {
                 Ok(vec![commit_id.clone()])
             } else {
@@ -3050,7 +3057,8 @@ struct ExpressionSymbolResolver<'a, 'b> {
 }
 
 impl<'a, 'b> ExpressionSymbolResolver<'a, 'b> {
-    // TODO: XXX:W Pass Option<WorkspaceName, WorkspaceType>
+    // TODO: XXX:W IMPORTANT Pass Option<WorkspaceName, WorkspaceType>
+    // see RevsetParseContext.workspace
     fn new(base_repo: &'a dyn Repo, symbol_resolver: &'a SymbolResolver<'b>) -> Self {
         Self {
             base_repo,

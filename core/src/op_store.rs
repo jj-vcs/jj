@@ -176,20 +176,26 @@ pub struct View {
     /// All head commits. There should be at least one head commit.
     pub head_ids: HashSet<CommitId>,
     /// Local bookmark names and targets.
+    // TODO: XXX:W Review the use of this field; what should we do for independent workspaces?
     pub local_bookmarks: BTreeMap<RefNameBuf, RefTarget>,
     /// Local tag names and targets.
+    // TODO: XXX:W Review the use of this field; what should we do for independent workspaces?
     pub local_tags: BTreeMap<RefNameBuf, RefTarget>,
     /// Remote names and views.
+    // TODO: XXX:W Review the use of this field; what should we do for independent workspaces?
     pub remote_views: BTreeMap<RemoteNameBuf, RemoteView>,
     /// Git ref names and targets.
+    // TODO: XXX:W Review the use of this field; what should we do for independent workspaces?
     pub git_refs: BTreeMap<GitRefNameBuf, RefTarget>,
     /// The commit each workspace's Git HEAD points to, keyed by workspace name.
     // TODO: Do we want to store the current bookmark name too?
+    // TODO: XXX:W Review the use of this field; what should we do for independent workspaces?
     pub git_heads: BTreeMap<WorkspaceNameBuf, RefTarget>,
     /// Workspace names and checked-out commits.
     // The commit that *should be* checked out in the workspace. Note that the working copy
     // (.jj/working_copy/) has the source of truth about which commit *is* checked out (to be
     // precise: the commit to which we most recently completed an update to).
+    // TODO: XXX:W Review the use of this field througout: for independent workspaces this no longer works!
     pub wc_commit_ids: BTreeMap<WorkspaceNameBuf, CommitId>,
 }
 
