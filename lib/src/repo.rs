@@ -277,15 +277,15 @@ impl ReadonlyRepo {
             .context(&submodule_store_type_path)?;
         let submodule_store = Arc::from(submodule_store);
 
-        let loader = RepoLoader {
-            settings: settings.clone(),
+        let loader = RepoLoader::new(
+            settings.clone(),
             store,
             workspace_store,
             op_store,
             op_heads_store,
             index_store,
             submodule_store,
-        };
+        );
 
         let root_operation = loader.root_operation().await;
         let root_view = root_operation
