@@ -148,6 +148,8 @@ pub async fn cmd_workspace_remove(
         tx.repo_mut().add_head(&commit).await?;
     }
     for ws in &remove_ws {
+        // TODO: XXX:W What about independent workspaces? Should we delete the
+        // .jj/repo/workspace_store/workspace/<name> directory???
         tx.repo_mut().remove_workspace(ws).await?;
     }
     let names = remove_ws.iter().map(|ws| ws.as_symbol()).join(", ");
