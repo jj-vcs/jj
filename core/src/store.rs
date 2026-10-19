@@ -19,9 +19,7 @@ use std::fmt::Formatter;
 use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::Mutex;
 
-use clru::CLruCache;
 use futures::AsyncRead;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
@@ -36,6 +34,7 @@ use crate::backend::FileId;
 use crate::backend::SigningFn;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
+use crate::cached_loader::CachedLoader;
 use crate::commit::Commit;
 use crate::files::MergeOptions;
 use crate::merge::Merge;
@@ -55,8 +54,9 @@ const TREE_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(1000).unwrap();
 pub struct Store {
     backend: Box<dyn Backend>,
     signer: Signer,
-    commit_cache: Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
-    tree_cache: Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
+    // Concurrent cache misses for the same object share a single backend read.
+    commit_cache: CachedLoader<CommitId, Arc<backend::Commit>>,
+    tree_cache: CachedLoader<(RepoPathBuf, TreeId), Arc<backend::Tree>>,
     merge_options: MergeOptions,
 }
 
@@ -78,8 +78,8 @@ impl Store {
         Arc::new(Self {
             backend,
             signer,
-            commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY)),
-            tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY)),
+            commit_cache: CachedLoader::new(COMMIT_CACHE_CAPACITY),
+            tree_cache: CachedLoader::new(TREE_CACHE_CAPACITY),
             merge_options,
         })
     }
@@ -174,18 +174,20 @@ impl Store {
         Ok(Commit::new(self.clone(), id.clone(), data))
     }
 
-    async fn get_backend_commit(&self, id: &CommitId) -> BackendResult<Arc<backend::Commit>> {
-        {
-            let mut locked_cache = self.commit_cache.lock().unwrap();
-            if let Some(data) = locked_cache.get(id).cloned() {
-                return Ok(data);
-            }
-        }
-        let commit = self.backend.read_commit(id).await?;
-        let data = Arc::new(commit);
-        let mut locked_cache = self.commit_cache.lock().unwrap();
-        locked_cache.put(id.clone(), data.clone());
-        Ok(data)
+    async fn get_backend_commit(
+        self: &Arc<Self>,
+        id: &CommitId,
+    ) -> BackendResult<Arc<backend::Commit>> {
+        self.commit_cache
+            .get_or_load(id, || {
+                let store = self.clone();
+                let id = id.clone();
+                async move {
+                    let commit = store.backend.read_commit(&id).await?;
+                    Ok(Arc::new(commit))
+                }
+            })
+            .await
     }
 
     /// Writes a commit to the backend, optionally signing it. The commit must
@@ -199,10 +201,7 @@ impl Store {
 
         let (commit_id, commit) = self.backend.write_commit(commit, sign_with).await?;
         let data = Arc::new(commit);
-        {
-            let mut locked_cache = self.commit_cache.lock().unwrap();
-            locked_cache.put(commit_id.clone(), data.clone());
-        }
+        self.commit_cache.insert(commit_id.clone(), data.clone());
 
         Ok(Commit::new(self.clone(), commit_id, data))
     }
@@ -214,22 +213,22 @@ impl Store {
     }
 
     async fn get_backend_tree(
-        &self,
+        self: &Arc<Self>,
         dir: &RepoPath,
         id: &TreeId,
     ) -> BackendResult<Arc<backend::Tree>> {
         let key = (dir.to_owned(), id.clone());
-        {
-            let mut locked_cache = self.tree_cache.lock().unwrap();
-            if let Some(data) = locked_cache.get(&key).cloned() {
-                return Ok(data);
-            }
-        }
-        let data = self.backend.read_tree(dir, id).await?;
-        let data = Arc::new(data);
-        let mut locked_cache = self.tree_cache.lock().unwrap();
-        locked_cache.put(key, data.clone());
-        Ok(data)
+        self.tree_cache
+            .get_or_load(&key, || {
+                let store = self.clone();
+                let key = key.clone();
+                async move {
+                    let (dir, id) = &key;
+                    let data = store.backend.read_tree(dir, id).await?;
+                    Ok(Arc::new(data))
+                }
+            })
+            .await
     }
 
     /// Writes a tree for the directory at `path` to the backend.
@@ -240,10 +239,8 @@ impl Store {
     ) -> BackendResult<Tree> {
         let tree_id = self.backend.write_tree(path, &tree).await?;
         let data = Arc::new(tree);
-        {
-            let mut locked_cache = self.tree_cache.lock().unwrap();
-            locked_cache.put((path.to_owned(), tree_id.clone()), data.clone());
-        }
+        self.tree_cache
+            .insert((path.to_owned(), tree_id.clone()), data.clone());
 
         Ok(Tree::new(self.clone(), path.to_owned(), tree_id, data))
     }
@@ -278,7 +275,7 @@ impl Store {
 
     /// Clear cached objects. Mainly intended for testing.
     pub fn clear_caches(&self) {
-        self.commit_cache.lock().unwrap().clear();
-        self.tree_cache.lock().unwrap().clear();
+        self.commit_cache.clear();
+        self.tree_cache.clear();
     }
 }
