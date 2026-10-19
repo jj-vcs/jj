@@ -186,6 +186,7 @@ impl FileAnnotator {
     fn with_source(file_path: &RepoPath, mut source: Source) -> Self {
         source.fill_line_map();
         let starting_text = source.text.clone();
+        let num_empty_sources = usize::from(source.line_map.is_empty());
         let state = AnnotationState {
             original_line_map: (0..source.line_map.len())
                 .map(|line_number| {
@@ -197,6 +198,7 @@ impl FileAnnotator {
                 .collect(),
             commit_source_map: HashMap::from([(source.commit.id().clone(), source)]),
             num_unresolved_roots: 0,
+            num_empty_sources,
         };
         Self {
             file_path: file_path.to_owned(),
@@ -220,7 +222,11 @@ impl FileAnnotator {
 
     /// Remaining commit ids to visit from.
     pub fn pending_commits(&self) -> impl Iterator<Item = &CommitId> {
-        self.state.commit_source_map.keys()
+        self.state
+            .commit_source_map
+            .iter()
+            .filter(|(_, source)| !source.line_map.is_empty())
+            .map(|(commit_id, _)| commit_id)
     }
 
     /// Returns the current state as line-oriented annotation.
@@ -243,6 +249,10 @@ struct AnnotationState {
     commit_source_map: HashMap<CommitId, Source>,
     /// Number of unresolved root commits in `commit_source_map`.
     num_unresolved_roots: usize,
+    /// Number of sources in `commit_source_map` with no lines mapped to them.
+    /// They're kept so their contents don't have to be reloaded if another
+    /// child maps lines to them later.
+    num_empty_sources: usize,
 }
 
 /// Line mapping and file content at a certain commit.
@@ -314,7 +324,15 @@ async fn process_commits(
     let mut nodes = revset.stream_graph();
     while let Some((commit_id, edge_list)) = nodes.try_next().await? {
         process_commit(repo, file_name, state, &commit_id, &edge_list).await?;
-        if state.commit_source_map.len() == state.num_unresolved_roots {
+        debug_assert_eq!(
+            state.num_empty_sources,
+            state
+                .commit_source_map
+                .values()
+                .filter(|source| source.line_map.is_empty())
+                .count()
+        );
+        if state.commit_source_map.len() == state.num_unresolved_roots + state.num_empty_sources {
             // No more lines to propagate to ancestors.
             break;
         }
@@ -335,6 +353,11 @@ async fn process_commit(
     let Some(mut current_source) = state.commit_source_map.remove(current_commit_id) else {
         return Ok(());
     };
+    if current_source.line_map.is_empty() {
+        // No lines to propagate to the parents.
+        state.num_empty_sources -= 1;
+        return Ok(());
+    }
 
     for parent_edge in edges {
         let parent_commit_id = &parent_edge.target;
@@ -342,9 +365,12 @@ async fn process_commit(
             hash_map::Entry::Occupied(entry) => entry.into_mut(),
             hash_map::Entry::Vacant(entry) => {
                 let commit = repo.store().get_commit_async(entry.key()).await?;
-                entry.insert(Source::load(commit, file_name).await?)
+                let source = Source::load(commit, file_name).await?;
+                state.num_empty_sources += 1;
+                entry.insert(source)
             }
         };
+        let parent_was_empty = parent_source.line_map.is_empty();
 
         // For two versions of the same file, for all the lines in common,
         // overwrite the new mapping in the results for the new commit. Let's
@@ -373,14 +399,18 @@ async fn process_commit(
         );
         new_current_line_map.extend(current_lines);
         current_source.line_map = new_current_line_map;
-        parent_source.line_map = if parent_source.line_map.is_empty() {
+        parent_source.line_map = if parent_was_empty {
             new_parent_line_map
         } else {
             itertools::merge(parent_source.line_map.iter().copied(), new_parent_line_map).collect()
         };
         if parent_source.line_map.is_empty() {
-            state.commit_source_map.remove(parent_commit_id);
-        } else if parent_edge.is_missing() {
+            continue;
+        }
+        if parent_was_empty {
+            state.num_empty_sources -= 1;
+        }
+        if parent_edge.is_missing() {
             // If an omitted parent had the file, leave these lines unresolved.
             // The origin of the unresolved lines is represented as
             // Err(LineOrigin { parent_commit, parent_line_number }).
