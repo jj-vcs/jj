@@ -18,7 +18,6 @@ use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::pin::pin;
 use std::slice;
-use std::sync::Arc;
 
 use futures::Stream;
 use futures::StreamExt as _;
@@ -39,7 +38,6 @@ use crate::op_walk;
 use crate::operation::Operation;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
-use crate::store::Store;
 
 /// Commit with predecessor information.
 #[derive(Clone, Debug, serde::Serialize)]
@@ -83,28 +81,34 @@ pub enum WalkPredecessorsError {
 }
 
 /// Walks operations to emit commit predecessors in reverse topological order.
-pub fn walk_predecessors(
-    repo: &ReadonlyRepo,
+pub fn walk_predecessors<'repo>(
+    repo: &'repo ReadonlyRepo,
     start_commits: &[CommitId],
-) -> impl Stream<Item = Result<CommitEvolutionEntry, WalkPredecessorsError>> + use<> {
+) -> impl Stream<Item = Result<CommitEvolutionEntry, WalkPredecessorsError>> + use<'repo> {
+    let store = repo.store();
     let op_ancestors = op_walk::walk_ancestors(slice::from_ref(repo.operation())).boxed_local();
     let state = WalkPredecessors {
-        store: repo.store().clone(),
         op_ancestors,
         to_visit: start_commits.to_vec(),
         queued: VecDeque::new(),
     };
+    let concurrency = store.concurrency();
     stream::unfold(state, |mut state| async move {
         let result = state.try_next_impl().await.transpose()?;
         Some((result, state))
     })
+    .map(move |result| async move {
+        let (commit_id, operation) = result?;
+        let commit = store.get_commit_async(&commit_id).await?;
+        Ok(CommitEvolutionEntry { commit, operation })
+    })
+    .buffered(concurrency)
 }
 
 struct WalkPredecessors<I> {
-    store: Arc<Store>,
     op_ancestors: I,
     to_visit: Vec<CommitId>,
-    queued: VecDeque<CommitEvolutionEntry>,
+    queued: VecDeque<(CommitId, Option<Operation>)>,
 }
 
 impl<I> WalkPredecessors<I>
@@ -113,25 +117,25 @@ where
 {
     async fn try_next_impl(
         &mut self,
-    ) -> Result<Option<CommitEvolutionEntry>, WalkPredecessorsError> {
+    ) -> Result<Option<(CommitId, Option<Operation>)>, WalkPredecessorsError> {
         while !self.to_visit.is_empty() && self.queued.is_empty() {
             let Some(op) = self.op_ancestors.try_next().await? else {
-                self.flush_commits().await?;
+                self.flush_commits();
                 break;
             };
             if !op.stores_commit_predecessors() {
                 // There may be concurrent ops, but let's ignore the rest.
                 // Operation history should be mostly linear.
-                self.flush_commits().await?;
+                self.flush_commits();
                 break;
             }
-            self.visit_op(&op).await?;
+            self.visit_op(&op)?;
         }
         Ok(self.queued.pop_front())
     }
 
     /// Looks for predecessors within the given operation.
-    async fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
+    fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
         let mut to_emit = Vec::new(); // transitive edges should be short
         let mut has_dup = false;
         let mut i = 0;
@@ -148,19 +152,12 @@ where
             }
         }
 
-        // TODO: We no longer need Commit objects. Should we move
-        // get_commit_async(id) to callers?
-        let mut emit = async |id: &CommitId| -> BackendResult<()> {
-            let commit = self.store.get_commit_async(id).await?;
-            self.queued.push_back(CommitEvolutionEntry {
-                commit,
-                operation: Some(op.clone()),
-            });
-            Ok(())
+        let mut emit = |id: &CommitId| {
+            self.queued.push_back((id.clone(), Some(op.clone())));
         };
         match &*to_emit {
             [] => {}
-            [id] if !has_dup => emit(id).await?,
+            [id] if !has_dup => emit(id),
             _ => {
                 let sorted_ids = dag_walk::topo_order_reverse_ok(
                     to_emit.iter().map(Ok),
@@ -171,7 +168,7 @@ where
                 .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()))?;
                 for &id in &sorted_ids {
                     if op.predecessors_for_commit(id).is_some() {
-                        emit(id).await?;
+                        emit(id);
                     }
                 }
             }
@@ -180,16 +177,9 @@ where
     }
 
     /// Moves remainder commits to output queue.
-    async fn flush_commits(&mut self) -> BackendResult<()> {
-        self.queued.reserve(self.to_visit.len());
-        for id in self.to_visit.drain(..) {
-            let commit = self.store.get_commit_async(&id).await?;
-            self.queued.push_back(CommitEvolutionEntry {
-                commit,
-                operation: None,
-            });
-        }
-        Ok(())
+    fn flush_commits(&mut self) {
+        self.queued
+            .extend(self.to_visit.drain(..).map(|id| (id, None)));
     }
 }
 
