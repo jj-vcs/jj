@@ -2867,11 +2867,21 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
-        let Self { helper, mut tx, .. } = self;
-        if !tx.repo().has_changes() {
+        if !self.tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
+        self.finish_even_if_unchanged(ui, description).await
+    }
+
+    /// Like [`Self::finish()`], but records the operation even if it doesn't
+    /// change the repo.
+    pub async fn finish_even_if_unchanged(
+        self,
+        ui: &Ui,
+        description: impl Into<String>,
+    ) -> Result<(), CommandError> {
+        let Self { helper, mut tx, .. } = self;
         let num_rebased = rebase_mutable_descendants(&helper.env, &mut tx).await?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
