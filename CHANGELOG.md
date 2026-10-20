@@ -83,6 +83,10 @@ and this project adheres to
   and `jj` commands could import partially fetched refs, causing divergence.
   [#7349](https://github.com/jj-vcs/jj/issues/7349)
 
+* In a linked Git worktree, jj now reads `info/exclude` from the main
+  repository's Git directory, as Git does, instead of ignoring it.
+  [#3377](https://github.com/jj-vcs/jj/issues/3377)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
