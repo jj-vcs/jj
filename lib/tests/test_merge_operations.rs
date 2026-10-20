@@ -15,6 +15,7 @@
 use std::process::Command;
 
 use jj_lib::op_store;
+use jj_lib::op_store::RefTarget;
 use jj_lib::operation::Operation;
 use jj_lib::ref_name::WorkspaceName;
 use pollster::FutureExt as _;
@@ -23,6 +24,57 @@ use testutils::TestRepo;
 use testutils::TestResult;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
+
+#[test]
+fn test_start_merge_operations() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo_loader = test_repo.repo.loader();
+
+    let mut tx = test_repo.repo.start_transaction();
+    let commit_a = write_random_commit(tx.repo_mut());
+    let repo = tx.commit("add commit").block_on()?;
+
+    // Rewrite the commit and add a bookmark to the old commit concurrently
+    let mut tx1 = repo.start_transaction();
+    let commit_a2 = tx1
+        .repo_mut()
+        .rewrite_commit(&commit_a)
+        .set_description("rewritten")
+        .write_unwrap();
+    tx1.repo_mut().rebase_descendants().block_on()?;
+    let mut tx2 = repo.start_transaction();
+    tx2.repo_mut()
+        .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_a.id().clone()));
+    let op1 = tx1.write("rewrite").block_on()?.leave_unpublished();
+    let op2 = tx2.write("bookmark").block_on()?.leave_unpublished();
+    let op1 = op1.operation().clone();
+    let op2 = op2.operation().clone();
+
+    let (mut tx, num_rebased) = repo_loader
+        .start_merge_operations(vec![op1.clone(), op2.clone()], None, Some("merge"), [])
+        .block_on()?;
+    assert_eq!(num_rebased, 0);
+    assert_eq!(tx.parent_ops(), [op1.clone(), op2.clone()]);
+    // The bookmark should have been moved to the rewritten commit
+    assert_eq!(
+        *tx.repo().get_local_bookmark("main".as_ref()),
+        RefTarget::normal(commit_a2.id().clone())
+    );
+
+    // The caller can make further changes as part of the merge operation
+    tx.repo_mut()
+        .set_local_bookmark_target("other".as_ref(), RefTarget::normal(commit_a2.id().clone()));
+    let merged_repo = tx.write("merge").block_on()?.leave_unpublished();
+    assert_eq!(
+        merged_repo.operation().parent_ids(),
+        [op1.id().clone(), op2.id().clone()]
+    );
+    assert_eq!(
+        *merged_repo.view().get_local_bookmark("other".as_ref()),
+        RefTarget::normal(commit_a2.id().clone())
+    );
+    Ok(())
+}
 
 // This test is about checking that we don't run out of stack space.
 #[test]
