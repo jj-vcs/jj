@@ -42,6 +42,7 @@ use crate::dsl_util::AliasExpandError;
 use crate::dsl_util::AliasExpandableExpression;
 use crate::dsl_util::AliasId;
 use crate::dsl_util::AliasesMap;
+use crate::dsl_util::DepthRole;
 use crate::dsl_util::Diagnostics;
 use crate::dsl_util::ExpressionFolder;
 use crate::dsl_util::FoldableExpression;
@@ -58,6 +59,8 @@ mod private {
     #[grammar = "revset.pest"]
     pub struct RevsetParser;
 }
+
+const MAX_TREE_DEPTH: usize = 256;
 
 const STRING_LITERAL_PARSER: StringLiteralParser<Rule> = StringLiteralParser {
     content_rule: Rule::string_content,
@@ -79,6 +82,66 @@ impl Rule {
             self,
             Self::compat_parents_op | Self::compat_add_op | Self::compat_sub_op
         )
+    }
+
+    /// How this rule contributes to the estimated AST depth.
+    fn depth_role(self) -> DepthRole {
+        match self {
+            Self::EOI => DepthRole::Ignore,
+            Self::whitespace => DepthRole::Ignore,
+            Self::identifier_part => DepthRole::Ignore,
+            Self::identifier => DepthRole::Ignore,
+            Self::strict_identifier_part => DepthRole::Ignore,
+            Self::strict_identifier => DepthRole::Ignore,
+            Self::symbol => DepthRole::Ignore,
+            Self::string_escape => DepthRole::Ignore,
+            Self::string_content_char => DepthRole::Ignore,
+            Self::string_content => DepthRole::Ignore,
+            Self::string_literal => DepthRole::Ignore,
+            Self::raw_string_content => DepthRole::Ignore,
+            Self::raw_string_literal => DepthRole::Ignore,
+            Self::at_op => DepthRole::Ignore, // "@", "<name>@", or "<name>@<remote>" symbol
+            Self::pattern_kind_op => DepthRole::Nest,
+            Self::parents_op => DepthRole::Nest,
+            Self::children_op => DepthRole::Nest,
+            Self::compat_parents_op => DepthRole::Nest,
+            Self::dag_range_op => DepthRole::Nest,
+            Self::dag_range_pre_op => DepthRole::Nest,
+            Self::dag_range_post_op => DepthRole::Nest,
+            Self::dag_range_all_op => DepthRole::Ignore, // nullary "::"
+            Self::range_op => DepthRole::Nest,
+            Self::range_pre_op => DepthRole::Nest,
+            Self::range_post_op => DepthRole::Nest,
+            Self::range_all_op => DepthRole::Ignore, // nullary ".."
+            Self::range_ops => DepthRole::Ignore,
+            Self::range_pre_ops => DepthRole::Ignore,
+            Self::range_post_ops => DepthRole::Ignore,
+            Self::range_all_ops => DepthRole::Ignore,
+            Self::negate_op => DepthRole::Nest,
+            Self::union_op => DepthRole::Separate, // chained unions are flattened
+            Self::intersection_op => DepthRole::Nest,
+            Self::difference_op => DepthRole::Nest,
+            Self::compat_add_op => DepthRole::Nest,
+            Self::compat_sub_op => DepthRole::Nest,
+            Self::infix_op => DepthRole::Ignore, // silent grouping rule
+            Self::function => DepthRole::Ignore,
+            Self::function_name => DepthRole::Ignore,
+            Self::keyword_argument => DepthRole::Ignore,
+            Self::argument => DepthRole::Ignore,
+            Self::function_arguments => DepthRole::Ignore,
+            Self::formal_parameters => DepthRole::Ignore,
+            Self::pattern => DepthRole::Ignore,
+            Self::pattern_value_expression => DepthRole::Ignore,
+            Self::primary => DepthRole::Ignore,
+            Self::neighbors_expression => DepthRole::Ignore,
+            Self::range_expression => DepthRole::Ignore,
+            Self::expression => DepthRole::Nest, // ( expression )
+            Self::program => DepthRole::Ignore,
+            Self::symbol_name => DepthRole::Ignore,
+            Self::function_alias_declaration => DepthRole::Ignore,
+            Self::pattern_alias_declaration => DepthRole::Ignore,
+            Self::alias_declaration => DepthRole::Ignore,
+        }
     }
 
     fn to_symbol(self) -> Option<&'static str> {
@@ -452,6 +515,9 @@ pub fn parse_program(revset_str: &str) -> Result<ExpressionNode<'_>, RevsetParse
     let mut pairs = RevsetParser::parse(Rule::program, revset_str)?;
     let first = pairs.next().unwrap();
     assert_eq!(first.as_rule(), Rule::expression);
+    dsl_util::validate_tree_depth(first.clone(), MAX_TREE_DEPTH, Rule::depth_role).map_err(
+        |pair| RevsetParseError::expression("Expression nesting limit exceeded", pair.as_span()),
+    )?;
     parse_expression_node(first)
 }
 
@@ -841,6 +907,7 @@ fn attach_aliases_err(
 mod tests {
     use std::assert_matches;
     use std::collections::HashMap;
+    use std::iter;
 
     use super::*;
     use crate::dsl_util::KeywordArgument;
@@ -1683,6 +1750,89 @@ mod tests {
         assert_eq!(
             parse_into_kind("parents(foo"),
             Err(RevsetParseErrorKind::SyntaxError)
+        );
+    }
+
+    #[test]
+    fn test_parse_tree_depth() {
+        let depth = |text: &str| {
+            let mut pairs = RevsetParser::parse(Rule::program, text).unwrap();
+            dsl_util::estimate_tree_depth(pairs.next().unwrap(), Rule::depth_role)
+        };
+
+        assert_eq!(depth("a"), 1);
+        assert_eq!(depth("@"), 1);
+        assert_eq!(depth("a@b"), 1);
+        assert_eq!(depth("::"), 1);
+        assert_eq!(depth(".."), 1);
+        assert_eq!(depth("'~~~a&(b)'"), 1); // string literal
+
+        assert_eq!(depth("~~~a"), 4);
+        assert_eq!(depth("a++++"), 5);
+        assert_eq!(depth("a|b|c|d|e"), 2);
+        assert_eq!(depth("a&b&c&d&e"), 5);
+        assert_eq!(depth("a~b~c~d~e"), 5);
+        assert_eq!(depth("a:b:c:d:e"), 5);
+        assert_eq!(depth("~::"), 2);
+        assert_eq!(depth("::|.."), 2);
+        assert_eq!(depth("::a"), 2);
+        assert_eq!(depth("a::"), 2);
+        assert_eq!(depth("a::b"), 2);
+        assert_eq!(depth("..a"), 2);
+        assert_eq!(depth("a.."), 2);
+        assert_eq!(depth("a..b"), 2);
+
+        assert_eq!(depth("(((a)))"), 4);
+        assert_eq!(depth("((a|b)&c)|(d&e)"), 6); // actual: 4
+        assert_eq!(depth("a|(b|c)"), 4); // actual: 3
+        assert_eq!(depth("(a&b&c&d&e)&f&g"), 8);
+        assert_eq!(depth("(a&b&c)&d"), 5);
+        assert_eq!(depth("d&(a&b&c)"), 5);
+        assert_eq!(depth("((a&b&c)&d&e)&f&g"), 9); // actual: 7
+        assert_eq!(depth("a+&b-"), 4); // actual: 3
+        assert_eq!(depth("a+|b+|c+|d+|e+"), 3);
+        assert_eq!(depth("a+++|b+"), 5);
+        assert_eq!(depth("a&b|c&d&e"), 4);
+        assert_eq!(depth("a::b|c::d|e::f"), 3);
+        assert_eq!(depth("(a::b)|(c::d)|(e::f)"), 4); // actual: 3
+        assert_eq!(depth("~~~a::b+++"), 8); // ~~~(a::b+++)
+
+        assert_eq!(depth("f()"), 1);
+        assert_eq!(depth("f(a)"), 2);
+        assert_eq!(depth("f(g(a))"), 3);
+        assert_eq!(depth("f(g(h(i(a))))"), 5);
+        assert_eq!(depth("f(a, b, c)"), 4); // actual: 2
+        assert_eq!(depth("f(g(a), h(b))"), 4); // actual: 3
+        assert_eq!(depth("f(x=a, y=b)"), 2);
+        assert_eq!(depth("f(x=g(a))"), 3);
+        assert_eq!(depth("f(a|b)|c"), 4);
+
+        assert_matches!(
+            parse_into_kind(&format!("{}a", "~".repeat(MAX_TREE_DEPTH - 1))),
+            Ok(_)
+        );
+        assert_matches!(
+            parse_into_kind(&format!("{}a", "~".repeat(MAX_TREE_DEPTH))),
+            Err(RevsetParseErrorKind::Expression(_))
+        );
+        // Should never crash
+        assert_matches!(
+            parse_into_kind(&format!("{}a", "~".repeat(1000))),
+            Err(RevsetParseErrorKind::Expression(_))
+        );
+        assert_matches!(
+            parse_into_kind(&format!("a{}", "+".repeat(1000))),
+            Err(RevsetParseErrorKind::Expression(_))
+        );
+
+        // Flat unions stay shallow
+        assert_matches!(
+            parse_into_kind(&iter::repeat_n("a::b", MAX_TREE_DEPTH).join("|")),
+            Ok(_)
+        );
+        assert_matches!(
+            parse_into_kind(&iter::repeat_n("(a::b)", MAX_TREE_DEPTH).join("|")),
+            Ok(_)
         );
     }
 
