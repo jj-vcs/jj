@@ -22,6 +22,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use async_trait::async_trait;
+use jj_core::backend::WorkspaceId;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
@@ -48,13 +49,13 @@ impl From<SimpleOpHeadsStoreInitError> for BackendInitError {
 }
 
 pub struct SimpleOpHeadsStore {
-    dir: PathBuf,
+    root_dir: PathBuf,
 }
 
 impl Debug for SimpleOpHeadsStore {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SimpleOpHeadsStore")
-            .field("dir", &self.dir)
+            .field("root_dir", &self.root_dir)
             .finish()
     }
 }
@@ -62,26 +63,41 @@ impl Debug for SimpleOpHeadsStore {
 impl SimpleOpHeadsStore {
     pub const NAME: &str = "simple_op_heads_store";
 
-    pub fn init(dir: &Path, root_op_id: &OperationId) -> Result<Self, SimpleOpHeadsStoreInitError> {
-        let op_heads_dir = dir.join("heads");
-        fs::create_dir(&op_heads_dir).context(&op_heads_dir)?;
-        let store = Self { dir: op_heads_dir };
-        store.add_op_head(root_op_id)?;
+    pub fn init_op_heads_store(
+        root_dir: &Path,
+        root_op_id: &OperationId,
+    ) -> Result<Self, SimpleOpHeadsStoreInitError> {
+        let store = Self {
+            root_dir: root_dir.to_path_buf(),
+        };
+        store.initialize(root_op_id)?;
         Ok(store)
     }
 
-    pub fn load(dir: &Path) -> Self {
-        let op_heads_dir = dir.join("heads");
-        Self { dir: op_heads_dir }
+    fn initialize(&self, root_op_id: &OperationId) -> Result<(), SimpleOpHeadsStoreInitError> {
+        let repo_heads_dir = self.repo_heads_dir();
+        fs::create_dir(&repo_heads_dir).context(&repo_heads_dir)?;
+        let workspace_heads_root = self.root_dir.join("workspace_heads");
+        fs::create_dir(&workspace_heads_root).context(&workspace_heads_root)?;
+        self.add_op_head(&OpHeadsKey::Repo, root_op_id)?;
+        Ok(())
     }
 
-    fn add_op_head(&self, id: &OperationId) -> Result<(), PathError> {
-        let path = self.dir.join(id.hex());
+    pub fn load(root_dir: &Path) -> Self {
+        Self {
+            root_dir: root_dir.to_path_buf(),
+        }
+    }
+
+    fn add_op_head(&self, op_heads_key: &OpHeadsKey, id: &OperationId) -> Result<(), PathError> {
+        let dir = self.operations_dir(op_heads_key);
+        let path = dir.join(id.hex());
         std::fs::write(&path, "").context(path)
     }
 
-    fn remove_op_head(&self, id: &OperationId) -> Result<(), PathError> {
-        let path = self.dir.join(id.hex());
+    fn remove_op_head(&self, op_heads_key: &OpHeadsKey, id: &OperationId) -> Result<(), PathError> {
+        let dir = self.operations_dir(op_heads_key);
+        let path = dir.join(id.hex());
         std::fs::remove_file(&path)
             .or_else(|err| {
                 if err.kind() == io::ErrorKind::NotFound {
@@ -95,6 +111,23 @@ impl SimpleOpHeadsStore {
                 }
             })
             .context(path)
+    }
+
+    fn operations_dir(&self, op_heads_key: &OpHeadsKey) -> PathBuf {
+        match op_heads_key {
+            OpHeadsKey::Repo => self.repo_heads_dir(),
+            OpHeadsKey::Workspace(workspace_id) => self.workspace_heads_dir(workspace_id),
+        }
+    }
+
+    fn repo_heads_dir(&self) -> PathBuf {
+        self.root_dir.join("heads")
+    }
+
+    fn workspace_heads_dir(&self, workspace_id: &WorkspaceId) -> PathBuf {
+        self.root_dir
+            .join("workspace_heads")
+            .join(workspace_id.hex())
     }
 }
 
@@ -112,11 +145,11 @@ impl OpHeadsStore for SimpleOpHeadsStore {
 
     async fn update_op_heads(
         &self,
-        _op_heads_key: &OpHeadsKey,
+        op_heads_key: &OpHeadsKey,
         old_ids: &[OperationId],
         new_id: &OperationId,
     ) -> Result<(), OpHeadsStoreError> {
-        self.add_op_head(new_id)
+        self.add_op_head(op_heads_key, new_id)
             .map_err(|err| OpHeadsStoreError::Write {
                 new_op_id: new_id.clone(),
                 source: err.into(),
@@ -125,7 +158,7 @@ impl OpHeadsStore for SimpleOpHeadsStore {
             if old_id == new_id {
                 continue;
             }
-            self.remove_op_head(old_id)
+            self.remove_op_head(op_heads_key, old_id)
                 .map_err(|err| OpHeadsStoreError::Write {
                     new_op_id: new_id.clone(),
                     source: err.into(),
@@ -136,11 +169,12 @@ impl OpHeadsStore for SimpleOpHeadsStore {
 
     async fn get_op_heads(
         &self,
-        _op_heads_key: &OpHeadsKey,
+        op_heads_key: &OpHeadsKey,
     ) -> Result<Vec<OperationId>, OpHeadsStoreError> {
         let mut op_heads = vec![];
+        let dir = self.operations_dir(op_heads_key);
         for op_head_entry in
-            std::fs::read_dir(&self.dir).map_err(|err| OpHeadsStoreError::Read(err.into()))?
+            std::fs::read_dir(&dir).map_err(|err| OpHeadsStoreError::Read(err.into()))?
         {
             let op_head_file_name = op_head_entry
                 .map_err(|err| OpHeadsStoreError::Read(err.into()))?
@@ -166,18 +200,34 @@ impl OpHeadsStore for SimpleOpHeadsStore {
 
     async fn init_op_heads(
         &self,
-        _op_heads_key: &OpHeadsKey,
-        _root_op_id: &OperationId,
+        op_heads_key: &OpHeadsKey,
+        root_op_id: &OperationId,
     ) -> Result<(), OpHeadsStoreError> {
-        todo!()
+        if let OpHeadsKey::Repo = op_heads_key {
+            return Ok(());
+        }
+        let workspace_op_heads_dir = self.operations_dir(op_heads_key);
+        fs::create_dir(&workspace_op_heads_dir)
+            .context(&workspace_op_heads_dir)
+            .map_err(|err| OpHeadsStoreError::Write {
+                new_op_id: root_op_id.clone(),
+                source: err.into(),
+            })?;
+        self.add_op_head(op_heads_key, root_op_id)
+            .map_err(|err| OpHeadsStoreError::Write {
+                new_op_id: root_op_id.clone(),
+                source: err.into(),
+            })?;
+        Ok(())
     }
 
     async fn lock(
         &self,
-        _op_heads_key: &OpHeadsKey,
+        op_heads_key: &OpHeadsKey,
     ) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError> {
-        let lock = FileLock::lock(self.dir.join("lock"))
-            .map_err(|err| OpHeadsStoreError::Lock(err.into()))?;
+        let dir = self.operations_dir(op_heads_key);
+        let lock =
+            FileLock::lock(dir.join("lock")).map_err(|err| OpHeadsStoreError::Lock(err.into()))?;
         Ok(Box::new(SimpleOpHeadsStoreLock { _lock: lock }))
     }
 }
@@ -191,7 +241,6 @@ mod tests {
     use test_case::test_case;
 
     use super::*;
-    use crate::backend::WorkspaceId;
     use crate::tests::TestResult;
 
     struct TestCase {
@@ -223,7 +272,11 @@ mod tests {
         let op4 = OperationId::from_hex("4444");
 
         // Initial op head is respected
-        let op_heads_store = SimpleOpHeadsStore::init(dir.path(), &op1)?;
+        let op_heads_store = SimpleOpHeadsStore::init_op_heads_store(dir.path(), &op1)?;
+        op_heads_store
+            .init_op_heads(op_heads_key, &op1)
+            .block_on()?;
+
         let op_heads = op_heads_store.get_op_heads(op_heads_key).block_on()?;
         assert_eq!(op_heads, vec![op1.clone()]);
 
