@@ -35,8 +35,9 @@ pub async fn cmd_debug_reindex(
     // Resolve the operation without loading the repo. The index might have to
     // be rebuilt while loading the repo.
     let workspace = command.load_workspace()?;
+    let workspace_env = command.workspace_environment(ui, &workspace)?;
     let repo_loader = workspace.repo_loader();
-    let op = command.resolve_operation(ui, repo_loader, workspace.workspace_name())?;
+    let op = command.resolve_operation(ui, &workspace, &workspace_env, None)?;
     let index_store = repo_loader.index_store();
     if let Some(default_index_store) = index_store.downcast_ref::<DefaultIndexStore>() {
         default_index_store.reinit().map_err(internal_error)?;
