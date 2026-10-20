@@ -21,6 +21,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use itertools::Itertools as _;
+use jj_core::backend::WorkspaceId;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use serde::Deserialize;
@@ -344,6 +345,12 @@ impl JJRng {
         let mut rng = self.0.lock().unwrap();
         let random_bytes = (0..length).map(|_| rng.random::<u8>()).collect();
         ChangeId::new(random_bytes)
+    }
+
+    pub fn new_workspace_id(&self, length: usize) -> WorkspaceId {
+        let mut rng = self.0.lock().unwrap();
+        let random_bytes = (0..length).map(|_| rng.random::<u8>()).collect();
+        WorkspaceId::new(random_bytes)
     }
 
     /// Creates a new RNGs. Could be made public, but we'd like to encourage all

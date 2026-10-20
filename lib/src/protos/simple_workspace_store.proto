@@ -16,9 +16,22 @@ syntax = "proto3";
 
 package simple_workspace_store;
 
+enum WorkspaceType {
+  Regular = 0;
+  Independent = 1;
+}
+
+message WorkspaceId {
+  string id = 1;
+}
+
 message Workspace {
+  // Introduced in jj 0.45
+  WorkspaceId workspace_id = 3;
   string name = 1;
   bytes path = 2;
+  // Introduced in jj 0.45
+  WorkspaceType workspace_type = 4;
 }
 
 message Workspaces {

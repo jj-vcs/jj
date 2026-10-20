@@ -69,6 +69,7 @@ use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
 use crate::workspace_store::WorkspaceStoreError;
+use crate::workspace_store::WorkspaceType;
 
 #[derive(Error, Debug)]
 pub enum WorkspaceInitError {
@@ -383,9 +384,11 @@ impl Workspace {
             let repo_loader = repo.loader().clone();
             let repo_dir = dunce::canonicalize(&repo_dir).context(&repo_dir)?;
             let workspace = Self::new(workspace_root, repo_dir, working_copy, repo_loader)?;
-            repo.loader()
-                .workspace_store()
-                .add(workspace.workspace_name(), workspace.workspace_root())?;
+            let _unused = repo.loader().workspace_store().add(
+                workspace.workspace_name(),
+                workspace.workspace_root(),
+                WorkspaceType::Regular,
+            )?;
             Ok((workspace, repo))
         }
         .await
@@ -456,7 +459,11 @@ impl Workspace {
             working_copy,
             repo.loader().clone(),
         )?;
-        workspace_store.add(workspace.workspace_name(), workspace.workspace_root())?;
+        let _unused = workspace_store.add(
+            workspace.workspace_name(),
+            workspace.workspace_root(),
+            WorkspaceType::Regular,
+        )?;
         Ok((workspace, repo))
     }
 
