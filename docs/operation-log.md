@@ -42,6 +42,33 @@ then also update the contents of the change (maybe because you had forgotten the
 editor). When you eventually close your editor, the command will succeed and
 e.g. `jj log` will indicate that the change has diverged.
 
+## Undoing operations when other workspaces write operations too
+
+`jj undo` usually undoes the latest operation by restoring the repo to the
+operation before it. That isn't possible, or not what you want, when the latest
+operation was performed in another workspace, or is a merge of concurrent
+operations. In those cases, `jj undo` undoes the latest operation performed in
+the current workspace instead. Restoring the operation before it would also
+undo the operations performed in other workspaces since, so `jj undo` reverts
+it like `jj op revert` does. Running `jj undo` again continues with older
+operations of the current workspace.
+
+The latest operation of the current workspace is the first one that `jj op log`
+lists, skipping merge operations and operations that have already been undone.
+Operations that don't record a workspace, such as `add workspace` operations and
+operations written by some tools, don't count as the current workspace's.
+
+Reverting an operation merges the inverse of its changes with the changes made
+since, so the result can have conflicts. For example, if another workspace
+moved a bookmark after the operation you undo moved it, the bookmark becomes
+conflicted, and if another workspace rewrote a commit after the operation you
+undo rewrote it, the change becomes divergent. `jj undo` warns about these.
+
+Pass `--allow-cross-workspace` to undo operations performed in other workspaces
+as well. `jj undo` then undoes the latest operation even if it was performed in
+another workspace, and after a merge of concurrent operations, it reverts the
+latest operation of any workspace.
+
 ## Loading an old version of the repo
 
 The top-level `--at-op`/`--at-operation` option allows you to load the repo at a
