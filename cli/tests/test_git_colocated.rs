@@ -584,6 +584,54 @@ fn test_git_colocated_rebase_on_import() -> TestResult {
 }
 
 #[test]
+fn test_git_colocated_abandon_root_child_of_merge_on_import() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
+
+    work_dir.run_jj(["new", "root()", "-m", "a"]).success();
+    work_dir.run_jj(["new", "root()", "-m", "b"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir
+        .run_jj(["new", "subject(a)", "subject(b)", "-m", "merge"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @    1c28fb9114293469b4e7c4d2dac480a6f56a96d2 merge
+    ├─╮
+    │ ○  a82129fb35837a935a665361a0ed67d8c011994c b b
+    ○ │  4e1b2d80261b75c016b5c070719ce41c9e2c707a a
+    ├─╯
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+
+    // Deleting the bookmark in Git makes "b" unreachable, so the import abandons
+    // it. The merge commit should be rebased onto "a" alone, since the Git
+    // backend leaves out the root commit as a parent of a merge commit.
+    git_repo.find_reference("refs/heads/b")?.delete()?;
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  787033e55578912cb0b7e695b68b77691694ab24 merge
+    ○  4e1b2d80261b75c016b5c070719ce41c9e2c707a a
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ------- stderr -------
+    Abandoned 1 commits that are no longer reachable.
+    Rebased 1 descendant commits off of commits rewritten from Git.
+    Working copy  (@) now at: mzvwutvl 787033e5 (empty) merge
+    Parent commit (@-)      : rlvkpnrz 4e1b2d80 (empty) a
+    Done importing changes from the underlying Git repo.
+    [EOF]
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn test_git_colocated_bookmarks() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env

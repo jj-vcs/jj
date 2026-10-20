@@ -1343,23 +1343,17 @@ impl Backend for GitBackend {
                 "Cannot write a commit with no parents".into(),
             ));
         }
+        // Git doesn't have a root commit, so we don't write it as a parent in the Git
+        // commit. Since the root commit is an ancestor of every commit, we also leave
+        // it out of the parents of a merge commit.
+        contents.parents.retain(|id| *id != self.root_commit_id);
         let mut parents = SmallVec::new();
         for parent_id in &contents.parents {
-            if *parent_id == self.root_commit_id {
-                // Git doesn't have a root commit, so if the parent is the root commit, we don't
-                // add it to the list of parents to write in the Git commit. We also check that
-                // there are no other parents since Git cannot represent a merge between a root
-                // commit and another commit.
-                if contents.parents.len() > 1 {
-                    return Err(BackendError::Unsupported(
-                        "The Git backend does not support creating merge commits with the root \
-                         commit as one of the parents."
-                            .to_owned(),
-                    ));
-                }
-            } else {
-                parents.push(validate_git_object_id(&locked_repo, parent_id)?);
-            }
+            parents.push(validate_git_object_id(&locked_repo, parent_id)?);
+        }
+        // Match what read_commit() returns for a Git commit without parents.
+        if contents.parents.is_empty() {
+            contents.parents.push(self.root_commit_id.clone());
         }
         let mut extra_headers: Vec<(BString, BString)> = vec![];
         if !contents.conflict_labels.is_resolved() {
@@ -2249,11 +2243,35 @@ mod tests {
             vec![git_id(&first_id), git_id(&second_id)]
         );
 
+        // Root commit as parent twice
+        commit.parents = vec![
+            backend.root_commit_id().clone(),
+            backend.root_commit_id().clone(),
+        ];
+        let (root_twice_id, root_twice_commit) = write_commit(commit.clone())?;
+        assert_eq!(
+            root_twice_commit.parents,
+            vec![backend.root_commit_id().clone()]
+        );
+        assert_eq!(
+            backend.read_commit(&root_twice_id).block_on()?,
+            root_twice_commit
+        );
+        let root_twice_git_commit = git_repo.find_commit(git_id(&root_twice_id))?;
+        assert!(root_twice_git_commit.parent_ids().collect_vec().is_empty());
+
         // Merge commit with root as one parent
-        commit.parents = vec![first_id, backend.root_commit_id().clone()];
-        assert_matches!(
-            write_commit(commit),
-            Err(BackendError::Unsupported(message)) if message.contains("root commit")
+        commit.parents = vec![first_id.clone(), backend.root_commit_id().clone()];
+        let (root_merge_id, root_merge_commit) = write_commit(commit)?;
+        assert_eq!(root_merge_commit.parents, vec![first_id.clone()]);
+        assert_eq!(
+            backend.read_commit(&root_merge_id).block_on()?,
+            root_merge_commit
+        );
+        let root_merge_git_commit = git_repo.find_commit(git_id(&root_merge_id))?;
+        assert_eq!(
+            root_merge_git_commit.parent_ids().collect_vec(),
+            vec![git_id(&first_id)]
         );
         Ok(())
     }
