@@ -42,13 +42,17 @@ pub mod filtered_tree_writer;
 pub mod graph;
 pub mod hex_util;
 pub mod index;
+pub mod index_store;
+pub mod iter_util;
 pub mod matchers;
 pub mod merge;
 pub mod merged_tree;
 pub mod merged_tree_builder;
 pub mod object_id;
 pub mod op_store;
+pub mod operation;
 pub mod ref_name;
+pub mod refs;
 pub mod repo_path;
 pub mod revset_backend;
 pub mod signing;
@@ -60,6 +64,7 @@ pub mod tree;
 pub mod tree_merge;
 mod tree_rewriter;
 mod tree_walk;
+pub mod view;
 pub mod workspace_store;
 
 #[cfg(test)]
