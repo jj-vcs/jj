@@ -30,6 +30,16 @@ pub enum WorkspaceStoreError {
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// The type of workspace.
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub enum WorkspaceType {
+    /// A regular workspace does not have its own OpHeads, it uses the OpHeads
+    /// of the repo.
+    Regular,
+    /// An independent workspace has its own OpHeads.
+    Independent,
+}
+
 /// A storage backend for workspace metadata.
 pub trait WorkspaceStore: Send + Sync + Debug {
     /// Returns the name of this workspace store implementation.
