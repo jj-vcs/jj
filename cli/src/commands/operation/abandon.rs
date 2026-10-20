@@ -18,6 +18,7 @@ use std::slice;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::op_heads_store::OpHeadsKey;
 use jj_lib::op_walk;
 
 use crate::cli_util::CommandHelper;
@@ -130,7 +131,7 @@ pub async fn cmd_op_abandon(
     )?;
     for (old, new_id) in reparented_head_ops().filter(|&(old, new_id)| old.id() != new_id) {
         op_heads_store
-            .update_op_heads(slice::from_ref(old.id()), new_id)
+            .update_op_heads(&OpHeadsKey::Repo, slice::from_ref(old.id()), new_id)
             .await?;
     }
     // Remap the operation id of the current workspace. If there were any

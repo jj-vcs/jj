@@ -85,6 +85,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_heads_store;
+use jj_lib::op_heads_store::OpHeadsKey;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::RefTarget;
@@ -808,6 +809,7 @@ impl CommandHelper {
             op_heads_store::resolve_op_heads(
                 repo_loader.op_heads_store().as_ref(),
                 repo_loader.op_store(),
+                &OpHeadsKey::Repo,
                 async |op_heads| {
                     writeln!(
                         ui.status(),
