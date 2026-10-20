@@ -32,6 +32,7 @@ use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceType;
 use once_cell::sync::OnceCell;
 use thiserror::Error;
 use tracing::instrument;
@@ -158,6 +159,26 @@ pub trait Repo {
         &self,
         target_id_bytes: &ChangeId,
     ) -> IndexResult<usize>;
+}
+
+#[derive(Debug, Clone)]
+pub enum OpContext {
+    /// The operation is running outside of any workspace
+    Repo,
+    /// The operation is running  in a workspace
+    Workspace {
+        name: WorkspaceNameBuf,
+        workspace_type: WorkspaceType,
+    },
+}
+
+impl OpContext {
+    pub fn maybe_workspace_name(&self) -> Option<&WorkspaceName> {
+        match self {
+            Self::Repo => None,
+            Self::Workspace { name, .. } => Some(name),
+        }
+    }
 }
 
 pub struct ReadonlyRepo {
