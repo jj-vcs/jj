@@ -30,6 +30,7 @@ use crate::file_util::PathError;
 use crate::hex_util;
 use crate::lock::FileLock;
 use crate::object_id::ObjectId as _;
+use crate::op_heads_store::OpHeadsKey;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_heads_store::OpHeadsStoreLock;
@@ -111,6 +112,7 @@ impl OpHeadsStore for SimpleOpHeadsStore {
 
     async fn update_op_heads(
         &self,
+        _op_heads_key: &OpHeadsKey,
         old_ids: &[OperationId],
         new_id: &OperationId,
     ) -> Result<(), OpHeadsStoreError> {
@@ -132,7 +134,10 @@ impl OpHeadsStore for SimpleOpHeadsStore {
         Ok(())
     }
 
-    async fn get_op_heads(&self) -> Result<Vec<OperationId>, OpHeadsStoreError> {
+    async fn get_op_heads(
+        &self,
+        _op_heads_key: &OpHeadsKey,
+    ) -> Result<Vec<OperationId>, OpHeadsStoreError> {
         let mut op_heads = vec![];
         for op_head_entry in
             std::fs::read_dir(&self.dir).map_err(|err| OpHeadsStoreError::Read(err.into()))?
@@ -159,7 +164,18 @@ impl OpHeadsStore for SimpleOpHeadsStore {
         }
     }
 
-    async fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError> {
+    async fn init_op_heads(
+        &self,
+        _op_heads_key: &OpHeadsKey,
+        _root_op_id: &OperationId,
+    ) -> Result<(), OpHeadsStoreError> {
+        todo!()
+    }
+
+    async fn lock(
+        &self,
+        _op_heads_key: &OpHeadsKey,
+    ) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError> {
         let lock = FileLock::lock(self.dir.join("lock"))
             .map_err(|err| OpHeadsStoreError::Lock(err.into()))?;
         Ok(Box::new(SimpleOpHeadsStoreLock { _lock: lock }))
@@ -172,13 +188,34 @@ mod tests {
     use std::slice;
 
     use pollster::FutureExt as _;
+    use test_case::test_case;
 
     use super::*;
+    use crate::backend::WorkspaceId;
     use crate::tests::TestResult;
 
-    #[test]
-    fn test_op_heads() -> TestResult {
+    struct TestCase {
+        op_heads_key: OpHeadsKey,
+    }
+
+    fn repo_op_heads() -> TestCase {
+        TestCase {
+            op_heads_key: OpHeadsKey::Repo,
+        }
+    }
+
+    fn workspace_op_heads() -> TestCase {
+        TestCase {
+            op_heads_key: OpHeadsKey::Workspace(WorkspaceId::from_hex("abcdefgh")),
+        }
+    }
+
+    #[test_case(repo_op_heads())]
+    #[test_case(workspace_op_heads())]
+
+    fn test_op_heads(case: TestCase) -> TestResult {
         let dir = tempfile::tempdir()?;
+        let op_heads_key = &case.op_heads_key;
 
         let op1 = OperationId::from_hex("1111");
         let op2 = OperationId::from_hex("2222");
@@ -187,46 +224,52 @@ mod tests {
 
         // Initial op head is respected
         let op_heads_store = SimpleOpHeadsStore::init(dir.path(), &op1)?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        let op_heads = op_heads_store.get_op_heads(op_heads_key).block_on()?;
         assert_eq!(op_heads, vec![op1.clone()]);
 
         // Simple replacement
         op_heads_store
-            .update_op_heads(slice::from_ref(&op1), &op2)
+            .update_op_heads(op_heads_key, slice::from_ref(&op1), &op2)
             .block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        let op_heads = op_heads_store.get_op_heads(op_heads_key).block_on()?;
         assert_eq!(op_heads, vec![op2.clone()]);
 
         // Duplicating is a no-op
-        op_heads_store.update_op_heads(&[], &op2).block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        op_heads_store
+            .update_op_heads(op_heads_key, &[], &op2)
+            .block_on()?;
+        let op_heads = op_heads_store.get_op_heads(op_heads_key).block_on()?;
         assert_eq!(op_heads, vec![op2.clone()]);
 
         // Deleting non-head is a no-op
         op_heads_store
-            .update_op_heads(slice::from_ref(&op1), &op2)
+            .update_op_heads(op_heads_key, slice::from_ref(&op1), &op2)
             .block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        let op_heads = op_heads_store.get_op_heads(op_heads_key).block_on()?;
         assert_eq!(op_heads, vec![op2.clone()]);
 
         // Can create multiple heads
-        op_heads_store.update_op_heads(&[], &op3).block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        op_heads_store
+            .update_op_heads(op_heads_key, &[], &op3)
+            .block_on()?;
+        let op_heads = op_heads_store.get_op_heads(op_heads_key).block_on()?;
         assert_eq!(op_heads, vec![op2.clone(), op3.clone()]);
 
         // Can replace multiple heads
         op_heads_store
-            .update_op_heads(&[op2.clone(), op3.clone()], &op4)
+            .update_op_heads(op_heads_key, &[op2.clone(), op3.clone()], &op4)
             .block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        let op_heads = op_heads_store.get_op_heads(op_heads_key).block_on()?;
         assert_eq!(op_heads, vec![op4.clone()]);
 
         // Can replace multiple heads by one of the old heads
-        op_heads_store.update_op_heads(&[], &op3).block_on()?;
         op_heads_store
-            .update_op_heads(&[op3.clone(), op4.clone()], &op4)
+            .update_op_heads(op_heads_key, &[], &op3)
             .block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        op_heads_store
+            .update_op_heads(op_heads_key, &[op3.clone(), op4.clone()], &op4)
+            .block_on()?;
+        let op_heads = op_heads_store.get_op_heads(op_heads_key).block_on()?;
         assert_eq!(op_heads, vec![op4.clone()]);
 
         Ok(())

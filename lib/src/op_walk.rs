@@ -34,6 +34,7 @@ use crate::dag_walk_async;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
+use crate::op_heads_store::OpHeadsKey;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OpStore;
@@ -95,13 +96,18 @@ pub async fn resolve_op_for_load(
     let op_store = repo_loader.op_store();
     let op_heads_store = repo_loader.op_heads_store().as_ref();
     let get_current_op = async || {
-        op_heads_store::resolve_op_heads(op_heads_store, op_store, async |op_heads| {
-            Err(OpsetResolutionError::MultipleOperations {
-                expr: "@".to_owned(),
-                candidates: op_heads.iter().map(|op| op.id().clone()).collect(),
-            }
-            .into())
-        })
+        op_heads_store::resolve_op_heads(
+            op_heads_store,
+            op_store,
+            &OpHeadsKey::Repo,
+            async |op_heads, _op_heads_key| {
+                Err(OpsetResolutionError::MultipleOperations {
+                    expr: "@".to_owned(),
+                    candidates: op_heads.iter().map(|op| op.id().clone()).collect(),
+                }
+                .into())
+            },
+        )
         .await
     };
     let get_head_ops = async || get_current_head_ops(op_store, op_heads_store).await;
@@ -213,12 +219,14 @@ pub async fn get_current_head_ops(
     op_store: &Arc<dyn OpStore>,
     op_heads_store: &dyn OpHeadsStore,
 ) -> Result<Vec<Operation>, OpsetEvaluationError> {
-    let head_ops_futures = op_heads_store.get_op_heads().await?.into_iter().map(
-        async |id| -> OpStoreResult<Operation> {
+    let head_ops_futures = op_heads_store
+        .get_op_heads(&OpHeadsKey::Repo)
+        .await?
+        .into_iter()
+        .map(async |id| -> OpStoreResult<Operation> {
             let data = op_store.read_operation(&id).await?;
             Ok(Operation::new(op_store.clone(), id, data))
-        },
-    );
+        });
     let mut head_ops = try_join_all(head_ops_futures).await?;
     // To stabilize output, sort in the same order as resolve_op_heads()
     head_ops.sort_by_key(|op| op.metadata().time.end.timestamp);
