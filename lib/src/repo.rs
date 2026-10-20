@@ -222,7 +222,9 @@ impl ReadonlyRepo {
 
     pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
         &|_settings, store_path, root_op_id| {
-            Ok(Box::new(SimpleOpHeadsStore::init(store_path, root_op_id)?))
+            Ok(Box::new(SimpleOpHeadsStore::init_op_heads_store(
+                store_path, root_op_id,
+            )?))
         }
     }
 
