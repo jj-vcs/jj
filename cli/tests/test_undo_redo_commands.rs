@@ -655,6 +655,157 @@ fn test_jump_over_old_redo_stack() {
     ");
 }
 
+#[test]
+fn test_redo_other_workspace_operation_on_top() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let second_dir = test_env.work_dir("second");
+    main_dir.run_jj(["workspace", "add", "../second"]).success();
+
+    main_dir.run_jj(["new", "-m", "main 1"]).success();
+    main_dir.run_jj(["new", "-m", "main 2"]).success();
+    second_dir.run_jj(["describe", "-m", "second 1"]).success();
+    main_dir.run_jj(["undo"]).success();
+    main_dir.run_jj(["undo"]).success();
+    second_dir.run_jj(["new", "-m", "second 2"]).success();
+
+    // The latest undo-operation of this workspace is redone by reverting it,
+    // keeping the newer operation of the other workspace
+    let output = main_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Redid operation: e850543be387 (2001-02-03 08:05:09) new empty commit
+    Skipped 1 operations from other workspaces.
+    Working copy  (@) now at: kkmpptxz 0db6b64b (empty) main 1
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+
+    // Repeated redo continues with older undo-operations of this workspace
+    second_dir.run_jj(["describe", "-m", "second 3"]).success();
+    let output = main_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Redid operation: b923a10a4e43 (2001-02-03 08:05:10) new empty commit
+    Skipped 2 operations from other workspaces.
+    Working copy  (@) now at: zsuskuln a205be49 (empty) main 2
+    Parent commit (@-)      : kkmpptxz 0db6b64b (empty) main 1
+    [EOF]
+    ");
+    let output = main_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Nothing to redo
+    [EOF]
+    [exit status: 1]
+    ");
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+    @  zsuskulnrvyr default@ "main 2"
+    ○  kkmpptxzrspx "main 1"
+    ○  qpvuntsmwlqt
+    │ ○  vruxwmqvtpmx second@ "second 3"
+    │ ○  uuqppmxqsxsn "second 1"
+    ├─╯
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    "#);
+    insta::assert_snapshot!(get_op_log_output(&main_dir), @"
+    @  d216b8887b94 default@ redo: revert operation 17d22b98c1877619eb0d7f5df2611d12cc914d0d9df9647f79d5be4ee3e1ee68a4dd27e52eaf33dd12837e5daf56f1c7ed9ec0817065673ab7a4d84656a9c4f9
+    ○  55b5d4a244b8 second@ describe commit 45c078ebb600390c5fe31256fdb968898f496420
+    ○  d689545403d5 default@ redo: revert operation b836a4ed51841fb4516b31767ae07b5d1e5fd3c6ab93930bdd8520f7d0fbbfa84d99ebb86066c8405d8bb4719db50b87194962b2c33e31b6677371be7dadaa23
+    ○  5071a37eb75a second@ new empty commit
+    ○  b836a4ed5184 default@ undo: revert operation e850543be3877c274c3665dae045c43d1421e90b31d43062f16d75c616306f1c8887f9f000a7d61858a238da466a116e0933798a21be71ffa1824a57f3865ba4
+    ○  17d22b98c187 default@ undo: revert operation b923a10a4e434e63d7a30822ec8f63859e958bc18afb414f7348bc1f482598b47d81c750718cc1da8191ccf065b10509d3fd2528787cccdf33cf2993755c02c7
+    ○  c08822825624 second@ describe commit 94f41578a9e101e2c85877f3b4eaa9f5e915783f
+    ○  b923a10a4e43 default@ new empty commit
+    ○  e850543be387 default@ new empty commit
+    ○  9b9b7064bf7b second@ create initial working-copy commit in workspace second
+    ○  9f80ad1d8fd1 add workspace 'second'
+    ○  f63ee16f9553 add workspace 'default'
+    ○  000000000000
+    [EOF]
+    ");
+
+    // Undoing reverts the redo-operations again
+    second_dir.run_jj(["new", "-m", "second 4"]).success();
+    let output = main_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Undid operation: d216b8887b94 (2001-02-03 08:05:17) redo: revert operation 17d22b98c1877619eb0d7f5df2611d12cc914d0d9df9647f79d5be4ee3e1ee68a4dd27e52eaf33dd12837e5daf56f1c7ed9ec0817065673ab7a4d84656a9c4f9
+    Skipped 1 operations from other workspaces.
+    Working copy  (@) now at: kkmpptxz 0db6b64b (empty) main 1
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+    let output = main_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Undid operation: d689545403d5 (2001-02-03 08:05:15) redo: revert operation b836a4ed51841fb4516b31767ae07b5d1e5fd3c6ab93930bdd8520f7d0fbbfa84d99ebb86066c8405d8bb4719db50b87194962b2c33e31b6677371be7dadaa23
+    Skipped 2 operations from other workspaces.
+    Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+    @  qpvuntsmwlqt default@
+    │ ○  kxryzmorwvtz second@ "second 4"
+    │ ○  vruxwmqvtpmx "second 3"
+    │ ○  uuqppmxqsxsn "second 1"
+    ├─╯
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_redo_restoring_undo_with_other_workspace_operation_on_top() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let second_dir = test_env.work_dir("second");
+    main_dir.run_jj(["workspace", "add", "../second"]).success();
+
+    main_dir.run_jj(["new", "-m", "main 1"]).success();
+    // The latest operation is this workspace's, so its parent is restored
+    let output = main_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Undid operation: e850543be387 (2001-02-03 08:05:09) new empty commit
+    Restored to operation: 9b9b7064bf7b (2001-02-03 08:05:08) create initial working-copy commit in workspace second
+    Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    second_dir.run_jj(["describe", "-m", "second 1"]).success();
+
+    // The undo-operation is redone by reverting it
+    let output = main_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Redid operation: e850543be387 (2001-02-03 08:05:09) new empty commit
+    Skipped 1 operations from other workspaces.
+    Working copy  (@) now at: kkmpptxz 0db6b64b (empty) main 1
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+    @  kkmpptxzrspx default@ "main 1"
+    ○  qpvuntsmwlqt
+    │ ○  uuqppmxqsxsn second@ "second 1"
+    ├─╯
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    "#);
+    let output = main_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Nothing to redo
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"

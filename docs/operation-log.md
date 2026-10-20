@@ -51,7 +51,9 @@ operations. In those cases, `jj undo` undoes the latest operation performed in
 the current workspace instead. Restoring the operation before it would also
 undo the operations performed in other workspaces since, so `jj undo` reverts
 it like `jj op revert` does. Running `jj undo` again continues with older
-operations of the current workspace.
+operations of the current workspace. `jj redo` likewise redoes the latest
+`jj undo` of the current workspace by reverting it, unless another operation of
+the current workspace came after it.
 
 The latest operation of the current workspace is the first one that `jj op log`
 lists, skipping merge operations and operations that have already been undone.
@@ -62,12 +64,14 @@ Reverting an operation merges the inverse of its changes with the changes made
 since, so the result can have conflicts. For example, if another workspace
 moved a bookmark after the operation you undo moved it, the bookmark becomes
 conflicted, and if another workspace rewrote a commit after the operation you
-undo rewrote it, the change becomes divergent. `jj undo` warns about these.
+undo rewrote it, the change becomes divergent. `jj undo` and `jj redo` warn
+about these.
 
 Pass `--allow-cross-workspace` to undo operations performed in other workspaces
 as well. `jj undo` then undoes the latest operation even if it was performed in
 another workspace, and after a merge of concurrent operations, it reverts the
-latest operation of any workspace.
+latest operation of any workspace. `jj redo --allow-cross-workspace` likewise
+redoes undo-operations performed in other workspaces as well.
 
 ## Loading an old version of the repo
 

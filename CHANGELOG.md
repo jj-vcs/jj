@@ -64,7 +64,8 @@ and this project adheres to
   concurrent operations, `jj undo` now undoes the latest operation of the
   current workspace, instead of refusing. It reverts that operation like
   `jj op revert`, so the operations performed in other workspaces since are
-  kept.
+  kept. `jj redo` likewise redoes the latest `jj undo` of the current
+  workspace.
   [#10476](https://github.com/jj-vcs/jj/issues/10476)
 
 ### Fixed bugs

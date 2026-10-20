@@ -380,7 +380,7 @@ async fn undo_by_reverting(
 /// commit the revert put back would look divergent.
 ///
 /// `action` names what the revert did, such as "Undoing".
-async fn warn_about_revert_conflicts(
+pub(crate) async fn warn_about_revert_conflicts(
     ui: &Ui,
     old_repo: &ReadonlyRepo,
     new_repo: &ReadonlyRepo,
@@ -445,20 +445,23 @@ async fn warn_about_revert_conflicts(
 
 /// Returns whether `op` was performed in `workspace_name`, or in any workspace
 /// if `None`.
-fn is_performed_in(op: &Operation, workspace_name: Option<&WorkspaceName>) -> bool {
+pub(crate) fn is_performed_in(op: &Operation, workspace_name: Option<&WorkspaceName>) -> bool {
     workspace_name.is_none_or(|name| op.metadata().workspace_name.as_deref() == Some(name))
 }
 
 /// Parses the id of an operation recorded in the description of an undo- or
 /// redo-operation.
-fn parse_recorded_op_id(hex: &str) -> Result<OperationId, CommandError> {
+pub(crate) fn parse_recorded_op_id(hex: &str) -> Result<OperationId, CommandError> {
     OperationId::try_from_hex(hex)
         .ok_or_else(|| internal_error("Failed to parse ID of operation in undo- or redo-stack"))
 }
 
 /// Loads an operation recorded in the description of an undo- or
 /// redo-operation.
-async fn load_recorded_op(repo_loader: &RepoLoader, hex: &str) -> Result<Operation, CommandError> {
+pub(crate) async fn load_recorded_op(
+    repo_loader: &RepoLoader,
+    hex: &str,
+) -> Result<Operation, CommandError> {
     let op_id = parse_recorded_op_id(hex)?;
     Ok(repo_loader.load_operation(&op_id).await?)
 }
