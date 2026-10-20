@@ -14,7 +14,9 @@
 
 //! Domain-specific language helpers.
 
+use std::cmp;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::fmt;
 use std::slice;
 
@@ -430,6 +432,89 @@ where
             .try_collect()?,
         args_span: function.args_span,
     })
+}
+
+/// How a grammar rule contributes to the estimated AST depth.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DepthRole {
+    /// Does not contribute to depth.
+    Ignore,
+    /// Contributes one level of depth.
+    Nest,
+    /// Separates independent operands of a flattened operator chain.
+    ///
+    /// The operator must have the lowest precedence in the expression.
+    Separate,
+}
+
+/// Estimates AST depth from the grammar's parse tree.
+///
+/// Counts nesting rules, including siblings that may become nested operators
+/// during AST construction. Separators split siblings into independent
+/// operands: their maximum nesting count contributes to depth, plus one level
+/// for the flattened operator chain.
+pub fn estimate_tree_depth<R: RuleType>(
+    pair: Pair<R>,
+    depth_role: impl Fn(R) -> DepthRole,
+) -> usize {
+    let mut max_depth = 0;
+    Ok(()) = visit_tree_depth_estimates(pair, depth_role, |_, depth| {
+        max_depth = cmp::max(max_depth, depth);
+        Ok::<_, Infallible>(())
+    });
+    max_depth
+}
+
+/// Checks that the estimated AST depth does not exceed `max_depth`.
+pub fn validate_tree_depth<R: RuleType>(
+    pair: Pair<R>,
+    max_depth: usize,
+    depth_role: impl Fn(R) -> DepthRole,
+) -> Result<(), Pair<R>> {
+    visit_tree_depth_estimates(pair, depth_role, |pair, depth| {
+        if depth <= max_depth {
+            Ok(())
+        } else {
+            Err(pair.clone())
+        }
+    })
+}
+
+fn visit_tree_depth_estimates<'i, R: RuleType, E>(
+    pair: Pair<'i, R>,
+    depth_role: impl Fn(R) -> DepthRole,
+    mut check_depth: impl FnMut(&Pair<'i, R>, usize) -> Result<(), E>,
+) -> Result<(), E> {
+    let local_depth = |pairs: Pairs<R>| {
+        let mut has_separator = false;
+        let max_depth = pairs
+            .map(|pair| depth_role(pair.as_rule()))
+            .chunk_by(|&role| role == DepthRole::Separate)
+            .into_iter()
+            .map(|(is_separator, roles)| {
+                has_separator |= is_separator;
+                roles.filter(|&role| role == DepthRole::Nest).count()
+            })
+            .max()
+            .unwrap_or(0);
+        max_depth + usize::from(has_separator)
+    };
+
+    let depth = usize::from(depth_role(pair.as_rule()) != DepthRole::Ignore);
+    let child_depth = depth + local_depth(pair.clone().into_inner());
+    check_depth(&pair, child_depth)?;
+    let mut stack = vec![(pair.into_inner(), child_depth)];
+    while let Some((pairs, depth)) = stack.last_mut() {
+        let Some(pair) = pairs.next() else {
+            stack.pop();
+            continue;
+        };
+        // Sibling nodes may contribute to the depth of the current node.
+        let child_depth = *depth + local_depth(pair.clone().into_inner());
+        check_depth(&pair, child_depth)?;
+        stack.push((pair.into_inner(), child_depth));
+    }
+    Ok(())
 }
 
 /// Helper to parse string literal.
