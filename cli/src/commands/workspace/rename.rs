@@ -68,7 +68,14 @@ pub async fn cmd_workspace_rename(
     tx.repo_mut()
         .rename_workspace(&old_name, new_name.to_owned())?;
 
-    workspace_store.rename(&old_name, new_name)?;
+    // Record the new name with the same path, but intentionally leave the old
+    // name in the workspace store. Undoing this operation can't rename the
+    // working copy back, so it needs the shared path to tell that both names
+    // refer to this workspace and keep the new name. A stale entry is harmless,
+    // as with `jj workspace forget`.
+    if let Some(path) = workspace_store.get_workspace_path(&old_name)? {
+        workspace_store.add(new_name, &path)?;
+    }
 
     let repo = tx
         .commit(format!(

@@ -176,10 +176,12 @@ pub async fn cmd_redo(
 
     let mut tx = workspace_command.start_transaction();
     let new_view = view_with_desired_portions_restored(
+        ui,
         target_op_parent.view().await?.store_view(),
         tx.base_repo().view().store_view(),
         &DEFAULT_REVERT_WHAT,
-    );
+        tx.base_repo().loader().workspace_store().as_ref(),
+    )?;
     tx.repo_mut().set_view(new_view);
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Restored to operation: ")?;
@@ -187,7 +189,9 @@ pub async fn cmd_redo(
         template.format(&target_op_parent, formatter.as_mut())?;
         writeln!(formatter)?;
     }
-    tx.finish(
+    // Record the operation even if nothing changed, like `jj undo` does, so
+    // the next `jj redo` continues with a later operation.
+    tx.finish_even_if_unchanged(
         ui,
         format!("{REDO_OP_DESC_PREFIX}{}", target_op_parent.id().hex()),
     )

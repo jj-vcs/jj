@@ -101,6 +101,13 @@ and this project adheres to
   parent of a merge commit, including when a Git import abandons it.
   [#8076](https://github.com/jj-vcs/jj/issues/8076)
 
+* Undoing or reverting `jj workspace rename`, or restoring an operation from
+  before it, no longer leaves the workspace without a working-copy commit.
+  The workspace's working copy can't be renamed back from there, so the
+  workspace now keeps its new name. This only works for workspaces renamed by
+  this version of jj or later.
+  [#10470](https://github.com/jj-vcs/jj/issues/10470)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
