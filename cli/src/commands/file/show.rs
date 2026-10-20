@@ -21,7 +21,9 @@ use futures::Stream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream;
+use jj_lib::backend::BackendError;
 use jj_lib::backend::BackendResult;
+use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MaterializedTreeValue;
@@ -40,6 +42,7 @@ use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
+use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::commit_templater::TreeEntry;
 use crate::complete;
@@ -56,6 +59,26 @@ pub(crate) struct FileShowArgs {
     #[arg(long, short, default_value = "@", value_name = "REVSET")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revision: RevisionArg,
+
+    /// The file ID to get the file contents from
+    ///
+    /// This reads the raw file contents for the given file ID directly from
+    /// the store, which is useful for inspecting individual sides of a
+    /// conflicted file. File IDs can be obtained from [`TreeEntry`][TreeEntry]
+    /// template methods such as `normal_value`, `removed_values`, and
+    /// `added_values`.
+    ///
+    /// Exactly one file path must be specified when using `--id`.
+    ///
+    /// [TreeValue]: https://docs.jj-vcs.dev/latest/templates/#treevalue-type
+    ///
+    /// [TreeEntry]: https://docs.jj-vcs.dev/latest/templates/#treeentry-type
+    #[arg(
+        long,
+        conflicts_with_all = ["revision", "template"],
+        value_name = "FILE_ID"
+    )]
+    id: Option<String>,
 
     /// Render each file metadata using the given template
     ///
@@ -85,6 +108,40 @@ pub(crate) async fn cmd_file_show(
     args: &FileShowArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
+    if let Some(file_id_str) = &args.id {
+        let [path_str] = args.paths.as_slice() else {
+            return Err(cli_error("Exactly one path must be specified with --id"));
+        };
+        let file_id = FileId::try_from_hex(file_id_str)
+            .ok_or_else(|| user_error(format!(r#"Invalid hex file id: "{file_id_str}""#)))?;
+        let path = workspace_command.parse_file_path(path_str)?;
+        match workspace_command
+            .repo()
+            .store()
+            .read_file(&path, &file_id)
+            .await
+        {
+            Ok(reader) => {
+                ui.request_pager();
+                copy_async_to_sync(reader, ui.stdout_formatter().as_mut()).await?;
+            }
+            Err(BackendError::ReadAccessDenied { source, .. }) => {
+                let ui_path = workspace_command.format_file_path(&path);
+                writeln!(
+                    ui.warning_default(),
+                    "Path '{ui_path}' exists but access is denied: {source}"
+                )?;
+            }
+            Err(
+                err
+                @ (BackendError::InvalidHashLength { .. } | BackendError::ObjectNotFound { .. }),
+            ) => {
+                return Err(user_error(err));
+            }
+            Err(err) => return Err(err.into()),
+        }
+        return Ok(());
+    }
     let commit = workspace_command
         .resolve_single_rev(ui, &args.revision)
         .await?;

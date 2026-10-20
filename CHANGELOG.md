@@ -60,6 +60,12 @@ and this project adheres to
   exposes `.object_id()`, `.file_type()`, and `.executable()` methods for
   inspecting each side of a (possibly conflicted) tree entry.
 
+* `jj file show` now accepts `--id <FILE_ID>` to print the raw file contents
+  for a given file ID directly from the store, which is useful for inspecting
+  individual sides of a conflicted file. File IDs can be obtained from
+  `TreeEntry` template methods such as `normal_value`, `removed_values`, and
+  `added_values`.
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the

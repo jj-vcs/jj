@@ -161,3 +161,80 @@ fn test_show_symlink() -> TestResult {
     ");
     Ok(())
 }
+
+#[test]
+fn test_show_by_id() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+
+    let output = work_dir.run_jj([
+        "file",
+        "list",
+        "-r",
+        "@-",
+        "-T",
+        r#"normal_value.object_id() ++ "\n""#,
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @"
+    78981922613b2afb6025042ff6bd878ac1994e85
+    [EOF]
+    ");
+
+    // Can print the contents of a file by file ID
+    let output = work_dir.run_jj([
+        "file",
+        "show",
+        "--id",
+        "78981922613b2afb6025042ff6bd878ac1994e85",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @"
+    a
+    [EOF]
+    ");
+
+    // Error on invalid hex file ID
+    let output = work_dir.run_jj(["file", "show", "--id", "not-hex", "file1"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Invalid hex file id: "not-hex"
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    // Error on nonexistent file ID
+    let output = work_dir.run_jj([
+        "file",
+        "show",
+        "--id",
+        "0000000000000000000000000000000000000000",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Object 0000000000000000000000000000000000000000 of type file not found
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Error when multiple paths are specified with --id
+    let output = work_dir.run_jj([
+        "file",
+        "show",
+        "--id",
+        "78981922613b2afb6025042ff6bd878ac1994e85",
+        "file1",
+        "file2",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Exactly one path must be specified with --id
+    [EOF]
+    [exit status: 2]
+    ");
+}
