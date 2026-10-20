@@ -583,15 +583,10 @@ fn test_rebase_descendants_forward() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Commit B was replaced by commit F. Commits C and E should be rebased onto F.
+    // Commit B was replaced by commit F. Commit C should be rebased onto F.
     // Commit D does not get rebased because it's an ancestor of the
-    // destination. Commit G does not get replaced because it's already in
-    // place.
-    // TODO: The above is not what actually happens! The test below shows what
-    // actually happens: D and F also get rebased onto F, so we end up with
-    // duplicates. Consider if it's worth supporting the case above better or if
-    // that decision belongs with the caller (as we currently force it to do by
-    // not supporting it in DescendantRebaser).
+    // destination (rebasing it would create a cycle), so its descendants E, F,
+    // and G stay in place too.
     //
     // G
     // F E
@@ -613,25 +608,57 @@ fn test_rebase_descendants_forward() {
         .set_rewritten_commit(commit_b.id().clone(), commit_f.id().clone());
     let rebase_map =
         rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
-    let new_commit_d =
-        assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_d, &[(commit_f.id())]);
-    let new_commit_f =
-        assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_f, &[new_commit_d.id()]);
-    let new_commit_c =
-        assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[new_commit_f.id()]);
-    let new_commit_e =
-        assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_e, &[new_commit_d.id()]);
-    let new_commit_g =
-        assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_g, &[new_commit_f.id()]);
-    assert_eq!(rebase_map.len(), 5);
+    let new_commit_c = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_f.id()]);
+    assert_eq!(rebase_map.len(), 1);
 
     assert_eq!(
         *tx.repo().view().heads(),
         hashset! {
             new_commit_c.id().clone(),
-            new_commit_e.id().clone(),
-            new_commit_g.id().clone(),
+            commit_e.id().clone(),
+            commit_g.id().clone(),
         }
+    );
+}
+
+#[test_case(false ; "C before D")]
+#[test_case(true ; "D before C")]
+fn test_rebase_descendants_forward_creation_order(d_first: bool) {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // Like test_rebase_descendants_forward, but the result shouldn't depend on
+    // the order in which C and D were created (it used to panic if D was
+    // created first).
+    //
+    // F
+    // D C
+    // |/
+    // B
+    // A
+    let mut tx = repo.start_transaction();
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let (commit_c, commit_d) = if d_first {
+        let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+        let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+        (commit_c, commit_d)
+    } else {
+        let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+        let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+        (commit_c, commit_d)
+    };
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+
+    tx.repo_mut()
+        .set_rewritten_commit(commit_b.id().clone(), commit_f.id().clone());
+    let rebase_map =
+        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let new_commit_c = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_f.id()]);
+    assert_eq!(rebase_map.len(), 1);
+    assert_eq!(
+        *tx.repo().view().heads(),
+        hashset! {new_commit_c.id().clone()}
     );
 }
 

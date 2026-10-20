@@ -13,9 +13,13 @@
 // limitations under the License.
 
 use std::collections::BTreeMap;
+use std::slice;
+use std::sync::Arc;
 use std::time::Duration;
 
 use itertools::Itertools as _;
+use jj_lib::backend::ChangeId;
+use jj_lib::commit::Commit;
 use jj_lib::op_store::LocalRemoteRefTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
@@ -25,7 +29,10 @@ use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::repo::MutableRepo;
+use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo::RepoLoaderError;
 use maplit::btreemap;
 use maplit::hashset;
 use pollster::FutureExt as _;
@@ -1012,5 +1019,184 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .block_on()?;
     assert_eq!(repo_h.view().heads().len(), 2);
 
+    Ok(())
+}
+
+/// Moves `commit` onto `parents`, and rebases its descendants along with it.
+fn move_commit(mut_repo: &mut MutableRepo, commit: &Commit, parents: &[&Commit]) -> Commit {
+    let new_commit = mut_repo
+        .rewrite_commit(commit)
+        .set_parents(parents.iter().map(|commit| commit.id().clone()).collect())
+        .write_unwrap();
+    mut_repo.rebase_descendants().block_on().unwrap();
+    new_commit
+}
+
+/// Merges the operations of `repos` in the given order and in reverse order.
+/// Returns the results in that order.
+fn merge_operations_both_ways(
+    repos: &[&Arc<ReadonlyRepo>],
+) -> Result<[(Arc<ReadonlyRepo>, usize); 2], RepoLoaderError> {
+    let loader = repos[0].loader();
+    let ops = repos
+        .iter()
+        .map(|repo| repo.operation().clone())
+        .collect_vec();
+    let forward = loader
+        .merge_operations(ops.clone(), None, None, [])
+        .block_on()?;
+    let ops = ops.into_iter().rev().collect_vec();
+    let backward = loader.merge_operations(ops, None, None, []).block_on()?;
+    Ok([forward, backward])
+}
+
+/// Returns the visible commits with the given change ID, sorted by commit ID.
+fn visible_commits(repo: &ReadonlyRepo, change_id: &ChangeId) -> Vec<Commit> {
+    let targets = repo.resolve_change_id(change_id).block_on().unwrap();
+    targets
+        .iter()
+        .flat_map(|targets| targets.visible_with_offsets())
+        .map(|(_, id)| repo.store().get_commit(id).unwrap())
+        .sorted_by(|a, b| a.id().cmp(b.id()))
+        .collect()
+}
+
+#[test]
+fn test_merge_operations_rebase_cycle() -> TestResult {
+    // Operation 1 moves X (and its child Y) onto Z. Operation 2 moves Z onto Y.
+    // Rebasing the descendants of both rewrites would put Z on top of Y, and X
+    // (and therefore Y) on top of Z. Leaving X1 in place breaks the cycle and
+    // leaves only Z visible, while leaving Z2 in place would leave both X and
+    // Y visible.
+    //
+    //                    Y1   Z2                    Z3
+    //  Y                 X1   Y                     Y1
+    //  X  Z    =>    1:  Z    X    =>   merged:     X1
+    //  |/                     2:                    Z
+    //  root
+    let test_repo = TestRepo::init();
+
+    let mut tx = test_repo.repo.start_transaction();
+    let commit_x = write_random_commit_with_parents_and_description(tx.repo_mut(), &[], "X");
+    let commit_y =
+        write_random_commit_with_parents_and_description(tx.repo_mut(), &[&commit_x], "Y");
+    let commit_z = write_random_commit_with_parents_and_description(tx.repo_mut(), &[], "Z");
+    let repo = tx.commit("test").block_on()?;
+
+    let mut tx1 = repo.start_transaction();
+    let commit_x1 = move_commit(tx1.repo_mut(), &commit_x, &[&commit_z]);
+    let repo1 = tx1.commit("move X onto Z").block_on()?;
+    let [commit_y1] = visible_commits(&repo1, commit_y.change_id())
+        .try_into()
+        .unwrap();
+    assert_eq!(commit_y1.parent_ids(), [commit_x1.id().clone()]);
+
+    let mut tx2 = repo.start_transaction();
+    let commit_z2 = move_commit(tx2.repo_mut(), &commit_z, &[&commit_y]);
+    let repo2 = tx2.commit("move Z onto Y").block_on()?;
+
+    // The result is the same whichever order the operations are merged in.
+    for (merged_repo, num_rebased) in merge_operations_both_ways(&[&repo1, &repo2])? {
+        assert_eq!(num_rebased, 1);
+        let [commit_z3] = merged_repo
+            .view()
+            .heads()
+            .iter()
+            .map(|id| merged_repo.store().get_commit(id).unwrap())
+            .collect_vec()
+            .try_into()
+            .unwrap();
+        // Z3 is Z2 rebased onto Y1.
+        assert_eq!(commit_z3.change_id(), commit_z.change_id());
+        assert_eq!(commit_z3.tree_ids(), commit_z2.tree_ids());
+        assert_eq!(commit_z3.parent_ids(), [commit_y1.id().clone()]);
+        // X1 is still on top of Z, so Z remains visible next to Z3.
+        let mut expected_z_commits = vec![commit_z.clone(), commit_z3];
+        expected_z_commits.sort_by(|a, b| a.id().cmp(b.id()));
+        assert_eq!(
+            visible_commits(&merged_repo, commit_z.change_id()),
+            expected_z_commits
+        );
+        assert_eq!(
+            visible_commits(&merged_repo, commit_x.change_id()),
+            slice::from_ref(&commit_x1)
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn test_merge_operations_rebase_cycle_without_descendants() -> TestResult {
+    // Operation 1 moves X onto Z. Operation 2 moves Z onto X. One of them is
+    // left in place, and the other is rebased onto it.
+    let test_repo = TestRepo::init();
+
+    let mut tx = test_repo.repo.start_transaction();
+    let commit_x = write_random_commit_with_parents_and_description(tx.repo_mut(), &[], "X");
+    let commit_z = write_random_commit_with_parents_and_description(tx.repo_mut(), &[], "Z");
+    let repo = tx.commit("test").block_on()?;
+
+    let mut tx1 = repo.start_transaction();
+    let commit_x1 = move_commit(tx1.repo_mut(), &commit_x, &[&commit_z]);
+    let repo1 = tx1.commit("move X onto Z").block_on()?;
+
+    let mut tx2 = repo.start_transaction();
+    let commit_z2 = move_commit(tx2.repo_mut(), &commit_z, &[&commit_x]);
+    let repo2 = tx2.commit("move Z onto X").block_on()?;
+
+    // Both commits have one rewritten ancestor, so the one with the smaller
+    // commit ID is left in place.
+    let (left, rebased) = if commit_x1.id() < commit_z2.id() {
+        (&commit_x1, &commit_z2)
+    } else {
+        (&commit_z2, &commit_x1)
+    };
+    for (merged_repo, num_rebased) in merge_operations_both_ways(&[&repo1, &repo2])? {
+        assert_eq!(num_rebased, 1);
+        let [head] = merged_repo
+            .view()
+            .heads()
+            .iter()
+            .map(|id| merged_repo.store().get_commit(id).unwrap())
+            .collect_vec()
+            .try_into()
+            .unwrap();
+        assert_eq!(head.change_id(), rebased.change_id());
+        assert_ne!(head.id(), rebased.id());
+        assert_eq!(head.parent_ids(), [left.id().clone()]);
+    }
+    Ok(())
+}
+
+#[test]
+fn test_merge_three_operations_rebase_cycle() -> TestResult {
+    // Three operations move X (with its child Y) onto Z, Z onto W, and W onto
+    // Y. The cycle only appears when all three are merged.
+    let test_repo = TestRepo::init();
+
+    let mut tx = test_repo.repo.start_transaction();
+    let commit_x = write_random_commit_with_parents_and_description(tx.repo_mut(), &[], "X");
+    let commit_y =
+        write_random_commit_with_parents_and_description(tx.repo_mut(), &[&commit_x], "Y");
+    let commit_z = write_random_commit_with_parents_and_description(tx.repo_mut(), &[], "Z");
+    let commit_w = write_random_commit_with_parents_and_description(tx.repo_mut(), &[], "W");
+    let repo = tx.commit("test").block_on()?;
+
+    let mut tx1 = repo.start_transaction();
+    move_commit(tx1.repo_mut(), &commit_x, &[&commit_z]);
+    let repo1 = tx1.commit("move X onto Z").block_on()?;
+    let mut tx2 = repo.start_transaction();
+    move_commit(tx2.repo_mut(), &commit_z, &[&commit_w]);
+    let repo2 = tx2.commit("move Z onto W").block_on()?;
+    let mut tx3 = repo.start_transaction();
+    move_commit(tx3.repo_mut(), &commit_w, &[&commit_y]);
+    let repo3 = tx3.commit("move W onto Y").block_on()?;
+
+    for (merged_repo, _num_rebased) in merge_operations_both_ways(&[&repo1, &repo2, &repo3])? {
+        assert_eq!(merged_repo.view().heads().len(), 1);
+        // Loading the repo merges the operations too.
+        let repo = merged_repo.reload_at_head().block_on()?;
+        assert_eq!(repo.view().heads().len(), 1);
+    }
     Ok(())
 }

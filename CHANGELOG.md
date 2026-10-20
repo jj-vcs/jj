@@ -104,6 +104,14 @@ and this project adheres to
 * On Unix, repository files under `.jj` are now created with default file
   permissions.
 
+* Merging concurrent operations no longer panics with "graph has cycle" when
+  they moved commits onto each other's descendants (for example, one operation
+  rebases X onto Z while another rebases Z onto X's child). Instead, the
+  commits that would be rebased onto their own descendants are left in place.
+  Previously, every command panicked until one of the operations was
+  abandoned.
+  [#10474](https://github.com/jj-vcs/jj/issues/10474)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights

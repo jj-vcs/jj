@@ -95,6 +95,73 @@ fn test_concurrent_operations_auto_rebase() {
 }
 
 #[test]
+fn test_concurrent_operations_rebase_cycle() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new", "root()", "-m", "X"]).success();
+    work_dir.run_jj(["new", "-m", "Y"]).success();
+    work_dir.run_jj(["new", "root()", "-m", "Z"]).success();
+    work_dir.run_jj(["new", "root()"]).success();
+    // One operation moves X (and its child Y) onto Z, while a concurrent one
+    // moves Z onto Y. Rebasing descendants after merging the operations would
+    // create a cycle, so X is left on top of the old Z instead.
+    work_dir
+        .run_jj(["rebase", "-s", "subject(X)", "-o", "subject(Z)"])
+        .success();
+    work_dir
+        .run_jj([
+            "rebase",
+            "--at-op=@-",
+            "-s",
+            "subject(Z)",
+            "-o",
+            "subject(Y)",
+        ])
+        .success();
+
+    let template = r#"
+        separate(" ",
+          change_id.shortest(),
+          commit_id.shortest(),
+          description.first_line(),
+          if(divergent, "(divergent)"),
+        ) ++ "\n"
+    "#;
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    @  m 1
+    │ ○  zs 5 Z (divergent)
+    │ ○  k e Y
+    │ ○  r 04 X
+    │ ○  zs 4 Z (divergent)
+    ├─╯
+    ◆  zz 00
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Rebased 1 descendant commits onto commits rewritten by other operation.
+    [EOF]
+    ");
+
+    // The divergence can be resolved by abandoning the old Z
+    work_dir
+        .run_jj(["abandon", "subject(Z) & ::subject(X)"])
+        .success();
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    @  m 1c
+    │ ○  zs 1e Z
+    │ ○  k 4 Y
+    │ ○  r 9 X
+    ├─╯
+    ◆  zz 0
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_concurrent_operations_wc_modified() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
