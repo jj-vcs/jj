@@ -20,7 +20,9 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
+use crate::backend::WorkspaceId;
 use crate::ref_name::WorkspaceName;
+use crate::ref_name::WorkspaceNameBuf;
 
 /// Errors that can occur when interacting with a workspace store.
 #[derive(Error, Debug)]
@@ -40,6 +42,52 @@ pub enum WorkspaceType {
     Independent,
 }
 
+/// Metadata about a workspace.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct WorkspaceMetadata {
+    workspace_name: WorkspaceNameBuf,
+    workspace_type: WorkspaceType,
+    workspace_id: Option<WorkspaceId>,
+    workspace_path: PathBuf,
+}
+
+impl WorkspaceMetadata {
+    /// Creates a new `WorkspaceMetadata` instance.
+    pub fn new(
+        workspace_name: WorkspaceNameBuf,
+        workspace_type: WorkspaceType,
+        workspace_id: Option<WorkspaceId>,
+        workspace_path: PathBuf,
+    ) -> Self {
+        Self {
+            workspace_name,
+            workspace_type,
+            workspace_id,
+            workspace_path,
+        }
+    }
+
+    /// Returns the name of the workspace.
+    pub fn workspace_name(&self) -> &WorkspaceName {
+        &self.workspace_name
+    }
+
+    /// Returns the type of the workspace.
+    pub fn workspace_type(&self) -> WorkspaceType {
+        self.workspace_type
+    }
+
+    /// Returns the ID of the workspace, if it has one.
+    pub fn workspace_id(&self) -> Option<WorkspaceId> {
+        self.workspace_id.clone()
+    }
+
+    /// Returns the path of the workspace.
+    pub fn workspace_path(&self) -> &Path {
+        &self.workspace_path
+    }
+}
+
 /// A storage backend for workspace metadata.
 pub trait WorkspaceStore: Send + Sync + Debug {
     /// Returns the name of this workspace store implementation.
@@ -49,7 +97,12 @@ pub trait WorkspaceStore: Send + Sync + Debug {
     ///
     /// The `path` should be absolute and normalized in the same manner as the
     /// repository path.
-    fn add(&self, workspace_name: &WorkspaceName, path: &Path) -> Result<(), WorkspaceStoreError>;
+    fn add(
+        &self,
+        workspace_name: &WorkspaceName,
+        path: &Path,
+        workspace_type: WorkspaceType,
+    ) -> Result<Option<WorkspaceId>, WorkspaceStoreError>;
 
     /// Forgets the workspaces with the given names.
     fn forget(&self, workspace_names: &[&WorkspaceName]) -> Result<(), WorkspaceStoreError>;
@@ -66,4 +119,19 @@ pub trait WorkspaceStore: Send + Sync + Debug {
         &self,
         workspace_name: &WorkspaceName,
     ) -> Result<Option<PathBuf>, WorkspaceStoreError>;
+
+    /// Returns the metadata for the workspace matching the given name in this store, if it exists.
+    fn get_workspace_metadata_by_workspace_name(
+        &self,
+        workspace_name: &WorkspaceName,
+    ) -> Result<Option<WorkspaceMetadata>, WorkspaceStoreError>;
+
+    /// Returns the metadata for the workspace matching the given path in this store, if it exists.
+    ///
+    /// The `workspace_path` should be absolute and normalized in the same manner as the
+    /// repository path.
+    fn get_workspace_metadata_by_workspace_path(
+        &self,
+        workspace_path: &Path,
+    ) -> Result<Option<WorkspaceMetadata>, WorkspaceStoreError>;
 }

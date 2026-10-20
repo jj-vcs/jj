@@ -21,6 +21,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use jj_core::workspace_store::WorkspaceType;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
@@ -370,9 +371,11 @@ impl Workspace {
             let repo_loader = repo.loader().clone();
             let repo_dir = dunce::canonicalize(&repo_dir).context(&repo_dir)?;
             let workspace = Self::new(workspace_root, repo_dir, working_copy, repo_loader)?;
-            repo.loader()
-                .workspace_store()
-                .add(workspace.workspace_name(), workspace.workspace_root())?;
+            let _unused = repo.loader().workspace_store().add(
+                workspace.workspace_name(),
+                workspace.workspace_root(),
+                WorkspaceType::Regular,
+            )?;
             Ok((workspace, repo))
         }
         .await
@@ -441,7 +444,11 @@ impl Workspace {
             working_copy,
             repo.loader().clone(),
         )?;
-        workspace_store.add(workspace.workspace_name(), workspace.workspace_root())?;
+        let _unused = workspace_store.add(
+            workspace.workspace_name(),
+            workspace.workspace_root(),
+            WorkspaceType::Regular,
+        )?;
         Ok((workspace, repo))
     }
 

@@ -71,6 +71,10 @@ id_type!(
     /// Identifier for a copy history.
     pub CopyId { hex() }
 );
+id_type!(
+    /// Stable identifier for a Workspace.
+    pub WorkspaceId { hex() }
+);
 
 impl ChangeId {
     /// Parses the given "reverse" hex string into a `ChangeId`.

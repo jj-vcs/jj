@@ -189,7 +189,7 @@ pub enum RepoInitError {
 
 impl ReadonlyRepo {
     pub fn default_workspace_store_initializer() -> &'static WorkspaceStoreInitializer<'static> {
-        &|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::init(store_path)?))
+        &|settings, store_path| Ok(Box::new(SimpleWorkspaceStore::init(settings, store_path)?))
     }
 
     pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
