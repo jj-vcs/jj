@@ -456,6 +456,48 @@ fn test_rebase_single_revision_merge_parent() {
 }
 
 #[test]
+fn test_rebase_single_revision_merge_parent_on_root() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &[]);
+    create_commit(&work_dir, "c", &["a", "b"]);
+    // Test the setup
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @    c: a b
+    ├─╮
+    │ ○  b
+    ○ │  a
+    ├─╯
+    ◆
+    [EOF]
+    ");
+
+    // "c" should have only "a" as parent. The root commit replaces "b", but the
+    // Git backend leaves it out as a parent of a merge commit.
+    let output = work_dir.run_jj(["rebase", "-r", "b", "-o", "a"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 commits to destination.
+    Rebased 1 descendant commits.
+    Working copy  (@) now at: royxmykx e58e927f c | c
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  c: a
+    │ ○  b: a
+    ├─╯
+    ○  a
+    ◆
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_rebase_multiple_revisions() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -798,12 +840,20 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
+    // The Git backend leaves out the root commit as a parent of a merge commit.
     let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "b", "-o", "root()"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
+    Rebased 1 commits to destination.
     [EOF]
-    [exit status: 1]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  c
+    │ ○  a: b
+    │ ○  b
+    ├─╯
+    ◆
+    [EOF]
     ");
 }
 

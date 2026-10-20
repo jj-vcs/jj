@@ -383,9 +383,24 @@ fn test_bug_2600_rootcommit_special_case() {
     let output = work_dir.run_jj(["abandon", "base"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
+    Abandoned 1 commits:
+      rlvkpnrz f86102d4 base | base
+    Deleted bookmarks: base
+    Rebased 3 descendant commits onto parents of abandoned commits.
+    Working copy  (@) now at: vruxwmqv 223463b6 c | c
+    Parent commit (@-)      : royxmykx bf7e8352 b | b
+    Added 0 files, modified 0 files, removed 1 files
     [EOF]
-    [exit status: 1]
+    ");
+    // Unlike in `test_bug_2600`, commit "b" should not keep the root commit as
+    // a parent, since the Git backend leaves out the root commit as a parent of
+    // a merge commit. It should have only "a" as parent.
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  [vru] c
+    ○  [roy] b
+    ○  [zsu] a
+    ◆  [zzz]
+    [EOF]
     ");
 }
 

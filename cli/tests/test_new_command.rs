@@ -157,13 +157,13 @@ fn test_new_merge() {
     [EOF]
     ");
 
-    // merge with root
+    // merge with root: the Git backend leaves out the root commit as a parent
     let output = work_dir.run_jj(["new", "@", "root()"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
+    Working copy  (@) now at: xznxytkn ed6076e0 (empty) (no description set)
+    Parent commit (@-)      : uyznsvlq 68a7f50c (empty) (no description set)
     [EOF]
-    [exit status: 1]
     ");
 }
 
@@ -675,11 +675,28 @@ fn test_new_insert_before_no_root_merge() {
         "--insert-before",
         "D",
     ]);
+    // "G" should have only "A" as parent, since the Git backend leaves out the
+    // root commit as a parent of a merge commit.
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
+    Rebased 4 descendant commits.
+    Working copy  (@) now at: kxryzmor b5155d2f (empty) G
+    Parent commit (@-)      : qpvuntsm 515354d0 A | (empty) A
     [EOF]
-    [exit status: 1]
+    ");
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
+    ○    F
+    ├─╮
+    │ ○  E
+    ○ │  D
+    │ │ ○  C
+    │ │ ○  B
+    ├───╯
+    @ │  G
+    ○ │  A
+    ├─╯
+    ◆  root
+    [EOF]
     ");
 }
 
