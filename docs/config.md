@@ -647,7 +647,8 @@ needing the original behavior.
 
 By default, `jj` may prompt for input on the terminal when an operation is
 ambiguous or requires confirmation (for example, choosing a target revision in
-`jj next` or `jj prev`, or confirming deletion in `jj config gc`).
+`jj next` or `jj prev`, confirming deletion in `jj config gc`, or resolving
+divergence in `jj converge`).
 
 You can disable interactive terminal prompts by setting `ui.interactive` to
 `false`:
