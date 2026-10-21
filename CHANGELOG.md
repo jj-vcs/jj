@@ -87,6 +87,14 @@ and this project adheres to
   of always using the `snapshot` style.
   [#10390](https://github.com/jj-vcs/jj/issues/10390)
 
+* `jj util gc` no longer prunes the parent of an operation it keeps. A recently
+  created operation was preserved even when an operation rewrite such as
+  `jj op abandon` had orphaned it, while the operations it referred to were
+  pruned, leaving a dangling reference that could make the operation log
+  unreadable. The ancestors of a preserved operation are now preserved as well,
+  so an abandoned range is retained until the operations referring to it age
+  out; `jj util gc --expire=now` reclaims it immediately.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights

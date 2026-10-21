@@ -16,6 +16,7 @@ use std::assert_matches;
 use std::path::Path;
 use std::slice;
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::SystemTime;
 
 use futures::TryStreamExt as _;
@@ -1055,6 +1056,170 @@ fn test_gc() -> TestResult {
     assert_eq!(expected_op_entries.len(), 1);
     assert_eq!(expected_view_entries.len(), 1);
     Ok(())
+}
+
+/// GC must preserve the ancestors of an operation it keeps.
+///
+/// `keep_newer` preserves recently created objects so that gc doesn't delete a
+/// head that another process created concurrently. A preserved operation must
+/// not refer to a pruned parent, so its ancestors are preserved as well, even
+/// if they are old and unreachable.
+#[test]
+fn test_gc_preserves_ancestors_of_recent_operation() -> TestResult {
+    let settings = stable_op_id_settings();
+    let test_repo = TestRepo::init_with_settings(&settings);
+    let op_dir = test_repo.repo_path().join("op_store").join("operations");
+    let view_dir = test_repo.repo_path().join("op_store").join("views");
+    let repo_0 = test_repo.repo;
+    let op_store = repo_0.op_store();
+
+    // Set up operation graph, each operation with its own view:
+    //
+    // C  (unreachable, recent, parent B)
+    // B  (unreachable, old)
+    // A  (head)
+    // 0  (root)
+    let random_tx = |repo: &Arc<ReadonlyRepo>| {
+        let mut tx = repo.start_transaction();
+        write_random_commit(tx.repo_mut());
+        tx
+    };
+    let repo_a = random_tx(&repo_0).commit("op A").block_on()?;
+    let repo_b = random_tx(&repo_a).commit("op B").block_on()?;
+    let repo_c = random_tx(&repo_b).commit("op C").block_on()?;
+
+    let expected_op_entries = list_dir(&op_dir);
+    let expected_view_entries = list_dir(&view_dir);
+    assert_eq!(expected_op_entries.len(), 3); // A, B, C
+
+    // B is old and C is recent, so the timestamp check alone would prune B while
+    // preserving its child C.
+    let old = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000);
+    let keep_newer = SystemTime::UNIX_EPOCH + Duration::from_secs(1_500);
+    let new = SystemTime::UNIX_EPOCH + Duration::from_secs(2_000);
+    set_file_mtime(&op_dir.join(repo_a.op_id().hex()), old)?;
+    set_file_mtime(&op_dir.join(repo_b.op_id().hex()), old)?;
+    set_file_mtime(&op_dir.join(repo_c.op_id().hex()), new)?;
+    for view_id in [
+        repo_a.operation().view_id(),
+        repo_b.operation().view_id(),
+        repo_c.operation().view_id(),
+    ] {
+        set_file_mtime(&view_dir.join(view_id.hex()), old)?;
+    }
+
+    op_store
+        .gc(slice::from_ref(repo_a.op_id()), keep_newer)
+        .block_on()?;
+
+    // C is not reachable but recent, so it is preserved. B is old, but it is
+    // preserved as well because C refers to it.
+    assert_eq!(list_dir(&op_dir), expected_op_entries);
+    assert_eq!(list_dir(&view_dir), expected_view_entries);
+    Ok(())
+}
+
+/// GC must keep the abandoned range that a preserved operation refers to.
+///
+/// `op abandon` rewrites the descendants of the abandoned range and leaves the
+/// superseded operations behind, still pointing into the range. The superseded
+/// operations are recent, so they are preserved together with the range they
+/// refer to, rather than being kept with a dangling parent reference. The range
+/// is pruned once those operations age out.
+#[test]
+fn test_gc_preserves_operations_orphaned_by_abandon() -> TestResult {
+    let settings = stable_op_id_settings();
+    let test_repo = TestRepo::init_with_settings(&settings);
+    let op_dir = test_repo.repo_path().join("op_store").join("operations");
+    let view_dir = test_repo.repo_path().join("op_store").join("views");
+    let repo_0 = test_repo.repo;
+    let op_store = repo_0.op_store();
+
+    // Set up operation graph, each operation with its own view:
+    //
+    // D
+    // C
+    // B  (abandoned)
+    // A
+    // 0  (root)
+    let random_tx = |repo: &Arc<ReadonlyRepo>| {
+        let mut tx = repo.start_transaction();
+        write_random_commit(tx.repo_mut());
+        tx
+    };
+    let repo_a = random_tx(&repo_0).commit("op A").block_on()?;
+    let repo_b = random_tx(&repo_a).commit("op B").block_on()?;
+    let repo_c = random_tx(&repo_b).commit("op C").block_on()?;
+    let repo_d = random_tx(&repo_c).commit("op D").block_on()?;
+
+    // Simulate `jj op abandon ..B`: C and D are rewritten on top of A, which
+    // leaves the superseded C and D behind, still pointing at B.
+    let stats = op_walk::reparent_range(
+        op_store.as_ref(),
+        slice::from_ref(repo_b.operation()),
+        slice::from_ref(repo_d.operation()),
+        repo_a.operation(),
+    )
+    .block_on()?;
+    assert_eq!(stats.unreachable_count, 1); // B
+    assert_eq!(stats.rewritten_count, 2); // C and D
+    let new_d_id = stats.new_head_ids[0].clone();
+    let new_c_id = op_store.read_operation(&new_d_id).block_on()?.parents[0].clone();
+
+    let mut expected_op_entries = list_dir(&op_dir);
+    let mut expected_view_entries = list_dir(&view_dir);
+    assert_eq!(expected_op_entries.len(), 6); // A, B, C, D, and rewritten C and D
+
+    // A is old, B is old, and the superseded C and D are recent.
+    let old = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000);
+    let keep_newer = SystemTime::UNIX_EPOCH + Duration::from_secs(1_500);
+    let new = SystemTime::UNIX_EPOCH + Duration::from_secs(2_000);
+    set_file_mtime(&op_dir.join(repo_a.op_id().hex()), old)?;
+    set_file_mtime(&op_dir.join(repo_b.op_id().hex()), old)?;
+    set_file_mtime(&view_dir.join(repo_a.operation().view_id().hex()), old)?;
+    set_file_mtime(&view_dir.join(repo_b.operation().view_id().hex()), old)?;
+    set_file_mtime(&op_dir.join(repo_c.op_id().hex()), new)?;
+    set_file_mtime(&op_dir.join(repo_d.op_id().hex()), new)?;
+
+    op_store
+        .gc(slice::from_ref(&new_d_id), keep_newer)
+        .block_on()?;
+
+    // The superseded C and D are recent, so they are preserved together with B,
+    // which they refer to. A is kept even though it is old, because it is
+    // reachable.
+    assert_eq!(list_dir(&op_dir), expected_op_entries);
+    assert_eq!(list_dir(&view_dir), expected_view_entries);
+
+    // Once the superseded operations age out, the abandoned range is pruned.
+    let keep_nothing = SystemTime::now();
+    op_store
+        .gc(slice::from_ref(&new_d_id), keep_nothing)
+        .block_on()?;
+
+    expected_op_entries.retain(|name| {
+        *name != repo_b.op_id().hex()
+            && *name != repo_c.op_id().hex()
+            && *name != repo_d.op_id().hex()
+    });
+    // The rewritten C and D reuse the views of the superseded operations, so
+    // only B's view becomes unreachable.
+    expected_view_entries.retain(|name| *name != repo_b.operation().view_id().hex());
+    assert_eq!(
+        expected_op_entries,
+        [repo_a.op_id().hex(), new_c_id.hex(), new_d_id.hex()]
+            .into_iter()
+            .sorted()
+            .collect_vec()
+    );
+    assert_eq!(list_dir(&op_dir), expected_op_entries);
+    assert_eq!(list_dir(&view_dir), expected_view_entries);
+    Ok(())
+}
+
+fn set_file_mtime(path: &Path, time: SystemTime) -> std::io::Result<()> {
+    let file = std::fs::File::options().write(true).open(path)?;
+    file.set_modified(time)
 }
 
 #[track_caller]
