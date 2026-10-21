@@ -2157,6 +2157,26 @@ different results depending on the order of merging. To turn it off, set
 same-change = "accept"
 ```
 
+## Split settings
+
+### Bookmark behavior of `jj split`
+
+By default, bookmarks pointing to the commit being split move to the second
+commit (the one holding the remaining changes). Setting
+`split.legacy-bookmark-behavior` to `false` leaves them on the first commit
+(the one holding the selected changes) instead:
+
+```toml
+[split]
+legacy-bookmark-behavior = false
+```
+
+The `false` behavior is experimental and may change in the future. The flag
+will be removed once the old behavior is no longer the default (see
+[#3419]).
+
+[#3419]: https://github.com/jj-vcs/jj/issues/3419
+
 ## Converge settings
 
 The `jj converge` command attempts to resolve divergence by replacing two or
