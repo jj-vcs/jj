@@ -390,6 +390,23 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
     [EOF]
     [exit status: 1]
     ");
+
+    // Interactive prompts can also be disabled via `ui.interactive = false`.
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["next", "--config=ui.interactive=false"])
+            .write_stdin("1\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous next commit, choose one to target:
+    1: zsuskuln 6fc6af46 (empty) third
+    2: rlvkpnrz 9439bf06 (empty) second
+    q: quit the prompt
+    Error: Cannot prompt for input since interactive prompts are disabled
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
