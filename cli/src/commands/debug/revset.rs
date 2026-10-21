@@ -46,7 +46,7 @@ pub async fn cmd_debug_revset(
     args: &DebugRevsetArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
-    let workspace_ctx = workspace_command.env().revset_parse_context();
+    let workspace_ctx = workspace_command.revset_parse_context();
     let repo = workspace_command.repo().as_ref();
 
     let mut diagnostics = RevsetDiagnostics::new();

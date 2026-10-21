@@ -1111,6 +1111,7 @@ impl WorkspaceCommandEnvironment {
         FilesetParseContext {
             aliases_map: &self.fileset_aliases_map,
             path_converter: &self.path_converter,
+            working_copy: None,
         }
     }
 
@@ -1123,13 +1124,16 @@ impl WorkspaceCommandEnvironment {
         FilesetParseContext {
             aliases_map: &self.fileset_aliases_map,
             path_converter: &ROOT_PATH_CONVERTER,
+            working_copy: None,
         }
     }
 
+    /// Parsing context for revset expressions.
     pub(crate) fn revset_parse_context(&self) -> RevsetParseContext<'_> {
         let workspace_context = RevsetWorkspaceContext {
             path_converter: &self.path_converter,
             workspace_name: &self.workspace_name,
+            working_copy: None,
         };
         let now = if let Some(timestamp) = self.settings.commit_timestamp() {
             Timestamp::from_millisecond(timestamp.timestamp.0)
@@ -1589,6 +1593,23 @@ impl WorkspaceCommandHelper {
         &self.env
     }
 
+    /// Parsing context for fileset expressions specified by command arguments.
+    pub(crate) fn fileset_parse_context(&self) -> FilesetParseContext<'_> {
+        FilesetParseContext {
+            working_copy: Some(self.working_copy()),
+            ..self.env.fileset_parse_context()
+        }
+    }
+
+    /// Parsing context for revset expressions specified by command arguments.
+    pub(crate) fn revset_parse_context(&self) -> RevsetParseContext<'_> {
+        let mut context = self.env.revset_parse_context();
+        if let Some(workspace) = &mut context.workspace {
+            workspace.working_copy = Some(self.working_copy());
+        }
+        context
+    }
+
     async fn prepare_working_copy_mutation(&self) -> Result<Commit, CommandError> {
         self.check_working_copy_writable()?;
         self.get_wc_commit()
@@ -1704,7 +1725,7 @@ to the current parents may contain changes from multiple commits.
         file_args: &[String], // TODO: introduce FileArg newtype?
     ) -> Result<FilesetExpression, CommandError> {
         let mut diagnostics = FilesetDiagnostics::new();
-        let context = self.env.fileset_parse_context();
+        let context = self.fileset_parse_context();
         let expressions: Vec<_> = file_args
             .iter()
             .map(|arg| fileset::parse_maybe_bare(&mut diagnostics, arg, &context))
@@ -1894,7 +1915,7 @@ to the current parents may contain changes from multiple commits.
         revision_arg: &RevisionArg,
     ) -> Result<RevsetExpressionEvaluator<'_>, CommandError> {
         let mut diagnostics = RevsetDiagnostics::new();
-        let context = self.env.revset_parse_context();
+        let context = self.revset_parse_context();
         let expression = revset::parse(&mut diagnostics, revision_arg.as_ref(), &context)?;
         print_parse_diagnostics(ui, "In revset expression", &diagnostics)?;
         Ok(self.attach_revset_evaluator(expression))
@@ -1907,7 +1928,7 @@ to the current parents may contain changes from multiple commits.
         revision_args: &[RevisionArg],
     ) -> Result<RevsetExpressionEvaluator<'_>, CommandError> {
         let mut diagnostics = RevsetDiagnostics::new();
-        let context = self.env.revset_parse_context();
+        let context = self.revset_parse_context();
         let expressions: Vec<_> = revision_args
             .iter()
             .map(|arg| revset::parse(&mut diagnostics, arg.as_ref(), &context))

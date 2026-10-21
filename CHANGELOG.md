@@ -55,6 +55,11 @@ and this project adheres to
 * `jj config gc` now also cleans up workspace configs whose paths no longer
   exist.
 
+* New `sparse()` fileset function matches the paths included by the current
+  workspace's sparse patterns. For example, `jj log -r 'files(sparse())'`
+  shows only commits that touch files in the sparse checkout.
+  [#7816](https://github.com/jj-vcs/jj/issues/7816)
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
