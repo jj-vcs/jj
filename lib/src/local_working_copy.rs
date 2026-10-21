@@ -1735,6 +1735,9 @@ impl FileSnapshotter<'_> {
         }
         let name = RepoPathComponent::new(&name_string).unwrap();
         let path = dir.join(name);
+        if cfg!(windows) && path.has_windows_unsupported_component() {
+            return Ok(Some((PresentDirEntryKind::File, name_string)));
+        }
         let maybe_current_file_state = file_states.get_at(dir, name);
         if let Some(file_state) = &maybe_current_file_state
             && file_state.file_type == FileType::GitSubmodule
@@ -1844,6 +1847,9 @@ impl FileSnapshotter<'_> {
             if current_file_state.file_type == FileType::GitSubmodule {
                 continue;
             }
+            if cfg!(windows) && tracked_path.has_windows_unsupported_component() {
+                continue;
+            }
             if !self.matcher.matches(tracked_path) {
                 continue;
             }
@@ -1930,6 +1936,7 @@ impl FileSnapshotter<'_> {
             .flat_map(|(_, chunk)| chunk)
             // Whether or not the entry exists, submodule should be ignored
             .filter(|(_, state)| state.file_type != FileType::GitSubmodule)
+            .filter(|(path, _)| !cfg!(windows) || !path.has_windows_unsupported_component())
             .filter(|(path, _)| self.matcher.matches(path))
             .try_for_each(|(path, _)| self.deleted_files_tx.send(path.to_owned()))
             .ok();
@@ -2355,6 +2362,17 @@ impl TreeState {
                 stats.added_files += 1;
             } else {
                 stats.updated_files += 1;
+            }
+
+            if cfg!(windows) && path.has_windows_unsupported_component() {
+                // Preserve the existing traversal checks for malformed paths,
+                // and let reserved .git/.jj aliases reach their safety checks.
+                path.to_fs_path(self.working_copy_path())?;
+                if !path.has_windows_reserved_dir_alias() {
+                    changed_file_states.push((path, FileState::placeholder()));
+                    stats.skipped_files += 1;
+                    return Ok(());
+                }
             }
 
             // Existing Git submodule can be a non-empty directory on disk. We
