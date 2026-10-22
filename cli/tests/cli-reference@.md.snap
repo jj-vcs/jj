@@ -181,7 +181,7 @@ To get started, see the tutorial at [`jj help -k tutorial`][tutorial].
 * `parallelize` — Parallelize revisions by making them siblings
 * `prev` — Change the working copy revision relative to the parent revision
 * `rebase` — Move revisions to different parent(s)
-* `redo` — Redo the most recently undone operation
+* `redo` — Redo the most recently undone operation in the current workspace
 * `resolve` — Resolve conflicted files with an external merge tool
 * `restore` — Restore paths from another revision
 * `revert` — Apply the reverse of the given revision(s)
@@ -195,7 +195,7 @@ To get started, see the tutorial at [`jj help -k tutorial`][tutorial].
 * `squash` — Move changes from a revision into another revision
 * `status` — Show high-level repo status [default alias: st]
 * `tag` — Manage tags
-* `undo` — Undo the last operation
+* `undo` — Undo the last operation in the current workspace
 * `unsign` — Drop a cryptographic signature
 * `util` — Infrequently used commands such as for generating shell completions
 * `version` — Display version information
@@ -3046,19 +3046,13 @@ J           J
 
 ## `jj redo`
 
-Redo the most recently undone operation
+Redo the most recently undone operation in the current workspace
 
-This is the natural counterpart of `jj undo`. Repeated invocations of `jj undo` and `jj redo` act similarly to Undo/Redo commands in a text editor. `jj redo` reverts the most recent undo-operation, as long as no other operation was performed after it.
+This is the natural counterpart of `jj undo`. Repeated invocations of `jj undo` and `jj redo` act similarly to Undo/Redo commands in a text editor. `jj redo` reverts the most recent undo-operation performed in the current workspace, as long as no other operation was performed in the workspace after it.
 
 Use `jj op log` to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also `jj op revert` to revert a specific operation by its id, and `jj op restore` to restore the whole repo to an older operation.
 
-By default, `jj redo` refuses to redo an undo-operation that was performed in another workspace, since that is usually not what you meant to redo. Pass `--allow-cross-workspace` to redo it anyway, or use `jj op revert` to revert a specific undo operation.
-
-**Usage:** `jj redo [OPTIONS]`
-
-###### **Options:**
-
-* `--allow-cross-workspace` — Allow redoing an undo-operation that was performed in another workspace
+**Usage:** `jj redo`
 
 
 
@@ -3707,21 +3701,15 @@ An untracked remote tag is just a pointer to the last-fetched remote tag. It won
 
 ## `jj undo`
 
-Undo the last operation
+Undo the last operation in the current workspace
 
-If used once after a normal (non-`undo`) operation, this will undo that last operation by reverting it. If `jj undo` is used repeatedly, it will revert increasingly older operations, going further back into the past.
+This reverts the most recent operation performed in the current workspace, leaving changes made by operations in other workspaces in place. If `jj undo` is used repeatedly, it will revert increasingly older operations, going further back into the past.
 
 There is also a complementary `jj redo` command that would instead move in the direction of the future after one or more `jj undo`s.
 
 Use `jj op log` to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also `jj op revert` to revert a specific operation by its id, and `jj op restore` to restore the whole repo to an older operation.
 
-By default, `jj undo` refuses to undo an operation that was performed in another workspace, since that is usually not what you meant to undo. Pass `--allow-cross-workspace` to undo it anyway, or use `jj op revert` to revert a specific operation.
-
-**Usage:** `jj undo [OPTIONS]`
-
-###### **Options:**
-
-* `--allow-cross-workspace` — Allow undoing an operation that was performed in another workspace
+**Usage:** `jj undo`
 
 
 

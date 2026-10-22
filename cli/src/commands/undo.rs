@@ -22,11 +22,12 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_walk;
 use jj_lib::operation::Operation;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
 
 use crate::cli_util::CommandHelper;
-use crate::cli_util::short_operation_hash;
 use crate::command_error::CommandError;
+use crate::command_error::internal_error;
 use crate::command_error::user_error;
 #[cfg(feature = "git")]
 use crate::commands::git::is_push_operation;
@@ -34,11 +35,12 @@ use crate::commands::operation::DEFAULT_REVERT_WHAT;
 use crate::commands::operation::revert_operation;
 use crate::ui::Ui;
 
-/// Undo the last operation
+/// Undo the last operation in the current workspace
 ///
-/// If used once after a normal (non-`undo`) operation, this will undo that last
-/// operation by reverting it. If `jj undo` is used repeatedly, it will revert
-/// increasingly older operations, going further back into the past.
+/// This reverts the most recent operation performed in the current workspace,
+/// leaving changes made by operations in other workspaces in place. If `jj
+/// undo` is used repeatedly, it will revert increasingly older operations,
+/// going further back into the past.
 ///
 /// There is also a complementary `jj redo` command that would instead move in
 /// the direction of the future after one or more `jj undo`s.
@@ -47,15 +49,10 @@ use crate::ui::Ui;
 /// detailed description of any past undo/redo operations. See also `jj op
 /// revert` to revert a specific operation by its id, and `jj op restore` to
 /// restore the whole repo to an older operation.
-///
-/// By default, `jj undo` refuses to undo an operation that was performed in
-/// another workspace, since that is usually not what you meant to undo. Pass
-/// `--allow-cross-workspace` to undo it anyway, or use `jj op revert` to revert
-/// a specific operation.
 #[derive(clap::Args, Clone, Debug)]
 pub struct UndoArgs {
-    /// Allow undoing an operation that was performed in another workspace
-    #[arg(long)]
+    /// Deprecated; has no effect
+    #[arg(long, hide = true)]
     allow_cross_workspace: bool,
 }
 
@@ -120,15 +117,19 @@ pub(crate) enum StackKind {
     Redo,
 }
 
-/// Finds the operation `jj undo` or `jj redo` should revert.
+/// Finds the operation `jj undo` or `jj redo` should revert in the given
+/// workspace.
 ///
-/// For `jj undo`, that's the most recent regular operation that hasn't been
-/// undone. For `jj redo`, it's the most recent undo-operation that hasn't been
-/// redone, as long as no regular operation was performed after it.
+/// For `jj undo`, that's the most recent regular operation performed in the
+/// workspace that hasn't been undone. For `jj redo`, it's the most recent
+/// undo-operation performed in the workspace that hasn't been redone, as long
+/// as no regular operation was performed in the workspace after it.
 ///
-/// Undo- and redo-operations cancel the operation they reverted, so repeated
-/// `jj undo` walks further back into the past. This also means that `jj undo`
-/// "jumps over" old undo-stacks. Consider this op log:
+/// Operations performed in other workspaces are skipped, as are merge
+/// operations. Undo- and redo-operations cancel the operation they reverted,
+/// so repeated `jj undo` walks further back into the past. This also means
+/// that `jj undo` "jumps over" old undo-stacks. Consider this op log, where
+/// all operations were performed in the same workspace:
 ///
 /// ```text
 /// G "undo: revert operation B"
@@ -144,6 +145,7 @@ pub(crate) enum StackKind {
 /// recent operation that hadn't been undone was B.
 pub(crate) async fn find_stack_target(
     repo: &ReadonlyRepo,
+    workspace_name: &WorkspaceName,
     kind: StackKind,
 ) -> Result<Option<Operation>, CommandError> {
     let mut canceled: HashSet<OperationId> = HashSet::new();
@@ -152,27 +154,39 @@ pub(crate) async fn find_stack_target(
         if canceled.contains(op.id()) {
             continue;
         }
+        let is_own = op.metadata().workspace_name.as_deref() == Some(workspace_name);
         match StackEntry::parse(&op) {
             StackEntry::Regular => {
+                if !is_own || op.parent_ids().len() != 1 {
+                    continue;
+                }
                 return Ok(match kind {
                     StackKind::Undo => Some(op),
                     StackKind::Redo => None,
                 });
             }
-            StackEntry::Undo(reverted) => match kind {
-                StackKind::Undo => {
+            StackEntry::Undo(reverted) => {
+                if !is_own {
+                    continue;
+                }
+                match kind {
+                    StackKind::Undo => {
+                        canceled.insert(reverted);
+                    }
+                    StackKind::Redo => return Ok(Some(op)),
+                }
+            }
+            StackEntry::Redo(reverted) => {
+                if is_own {
                     canceled.insert(reverted);
                 }
-                StackKind::Redo => return Ok(Some(op)),
-            },
-            StackEntry::Redo(reverted) => {
-                canceled.insert(reverted);
             }
             StackEntry::LegacyRestore { restored, is_undo } => {
-                if is_undo && kind == StackKind::Redo {
+                if is_own && is_undo && kind == StackKind::Redo {
                     return Ok(Some(op));
                 }
-                // Everything since the restored operation was discarded.
+                // Everything since the restored operation was discarded,
+                // regardless of which workspace it was performed in.
                 let restored = repo.loader().load_operation(&restored).await?;
                 let discarded: Vec<_> =
                     op_walk::walk_ancestors_range(&op.parents().await?, slice::from_ref(&restored))
@@ -191,24 +205,21 @@ pub async fn cmd_undo(
     command: &CommandHelper,
     args: &UndoArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui).await?;
-    let target_op = find_stack_target(workspace_command.repo(), StackKind::Undo)
-        .await?
-        .ok_or_else(|| user_error("Nothing to undo"))?;
-    if !args.allow_cross_workspace
-        && let Some(op_workspace_name) = &target_op.metadata().workspace_name
-        && op_workspace_name != workspace_command.workspace_name()
-    {
-        return Err(user_error(format!(
-            "Refusing to undo operation {} because it was performed in workspace {}",
-            short_operation_hash(target_op.id()),
-            op_workspace_name.as_symbol()
-        ))
-        .hinted(
-            "Use `--allow-cross-workspace` to undo it anyway, or use `jj op revert` to revert a \
-             specific operation",
-        ));
+    if args.allow_cross_workspace {
+        writeln!(
+            ui.warning_default(),
+            "`--allow-cross-workspace` is deprecated and has no effect; `jj undo` only considers \
+             operations performed in the current workspace"
+        )?;
     }
+    let mut workspace_command = command.workspace_helper(ui).await?;
+    let target_op = find_stack_target(
+        workspace_command.repo(),
+        workspace_command.workspace_name(),
+        StackKind::Undo,
+    )
+    .await?
+    .ok_or_else(|| user_error("Nothing to undo in this workspace"))?;
 
     #[cfg(feature = "git")]
     if is_push_operation(&target_op) {
@@ -234,14 +245,12 @@ pub async fn cmd_undo(
         )?;
     }
 
-    let target_op_parent = match target_op.parents().await?.into_iter().at_most_one() {
-        Ok(Some(op)) => op,
-        Ok(None) => return Err(user_error("Cannot undo root operation")),
-        Err(_) => {
-            return Err(user_error("Cannot undo a merge operation")
-                .hinted("Consider using `jj op restore` instead"));
-        }
-    };
+    let target_op_parent = target_op
+        .parents()
+        .await?
+        .into_iter()
+        .exactly_one()
+        .map_err(|_| internal_error("Operation to undo should have a single parent"))?;
 
     let mut tx = workspace_command.start_transaction();
     revert_operation(&mut tx, &target_op, &target_op_parent, &DEFAULT_REVERT_WHAT).await?;
@@ -267,10 +276,21 @@ mod tests {
 
     use super::*;
 
-    /// Commits an operation that doesn't change the repo. `find_stack_target()`
-    /// only looks at the descriptions and the operation graph.
+    /// Commits an operation in the default workspace that doesn't change the
+    /// repo. `find_stack_target()` only looks at the descriptions, workspace
+    /// names, and the operation graph.
     fn write_op(repo: &Arc<ReadonlyRepo>, description: &str) -> TestResult<Arc<ReadonlyRepo>> {
-        Ok(repo.start_transaction().commit(description).block_on()?)
+        write_op_in_workspace(repo, WorkspaceName::DEFAULT, description)
+    }
+
+    fn write_op_in_workspace(
+        repo: &Arc<ReadonlyRepo>,
+        workspace_name: &WorkspaceName,
+        description: &str,
+    ) -> TestResult<Arc<ReadonlyRepo>> {
+        let mut tx = repo.start_transaction();
+        tx.set_workspace_name(workspace_name);
+        Ok(tx.commit(description).block_on()?)
     }
 
     /// Commits an undo-operation like older versions of jj did, i.e. one that
@@ -294,7 +314,7 @@ mod tests {
     }
 
     fn find_target(repo: &ReadonlyRepo, kind: StackKind) -> TestResult<Option<OperationId>> {
-        let op = find_stack_target(repo, kind)
+        let op = find_stack_target(repo, WorkspaceName::DEFAULT, kind)
             .block_on()
             .map_err(|err| err.error)?;
         Ok(op.map(|op| op.id().clone()))
@@ -403,6 +423,27 @@ mod tests {
             Some(repo_b.op_id().clone())
         );
         assert_eq!(find_target(&repo_b, StackKind::Redo)?, None);
+        Ok(())
+    }
+
+    #[test]
+    fn test_legacy_undo_in_other_workspace() -> TestResult {
+        let test_repo = TestRepo::init();
+        let repo_a = write_op(&test_repo.repo, "a")?;
+        let repo_b = write_op(&repo_a, "b")?;
+        let repo_c = write_op(&repo_b, "c")?;
+        // Undo C from another workspace by restoring B
+        let description = format!("{LEGACY_UNDO_OP_DESC_PREFIX}{}", repo_b.op_id().hex());
+        let repo_undo = write_op_in_workspace(&repo_c, "other".as_ref(), &description)?;
+
+        // C was discarded even though the undo-operation was performed in
+        // another workspace
+        assert_eq!(
+            find_target(&repo_undo, StackKind::Undo)?,
+            Some(repo_b.op_id().clone())
+        );
+        // The undo-operation can only be redone from the other workspace
+        assert_eq!(find_target(&repo_undo, StackKind::Redo)?, None);
         Ok(())
     }
 }
