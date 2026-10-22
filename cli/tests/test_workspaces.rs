@@ -2487,7 +2487,6 @@ fn test_workspaces_remove_undo_readd() {
     Warning: Undoing a workspace removal restores the workspace, but does not restore the workspace directory.
     Hint: Run `jj workspace forget` then `jj workspace add` to recreate the directory.
     Undid operation: 658813fd1183 (2001-02-03 08:05:10) remove workspace secondary
-    Restored to operation: 7854baeee5c6 (2001-02-03 08:05:09) create initial working-copy commit in workspace secondary
     [EOF]
     ");
 

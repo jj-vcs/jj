@@ -49,6 +49,11 @@ and this project adheres to
   behavior unless you add `| (working_copies() ~ present(@))` to your
   definition. See [docs](docs/config.md#set-of-immutable-commits)
 
+* `jj undo` and `jj redo` now revert the operation (like `jj op revert`) instead
+  of restoring the repo to an earlier operation. When used with
+  `--allow-cross-workspace`, changes made from other workspaces since the
+  undone operation are therefore kept.
+
 ### Deprecations
 
 ### New features
