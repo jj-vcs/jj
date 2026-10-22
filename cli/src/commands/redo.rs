@@ -17,7 +17,6 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 
 use crate::cli_util::CommandHelper;
-use crate::cli_util::short_operation_hash;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
@@ -29,26 +28,22 @@ use crate::commands::undo::UNDO_OP_DESC_PREFIX;
 use crate::commands::undo::find_stack_target;
 use crate::ui::Ui;
 
-/// Redo the most recently undone operation
+/// Redo the most recently undone operation in the current workspace
 ///
 /// This is the natural counterpart of `jj undo`. Repeated invocations of `jj
 /// undo` and `jj redo` act similarly to Undo/Redo commands in a text editor.
-/// `jj redo` reverts the most recent undo-operation, as long as no other
-/// operation was performed after it.
+/// `jj redo` reverts the most recent undo-operation performed in the current
+/// workspace, as long as no other operation was performed in the workspace
+/// after it.
 ///
 /// Use `jj op log` to visualize the log of past operations, including a
 /// detailed description of any past undo/redo operations. See also `jj op
 /// revert` to revert a specific operation by its id, and `jj op restore` to
 /// restore the whole repo to an older operation.
-///
-/// By default, `jj redo` refuses to redo an undo-operation that was performed
-/// in another workspace, since that is usually not what you meant to redo. Pass
-/// `--allow-cross-workspace` to redo it anyway, or use `jj op revert` to revert
-/// a specific undo operation.
 #[derive(clap::Args, Clone, Debug)]
 pub struct RedoArgs {
-    /// Allow redoing an undo-operation that was performed in another workspace
-    #[arg(long)]
+    /// Deprecated; has no effect
+    #[arg(long, hide = true)]
     allow_cross_workspace: bool,
 }
 
@@ -57,24 +52,21 @@ pub async fn cmd_redo(
     command: &CommandHelper,
     args: &RedoArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui).await?;
-    let undo_op = find_stack_target(workspace_command.repo(), StackKind::Redo)
-        .await?
-        .ok_or_else(|| user_error("Nothing to redo"))?;
-    if !args.allow_cross_workspace
-        && let Some(op_workspace_name) = &undo_op.metadata().workspace_name
-        && op_workspace_name != workspace_command.workspace_name()
-    {
-        return Err(user_error(format!(
-            "Refusing to redo operation {} because it was performed in workspace {}",
-            short_operation_hash(undo_op.id()),
-            op_workspace_name.as_symbol()
-        ))
-        .hinted(
-            "Use `--allow-cross-workspace` to redo it anyway, or use `jj op revert` to revert a \
-             specific undo operation",
-        ));
+    if args.allow_cross_workspace {
+        writeln!(
+            ui.warning_default(),
+            "`--allow-cross-workspace` is deprecated and has no effect; `jj redo` only considers \
+             operations performed in the current workspace"
+        )?;
     }
+    let mut workspace_command = command.workspace_helper(ui).await?;
+    let undo_op = find_stack_target(
+        workspace_command.repo(),
+        workspace_command.workspace_name(),
+        StackKind::Redo,
+    )
+    .await?
+    .ok_or_else(|| user_error("Nothing to redo in this workspace"))?;
     let undo_op_parent = undo_op
         .parents()
         .await?
