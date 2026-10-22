@@ -49,10 +49,10 @@ and this project adheres to
   behavior unless you add `| (working_copies() ~ present(@))` to your
   definition. See [docs](docs/config.md#set-of-immutable-commits)
 
-* `jj undo` and `jj redo` now revert the operation (like `jj op revert`) instead
-  of restoring the repo to an earlier operation. When used with
-  `--allow-cross-workspace`, changes made from other workspaces since the
-  undone operation are therefore kept.
+* `jj undo` and `jj redo` now only undo/redo operations performed in the
+  current workspace, skipping operations from other workspaces. They revert the
+  operation (like `jj op revert`) instead of restoring the repo to an earlier
+  operation, so changes made from other workspaces in the meantime are kept.
 
 ### Deprecations
 
@@ -165,6 +165,9 @@ Thanks to the people who made this release happen!
 * The bookmarks and tags list now include absent targets for conflicted
   bookmarks and tags. The `.removed_targets()` and `.added_targets()` template
   methods now return `List<Option<Commit>>`.
+
+* The `--allow-cross-workspace` flag of `jj undo` and `jj redo` is deprecated
+  and has no effect.
 
 ### New features
 
