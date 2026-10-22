@@ -15,7 +15,7 @@ members = [
 [workspace.package]
 version = "0.46.0"
 license = "Apache-2.0"
-rust-version = "1.97.1" # NOTE: remember to update CI, mise.toml, contributing.md, changelog.md, and install-and-setup.md
+rust-version = "1.97.1" # NOTE: remember to update CI, mise.toml, contributing.md, install-and-setup.md, and add a changelog note
 edition = "2024"
 readme = "README.md"
 homepage = "https://www.jj-vcs.dev/"

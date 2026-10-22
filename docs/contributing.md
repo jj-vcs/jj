@@ -102,15 +102,21 @@ your company's interests, do feel free to approve it.
 
 ### Changelog entries
 
-When creating PRs, please update [`CHANGELOG.md`][changelog] with the new
-changes under the "Unreleased" section. Make sure to highlight any breaking
-changes or deprecations under the appropriate subsections. If you fixed a bug
-that has a corresponding issue, link the issue with Markdown link format, so
-that the changelog page on the generated docs can point to the actual issue.
-Generally a maintainer will update "Release highlights" during a release as
-needed, but feel free to add your change there if it makes sense. The order in
-each subsection does not really matter, so you can add your entry to the
-beginning or the end.
+If your PR should have a changelog entry, add a changelog note in the
+`changelog` directory. Run this command anywhere in the repository (it needs
+[`uv`](#install-uv)) and answer the questions it asks:
+
+```shell
+uv run changelog new
+```
+
+This creates a Markdown file in the `changelog/` directory. Include it in the
+commit that makes the change. Don't edit `CHANGELOG.md`; the notes are compiled
+into it during a release. Make sure to mark any breaking changes or
+deprecations as such. If you fixed a bug that has a corresponding issue, link
+the issue with Markdown link format, so that the changelog page on the
+generated docs can point to the actual issue. A maintainer will add "Release
+highlights" during a release as needed.
 
 Not every change requires a changelog entry. Generally, changelog entries are
 useful for two reasons:
@@ -123,8 +129,6 @@ useful for two reasons:
 By this reasoning, it's not necessary to mention changes that people will simply
 notice when they run into them (or not notice at all), such as a reworded error
 message, backend refactors, or documentation updates.
-
-[changelog]: https://github.com/jj-vcs/jj/blob/main/CHANGELOG.md
 
 ### Community Guidelines
 
