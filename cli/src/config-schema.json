@@ -785,7 +785,7 @@
                 "workspace-add": {
                     "type": "string",
                     "description": "Default parents of the new working-copy commit when no explicit revset is given for jj workspace add",
-                    "default": "@-"
+                    "default": "heads(::@ & immutable())"
                 }
             },
             "additionalProperties": {

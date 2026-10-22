@@ -20,7 +20,7 @@ op-diff-changes-in = "mutable() | immutable_heads()"
 sign = "reachable(@, mutable())"
 bookmark-advance-to = "@"
 bookmark-advance-from = "heads(::to & bookmarks())"
-workspace-add = "@-"
+workspace-add = "heads(::@ & immutable())"
 
 [revset-aliases]
 # trunk() can be overridden as '<bookmark>@<remote>'.
