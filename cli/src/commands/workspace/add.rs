@@ -14,6 +14,7 @@
 
 use std::fs;
 
+use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use jj_lib::commit::CommitIteratorExt as _;
@@ -25,6 +26,7 @@ use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git::create_worktree;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::workspace::Workspace;
 use tracing::instrument;
@@ -72,9 +74,11 @@ pub struct WorkspaceAddArgs {
     /// created workspace. You may specify nothing, or any number of parents.
     ///
     /// If no revisions are specified, the new workspace will be created, and
-    /// its working-copy commit will exist on top of the parent(s) of the
-    /// working-copy commit in the current workspace, i.e. they will share the
-    /// same parent(s).
+    /// its working-copy commit will exist on top of the closest immutable
+    /// ancestors of the working-copy commit in the current workspace, i.e.
+    /// `heads(::@ & immutable())`. That way, the workspaces don't share any
+    /// mutable commits, which reduces the risk of making one of them stale
+    /// or causing divergence when rewriting commits from the other.
     ///
     /// If any revisions are specified, the new workspace will be created, and
     /// the new working-copy commit will be created with all these revisions as
@@ -139,13 +143,35 @@ pub async fn cmd_workspace_add(
     }
     // Resolve the parents before creating the workspace so an invalid revset
     // doesn't leave a half-created workspace behind. If no parent revisions are
-    // specified, create a working-copy commit based on the parents of the current
-    // working-copy commit.
+    // specified, create a working-copy commit based on the closest immutable
+    // ancestors of the current working-copy commit.
+    let mut based_on_immutable_ancestors = false;
     let parents = if args.revisions.is_empty() {
-        // Check out parents of the current workspace's working-copy commit, or the
-        // root if there is no working-copy commit in the current workspace.
+        // Check out the closest immutable ancestors of the current workspace's
+        // working-copy commit, or the root if there is no working-copy commit in
+        // the current workspace.
         if let Some(old_wc_commit) = old_workspace_command.get_wc_commit().await? {
-            old_wc_commit.parents().await?
+            let expression = RevsetExpression::commit(old_wc_commit.id().clone())
+                .ancestors()
+                .intersection(&old_workspace_command.env().immutable_expression())
+                .heads();
+            let parent_ids: Vec<_> = old_workspace_command
+                .attach_revset_evaluator(expression)
+                .evaluate_to_commit_ids()?
+                .try_collect()
+                .await?;
+            // Only tell the user about it if the result differs from the
+            // current working copy's parents.
+            based_on_immutable_ancestors = !parent_ids
+                .iter()
+                .sorted()
+                .eq(old_wc_commit.parent_ids().iter().sorted());
+            try_join_all(
+                parent_ids
+                    .iter()
+                    .map(|id| repo.store().get_commit_async(id)),
+            )
+            .await?
         } else {
             vec![repo.store().root_commit()]
         }
@@ -248,6 +274,17 @@ pub async fn cmd_workspace_add(
     // Attribute the operation to the workspace the command was run in, so e.g.
     // `jj undo` there undoes it
     tx.set_workspace_name(old_workspace_command.workspace_name());
+    if based_on_immutable_ancestors {
+        writeln!(
+            ui.status(),
+            "Created working copy on top of the closest immutable ancestors of the current \
+             working copy."
+        )?;
+        writeln!(
+            ui.hint_default(),
+            "Use `-r @-` to create it on top of the current working copy's parents instead."
+        )?;
+    }
 
     let tree = merge_commit_trees(tx.repo(), &parents).await?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
