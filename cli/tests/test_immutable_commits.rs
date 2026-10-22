@@ -284,7 +284,7 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace_already_immutable() {
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "working_copies() ~ @""#);
     work_dir.run_jj(["new", "-m=a"]).success();
     let output = work_dir
-        .run_jj(["workspace", "add", "../workspace1"])
+        .run_jj(["workspace", "add", "-r", "@-", "../workspace1"])
         .success();
     // The current workspace is immutable from the new workspace's perspective,
     // but we should not create a new commit for it.
