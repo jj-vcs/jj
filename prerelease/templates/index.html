@@ -3586,6 +3586,10 @@ only occur directly in the call site they are used in.</p>
 <li><code>.normal_value() -&gt; Option&lt;TreeValue&gt;</code>: The resolved value of the entry, or none
   if the entry is absent or conflicted. Here, "normal" means resolved, not just a
   regular file: symlinks, trees, and Git submodules are also included.</li>
+<li><code>.removed_values() -&gt; List&lt;Option&lt;TreeValue&gt;&gt;</code>: Negative (<code>removes</code>) terms of
+  the entry if conflicted. Absent terms are <code>none</code>.</li>
+<li><code>.added_values() -&gt; List&lt;Option&lt;TreeValue&gt;&gt;</code>: Positive (<code>adds</code>) terms of the
+  entry. The list usually contains one resolved value. Absent terms are <code>none</code>.</li>
 <li><code>.conflict() -&gt; Boolean</code>: True if the entry is a merge conflict.</li>
 <li><code>.conflict_side_count() -&gt; Integer</code>: Number of sides in the merge conflict (1 if not
   conflicted, 2 or more for multi-way merges).</li>
@@ -3597,7 +3601,14 @@ only occur directly in the call site they are used in.</p>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: yes</em></p>
 <p>A file, symlink, tree, or Git submodule value. Its default formatting is
 its full hexadecimal object ID. For a Git submodule, this is the recorded commit
-ID. No methods are defined.</p>
+ID. The following methods are defined.</p>
+<ul>
+<li><code>.object_id() -&gt; String</code>: Full hexadecimal object ID for files (<code>file_id</code>),
+  symlinks (<code>symlink_id</code>), trees (<code>tree_id</code>), or Git submodules (<code>commit_id</code>).</li>
+<li><code>.file_type() -&gt; String</code>: One of <code>"file"</code>, <code>"symlink"</code>, <code>"tree"</code>, or
+  <code>"git-submodule"</code>.</li>
+<li><code>.executable() -&gt; Boolean</code>: True if the value is an executable file.</li>
+</ul>
 <h3 id="workspaceref-type"><code>WorkspaceRef</code> type<a class="headerlink" href="#workspaceref-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
 <p>The following methods are defined.</p>

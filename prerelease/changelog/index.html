@@ -7849,6 +7849,12 @@ and this project adheres to
 <p><code>jj config gc</code> now also cleans up workspace configs whose paths no longer
   exist.</p>
 </li>
+<li>
+<p>The <code>TreeEntry</code> template type now has <code>.removed_values() -&gt; List&lt;Option&lt;TreeValue&gt;&gt;</code>
+  and <code>.added_values() -&gt; List&lt;Option&lt;TreeValue&gt;&gt;</code> methods, and <code>TreeValue</code> now
+  exposes <code>.object_id()</code>, <code>.file_type()</code>, and <code>.executable()</code> methods for
+  inspecting each side of a (possibly conflicted) tree entry.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
