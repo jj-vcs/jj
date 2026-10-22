@@ -2591,6 +2591,7 @@ fn test_import_export_head_bare_and_worktree() -> TestResult {
         repo,
         &*default_working_copy_factory(),
         "wt".into(),
+        None,
     )
     .block_on()?;
     let work_git_repo = get_git_backend(&repo).open_git_repo_at_workdir(&workspace_root)?;

@@ -130,17 +130,23 @@ fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
     }
 }
 
+/// Adds the workspace to the repo view and initializes its working copy. The
+/// operation is attributed to `operation_workspace_name` if given.
 async fn init_working_copy(
     repo: &Arc<ReadonlyRepo>,
     workspace_root: &Path,
     jj_dir: &Path,
     working_copy_factory: &dyn WorkingCopyFactory,
     workspace_name: WorkspaceNameBuf,
+    operation_workspace_name: Option<&WorkspaceName>,
 ) -> Result<(Box<dyn WorkingCopy>, Arc<ReadonlyRepo>), WorkspaceInitError> {
     let working_copy_state_path = jj_dir.join("working_copy");
     std::fs::create_dir(&working_copy_state_path).context(&working_copy_state_path)?;
 
     let mut tx = repo.start_transaction();
+    if let Some(operation_workspace_name) = operation_workspace_name {
+        tx.set_workspace_name(operation_workspace_name);
+    }
     tx.repo_mut()
         .check_out(workspace_name.clone(), &repo.store().root_commit())
         .await?;
@@ -365,6 +371,7 @@ impl Workspace {
                 &jj_dir,
                 working_copy_factory,
                 workspace_name.to_owned(),
+                None,
             )
             .await?;
             let repo_loader = repo.loader().clone();
@@ -410,6 +417,7 @@ impl Workspace {
         repo: &Arc<ReadonlyRepo>,
         working_copy_factory: &dyn WorkingCopyFactory,
         workspace_name: WorkspaceNameBuf,
+        operation_workspace_name: Option<&WorkspaceName>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
 
@@ -433,6 +441,7 @@ impl Workspace {
             &jj_dir,
             working_copy_factory,
             workspace_name,
+            operation_workspace_name,
         )
         .await?;
         let workspace = Self::new(

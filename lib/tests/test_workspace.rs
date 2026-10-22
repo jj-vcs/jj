@@ -60,8 +60,14 @@ fn test_init_additional_workspace() -> TestResult {
         &test_workspace.repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        Some(WorkspaceName::DEFAULT),
     )
     .block_on()?;
+    // The operation is attributed to the workspace it was added from
+    assert_eq!(
+        repo.operation().metadata().workspace_name.as_deref(),
+        Some(WorkspaceName::DEFAULT)
+    );
     let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
     assert_ne!(wc_commit_id, None);
     let wc_commit_id = wc_commit_id.unwrap();
@@ -114,6 +120,7 @@ fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
         &test_workspace.repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        None,
     )
     .block_on()?;
 
@@ -170,6 +177,7 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
         &repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        None,
     )
     .block_on()?;
     assert_eq!(ws2.workspace_name(), &ws2_name);

@@ -68,6 +68,10 @@ and this project adheres to
 
 ### Fixed bugs
 
+* The operations created by `jj workspace add` are now attributed to the
+  workspace the command was run in, so `jj undo` there undoes them instead of
+  refusing to undo an operation from another workspace.
+
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
   correct UTC offset on days with a daylight savings transition. Previously,
   the offset from the start of the day was used, so times after were off
