@@ -1542,7 +1542,6 @@ fn test_git_fetch_undo() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Undid operation: 23c6d6089da4 (2001-02-03 08:05:20) fetch from git remote(s) origin
-    Restored to operation: f9f128e730c0 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     // The undo works as expected
