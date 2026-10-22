@@ -92,7 +92,8 @@ and this project adheres to
   of always using the `snapshot` style.
   [#10390](https://github.com/jj-vcs/jj/issues/10390)
 
-* Deeply nested revset expressions are now rejected instead of causing a crash.
+* Deeply nested revset and fileset expressions are now rejected instead of
+  causing a crash.
   [#10071](https://github.com/jj-vcs/jj/issues/10071)
 
 ## [0.46.0] - 2026-10-07
