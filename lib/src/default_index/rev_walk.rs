@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::Fuse;
 use std::iter::FusedIterator;
+use std::mem::replace;
 use std::ops::Range;
 
 use smallvec::SmallVec;
@@ -270,13 +271,24 @@ impl RevWalkDescendantsIndex {
     fn build(
         index: &CompositeCommitIndex,
         positions: impl IntoIterator<Item = GlobalCommitPosition>,
+        wanted_parents_range: Range<u32>,
     ) -> Self {
         // For dense set, it's probably cheaper to use `Vec` instead of `HashMap`.
         let mut children_map: HashMap<GlobalCommitPosition, DescendantIndexPositionsVec> =
             HashMap::new();
         for pos in positions {
             children_map.entry(pos).or_default(); // mark head node
-            for parent_pos in index.entry_by_pos(pos).parent_positions() {
+            for parent_pos in index
+                .entry_by_pos(pos)
+                .parent_positions()
+                .into_iter()
+                .skip(wanted_parents_range.start as usize)
+                .take(
+                    wanted_parents_range
+                        .end
+                        .saturating_sub(wanted_parents_range.start) as usize,
+                )
+            {
                 let parent = children_map.entry(parent_pos).or_default();
                 parent.push(Reverse(pos));
             }
@@ -408,10 +420,12 @@ impl<'a> RevWalkBuilder<'a> {
     /// The returned iterator yields entries in order of ascending index
     /// position.
     pub fn descendants(
-        self,
+        mut self,
         root_positions: HashSet<GlobalCommitPosition>,
     ) -> RevWalkDescendants<'a> {
         let index = self.index;
+        // Don't filter parents when finding candidates
+        let wanted_parents_range = replace(&mut self.wanted_parents_range, PARENTS_RANGE_FULL);
         let candidate_positions = self
             .ancestors_until_roots(root_positions.iter().copied())
             .collect();
@@ -421,6 +435,7 @@ impl<'a> RevWalkBuilder<'a> {
                 candidate_positions,
                 root_positions,
                 reachable_positions: HashSet::new(),
+                wanted_parents_range,
             },
         }
     }
@@ -433,13 +448,16 @@ impl<'a> RevWalkBuilder<'a> {
     /// The returned iterator yields entries in order of ascending index
     /// position.
     pub fn descendants_filtered_by_generation(
-        self,
+        mut self,
         root_positions: Vec<GlobalCommitPosition>,
         generation_range: Range<u32>,
     ) -> RevWalkDescendantsGenerationRange {
         let index = self.index;
+        // Don't filter parents when finding the initial positions
+        let wanted_parents_range = replace(&mut self.wanted_parents_range, PARENTS_RANGE_FULL);
         let positions = self.ancestors_until_roots(root_positions.iter().copied());
-        let descendants_index = RevWalkDescendantsIndex::build(index.commits(), positions);
+        let descendants_index =
+            RevWalkDescendantsIndex::build(index.commits(), positions, wanted_parents_range);
 
         let mut wanted_queue = RevWalkQueue::with_min_pos(Reverse(GlobalCommitPosition::MAX));
         let unwanted_queue = RevWalkQueue::with_min_pos(Reverse(GlobalCommitPosition::MAX));
@@ -640,6 +658,7 @@ pub(super) struct RevWalkDescendantsImpl {
     candidate_positions: Vec<GlobalCommitPosition>,
     root_positions: HashSet<GlobalCommitPosition>,
     reachable_positions: HashSet<GlobalCommitPosition>,
+    wanted_parents_range: Range<u32>,
 }
 
 impl RevWalkDescendants<'_> {
@@ -660,11 +679,12 @@ impl RevWalk<CompositeIndex> for RevWalkDescendantsImpl {
         let index = index.commits();
         while let Some(candidate_pos) = self.candidate_positions.pop() {
             if self.root_positions.contains(&candidate_pos)
-                || index
-                    .entry_by_pos(candidate_pos)
-                    .parent_positions()
-                    .iter()
-                    .any(|parent_pos| self.reachable_positions.contains(parent_pos))
+                || filter_slice_by_range(
+                    &index.entry_by_pos(candidate_pos).parent_positions(),
+                    &self.wanted_parents_range,
+                )
+                .iter()
+                .any(|parent_pos| self.reachable_positions.contains(parent_pos))
             {
                 self.reachable_positions.insert(candidate_pos);
                 return Some(candidate_pos);
