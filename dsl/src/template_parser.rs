@@ -98,6 +98,7 @@ impl Rule {
             Self::rem_op => Some("%"),
             Self::logical_not_op => Some("!"),
             Self::negate_op => Some("-"),
+            Self::dot_op => Some("."),
             Self::pattern_kind_op => Some(":"),
             Self::prefix_ops => None,
             Self::infix_ops => None,
@@ -642,22 +643,25 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
         other => panic!("unexpected term: {other:?}"),
     };
     let primary_node = ExpressionNode::new(primary_kind, primary_span);
-    inner.try_fold(primary_node, |object, chain| {
-        assert_eq!(chain.as_rule(), Rule::function);
-        let span = object.span.start_pos().span(&chain.as_span().end_pos());
-        let method = Box::new(MethodCallNode {
-            object,
-            function: FUNCTION_CALL_PARSER.parse(
-                chain,
-                parse_identifier_name,
-                parse_template_node,
-            )?,
-        });
-        Ok(ExpressionNode::new(
-            ExpressionKind::MethodCall(method),
-            span,
-        ))
-    })
+    inner
+        .tuples()
+        .try_fold(primary_node, |object, (op, chain)| {
+            assert_eq!(op.as_rule(), Rule::dot_op);
+            assert_eq!(chain.as_rule(), Rule::function);
+            let span = object.span.start_pos().span(&chain.as_span().end_pos());
+            let method = Box::new(MethodCallNode {
+                object,
+                function: FUNCTION_CALL_PARSER.parse(
+                    chain,
+                    parse_identifier_name,
+                    parse_template_node,
+                )?,
+            });
+            Ok(ExpressionNode::new(
+                ExpressionKind::MethodCall(method),
+                span,
+            ))
+        })
 }
 
 fn parse_expression_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
