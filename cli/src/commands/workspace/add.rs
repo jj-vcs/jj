@@ -72,10 +72,13 @@ pub struct WorkspaceAddArgs {
     /// created workspace. You may specify nothing, or any number of parents.
     ///
     /// If no revisions are specified, this defaults to the
-    /// `revsets.workspace-add` setting, or `@-` if it is not set. The revset
-    /// is evaluated in the current workspace, so with the default setting, the
-    /// working-copy commits of the current workspace and the new workspace
-    /// will share the same parent(s).
+    /// `revsets.workspace-add` setting, or `heads(::@ & immutable())` if it is
+    /// not set. The revset is evaluated in the current workspace, so with the
+    /// default setting, the new working-copy commit will be created on top of
+    /// the closest immutable ancestors of the current working-copy commit.
+    /// That way, the workspaces don't share any mutable commits, which reduces
+    /// the risk of making one of them stale or causing divergence when
+    /// rewriting commits from the other.
     ///
     /// If any revisions are specified, the new workspace will be created, and
     /// the new working-copy commit will be created with all these revisions as
@@ -141,6 +144,7 @@ pub async fn cmd_workspace_add(
     // Resolve the parents before creating the workspace so an invalid revset
     // doesn't leave a half-created workspace behind. If no parent revisions are
     // specified, use `revsets.workspace-add`.
+    let mut differs_from_wc_parents = false;
     let parent_ids = if !args.revisions.is_empty() {
         old_workspace_command
             .resolve_some_revsets(ui, &args.revisions)
@@ -149,10 +153,19 @@ pub async fn cmd_workspace_add(
         let revset = old_workspace_command
             .settings()
             .get_string("revsets.workspace-add")?;
-        old_workspace_command
+        let parent_ids = old_workspace_command
             .resolve_some_revsets(ui, &[RevisionArg::from(revset)])
             .await
-            .map_err(|err| err.hinted("Use `--revision` to specify parent revisions."))?
+            .map_err(|err| err.hinted("Use `--revision` to specify parent revisions."))?;
+        if let Some(old_wc_commit) = old_workspace_command.get_wc_commit().await? {
+            // Only tell the user about it if the result differs from the current
+            // working copy's parents.
+            differs_from_wc_parents = !parent_ids
+                .iter()
+                .sorted()
+                .eq(old_wc_commit.parent_ids().iter().sorted());
+        }
+        parent_ids
     };
     let parents = try_join_all(
         parent_ids
@@ -249,6 +262,18 @@ pub async fn cmd_workspace_add(
     // Attribute the operation to the workspace the command was run in, so e.g.
     // `jj undo` there undoes it
     tx.set_workspace_name(old_workspace_command.workspace_name());
+    // TODO: Delete this warning in jj 0.54+
+    if differs_from_wc_parents {
+        writeln!(
+            ui.status(),
+            "Created working copy on top of `revsets.workspace-add` instead of the current \
+             working copy's parents."
+        )?;
+        writeln!(
+            ui.hint_default(),
+            "Use `-r @-` to create it on top of the current working copy's parents instead."
+        )?;
+    }
 
     let tree = merge_commit_trees(tx.repo(), &parents).await?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
