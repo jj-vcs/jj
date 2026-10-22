@@ -40,6 +40,7 @@ use crate::dsl_util::AliasExpandError;
 use crate::dsl_util::AliasExpandableExpression;
 use crate::dsl_util::AliasId;
 use crate::dsl_util::AliasesMap;
+use crate::dsl_util::DepthRole;
 use crate::dsl_util::Diagnostics;
 use crate::dsl_util::ExpressionFolder;
 use crate::dsl_util::FoldableExpression;
@@ -57,6 +58,8 @@ mod private {
     pub struct TemplateParser;
 }
 
+const MAX_TREE_DEPTH: usize = 256;
+
 const STRING_LITERAL_PARSER: StringLiteralParser<Rule> = StringLiteralParser {
     content_rule: Rule::string_content,
     escape_rule: Rule::string_escape,
@@ -70,6 +73,63 @@ const FUNCTION_CALL_PARSER: FunctionCallParser<Rule> = FunctionCallParser {
 };
 
 impl Rule {
+    /// How this rule contributes to the estimated AST depth.
+    fn depth_role(self) -> DepthRole {
+        match self {
+            Self::EOI => DepthRole::Ignore,
+            Self::WHITESPACE => DepthRole::Ignore,
+            Self::string_escape => DepthRole::Ignore,
+            Self::string_content_char => DepthRole::Ignore,
+            Self::string_content => DepthRole::Ignore,
+            Self::string_literal => DepthRole::Ignore,
+            Self::raw_string_content => DepthRole::Ignore,
+            Self::raw_string_literal => DepthRole::Ignore,
+            Self::integer_literal => DepthRole::Ignore,
+            Self::identifier => DepthRole::Ignore,
+            Self::concat_op => DepthRole::Separate, // chained concatenations are flattened
+            Self::logical_or_op => DepthRole::Nest,
+            Self::logical_and_op => DepthRole::Nest,
+            Self::eq_op => DepthRole::Nest,
+            Self::ne_op => DepthRole::Nest,
+            Self::ge_op => DepthRole::Nest,
+            Self::gt_op => DepthRole::Nest,
+            Self::le_op => DepthRole::Nest,
+            Self::lt_op => DepthRole::Nest,
+            Self::add_op => DepthRole::Nest,
+            Self::sub_op => DepthRole::Nest,
+            Self::mul_op => DepthRole::Nest,
+            Self::div_op => DepthRole::Nest,
+            Self::rem_op => DepthRole::Nest,
+            Self::logical_not_op => DepthRole::Nest,
+            Self::negate_op => DepthRole::Nest,
+            Self::dot_op => DepthRole::Nest,
+            Self::pattern_kind_op => DepthRole::Nest,
+            Self::prefix_ops => DepthRole::Ignore,
+            Self::infix_ops => DepthRole::Ignore,
+            Self::function => DepthRole::Ignore,
+            Self::keyword_argument => DepthRole::Ignore,
+            Self::argument => DepthRole::Ignore,
+            Self::function_arguments => DepthRole::Ignore,
+            Self::lambda => DepthRole::Ignore,
+            Self::formal_parameters => DepthRole::Ignore,
+            Self::map => DepthRole::Ignore,
+            Self::map_entries => DepthRole::Ignore,
+            Self::map_entry => DepthRole::Ignore,
+            Self::pattern_identifier => DepthRole::Ignore,
+            Self::pattern => DepthRole::Ignore,
+            Self::pattern_value_expression => DepthRole::Ignore,
+            Self::primary => DepthRole::Ignore,
+            Self::term => DepthRole::Ignore,
+            Self::prefixed_term => DepthRole::Ignore,
+            Self::expression => DepthRole::Ignore,
+            Self::template => DepthRole::Nest, // "(" template ")"
+            Self::program => DepthRole::Ignore,
+            Self::function_alias_declaration => DepthRole::Ignore,
+            Self::pattern_alias_declaration => DepthRole::Ignore,
+            Self::alias_declaration => DepthRole::Ignore,
+        }
+    }
+
     fn to_symbol(self) -> Option<&'static str> {
         match self {
             Self::EOI => None,
@@ -741,6 +801,9 @@ fn parse_template_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> 
 pub fn parse_template(template_text: &str) -> TemplateParseResult<ExpressionNode<'_>> {
     let mut pairs: Pairs<Rule> = TemplateParser::parse(Rule::program, template_text)?;
     let first_pair = pairs.next().unwrap();
+    dsl_util::validate_tree_depth(first_pair.clone(), MAX_TREE_DEPTH, Rule::depth_role).map_err(
+        |pair| TemplateParseError::expression("Expression nesting limit exceeded", pair.as_span()),
+    )?;
     if first_pair.as_rule() == Rule::EOI {
         let span = first_pair.as_span();
         Ok(ExpressionNode::new(ExpressionKind::Concat(vec![]), span))
@@ -942,6 +1005,8 @@ pub fn lookup_method<'a, V>(
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
     use super::*;
     use crate::dsl_util::KeywordArgument;
     use crate::tests::TestResult;
@@ -1513,6 +1578,101 @@ mod tests {
         assert_matches!(
             parse_into_kind(&format!("{}", (i64::MAX as u64) + 1)),
             Err(TemplateParseErrorKind::Expression(_))
+        );
+    }
+
+    #[test]
+    fn test_parse_tree_depth() {
+        let depth = |text: &str| {
+            let mut pairs = TemplateParser::parse(Rule::program, text).unwrap();
+            dsl_util::estimate_tree_depth(pairs.next().unwrap(), Rule::depth_role)
+        };
+
+        assert_eq!(depth(""), 0);
+        assert_eq!(depth("a"), 1);
+        assert_eq!(depth("0"), 1);
+        assert_eq!(depth("true"), 1);
+        assert_eq!(depth("'a++(b)'"), 1); // string literal
+        assert_eq!(depth(r#""a\n++(b)\t""#), 1); // escaped string literal
+
+        assert_eq!(depth("!!!a"), 4);
+        assert_eq!(depth("----a"), 5);
+        assert_eq!(depth("a++b++c++d++e"), 2);
+        assert_eq!(depth("a||b||c||d||e"), 5);
+        assert_eq!(depth("a&&b&&c&&d&&e"), 5);
+        for op in ["==", "!=", ">=", ">", "<=", "<"] {
+            assert_eq!(depth(&format!("a{op}b")), 2, "operator {op}");
+        }
+        assert_eq!(depth("a+b-c"), 3);
+        assert_eq!(depth("a*b/c%d"), 4);
+        assert_eq!(depth("a*b+c<=d!=e&&f||g"), 7); // ((((((a*b)+c) <= d)!=e)&&f)||g)
+
+        assert_eq!(depth("a:b:c:d:e"), 5);
+        assert_eq!(depth("a:!b"), 3);
+        assert_eq!(depth("a:(b++c)"), 4);
+
+        assert_eq!(depth("(((a)))"), 4);
+        assert_eq!(depth("((a++b)&&c)++(d&&e)"), 6); // actual: 4
+        assert_eq!(depth("a++(b++c)"), 4); // actual: 3
+        assert_eq!(depth("(a&&b&&c&&d&&e)&&f&&g"), 8);
+        assert_eq!(depth("(a&&b&&c)&&d"), 5);
+        assert_eq!(depth("d&&(a&&b&&c)"), 5);
+        assert_eq!(depth("((a&&b&&c)&&d&&e)&&f&&g"), 9); // actual: 7
+        assert_eq!(depth("!a++!b++!c++!d++!e"), 3);
+        assert_eq!(depth("(a+b)++(c+d)++(e+f)"), 4); // actual: 3
+
+        assert_eq!(depth("f()"), 1);
+        assert_eq!(depth("f(a)"), 2);
+        assert_eq!(depth("f(g(a))"), 3);
+        assert_eq!(depth("f(g(h(i(a))))"), 5);
+        assert_eq!(depth("f(a, b, c)"), 4); // actual: 2
+        assert_eq!(depth("f(g(a), h(b))"), 4); // actual: 3
+        assert_eq!(depth("f(x=a, y=b)"), 2);
+        assert_eq!(depth("f(x=g(a))"), 3);
+        assert_eq!(depth("f(a++b)++c"), 4);
+
+        assert_eq!(depth("a.f()"), 2);
+        assert_eq!(depth("a.f().g()"), 3);
+        assert_eq!(depth("a.f(b).g()"), 4);
+        assert_eq!(depth("a.f().g(b.h())"), 5);
+        assert_eq!(depth("a.f(x=b).g(y=c)"), 4);
+        assert_eq!(depth("a.f()++b.g()++c.h()"), 3);
+
+        assert_eq!(depth("|| a"), 2);
+        assert_eq!(depth("|a, b, c| a"), 2);
+        assert_eq!(depth("|| || a"), 3);
+        assert_eq!(depth("a.map(|x| x.f())"), 5);
+        assert_eq!(depth("|| a++b"), 3);
+
+        assert_eq!(depth("{}"), 1);
+        assert_eq!(depth("{a=>b}"), 3); // actual: 2
+        assert_eq!(depth("{a=>b, c=>d, e=>f}"), 3); // actual: 2
+        assert_eq!(depth("{{a=>b}=>c}"), 5); // actual: 3
+        assert_eq!(depth("{a=>{b=>c}}"), 5); // actual: 3
+        assert_eq!(depth("{a++b=>c++d}"), 4); // actual: 3
+
+        assert_matches!(
+            parse_into_kind(&format!("{}a", "!".repeat(MAX_TREE_DEPTH - 1))),
+            Ok(_)
+        );
+        assert_matches!(
+            parse_into_kind(&format!("{}a", "!".repeat(MAX_TREE_DEPTH))),
+            Err(TemplateParseErrorKind::Expression(_))
+        );
+        // Should never crash
+        assert_matches!(
+            parse_into_kind(&format!("{}a", "!".repeat(1000))),
+            Err(TemplateParseErrorKind::Expression(_))
+        );
+
+        // Concatenations stay shallow
+        assert_matches!(
+            parse_into_kind(&iter::repeat_n("a*b", MAX_TREE_DEPTH).join("++")),
+            Ok(_)
+        );
+        assert_matches!(
+            parse_into_kind(&iter::repeat_n("(a*b)", MAX_TREE_DEPTH).join("++")),
+            Ok(_)
         );
     }
 
