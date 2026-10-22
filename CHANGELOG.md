@@ -12,6 +12,10 @@ and this project adheres to
 
 ### Breaking changes
 
+* `jj workspace add` now creates the new working-copy commit on top of the
+  closest immutable ancestor (`heads(::@ & immutable())`) instead of on the
+  parents of the current working-copy commit. Pass `-r @-` for the old behavior.
+
 * `jj git push` now checks commits in `immutable()` for empty descriptions,
   missing author/committer, conflicts, and being private
   (`git.private-commits`). Commits that are already on the remote being pushed
