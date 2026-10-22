@@ -56,6 +56,7 @@ div_op = { "/" }
 rem_op = { "%" }
 logical_not_op = { "!" }
 negate_op = { "-" }
+dot_op = { "." }
 pattern_kind_op = { ":" }
 prefix_ops = _{ logical_not_op | negate_op }
 infix_ops = _{
@@ -115,7 +116,7 @@ primary = {
 }
 
 term = {
-  primary ~ ("." ~ function)*
+  primary ~ (dot_op ~ function)*
 }
 
 prefixed_term = _{
