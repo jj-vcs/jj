@@ -172,6 +172,7 @@ pub async fn cmd_workspace_add(
         repo,
         working_copy_factory,
         workspace_name.clone(),
+        Some(old_workspace_command.workspace_name()),
     )
     .await?;
     writeln!(
@@ -220,6 +221,9 @@ pub async fn cmd_workspace_add(
     }
 
     let mut tx = new_workspace_command.start_transaction();
+    // Attribute the operation to the workspace the command was run in, so e.g.
+    // `jj undo` there undoes it
+    tx.set_workspace_name(old_workspace_command.workspace_name());
 
     // If no parent revisions are specified, create a working-copy commit based
     // on the parent of the current working-copy commit.

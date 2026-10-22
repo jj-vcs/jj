@@ -2812,6 +2812,12 @@ impl WorkspaceCommandTransaction<'_> {
         self.tx.repo_mut()
     }
 
+    /// Attributes the operation to the given workspace instead of the
+    /// helper's workspace.
+    pub fn set_workspace_name(&mut self, workspace_name: &WorkspaceName) {
+        self.tx.set_workspace_name(workspace_name);
+    }
+
     pub fn check_out(&mut self, commit: &Commit) -> Result<Commit, CheckOutCommitError> {
         let name = self.helper.workspace_name().to_owned();
         self.id_prefix_context.take(); // invalidate
