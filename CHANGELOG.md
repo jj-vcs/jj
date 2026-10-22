@@ -25,6 +25,11 @@ and this project adheres to
 * Deleted `jj debug snapshot`. It was deprecated in 0.39.0. Use `jj util snapshot`
   instead.
 
+* `jj undo` and `jj redo` now revert the operation (like `jj op revert`) instead
+  of restoring the repo to an earlier operation. When used with
+  `--allow-cross-workspace`, changes made from other workspaces since the
+  undone operation are therefore kept.
+
 ### Deprecations
 
 ### New features
