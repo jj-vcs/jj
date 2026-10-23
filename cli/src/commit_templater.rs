@@ -1208,6 +1208,10 @@ fn builtin_commit_template_functions<'repo>()
         }
     });
     map.insert(
+        "common_ancestor_distance",
+        build_common_ancestor_distance_function,
+    );
+    map.insert(
         "git_web_url",
         |language, diagnostics, build_ctx, function| {
             let ([], [remote_node]) = function.expect_named_arguments(&["remote"])?;
@@ -1671,6 +1675,40 @@ fn parse_evaluate_static_revset(
     .map_err(|err| {
         TemplateParseError::expression("Failed to evaluate revset", span).with_source(err)
     })
+}
+
+fn build_common_ancestor_distance_function<'repo>(
+    language: &CommitTemplateLanguage<'repo>,
+    diagnostics: &mut TemplateDiagnostics,
+    _build_ctx: &BuildContext<CommitTemplatePropertyKind<'repo>>,
+    function: &FunctionCallNode,
+) -> TemplateParseResult<CommitTemplatePropertyKind<'repo>> {
+    let [from_node, to_node] = function.expect_exact_arguments()?;
+    let from_query = template_parser::expect_string_literal(from_node)?;
+    let to_query = template_parser::expect_string_literal(to_node)?;
+
+    let from_revset =
+        parse_evaluate_static_revset(language, diagnostics, from_query, from_node.span)?;
+    let from_ids: Vec<CommitId> = from_revset
+        .stream()
+        .try_collect()
+        .block_on()
+        .map_err(|err| {
+            TemplateParseError::expression("Failed to evaluate revset", from_node.span)
+                .with_source(err)
+        })?;
+
+    let to_revset = parse_evaluate_static_revset(language, diagnostics, to_query, to_node.span)?;
+    let to_ids: Vec<CommitId> = to_revset.stream().try_collect().block_on().map_err(|err| {
+        TemplateParseError::expression("Failed to evaluate revset", to_node.span).with_source(err)
+    })?;
+
+    let distance =
+        revset::common_ancestor_distance(language.repo, &from_ids, &to_ids).map_err(|err| {
+            TemplateParseError::expression("Failed to compute distance", function.args_span)
+                .with_source(err)
+        })?;
+    Ok(Literal(i64::try_from(distance).unwrap_or(i64::MAX)).into_dyn_wrapped())
 }
 
 fn builtin_commit_evolution_entry_methods<'repo>()
