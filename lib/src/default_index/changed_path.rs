@@ -549,13 +549,15 @@ impl CompositeChangedPathIndex {
 
     /// Writes mutable segment if exists, turns it into readonly segment.
     pub(super) fn save_in(&mut self, dir: &Path) -> Result<(), PathError> {
-        let Some(segment) = self.mutable_segment.take() else {
+        let Some(segment) = self.mutable_segment.as_deref() else {
             return Ok(());
         };
         if segment.is_empty() {
+            self.mutable_segment = None;
             return Ok(());
         }
         let segment = segment.save_in(dir)?;
+        self.mutable_segment = None;
         self.readonly_segments.push(segment);
         Ok(())
     }
@@ -713,6 +715,43 @@ mod tests {
             Some(vec![])
         );
         assert_eq!(collect_changed_paths(&index, GlobalCommitPosition(5)), None);
+        Ok(())
+    }
+
+    #[test]
+    fn test_composite_failed_save_preserves_mutable_paths() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let mut index = CompositeChangedPathIndex::empty(GlobalCommitPosition(2));
+        index.make_mutable();
+        index.add_changed_paths(vec![repo_path_buf("before")]);
+
+        assert!(index.save_in(&temp_dir.path().join("missing")).is_err());
+        assert_eq!(
+            collect_changed_paths(&index, GlobalCommitPosition(2)),
+            Some(vec![repo_path("before")])
+        );
+        assert_eq!(
+            index.next_mutable_commit_pos(),
+            Some(GlobalCommitPosition(3))
+        );
+
+        index.add_changed_paths(vec![repo_path_buf("after")]);
+        index.save_in(temp_dir.path())?;
+        let ids = index
+            .readonly_segments()
+            .iter()
+            .map(|s| s.id().clone())
+            .collect_vec();
+        let loaded =
+            CompositeChangedPathIndex::load(temp_dir.path(), GlobalCommitPosition(2), &ids)?;
+        assert_eq!(
+            collect_changed_paths(&loaded, GlobalCommitPosition(2)),
+            Some(vec![repo_path("before")])
+        );
+        assert_eq!(
+            collect_changed_paths(&loaded, GlobalCommitPosition(3)),
+            Some(vec![repo_path("after")])
+        );
         Ok(())
     }
 
