@@ -2201,7 +2201,20 @@
 documented invariants. For example, if a function is documented as requiring a
 non-empty slice as input, it's fine to call <code>slice[0]</code> and panic.</p>
 <h2 id="markdown">Markdown<a class="headerlink" href="#markdown" title="Permanent link">&para;</a></h2>
-<p>Try to wrap at 80 columns. We don't have a formatter yet.</p>
+<p>Try to wrap at 80 columns. Rumdl checks Markdown in CI;
+line-length checks are not enabled yet.</p>
+<p>Local installation is optional. To check or fix Markdown with the repository's
+configuration, run <code>mise check:markdown</code> or <code>mise fix:markdown</code>. Mise installs
+the pinned rumdl binary as needed. Without mise, run <code>uvx rumdl check .</code>. If
+its results differ from CI, pin the version CI uses with
+<code>uvx rumdl@VERSION check .</code>, where <code>VERSION</code> is <code>rumdl_version</code> in
+<code>.config/mise.toml</code>.</p>
+<p>The Nix development shell also includes rumdl. Run
+<code>nix develop -c rumdl check .</code> to check Markdown,
+or add <code>--fix</code> to apply fixes.</p>
+<p>Editors should use <code>.config/rumdl.toml</code> rather than a separate rule
+set. The configuration records counts and default settings for disabled rules.
+Enable further rules and their cleanup in separate changes.</p>
 <h2 id="prefer-lower-level-tests-to-end-to-end-tests">Prefer lower-level tests to end-to-end tests<a class="headerlink" href="#prefer-lower-level-tests-to-end-to-end-tests" title="Permanent link">&para;</a></h2>
 <p>When possible, prefer lower-level tests that don't use the <code>jj</code> binary.
 End-to-end tests are much slower than similar tests that create a repo using
