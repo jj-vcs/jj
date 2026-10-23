@@ -18,7 +18,7 @@ use std::slice;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::op_heads_store::OpHeadsKey;
+use jj_lib::op_heads_store::get_op_heads_key_for_opcontext;
 use jj_lib::op_walk;
 
 use crate::cli_util::CommandHelper;
@@ -65,7 +65,10 @@ pub async fn cmd_op_abandon(
     if command.global_args().at_operation.is_some() {
         return Err(cli_error("--at-op is not respected"));
     }
-    let current_head_ops = op_walk::get_current_head_ops(op_store, op_heads_store.as_ref()).await?;
+    let op_heads_key =
+        get_op_heads_key_for_opcontext(repo_loader.workspace_store(), &workspace.op_context())?;
+    let current_head_ops =
+        op_walk::get_current_head_ops(op_store, op_heads_store.as_ref(), &op_heads_key).await?;
     let resolve_op = |op_str| op_walk::resolve_op_at(op_store, &current_head_ops, op_str);
     let (abandon_root_op, abandon_head_ops) =
         if let Some((root_op_str, head_op_str)) = args.operation.split_once("..") {
@@ -131,7 +134,7 @@ pub async fn cmd_op_abandon(
     )?;
     for (old, new_id) in reparented_head_ops().filter(|&(old, new_id)| old.id() != new_id) {
         op_heads_store
-            .update_op_heads(&OpHeadsKey::Repo, slice::from_ref(old.id()), new_id)
+            .update_op_heads(&op_heads_key, slice::from_ref(old.id()), new_id)
             .await?;
     }
     // Remap the operation id of the current workspace. If there were any

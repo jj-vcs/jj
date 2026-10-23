@@ -91,6 +91,7 @@ pub enum OpsetResolutionError {
 /// Resolves operation set expression without loading a repo.
 pub async fn resolve_op_for_load(
     repo_loader: &RepoLoader,
+    op_heads_key: &OpHeadsKey,
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
     let op_store = repo_loader.op_store();
@@ -99,7 +100,7 @@ pub async fn resolve_op_for_load(
         op_heads_store::resolve_op_heads(
             op_heads_store,
             op_store,
-            &OpHeadsKey::Repo,
+            op_heads_key,
             async |op_heads, _op_heads_key| {
                 Err(OpsetResolutionError::MultipleOperations {
                     expr: "@".to_owned(),
@@ -110,7 +111,7 @@ pub async fn resolve_op_for_load(
         )
         .await
     };
-    let get_head_ops = async || get_current_head_ops(op_store, op_heads_store).await;
+    let get_head_ops = async || get_current_head_ops(op_store, op_heads_store, op_heads_key).await;
     resolve_single_op(op_store, get_current_op, get_head_ops, op_str).await
 }
 
@@ -218,9 +219,10 @@ async fn resolve_single_op_from_store(
 pub async fn get_current_head_ops(
     op_store: &Arc<dyn OpStore>,
     op_heads_store: &dyn OpHeadsStore,
+    op_heads_key: &OpHeadsKey,
 ) -> Result<Vec<Operation>, OpsetEvaluationError> {
     let head_ops_futures = op_heads_store
-        .get_op_heads(&OpHeadsKey::Repo)
+        .get_op_heads(op_heads_key)
         .await?
         .into_iter()
         .map(async |id| -> OpStoreResult<Operation> {

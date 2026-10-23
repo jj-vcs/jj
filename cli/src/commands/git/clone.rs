@@ -19,6 +19,7 @@ use std::num::NonZeroU32;
 use std::path::Path;
 
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
@@ -225,6 +226,7 @@ pub async fn cmd_git_clone(
             command,
             &canonical_wc_path,
             WorkspaceName::DEFAULT,
+            WorkspaceType::Regular,
             colocate,
             object_hash.into(),
         )
@@ -328,14 +330,29 @@ async fn init_workspace(
     command: &CommandHelper,
     wc_path: &Path,
     workspace_name: &WorkspaceName,
+    workspace_type: WorkspaceType,
     colocate: bool,
     object_hash: gix::hash::Kind,
 ) -> Result<(WorkspaceCommandHelper, ConfigEnv), CommandError> {
     let (settings, config_env) = command.settings_for_new_workspace(ui, wc_path)?;
     let (workspace, repo) = if colocate {
-        Workspace::init_colocated_git(&settings, wc_path, workspace_name, object_hash).await?
+        Workspace::init_colocated_git(
+            &settings,
+            wc_path,
+            workspace_name,
+            workspace_type,
+            object_hash,
+        )
+        .await?
     } else {
-        Workspace::init_internal_git(&settings, wc_path, workspace_name, object_hash).await?
+        Workspace::init_internal_git(
+            &settings,
+            wc_path,
+            workspace_name,
+            workspace_type,
+            object_hash,
+        )
+        .await?
     };
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     maybe_add_gitignore(&workspace_command)?;
@@ -363,7 +380,7 @@ async fn configure_remote(
         .repo_loader()
         .load_operation(workspace_command.repo().op_id())
         .await?;
-    let repo = workspace.repo_loader().load_at(&op).await?;
+    let repo = workspace.load_at(&op).await?;
     command.for_workable_repo(ui, workspace, repo)
 }
 

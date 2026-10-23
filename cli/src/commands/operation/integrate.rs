@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use jj_lib::op_heads_store;
-use jj_lib::op_heads_store::OpHeadsKey;
+use jj_lib::op_heads_store::get_op_heads_key_for_opcontext;
 use jj_lib::operation::Operation;
 
 use crate::cli_util::CommandHelper;
@@ -44,15 +44,19 @@ pub async fn cmd_op_integrate(
     let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
     let target_op = workspace_command.resolve_single_op(&args.operation)?;
     let repo_loader = workspace_command.repo().loader();
+    let op_heads_key = get_op_heads_key_for_opcontext(
+        repo_loader.workspace_store(),
+        &workspace_command.workspace().op_context(),
+    )?;
     repo_loader
         .op_heads_store()
-        .update_op_heads(&OpHeadsKey::Repo, target_op.parent_ids(), target_op.id())
+        .update_op_heads(&op_heads_key, target_op.parent_ids(), target_op.id())
         .await?;
 
     op_heads_store::resolve_op_heads(
         repo_loader.op_heads_store().as_ref(),
         repo_loader.op_store(),
-        &OpHeadsKey::Repo,
+        &op_heads_key,
         async |op_heads, _op_heads_key| -> Result<Operation, CommandError> {
             // TODO: It may be helpful to print each operation we're merging here
             let transaction_description = "reconcile divergent operations";

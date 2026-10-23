@@ -14,6 +14,7 @@
 
 use std::io::Write as _;
 
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::file_util;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::workspace::Workspace;
@@ -65,6 +66,7 @@ pub(crate) async fn cmd_debug_init_simple(
         &command.settings_for_new_workspace(ui, &wc_path)?.0,
         &wc_path,
         WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
     )
     .await?;
 

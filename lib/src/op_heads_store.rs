@@ -22,6 +22,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
+use jj_core::ref_name::WorkspaceName;
+use jj_core::workspace_store::WorkspaceStore;
+use jj_core::workspace_store::WorkspaceStoreError;
+use jj_core::workspace_store::WorkspaceType;
 use thiserror::Error;
 
 use crate::backend::WorkspaceId;
@@ -30,6 +34,7 @@ use crate::op_store::OpStore;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
 use crate::operation::Operation;
+use crate::repo::OpContext;
 
 #[derive(Debug, Error)]
 pub enum OpHeadsStoreError {
@@ -183,4 +188,33 @@ where
         .update_op_heads(op_heads_key, &old_op_heads, new_op.id())
         .await?;
     Ok(new_op)
+}
+
+pub fn get_op_heads_key(
+    workspace_store: &Arc<dyn WorkspaceStore>,
+    workspace_name: Option<&WorkspaceName>,
+) -> Result<OpHeadsKey, WorkspaceStoreError> {
+    if let Some(workspace_name) = workspace_name
+        && let Some(workspace_metadata) =
+            workspace_store.get_workspace_metadata_by_workspace_name(workspace_name)?
+        && workspace_metadata.workspace_type() == WorkspaceType::Independent
+        && let Some(workspace_id) = workspace_metadata.workspace_id()
+    {
+        Ok(OpHeadsKey::Workspace(workspace_id))
+    } else {
+        Ok(OpHeadsKey::Repo)
+    }
+}
+
+pub fn get_op_heads_key_for_opcontext(
+    workspace_store: &Arc<dyn WorkspaceStore>,
+    op_context: &OpContext,
+) -> Result<OpHeadsKey, WorkspaceStoreError> {
+    match op_context {
+        OpContext::Repo => Ok(OpHeadsKey::Repo),
+        OpContext::Workspace {
+            name,
+            workspace_type: _,
+        } => get_op_heads_key(workspace_store, Some(name)),
+    }
 }

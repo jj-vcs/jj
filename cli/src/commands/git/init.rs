@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::GitImportOptions;
@@ -180,6 +181,7 @@ pub async fn cmd_git_init(
         command,
         &wc_path,
         WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         colocate,
         object_hash.into(),
         args.git_repo.as_deref(),
@@ -196,11 +198,13 @@ pub async fn cmd_git_init(
     Ok(())
 }
 
+#[expect(clippy::too_many_arguments)]
 async fn do_init(
     ui: &mut Ui,
     command: &CommandHelper,
     workspace_root: &Path,
     workspace_name: &WorkspaceName,
+    workspace_type: WorkspaceType,
     colocate: bool,
     object_hash: gix::hash::Kind,
     git_repo: Option<&str>,
@@ -249,6 +253,7 @@ async fn do_init(
                 &settings,
                 workspace_root,
                 workspace_name,
+                workspace_type,
                 object_hash,
             )
             .await?;
@@ -260,6 +265,7 @@ async fn do_init(
                 &settings,
                 workspace_root,
                 workspace_name,
+                workspace_type,
                 git_repo_path,
             )
             .await?;
@@ -295,8 +301,14 @@ async fn do_init(
             }
         }
         GitInitMode::Internal => {
-            Workspace::init_internal_git(&settings, workspace_root, workspace_name, object_hash)
-                .await?;
+            Workspace::init_internal_git(
+                &settings,
+                workspace_root,
+                workspace_name,
+                workspace_type,
+                object_hash,
+            )
+            .await?;
         }
     }
     Ok(())
