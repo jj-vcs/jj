@@ -61,6 +61,10 @@ and this project adheres to
   inspecting each side of a (possibly conflicted) tree entry.
 
 ### Fixed bugs
+* `jj run` now captures subprocess output through temporary files on NetBSD,
+  where Tokio cannot poll child output pipes.
+  [#10342](https://github.com/jj-vcs/jj/issues/10342)
+
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
   correct UTC offset on days with a daylight savings transition. Previously,
