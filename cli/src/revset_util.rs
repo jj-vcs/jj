@@ -39,9 +39,7 @@ use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetEvaluationError;
-use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
-use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::RevsetStreamExt as _;
@@ -62,8 +60,6 @@ use crate::command_error::user_error_with_message;
 use crate::formatter::Formatter;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
-
-const USER_IMMUTABLE_HEADS: &str = "immutable_heads";
 
 #[derive(Debug, Error)]
 pub enum UserRevsetEvaluationError {
@@ -201,43 +197,6 @@ pub fn default_symbol_resolver<'a>(
     id_prefix_context: &'a IdPrefixContext,
 ) -> SymbolResolver<'a> {
     SymbolResolver::new(repo, extensions).with_id_prefix_context(id_prefix_context)
-}
-
-/// Parses user-configured expression defining the heads of the immutable set.
-/// Includes the root commit.
-pub fn parse_immutable_heads_expression(
-    diagnostics: &mut RevsetDiagnostics,
-    context: &RevsetParseContext,
-) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
-    let (_, _, immutable_heads_str, _) = context
-        .aliases_map
-        .get_function(USER_IMMUTABLE_HEADS, 0)
-        .unwrap();
-    let heads = revset::parse(diagnostics, immutable_heads_str, context)?;
-    Ok(heads.union(&RevsetExpression::root()))
-}
-
-/// Parses and resolves `trunk()` alias to detect name resolution error in it.
-///
-/// Returns `None` if the alias couldn't be parsed. Returns `Err` if the parsed
-/// expression had name resolution error.
-pub(super) fn try_resolve_trunk_alias(
-    repo: &dyn Repo,
-    context: &RevsetParseContext,
-) -> Result<Option<Arc<ResolvedRevsetExpression>>, RevsetResolutionError> {
-    let (_, _, revset_str, _) = context
-        .aliases_map
-        .get_function("trunk", 0)
-        .expect("trunk() should be defined by default");
-    let Ok(expression) = revset::parse(&mut RevsetDiagnostics::new(), revset_str, context) else {
-        return Ok(None);
-    };
-    // Not using IdPrefixContext since trunk() revset shouldn't contain short
-    // prefixes.
-    let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
-    let resolved = expression.resolve_user_expression(repo, &symbol_resolver)?;
-    let (expression, _other_repos) = resolved.into_inner();
-    Ok(Some(expression))
 }
 
 /// Error when evaluating a revset into a single commit.

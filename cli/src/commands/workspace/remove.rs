@@ -59,7 +59,7 @@ pub async fn cmd_workspace_remove(
     let mut workspace_command = command.workspace_helper(ui).await?;
     workspace_command
         .check_working_copy_writable()
-        .map_err(|err| err.hinted(USE_WORKSPACE_FORGET_HINT))?;
+        .map_err(|err| CommandError::from(err).hinted(USE_WORKSPACE_FORGET_HINT))?;
 
     let wss = args.workspaces.clone();
 

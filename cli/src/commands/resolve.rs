@@ -106,7 +106,7 @@ pub(crate) async fn cmd_resolve(
         return print_conflicted_paths(
             conflicts,
             ui.stdout_formatter().as_mut(),
-            &workspace_command,
+            workspace_command.path_converter(),
         );
     }
 
@@ -144,7 +144,11 @@ pub(crate) async fn cmd_resolve(
             formatter.labeled("warning").with_heading("Warning: "),
             "After this operation, some files at this revision still have conflicts:"
         )?;
-        print_conflicted_paths(new_conflicts, formatter.as_mut(), &workspace_command)?;
+        print_conflicted_paths(
+            new_conflicts,
+            formatter.as_mut(),
+            workspace_command.path_converter(),
+        )?;
     }
 
     if let Some(err) = partial_resolution_error {

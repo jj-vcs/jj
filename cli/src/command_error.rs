@@ -20,6 +20,10 @@ use std::iter;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use jj_frontend::runner::RunnerError;
+use jj_frontend::runner::StaleWorkingCopyError;
+use jj_frontend::runner::WorkingCopyNotWritableReason;
+use jj_frontend::workspace_env::WorkspaceEnvironmentError;
 use jj_lib::absorb::AbsorbError;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
@@ -67,6 +71,7 @@ use jj_lib::workspace::WorkspaceInitError;
 use jj_lib::workspace_store::WorkspaceStoreError;
 use thiserror::Error;
 
+use crate::cli_util::CliEventSinkError;
 use crate::cli_util::short_operation_hash;
 use crate::description_util::ParseBulkEditMessageError;
 use crate::description_util::TempTextEditError;
@@ -230,6 +235,99 @@ fn format_similarity_hint<S: AsRef<str>>(candidates: &[S]) -> Option<String> {
         names => {
             let quoted_names = names.iter().map(|s| format!("`{}`", s.as_ref())).join(", ");
             Some(format!("Did you mean {quoted_names}?"))
+        }
+    }
+}
+
+impl From<WorkspaceEnvironmentError> for CommandError {
+    fn from(err: WorkspaceEnvironmentError) -> Self {
+        match err {
+            WorkspaceEnvironmentError::Config(err) => err.into(),
+            WorkspaceEnvironmentError::InvalidImmutableHeads(_)
+            | WorkspaceEnvironmentError::InvalidShortPrefixes(_) => config_error(err),
+            #[cfg(feature = "git")]
+            WorkspaceEnvironmentError::GitRepoAtWorkdir(err) => err.into(),
+        }
+    }
+}
+
+impl From<RunnerError> for CommandError {
+    fn from(err: RunnerError) -> Self {
+        match err {
+            RunnerError::WorkingCopyNotWritable(reason) => {
+                let hint = match reason {
+                    WorkingCopyNotWritableReason::IgnoringWorkingCopy => {
+                        "Don't use --ignore-working-copy."
+                    }
+                    WorkingCopyNotWritableReason::NotIntegratingOperations => {
+                        "Don't use --no-integrate-operation."
+                    }
+                    WorkingCopyNotWritableReason::NotAtHeadOperation => "Don't use --at-op.",
+                };
+                user_error("This command must be able to update the working copy.").hinted(hint)
+            }
+            RunnerError::NothingCheckedOut | RunnerError::ConcurrentWorkingCopyOperation => {
+                user_error(err)
+            }
+            RunnerError::GitImportExportLock(_) => user_error(err),
+            RunnerError::InvalidImmutableHeads(_) => config_error(err),
+            RunnerError::CheckOut { .. } => internal_error(err),
+            RunnerError::StaleWorkingCopy(err) => match err {
+                StaleWorkingCopyError::Stale { wc_op_id } => user_error(format!(
+                    "The working copy is stale (not updated since operation {}).",
+                    short_operation_hash(&wc_op_id)
+                ))
+                .hinted(
+                    "Run `jj workspace update-stale` to update it.
+See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
+                     for more information.",
+                ),
+                StaleWorkingCopyError::SiblingOperation {
+                    repo_op_id,
+                    wc_op_id,
+                } => internal_error(format!(
+                    "The repo was loaded at operation {}, which seems to be a sibling of the \
+                     working copy's operation {}",
+                    short_operation_hash(&repo_op_id),
+                    short_operation_hash(&wc_op_id)
+                ))
+                .hinted(format!(
+                    "Run `jj op integrate {}` to add the working copy's operation to the \
+                     operation log.",
+                    short_operation_hash(&wc_op_id)
+                )),
+                StaleWorkingCopyError::OperationNotFound(_) => {
+                    user_error("Could not read working copy's operation.").hinted(
+                        "Run `jj workspace update-stale` to recover.
+See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
+                         for more information.",
+                    )
+                }
+            },
+            RunnerError::Environment(err) => err.into(),
+            RunnerError::Backend(err) => err.into(),
+            RunnerError::OpStore(err) => err.into(),
+            RunnerError::RepoLoader(err) => err.into(),
+            RunnerError::Snapshot(err) => err.into(),
+            RunnerError::WorkingCopyState(err) => err.into(),
+            RunnerError::RevsetEvaluation(err) => err.into(),
+            RunnerError::RewriteRootCommit(err) => err.into(),
+            RunnerError::CheckOutCommit(err) => err.into(),
+            RunnerError::Reset(err) => err.into(),
+            RunnerError::TransactionCommit(err) => err.into(),
+            #[cfg(feature = "git")]
+            RunnerError::GitImport(err) => err.into(),
+            #[cfg(feature = "git")]
+            RunnerError::GitExport(err) => err.into(),
+            #[cfg(feature = "git")]
+            RunnerError::GitResetHead(err) => err.into(),
+            RunnerError::EventSink(err) => match err.downcast::<CliEventSinkError>() {
+                Ok(err) => err.0,
+                Err(err) => match err.downcast::<io::Error>() {
+                    Ok(err) => (*err).into(),
+                    Err(err) => internal_error(err),
+                },
+            },
         }
     }
 }
@@ -547,6 +645,7 @@ mod git {
     use jj_lib::git::GitRemoteManagementError;
     use jj_lib::git::GitResetHeadError;
     use jj_lib::git::UnexpectedGitBackendError;
+    use jj_lib::git_backend::GitRepoAtWorkdirError;
 
     use super::CommandError;
     use super::user_error;
@@ -649,6 +748,12 @@ jj currently does not support partial clones. To use jj with this repository, tr
 
     impl From<UnexpectedGitBackendError> for CommandError {
         fn from(err: UnexpectedGitBackendError) -> Self {
+            user_error(err)
+        }
+    }
+
+    impl From<GitRepoAtWorkdirError> for CommandError {
+        fn from(err: GitRepoAtWorkdirError) -> Self {
             user_error(err)
         }
     }

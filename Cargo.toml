@@ -7,6 +7,7 @@ members = [
     "core",
     "core/proc-macros",
     "dsl",
+    "frontend",
     "lib",
     "lib/gen-protos",
     "lib/testutils",
@@ -146,6 +147,7 @@ winreg = "0.56"
 jj-core = { path = "core", version = "0.46.0" }
 jj-core-proc-macros = { path = "core/proc-macros", version = "0.46.0" }
 jj-dsl = { path = "dsl", version = "0.46.0" }
+jj-frontend = { path = "frontend", version = "0.46.0" }
 jj-lib = { path = "lib", version = "0.46.0", default-features = false }
 testutils = { path = "lib/testutils" }
 

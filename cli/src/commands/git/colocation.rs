@@ -17,6 +17,7 @@ use std::io::Write as _;
 use std::path::Path;
 
 use itertools::Itertools as _;
+use jj_frontend::git_util::is_colocated_git_workspace;
 use jj_lib::commit::Commit;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::git;
@@ -32,7 +33,6 @@ use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
-use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::unlink_git_worktree;
 use crate::ui::Ui;
 
