@@ -55,12 +55,12 @@ erased-serde = "0.4.10"
 etcetera = "0.11.0"
 eyre = "0.6"
 futures = "0.3.32"
-gix = { version = "0.89.0", default-features = false, features = [
+gix = { version = "0.90.0", default-features = false, features = [
     "attributes",
     "auto-chain-error",
     "blob-diff",
     "index",
-    "max-performance-safe",
+    "max-performance",
     "sha1",
     "sha256",
 ] }
