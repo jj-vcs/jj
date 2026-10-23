@@ -660,7 +660,7 @@ impl<'a> Iterator for TreeEntriesNonRecursiveIterator<'a> {
 ///
 /// The entries must be sorted (by `RepoPathComponentBuf`'s ordering) and must
 /// not contain duplicate names.
-#[derive(ContentHash, Default, PartialEq, Eq, Debug, Clone)]
+#[derive(ContentHash, Default, PartialEq, Eq, Debug, Clone, Hash)]
 pub struct Tree {
     entries: Vec<(RepoPathComponentBuf, TreeValue)>,
 }
