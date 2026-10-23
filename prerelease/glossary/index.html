@@ -2509,9 +2509,11 @@ don't exist as an object in the data model; only the change ID does. The change
 ID is a property of a commit.</p>
 <h2 id="change-id">Change ID<a class="headerlink" href="#change-id" title="Permanent link">&para;</a></h2>
 <p>A change ID is a unique identifier for a <a href="#change">change</a>. They are typically
-16 bytes long and are often randomly generated. By default, <code>jj log</code> presents
-them as a sequence of 12 letters in the k-z range, at the beginning of a line.
-These are actually hexadecimal numbers that use "digits" z-k instead of 0-9a-f.</p>
+16 bytes long and are often randomly generated (but the size is chosen by the
+commit backend implementation, so try not to depend on an exact length). By
+default, <code>jj log</code> presents them as a sequence of 12 letters in the <code>k-z</code> range,
+at the beginning of a line. These are actually hexadecimal numbers that use
+"digits" <code>z-k</code> instead of <code>0-9a-f</code>.</p>
 <h2 id="change-offset">Change offset<a class="headerlink" href="#change-offset" title="Permanent link">&para;</a></h2>
 <p>Sometimes a change ID might not unambiguously identify a commit, such as if the
 commit is hidden or if the change ID is <a href="#divergent-change">divergent</a>. In these
