@@ -60,6 +60,9 @@ and this project adheres to
   exposes `.object_id()`, `.file_type()`, and `.executable()` methods for
   inspecting each side of a (possibly conflicted) tree entry.
 
+* `jj file untrack` now succeeds even if not all paths matching the fileset are
+  ignored. Files that match the fileset but aren't ignored will not be untracked.
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the

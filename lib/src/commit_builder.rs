@@ -164,6 +164,10 @@ impl CommitBuilder<'_> {
         self.inner.write(self.mut_repo).await
     }
 
+    pub async fn write_hidden(self) -> BackendResult<Commit> {
+        self.inner.write_hidden().await
+    }
+
     /// Records the old commit as abandoned instead of writing new commit. This
     /// is noop for the builder created by [`MutableRepo::new_commit()`].
     pub fn abandon(self) {
