@@ -85,10 +85,9 @@ pub(crate) async fn cmd_file_show(
     args: &FileShowArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
-    let commit = workspace_command
-        .resolve_single_rev(ui, &args.revision)
+    let tree = workspace_command
+        .resolve_single_tree(ui, &args.revision)
         .await?;
-    let tree = commit.tree();
     // TODO: No need to add special case for empty paths when switching to
     // parse_union_filesets(). paths = [] should be "none()" if supported.
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;

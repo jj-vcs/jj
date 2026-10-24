@@ -118,7 +118,9 @@ use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolverExtension;
+use jj_lib::revset::TreeExpression;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::revset::UserTreeExpression;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::restore_tree;
 use jj_lib::settings::HumanByteSize;
@@ -1848,11 +1850,42 @@ to the current parents may contain changes from multiple commits.
         revision_arg: &RevisionArg,
     ) -> Result<Commit, CommandError> {
         let expression = self.parse_revset(ui, revision_arg)?;
-        revset_util::evaluate_revset_to_single_commit(&expression)
+        self.evaluate_single_rev(&expression, revision_arg.as_ref())
             .await
-            .map_err(|err| {
-                err.to_command_error(revision_arg.as_ref(), &self.commit_summary_template())
-            })
+    }
+
+    async fn evaluate_single_rev(
+        &self,
+        expression: &RevsetExpressionEvaluator<'_>,
+        revision_str: &str,
+    ) -> Result<Commit, CommandError> {
+        revset_util::evaluate_revset_to_single_commit(expression)
+            .await
+            .map_err(|err| err.to_command_error(revision_str, &self.commit_summary_template()))
+    }
+
+    /// Resolves a tree expression (such as a single revision or `parents_of(x)`)
+    /// to a single [`MergedTree`].
+    pub async fn resolve_single_tree(
+        &self,
+        ui: &Ui,
+        revision_arg: &RevisionArg,
+    ) -> Result<MergedTree, CommandError> {
+        let expression = self.parse_tree_expression(ui, revision_arg)?;
+        match expression {
+            TreeExpression::SingleRevision(revset_expr) => {
+                let evaluator = self.attach_revset_evaluator(revset_expr);
+                let commit = self
+                    .evaluate_single_rev(&evaluator, revision_arg.as_ref())
+                    .await?;
+                Ok(commit.tree())
+            }
+            TreeExpression::Parents(revset_expr, revision_str) => {
+                let evaluator = self.attach_revset_evaluator(revset_expr);
+                let commit = self.evaluate_single_rev(&evaluator, &revision_str).await?;
+                Ok(commit.parent_tree(self.repo().index()).await?)
+            }
+        }
     }
 
     /// Evaluates revset expressions to set of commit IDs. The
@@ -1898,6 +1931,18 @@ to the current parents may contain changes from multiple commits.
         let expression = revset::parse(&mut diagnostics, revision_arg.as_ref(), &context)?;
         print_parse_diagnostics(ui, "In revset expression", &diagnostics)?;
         Ok(self.attach_revset_evaluator(expression))
+    }
+
+    pub fn parse_tree_expression(
+        &self,
+        ui: &Ui,
+        revision_arg: &RevisionArg,
+    ) -> Result<UserTreeExpression, CommandError> {
+        let mut diagnostics = RevsetDiagnostics::new();
+        let context = self.env.revset_parse_context();
+        let expression = revset::parse_tree(&mut diagnostics, revision_arg.as_ref(), &context)?;
+        print_parse_diagnostics(ui, "In revset expression", &diagnostics)?;
+        Ok(expression)
     }
 
     /// Parses the given revset expressions and concatenates them all.
