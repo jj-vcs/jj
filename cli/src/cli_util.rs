@@ -58,7 +58,6 @@ use jj_frontend::merge_tools::MergeToolConfigWarning;
 use jj_frontend::revset_util::RevsetExpressionEvaluator;
 use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_frontend::runner::GitImportExportLock;
-use jj_frontend::runner::RebaseReason;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::RunnerEvent;
 use jj_frontend::runner::RunnerEvents;
@@ -1025,7 +1024,7 @@ struct UiRunnerEvents<'a> {
 impl UiRunnerEvents<'_> {
     fn print_event(&self, event: RunnerEvent) -> Result<(), CommandError> {
         let ui = self.ui;
-        match event {
+        match &event {
             RunnerEvent::TrunkAliasFallback { error, fallback } => {
                 writeln!(
                     ui.warning_default(),
@@ -1040,36 +1039,15 @@ impl UiRunnerEvents<'_> {
                     "Use `jj config edit --repo` to adjust the `trunk()` alias."
                 )?;
             }
-            RunnerEvent::MergingConcurrentOperations { operations: _ } => {
-                // TODO: It may be helpful to print each operation we're merging here
-                writeln!(
-                    ui.status(),
-                    "Concurrent modification detected, resolving automatically.",
-                )?;
-            }
-            RunnerEvent::DescendantsRebased {
-                num_rebased,
-                reason,
-            } => match reason {
-                RebaseReason::ConcurrentOperations => writeln!(
-                    ui.status(),
-                    "Rebased {num_rebased} descendant commits onto commits rewritten by other \
-                     operation.",
-                )?,
-                RebaseReason::RewrittenCommits => {
-                    writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
-                }
-                RebaseReason::RewrittenInGit => writeln!(
-                    ui.status(),
-                    "Rebased {num_rebased} descendant commits off of commits rewritten from Git."
-                )?,
-                RebaseReason::WorkingCopySnapshot => writeln!(
-                    ui.status(),
-                    "Rebased {num_rebased} descendant commits onto updated working copy."
-                )?,
-            },
+            // TODO: It may be helpful to print each operation we're merging here
+            RunnerEvent::MergingConcurrentOperations { .. }
+            | RunnerEvent::DescendantsRebased { .. }
+            | RunnerEvent::WorkingCopyNotStale
+            | RunnerEvent::StaleWorkingCopyUpdated { .. }
+            | RunnerEvent::WorkingCopyOperationNotFound(_)
+            | RunnerEvent::RecoveryCommitCreated { .. } => writeln!(ui.status(), "{event}")?,
             RunnerEvent::OperationLeftUnpublished { op_id, is_snapshot } => {
-                let kind = if is_snapshot {
+                let kind = if *is_snapshot {
                     "Snapshot operation"
                 } else {
                     "Operation"
@@ -1077,72 +1055,33 @@ impl UiRunnerEvents<'_> {
                 writeln!(
                     ui.status(),
                     "{kind} left uncommitted because --no-integrate-operation was requested: {}",
-                    short_operation_hash(&op_id)
+                    short_operation_hash(op_id)
                 )?;
             }
-            RunnerEvent::SnapshotOnImmutableWorkingCopy { new_wc_commit: _ } => writeln!(
-                ui.warning_default(),
-                "The working-copy commit is immutable; a new commit has been created on top of it.",
-            )?,
-            RunnerEvent::WorkingCopyBecameImmutable { new_wc_commit: _ } => writeln!(
-                ui.warning_default(),
-                "The working-copy commit became immutable; a new commit has been created on top \
-                 of it.",
-            )?,
+            RunnerEvent::SnapshotOnImmutableWorkingCopy { .. }
+            | RunnerEvent::WorkingCopyBecameImmutable { .. } => {
+                writeln!(ui.warning_default(), "{event}")?;
+            }
             RunnerEvent::WorkingCopyUpdated { .. } | RunnerEvent::TransactionFinished { .. } => {
                 // These are reported using templates, which requires a
                 // `CliRunnerEvents`.
-            }
-            RunnerEvent::WorkingCopyNotStale => {
-                writeln!(
-                    ui.status(),
-                    "Attempted recovery, but the working copy is not stale."
-                )?;
-            }
-            RunnerEvent::StaleWorkingCopyUpdated { new_commit } => {
-                writeln!(
-                    ui.status(),
-                    "Updated working copy to fresh commit {}",
-                    short_commit_hash(new_commit.id())
-                )?;
-            }
-            RunnerEvent::WorkingCopyOperationNotFound(err) => {
-                writeln!(
-                    ui.status(),
-                    "Failed to read working copy's current operation; attempting recovery. Error \
-                     message from read attempt: {err}"
-                )?;
-            }
-            RunnerEvent::RecoveryCommitCreated { commit } => {
-                writeln!(
-                    ui.status(),
-                    "Created and checked out recovery commit {}",
-                    short_commit_hash(commit.id())
-                )?;
             }
             RunnerEvent::UserIdentityNotConfigured {
                 missing_name,
                 missing_email,
             } => {
-                let not_configured_msg = match (missing_name, missing_email) {
-                    (true, true) => "Name and email not configured.",
-                    (true, false) => "Name not configured.",
-                    (false, true) => "Email not configured.",
-                    (false, false) => return Ok(()),
-                };
-                writeln!(
-                    ui.warning_default(),
-                    "{not_configured_msg} Until configured, your commits will be created with the \
-                     empty identity, and can't be pushed to remotes."
-                )?;
+                if !missing_name && !missing_email {
+                    return Ok(());
+                }
+                writeln!(ui.warning_default(), "{event}")?;
                 writeln!(ui.hint_default(), "To configure, run:")?;
-                if missing_name {
+                if *missing_name {
                     writeln!(
                         ui.hint_no_heading(),
                         r#"  jj config set --user user.name "Some One""#
                     )?;
                 }
-                if missing_email {
+                if *missing_email {
                     writeln!(
                         ui.hint_no_heading(),
                         r#"  jj config set --user user.email "someone@example.com""#
@@ -1151,11 +1090,7 @@ impl UiRunnerEvents<'_> {
             }
             #[cfg(feature = "git")]
             RunnerEvent::JjConflictFilesInWorkingCopy => {
-                writeln!(
-                    ui.warning_default(),
-                    "The working copy contains '.jjconflict' files. These files are used by `jj` \
-                     internally and should not be present in the working copy."
-                )?;
+                writeln!(ui.warning_default(), "{event}")?;
                 writeln!(
                     ui.hint_default(),
                     "You may have used a regular `git` command to check out a conflicted commit."
@@ -1167,32 +1102,26 @@ impl UiRunnerEvents<'_> {
             }
             #[cfg(feature = "git")]
             RunnerEvent::GitHeadImported { first_import } => {
-                if first_import {
+                if *first_import {
                     // Don't print verbose message on initial checkout.
                 } else {
-                    writeln!(
-                        ui.status(),
-                        "Reset the working copy parent to the new Git HEAD."
-                    )?;
+                    writeln!(ui.status(), "{event}")?;
                 }
             }
             #[cfg(feature = "git")]
             RunnerEvent::GitRefsImported(stats) => {
-                crate::git_util::print_git_import_stats_summary(ui, &stats)?;
+                crate::git_util::print_git_import_stats_summary(ui, stats)?;
             }
             #[cfg(feature = "git")]
-            RunnerEvent::GitRefsImportFinished => writeln!(
-                ui.status(),
-                "Done importing changes from the underlying Git repo."
-            )?,
+            RunnerEvent::GitRefsImportFinished => writeln!(ui.status(), "{event}")?,
             #[cfg(feature = "git")]
             RunnerEvent::GitRefsExported(stats) => {
-                crate::git_util::print_git_export_stats(ui, &stats)?;
+                crate::git_util::print_git_export_stats(ui, stats)?;
             }
             #[cfg(feature = "git")]
             RunnerEvent::GitHeadResetFailed(err) => {
                 use std::error::Error as _;
-                writeln!(ui.warning_default(), "{err}")?;
+                writeln!(ui.warning_default(), "{event}")?;
                 print_error_sources(ui, err.source())?;
             }
         }

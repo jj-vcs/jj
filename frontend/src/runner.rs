@@ -310,6 +310,153 @@ pub enum RebaseReason {
     WorkingCopySnapshot,
 }
 
+/// Formats the event as a short, plain-text message, without hints about how
+/// to act on it.
+impl fmt::Display for RunnerEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TrunkAliasFallback { error, fallback } => write!(
+                f,
+                "Failed to resolve `revset-aliases.trunk()`: {error}. The `trunk()` alias is \
+                 temporarily set to `{fallback}`."
+            ),
+            Self::MergingConcurrentOperations { operations: _ } => {
+                write!(
+                    f,
+                    "Concurrent modification detected, resolving automatically."
+                )
+            }
+            Self::DescendantsRebased {
+                num_rebased,
+                reason,
+            } => match reason {
+                RebaseReason::ConcurrentOperations => write!(
+                    f,
+                    "Rebased {num_rebased} descendant commits onto commits rewritten by other \
+                     operation."
+                ),
+                RebaseReason::RewrittenCommits => {
+                    write!(f, "Rebased {num_rebased} descendant commits.")
+                }
+                RebaseReason::RewrittenInGit => write!(
+                    f,
+                    "Rebased {num_rebased} descendant commits off of commits rewritten from Git."
+                ),
+                RebaseReason::WorkingCopySnapshot => write!(
+                    f,
+                    "Rebased {num_rebased} descendant commits onto updated working copy."
+                ),
+            },
+            Self::OperationLeftUnpublished { op_id, is_snapshot } => {
+                let kind = if *is_snapshot {
+                    "Snapshot operation"
+                } else {
+                    "Operation"
+                };
+                write!(f, "{kind} left unpublished: {op_id:.12}")
+            }
+            Self::SnapshotOnImmutableWorkingCopy { new_wc_commit: _ } => write!(
+                f,
+                "The working-copy commit is immutable; a new commit has been created on top of it."
+            ),
+            Self::WorkingCopyBecameImmutable { new_wc_commit: _ } => write!(
+                f,
+                "The working-copy commit became immutable; a new commit has been created on top \
+                 of it."
+            ),
+            Self::WorkingCopyUpdated { new_commit, .. } => {
+                write!(f, "Updated working copy to commit {:.12}", new_commit.id())
+            }
+            Self::TransactionFinished { new_repo, .. } => {
+                write!(f, "Finished operation {:.12}", new_repo.repo().op_id())
+            }
+            Self::UserIdentityNotConfigured {
+                missing_name,
+                missing_email,
+            } => {
+                let missing = match (missing_name, missing_email) {
+                    (true, true) => "Name and email",
+                    (true, false) => "Name",
+                    (false, true) => "Email",
+                    (false, false) => return write!(f, "Name and email are configured."),
+                };
+                write!(
+                    f,
+                    "{missing} not configured. Until configured, your commits will be created \
+                     with the empty identity, and can't be pushed to remotes."
+                )
+            }
+            Self::WorkingCopyNotStale => {
+                write!(f, "Attempted recovery, but the working copy is not stale.")
+            }
+            Self::StaleWorkingCopyUpdated { new_commit } => write!(
+                f,
+                "Updated working copy to fresh commit {:.12}",
+                new_commit.id()
+            ),
+            Self::WorkingCopyOperationNotFound(err) => write!(
+                f,
+                "Failed to read working copy's current operation; attempting recovery. Error \
+                 message from read attempt: {err}"
+            ),
+            Self::RecoveryCommitCreated { commit } => write!(
+                f,
+                "Created and checked out recovery commit {:.12}",
+                commit.id()
+            ),
+            #[cfg(feature = "git")]
+            Self::JjConflictFilesInWorkingCopy => write!(
+                f,
+                "The working copy contains '.jjconflict' files. These files are used by `jj` \
+                 internally and should not be present in the working copy."
+            ),
+            #[cfg(feature = "git")]
+            Self::GitHeadImported { first_import } => {
+                if *first_import {
+                    write!(f, "Imported the working copy parent from Git HEAD.")
+                } else {
+                    write!(f, "Reset the working copy parent to the new Git HEAD.")
+                }
+            }
+            #[cfg(feature = "git")]
+            Self::GitRefsImported(stats) => {
+                write!(f, "Imported refs from Git")?;
+                let details = [
+                    (stats.abandoned_commits.len(), "abandoned commits"),
+                    (
+                        stats.rewritten_commit_ids.len(),
+                        "updated rewritten commits",
+                    ),
+                    (stats.failed_ref_names.len(), "failed refs"),
+                ]
+                .into_iter()
+                .filter(|(count, _)| *count > 0)
+                .map(|(count, what)| format!("{count} {what}"))
+                .collect_vec();
+                if !details.is_empty() {
+                    write!(f, " ({})", details.join(", "))?;
+                }
+                write!(f, ".")
+            }
+            #[cfg(feature = "git")]
+            Self::GitRefsImportFinished => {
+                write!(f, "Done importing changes from the underlying Git repo.")
+            }
+            #[cfg(feature = "git")]
+            Self::GitRefsExported(stats) => {
+                let num_failed = stats.failed_bookmarks.len() + stats.failed_tags.len();
+                if num_failed == 0 {
+                    write!(f, "Exported refs to Git.")
+                } else {
+                    write!(f, "Exported refs to Git ({num_failed} failed refs).")
+                }
+            }
+            #[cfg(feature = "git")]
+            Self::GitHeadResetFailed(err) => write!(f, "{err}"),
+        }
+    }
+}
+
 /// Receives [`RunnerEvent`]s from a [`WorkspaceOperationRunner`].
 pub trait RunnerEvents {
     /// Handles `event`. Returning an error aborts the operation, and the error
