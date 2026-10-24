@@ -90,7 +90,7 @@ pub async fn cmd_util_exec(
         cmd.env("JJ_WORKSPACE_ROOT", workspace_root);
     }
 
-    let status = cmd.status().map_err(|err| {
+    let status = jj_lib::subprocess_util::command_status(&mut cmd).map_err(|err| {
         user_error_with_message(
             format!("Failed to execute external command '{}'", args.command),
             err,

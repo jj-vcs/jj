@@ -101,6 +101,14 @@ and this project adheres to
   parent of a merge commit, including when a Git import abandons it.
   [#8076](https://github.com/jj-vcs/jj/issues/8076)
 
+* A missing external program (an editor, a fix tool, `jj util exec`, the
+  configured Git executable, or `jj bisect run`'s command) is reported as not
+  found. glibc usually copies a failed `execve` back through a
+  `CLONE_VM|CLONE_VFORK` shared-stack channel, but not every implementation
+  preserves it. qemu-user, OpenBSD, and HPPA surface a successful spawn and an
+  exit code of 127 instead. A program that exists and exits 127 is unchanged,
+  so `jj bisect run` still treats that status as "command not found".
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights

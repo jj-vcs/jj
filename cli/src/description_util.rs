@@ -100,9 +100,11 @@ impl TextEditor {
             cmd.arg(path);
         }
         tracing::info!(?cmd, "running editor");
-        let status = cmd.status().map_err(|source| TextEditError::FailedToRun {
-            name: name.into_owned(),
-            source,
+        let status = jj_lib::subprocess_util::command_status(&mut cmd).map_err(|source| {
+            TextEditError::FailedToRun {
+                name: name.into_owned(),
+                source,
+            }
         })?;
         if status.success() {
             Ok(())
