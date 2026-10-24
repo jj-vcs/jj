@@ -36,6 +36,7 @@ color = "auto"
 diff-formatter = ":color-words"
 diff-instructions = true
 graph.style = "curved"
+interactive = true
 pager = { command = ["less", "-FRXK"], env = { LESSCHARSET = "utf-8" } }
 paginate = "auto"
 progress-indicator = true

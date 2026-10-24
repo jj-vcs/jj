@@ -102,17 +102,19 @@ pub(crate) struct ConvergeArgs {
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions: Vec<RevisionArg>,
 
+    /// Prompt the user for help resolving divergence
+    ///
+    /// Takes precedence over `ui.interactive = false`.
+    #[arg(long, short)]
+    interactive: bool,
+
     /// Do not prompt the user for help resolving divergence
     ///
     /// If the command cannot solve divergence automatically it will print a
     /// warning and exit without making any changes (divergence will still be
     /// present).
-    #[arg(long, conflicts_with = "_interactive")]
+    #[arg(long, conflicts_with = "interactive")]
     no_interactive: bool,
-
-    /// No-op flag to pair with --no-interactive
-    #[arg(long, short, hide = true)]
-    _interactive: bool,
 }
 
 // TODO: consider adding logic to deal with more than one divergent change-id in
@@ -152,7 +154,10 @@ pub(crate) async fn cmd_converge(
         .check_rewritable_expr(&search_space)
         .await?;
 
-    let interactive = !args.no_interactive;
+    if args.interactive {
+        ui.set_interactive(true);
+    }
+    let interactive = !args.no_interactive && ui.interactive();
 
     let tx = workspace_command.start_transaction();
 

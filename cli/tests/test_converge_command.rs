@@ -204,6 +204,56 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
     [exit status: 1]
     ");
 
+    // `ui.interactive = false` behaves like `--no-interactive`, and `-i` /
+    // `--interactive` overrides it.
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd).args(["converge", "--config=ui.interactive=false"])
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 2 divergent change(s) in the specified revset:
+    - Change: zsuskulnrvyr with 2 commits:
+        zsuskuln/0 2c2bd25d b2 | (divergent) b2
+        zsuskuln/1 59a77004 b1 | (divergent) b2
+
+    - Change: kmkuslswpqwq with 2 commits:
+        kmkuslsw/0 b54f15d8 e2 | (divergent) e2
+        kmkuslsw/1 15962bae e1 | (divergent) e2
+
+    Error: Cannot automatically choose which change to converge
+    Hint: Run `jj converge` in interactive mode, or specify a revset that resolves to only one change ID
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir
+        .run_jj_with(|cmd| {
+            force_interactive(cmd)
+                .args(["converge", "--config=ui.interactive=false", "--interactive"])
+                .write_stdin("q\n")
+        })
+        .success();
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 2 divergent change(s) in the specified revset:
+    - Change: zsuskulnrvyr with 2 commits:
+        zsuskuln/0 2c2bd25d b2 | (divergent) b2
+        zsuskuln/1 59a77004 b1 | (divergent) b2
+
+    - Change: kmkuslswpqwq with 2 commits:
+        kmkuslsw/0 b54f15d8 e2 | (divergent) e2
+        kmkuslsw/1 15962bae e1 | (divergent) e2
+
+    Choose which change to converge (jj converge only converges one change at a time):
+    1: zsuskulnrvyr
+    2: kmkuslswpqwq
+    q: abort
+    Enter the index of the change to converge: 
+
+    Aborting... nothing changed.
+    [EOF]
+    ");
+
     // Note: in the test environment jj commands run in non-interactive (quiet) mode
     // by default, so the following also fails but for a different reason: it
     // cannot prompt the user
@@ -919,6 +969,26 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
     // First check behavior in non-interactive mode.
     let output =
         work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge", "--no-interactive"]));
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(output, @"
+        ------- stderr -------
+        Found 1 divergent change(s) in the specified revset:
+        - Change: zsuskulnrvyr with 2 commits:
+            zsuskuln/0 0ec69b7a b1 | (divergent) bar
+            zsuskuln/1 08117b18 b2 | (divergent) foo
+
+        Attempting to converge change zsuskulnrvyr...
+
+        Could not determine which description to use.
+        Error: Could not converge change
+        [EOF]
+        [exit status: 1]
+        ");
+    }
+
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd).args(["converge", "--config=ui.interactive=false"])
+    });
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @"
         ------- stderr -------
