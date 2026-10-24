@@ -22,12 +22,12 @@ use std::path::PathBuf;
 use jj_core::backend::BackendInitError;
 use jj_core::backend::BackendLoadError;
 use prost::Message as _;
-use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::new_temp_file_with_default_permissions;
 use crate::file_util::normalize_path;
 use crate::file_util::path_from_bytes;
 use crate::file_util::path_to_bytes;
@@ -137,7 +137,8 @@ impl SimpleWorkspaceStore {
     ) -> Result<(), SimpleWorkspaceStoreError> {
         // We had created the store dir in load(), so parent() must exist.
         let store_file_parent = self.store_file.parent().unwrap();
-        let temp_file = NamedTempFile::new_in(store_file_parent).context(store_file_parent)?;
+        let temp_file =
+            new_temp_file_with_default_permissions(store_file_parent).context(store_file_parent)?;
 
         temp_file
             .as_file()

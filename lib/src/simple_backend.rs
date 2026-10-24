@@ -35,7 +35,6 @@ use futures::stream;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
 use prost::Message as _;
-use tempfile::NamedTempFile;
 
 use crate::backend::Backend;
 use crate::backend::BackendError;
@@ -60,6 +59,7 @@ use crate::backend::TreeValue;
 use crate::backend::make_root_commit;
 use crate::conflict_labels::ConflictLabels;
 use crate::content_hash::blake2b_hash;
+use crate::file_util::new_temp_file_with_default_permissions;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::merge::MergeBuilder;
 use crate::object_id::ObjectId;
@@ -200,7 +200,7 @@ impl Backend for SimpleBackend {
         contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
         // TODO: Write temporary file in the destination directory (#5712)
-        let temp_file = NamedTempFile::new_in(&self.path).map_err(to_other_err)?;
+        let temp_file = new_temp_file_with_default_permissions(&self.path).map_err(to_other_err)?;
         let mut file = temp_file.as_file();
         let mut hasher = Blake2b512::new();
         let mut buff: Vec<u8> = vec![0; 1 << 14];
@@ -229,7 +229,8 @@ impl Backend for SimpleBackend {
 
     async fn write_symlink(&self, _path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
         // TODO: Write temporary file in the destination directory (#5712)
-        let mut temp_file = NamedTempFile::new_in(&self.path).map_err(to_other_err)?;
+        let mut temp_file =
+            new_temp_file_with_default_permissions(&self.path).map_err(to_other_err)?;
         temp_file
             .write_all(target.as_bytes())
             .map_err(to_other_err)?;
@@ -270,7 +271,7 @@ impl Backend for SimpleBackend {
 
     async fn write_tree(&self, _path: &RepoPath, tree: &Tree) -> BackendResult<TreeId> {
         // TODO: Write temporary file in the destination directory (#5712)
-        let temp_file = NamedTempFile::new_in(&self.path).map_err(to_other_err)?;
+        let temp_file = new_temp_file_with_default_permissions(&self.path).map_err(to_other_err)?;
 
         let proto = tree_to_proto(tree);
         temp_file
@@ -313,7 +314,7 @@ impl Backend for SimpleBackend {
             ));
         }
         // TODO: Write temporary file in the destination directory (#5712)
-        let temp_file = NamedTempFile::new_in(&self.path).map_err(to_other_err)?;
+        let temp_file = new_temp_file_with_default_permissions(&self.path).map_err(to_other_err)?;
 
         let mut proto = commit_to_proto(&commit);
         if let Some(sign) = sign_with {

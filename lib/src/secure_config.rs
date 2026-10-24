@@ -30,6 +30,7 @@ use thiserror::Error;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::new_temp_file_with_default_permissions;
 use crate::file_util::path_from_bytes;
 use crate::file_util::path_to_bytes;
 use crate::hex_util::encode_hex;
@@ -98,7 +99,7 @@ pub struct LoadedSecureConfig {
 
 fn atomic_write(path: &Path, content: &[u8]) -> Result<(), SecureConfigError> {
     let d = path.parent().unwrap();
-    let mut temp_file = NamedTempFile::new_in(d).context(d)?;
+    let mut temp_file = new_temp_file_with_default_permissions(d).context(d)?;
     temp_file.write_all(content).context(temp_file.path())?;
     temp_file.persist(path).map_err(|e| PathError {
         path: path.to_path_buf(),

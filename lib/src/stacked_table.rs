@@ -39,11 +39,11 @@ use std::time::SystemTime;
 
 use blake2::Blake2b512;
 use blake2::Digest as _;
-use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::new_temp_file_with_default_permissions;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::hex_util;
 use crate::lock::FileLock;
@@ -366,7 +366,8 @@ impl MutableTable {
             err,
         };
 
-        let mut temp_file = NamedTempFile::new_in(&store.dir).map_err(to_save_err)?;
+        let mut temp_file =
+            new_temp_file_with_default_permissions(&store.dir).map_err(to_save_err)?;
         let file = temp_file.as_file_mut();
         file.write_all(&buf).map_err(to_save_err)?;
         persist_content_addressed_temp_file(temp_file, file_path).map_err(to_save_err)?;

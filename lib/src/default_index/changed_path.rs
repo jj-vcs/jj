@@ -29,7 +29,6 @@ use either::Either;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
-use tempfile::NamedTempFile;
 
 use super::entry::GlobalCommitPosition;
 use super::readonly::ReadonlyIndexLoadError;
@@ -38,6 +37,7 @@ use crate::commit::Commit;
 use crate::commit::merge_commit_trees_no_resolve;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::new_temp_file_with_default_permissions;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::Index;
 use crate::matchers::EverythingMatcher;
@@ -358,7 +358,7 @@ impl MutableChangedPathIndexSegment {
 
         let file_id = ChangedPathIndexSegmentId::from_bytes(&hasher.finalize());
         let file_path = dir.join(file_id.hex());
-        let mut file = NamedTempFile::new_in(dir).context(dir)?;
+        let mut file = new_temp_file_with_default_permissions(dir).context(dir)?;
         file.as_file_mut().write_all(&buf).context(file.path())?;
         persist_content_addressed_temp_file(file, &file_path).context(&file_path)?;
 

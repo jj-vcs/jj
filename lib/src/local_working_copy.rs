@@ -57,7 +57,6 @@ use prost::Message as _;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::IndexedParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
-use tempfile::NamedTempFile;
 use thiserror::Error;
 use tracing::instrument;
 use tracing::trace_span;
@@ -87,6 +86,7 @@ use crate::eol::TargetEolStrategy;
 use crate::file_util::FileIdentity;
 use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
+use crate::file_util::new_temp_file_with_default_permissions;
 use crate::file_util::persist_temp_file;
 use crate::file_util::symlink_file;
 use crate::fsmonitor::FsmonitorSettings;
@@ -1205,7 +1205,8 @@ impl TreeState {
             path: self.state_path.clone(),
             source,
         };
-        let mut temp_file = NamedTempFile::new_in(&self.state_path).map_err(wrap_write_err)?;
+        let mut temp_file =
+            new_temp_file_with_default_permissions(&self.state_path).map_err(wrap_write_err)?;
         temp_file
             .as_file_mut()
             .write_all(&proto.encode_to_vec())
@@ -2713,8 +2714,8 @@ impl CheckoutState {
             operation_id: self.operation_id.to_bytes(),
             workspace_name: (*self.workspace_name).into(),
         };
-        let mut temp_file =
-            NamedTempFile::new_in(state_path).map_err(|err| wrap_err(err.into()))?;
+        let mut temp_file = new_temp_file_with_default_permissions(state_path)
+            .map_err(|err| wrap_err(err.into()))?;
         temp_file
             .as_file_mut()
             .write_all(&proto.encode_to_vec())

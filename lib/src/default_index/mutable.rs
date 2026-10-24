@@ -29,7 +29,6 @@ use digest::Digest as _;
 use itertools::Itertools as _;
 use smallvec::SmallVec;
 use smallvec::smallvec;
-use tempfile::NamedTempFile;
 
 use super::changed_path::CompositeChangedPathIndex;
 use super::changed_path::collect_changed_paths;
@@ -55,6 +54,7 @@ use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::new_temp_file_with_default_permissions;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
@@ -363,7 +363,7 @@ impl MutableCommitIndexSegment {
         let index_file_id = CommitIndexSegmentId::from_bytes(&hasher.finalize());
         let index_file_path = dir.join(index_file_id.hex());
 
-        let mut temp_file = NamedTempFile::new_in(dir).context(dir)?;
+        let mut temp_file = new_temp_file_with_default_permissions(dir).context(dir)?;
         let file = temp_file.as_file_mut();
         file.write_all(&buf).context(temp_file.path())?;
         persist_content_addressed_temp_file(temp_file, &index_file_path)

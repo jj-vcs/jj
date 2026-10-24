@@ -30,7 +30,6 @@ use async_trait::async_trait;
 use itertools::Itertools as _;
 use prost::Message as _;
 use smallvec::SmallVec;
-use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
@@ -41,6 +40,7 @@ use crate::content_hash::blake2b_hash;
 use crate::dag_walk_async;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::new_temp_file_with_default_permissions;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId;
@@ -148,7 +148,7 @@ impl SimpleOpStore {
 
     fn write_view(&self, view: &View) -> OpStoreResult<ViewId> {
         let dir = self.views_dir();
-        let temp_file = NamedTempFile::new_in(&dir)
+        let temp_file = new_temp_file_with_default_permissions(&dir)
             .context(&dir)
             .map_err(|err| io_to_write_error(err, "view"))?;
 
@@ -193,7 +193,7 @@ impl SimpleOpStore {
     fn write_operation(&self, operation: &Operation) -> OpStoreResult<OperationId> {
         assert!(!operation.parents.is_empty());
         let dir = self.operations_dir();
-        let temp_file = NamedTempFile::new_in(&dir)
+        let temp_file = new_temp_file_with_default_permissions(&dir)
             .context(&dir)
             .map_err(|err| io_to_write_error(err, "operation"))?;
 
