@@ -152,7 +152,7 @@ pub(crate) async fn cmd_converge(
         .check_rewritable_expr(&search_space)
         .await?;
 
-    let interactive = !args.no_interactive;
+    let interactive = !args.no_interactive && ui.can_prompt();
 
     let tx = workspace_command.start_transaction();
 

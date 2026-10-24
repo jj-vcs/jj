@@ -204,9 +204,9 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
     [exit status: 1]
     ");
 
-    // Note: in the test environment jj commands run in non-interactive (quiet) mode
-    // by default, so the following also fails but for a different reason: it
-    // cannot prompt the user
+    // In the test environment jj commands have no terminal attached by default
+    // (`!ui.can_prompt()`), so `jj converge` automatically runs in
+    // non-interactive mode.
     let output = work_dir.run_jj(["converge"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -219,11 +219,8 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
         kmkuslsw/0 b54f15d8 e2 | (divergent) e2
         kmkuslsw/1 15962bae e1 | (divergent) e2
 
-    Choose which change to converge (jj converge only converges one change at a time):
-    1: zsuskulnrvyr
-    2: kmkuslswpqwq
-    q: abort
-    Error: Cannot prompt for input since the output is not connected to a terminal
+    Error: Cannot automatically choose which change to converge
+    Hint: Run `jj converge` in interactive mode, or specify a revset that resolves to only one change ID
     [EOF]
     [exit status: 1]
     ");
@@ -1054,6 +1051,46 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
         [EOF]
         "#);
     }
+    Ok(())
+}
+
+#[test]
+fn test_converge_description_changed_inconsistently_without_terminal() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    // Ensure the editor is never invoked when `ui.can_prompt()` is false.
+    std::fs::write(&edit_script, "fail")?;
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "a", &[], &[("file1", "1")]);
+    create_commit_with_files(&work_dir, "b2", &["a"], &[("file2", "2")]);
+    work_dir
+        .run_jj(["describe", "-r", "b2", "-m", "foo"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "b1", "-r", "at_operation(@-, b2)"])
+        .success();
+    work_dir
+        .run_jj(["describe", "-r", "b1", "-m", "bar"])
+        .success();
+    create_commit_with_files(&work_dir, "d", &["b1"], &[("file3", "3")]);
+
+    let output = work_dir.run_jj(["converge"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 divergent change(s) in the specified revset:
+    - Change: zsuskulnrvyr with 2 commits:
+        zsuskuln/0 0ec69b7a b1 | (divergent) bar
+        zsuskuln/1 08117b18 b2 | (divergent) foo
+
+    Attempting to converge change zsuskulnrvyr...
+
+    Could not determine which description to use.
+    Error: Could not converge change
+    [EOF]
+    [exit status: 1]
+    ");
     Ok(())
 }
 
