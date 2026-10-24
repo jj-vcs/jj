@@ -232,7 +232,7 @@ fn test_init_load_non_utf8_path() -> TestResult {
     )?;
 
     // Just test that we can write a commit to the store
-    let repo = workspace.repo_loader().load_at_head().block_on()?;
+    let repo = workspace.load_at_head().block_on()?;
     let mut tx = repo.start_transaction();
     write_random_commit(tx.repo_mut());
     Ok(())

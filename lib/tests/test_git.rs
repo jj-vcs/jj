@@ -6852,7 +6852,9 @@ fn test_concurrent_write_commit() -> TestResult {
     assert_eq!(commit_change_ids.len(), num_thread);
 
     // All unique commits should be preserved.
-    let repo = repo.reload_at_head().block_on()?;
+    let repo = repo
+        .reload_at_head(Some(WorkspaceName::DEFAULT))
+        .block_on()?;
     for (commit_id, change_ids) in &commit_change_ids {
         let commit = repo.store().get_commit(commit_id)?;
         assert_eq!(commit.id(), commit_id);
@@ -6940,7 +6942,10 @@ fn test_concurrent_read_write_commit() -> TestResult {
                     if pending_commit_ids.is_empty() {
                         break;
                     }
-                    repo = repo.reload_at_head().block_on().unwrap();
+                    repo = repo
+                        .reload_at_head(Some(WorkspaceName::DEFAULT))
+                        .block_on()
+                        .unwrap();
                     let git_backend = get_git_backend(&repo);
                     let mut tx = repo.start_transaction();
                     pending_commit_ids = pending_commit_ids
@@ -6987,7 +6992,9 @@ fn test_concurrent_read_write_commit() -> TestResult {
     });
 
     // The index should be consistent with the store.
-    let repo = repo.reload_at_head().block_on()?;
+    let repo = repo
+        .reload_at_head(Some(WorkspaceName::DEFAULT))
+        .block_on()?;
     for commit_id in &commit_ids {
         assert!(repo.index().has_id(commit_id).block_on()?);
         let commit = repo.store().get_commit(commit_id)?;

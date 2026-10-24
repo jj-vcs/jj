@@ -60,6 +60,7 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo::RepoLoader;
+use jj_lib::repo::RepoLoaderError;
 use jj_lib::repo::StoreFactories;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -229,7 +230,7 @@ impl TestEnvironment {
     ) -> Arc<ReadonlyRepo> {
         RepoLoader::init_from_file_system(settings, repo_path, &self.default_backend_factories())
             .unwrap()
-            .load_at_head()
+            .load_at_head(Some(WorkspaceName::DEFAULT))
             .block_on()
             .unwrap()
     }
@@ -396,6 +397,10 @@ impl TestWorkspace {
         self.workspace.repo_path()
     }
 
+    pub async fn reload_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        self.workspace.load_at_head().await
+    }
+
     /// Snapshots the working copy and returns the tree. Updates the working
     /// copy state on disk, but does not update the working-copy commit (no
     /// new operation).
@@ -431,7 +436,8 @@ pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
         op_ids.push(tx.commit("test").block_on().unwrap().op_id().clone());
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
-    let repo = repo_loader.load_at_head().block_on().unwrap();
+    let workspace_name = None;
+    let repo = repo_loader.load_at_head(workspace_name).block_on().unwrap();
     // Test the setup. The assumption here is that the parent order matches the
     // order in which they were merged (which currently matches the transaction
     // commit order), so we want to know make sure they appear in a certain
