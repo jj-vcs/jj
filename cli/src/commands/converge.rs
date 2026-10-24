@@ -40,6 +40,7 @@ use jj_lib::files::FileMergeHunkLevel;
 use jj_lib::files::MergeOptions;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::SameChange;
+use jj_lib::object_id::HexPrefix;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
@@ -543,24 +544,27 @@ fn choose_change<'a>(
         "Choose which change to converge (jj converge only converges one change at a time):",
     )?;
 
-    let mut choices: Vec<String> = Default::default();
     let change_ids: Vec<&ChangeId> = divergent_changes.keys().collect();
     for (i, change_id) in change_ids.iter().enumerate() {
         // TODO: is there a better way to display the change-id? perhaps with
         // format_short_change_id?
         writeln!(formatter, "{}: {}", i + 1, short_change_hash(change_id))?;
-        choices.push(format!("{}", i + 1));
     }
-    writeln!(formatter, "q: abort")?;
-    choices.push("q".to_string());
+    writeln!(formatter, "q: abort (always takes precedence)")?;
     drop(formatter);
-    let index = ui.prompt_choice("Enter the index of the change to converge", &choices, None)?;
+    let index = ui.prompt_choice_by_index_or_match(
+        "Enter the index or change ID of the change to converge",
+        &change_ids,
+        |change_id, input| {
+            HexPrefix::try_from_reverse_hex(input).is_some_and(|prefix| prefix.matches(*change_id))
+        },
+    )?;
     writeln!(ui.status(), "\n")?;
-    if index >= change_ids.len() {
+    if let Some(index) = index {
+        Ok(Some(change_ids[index]))
+    } else {
         writeln!(ui.status(), "Aborting... nothing changed.")?;
         Ok(None)
-    } else {
-        Ok(Some(change_ids[index]))
     }
 }
 

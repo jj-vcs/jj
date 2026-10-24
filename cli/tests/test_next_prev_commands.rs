@@ -385,7 +385,7 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
     ambiguous next commit, choose one to target:
     1: zsuskuln 6fc6af46 (empty) third
     2: rlvkpnrz 9439bf06 (empty) second
-    q: quit the prompt
+    q: quit the prompt (always takes precedence)
     Error: Cannot prompt for input since the output is not connected to a terminal
     [EOF]
     [exit status: 1]
@@ -421,8 +421,8 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
     ambiguous next commit, choose one to target:
     1: zsuskuln 6fc6af46 (empty) third
     2: rlvkpnrz 9439bf06 (empty) second
-    q: quit the prompt
-    enter the index of the commit you want to target: Error: ambiguous target commit
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Error: ambiguous target commit
     [EOF]
     [exit status: 1]
     ");
@@ -448,9 +448,229 @@ fn test_next_choose_bookmarking_child() {
     1: royxmykx 3522c887 (empty) fourth
     2: zsuskuln 6fc6af46 (empty) third
     3: rlvkpnrz 9439bf06 (empty) second
-    q: quit the prompt
-    enter the index of the commit you want to target: Working copy  (@) now at: yostqsxw 683938a4 (empty) (no description set)
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: yostqsxw 683938a4 (empty) (no description set)
     Parent commit (@-)      : zsuskuln 6fc6af46 (empty) third
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_next_choose_child_by_id() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
+    work_dir.run_jj(["commit", "-m", "fourth"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
+
+    // Choose by change ID prefix
+    let output = work_dir.run_jj_with(|cmd| force_interactive(cmd).arg("next").write_stdin("zs\n"));
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous next commit, choose one to target:
+    1: royxmykx 3522c887 (empty) fourth
+    2: zsuskuln 6fc6af46 (empty) third
+    3: rlvkpnrz 9439bf06 (empty) second
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: yostqsxw 683938a4 (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 6fc6af46 (empty) third
+    [EOF]
+    ");
+    work_dir.run_jj(["undo"]).success();
+
+    // Choose by commit ID prefix
+    let output =
+        work_dir.run_jj_with(|cmd| force_interactive(cmd).arg("next").write_stdin("352\n"));
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous next commit, choose one to target:
+    1: royxmykx 3522c887 (empty) fourth
+    2: zsuskuln 6fc6af46 (empty) third
+    3: rlvkpnrz 9439bf06 (empty) second
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: kpqxywon b1e683a7 (empty) (no description set)
+    Parent commit (@-)      : royxmykx 3522c887 (empty) fourth
+    [EOF]
+    ");
+    work_dir.run_jj(["undo"]).success();
+
+    // An out-of-range number is matched as a commit ID prefix
+    let output = work_dir.run_jj_with(|cmd| force_interactive(cmd).arg("next").write_stdin("9\n"));
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous next commit, choose one to target:
+    1: royxmykx 3522c887 (empty) fourth
+    2: zsuskuln 6fc6af46 (empty) third
+    3: rlvkpnrz 9439bf06 (empty) second
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: wqnwkozp 7652e4cb (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
+    [EOF]
+    ");
+    work_dir.run_jj(["undo"]).success();
+
+    // Unknown and ambiguous input is rejected, and the prompt is repeated
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .arg("next")
+            .write_stdin("zz\nr\n4\nrl\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous next commit, choose one to target:
+    1: royxmykx 3522c887 (empty) fourth
+    2: zsuskuln 6fc6af46 (empty) third
+    3: rlvkpnrz 9439bf06 (empty) second
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: unrecognized response
+    enter the index or change/commit ID of the commit you want to target: ambiguous response: matches more than one choice
+    enter the index or change/commit ID of the commit you want to target: unrecognized response
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: kxryzmor 0851c335 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_prev_choose_parent_by_id() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    // The descriptions are chosen so that the commit IDs start with "01" and
+    // "22" respectively.
+    work_dir.run_jj(["desc", "-m", "first 506"]).success();
+    work_dir
+        .run_jj(["new", "root()", "-m", "second 188"])
+        .success();
+    work_dir.run_jj(["new", "visible_heads()"]).success();
+    let setup_opid = work_dir.current_operation_id();
+
+    // "q" quits, with a candidate whose change ID starts with "q"
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["prev", "--edit"])
+            .write_stdin("q\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous prev commit, choose one to target:
+    1: kkmpptxz 2245ef74 (empty) second 188
+    2: qpvuntsm 0133fd16 (empty) first 506
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Error: ambiguous target commit
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // "Q" also quits
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["prev", "--edit"])
+            .write_stdin("Q\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous prev commit, choose one to target:
+    1: kkmpptxz 2245ef74 (empty) second 188
+    2: qpvuntsm 0133fd16 (empty) first 506
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Error: ambiguous target commit
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // A longer change ID prefix starting with "q" selects the commit
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["prev", "--edit"])
+            .write_stdin("qp\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous prev commit, choose one to target:
+    1: kkmpptxz 2245ef74 (empty) second 188
+    2: qpvuntsm 0133fd16 (empty) first 506
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: qpvuntsm 0133fd16 (empty) first 506
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // "2" selects the second candidate by index, with another candidate whose
+    // commit ID starts with "2"
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["prev", "--edit"])
+            .write_stdin("2\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous prev commit, choose one to target:
+    1: kkmpptxz 2245ef74 (empty) second 188
+    2: qpvuntsm 0133fd16 (empty) first 506
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: qpvuntsm 0133fd16 (empty) first 506
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // "01" is matched as a commit ID prefix
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["prev", "--edit"])
+            .write_stdin("01\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous prev commit, choose one to target:
+    1: kkmpptxz 2245ef74 (empty) second 188
+    2: qpvuntsm 0133fd16 (empty) first 506
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: qpvuntsm 0133fd16 (empty) first 506
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // Change ID prefixes are matched case-insensitively
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["prev", "--edit"])
+            .write_stdin("QP\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous prev commit, choose one to target:
+    1: kkmpptxz 2245ef74 (empty) second 188
+    2: qpvuntsm 0133fd16 (empty) first 506
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: qpvuntsm 0133fd16 (empty) first 506
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // Commit ID prefixes are matched case-insensitively
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["prev", "--edit"])
+            .write_stdin("0133FD\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    ambiguous prev commit, choose one to target:
+    1: kkmpptxz 2245ef74 (empty) second 188
+    2: qpvuntsm 0133fd16 (empty) first 506
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: qpvuntsm 0133fd16 (empty) first 506
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -497,8 +717,8 @@ fn test_prev_on_merge_commit() {
     ambiguous prev commit, choose one to target:
     1: zsuskuln 22a08bc0 right | (empty) second
     2: qpvuntsm 68a50538 left | (empty) first
-    q: quit the prompt
-    enter the index of the commit you want to target: Working copy  (@) now at: qpvuntsm 68a50538 left | (empty) first
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: qpvuntsm 68a50538 left | (empty) first
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -542,8 +762,8 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     1: kkmpptxz ab947132 (empty) y
     2: qpvuntsm 007e88d2 (empty) x
     3: zzzzzzzz 00000000 (empty) (no description set)
-    q: quit the prompt
-    enter the index of the commit you want to target: Working copy  (@) now at: vruxwmqv ff8922ba (empty) (no description set)
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: vruxwmqv ff8922ba (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 007e88d2 (empty) x
     [EOF]
     ");
@@ -559,8 +779,8 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     ambiguous prev commit, choose one to target:
     1: mzvwutvl 0e8fc48c (empty) 1
     2: zsuskuln e7382ca4 (empty) z
-    q: quit the prompt
-    enter the index of the commit you want to target: Working copy  (@) now at: zsuskuln e7382ca4 (empty) z
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: zsuskuln e7382ca4 (empty) z
     Parent commit (@-)      : qpvuntsm 007e88d2 (empty) x
     Parent commit (@-)      : kkmpptxz ab947132 (empty) y
     [EOF]
@@ -609,8 +829,8 @@ fn test_prev_prompts_on_multiple_parents() {
     1: mzvwutvl 5ec63817 (empty) third
     2: kkmpptxz e8959fbd (empty) second
     3: qpvuntsm 68a50538 (empty) first
-    q: quit the prompt
-    enter the index of the commit you want to target: Working copy  (@) now at: kpqxywon 5448803a (empty) (no description set)
+    q: quit the prompt (always takes precedence)
+    enter the index or change/commit ID of the commit you want to target: Working copy  (@) now at: kpqxywon 5448803a (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");

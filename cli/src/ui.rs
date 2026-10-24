@@ -617,6 +617,38 @@ impl Ui {
         )
     }
 
+    /// Repeats the given prompt until the user chooses one of the `candidates`.
+    ///
+    /// A candidate can be chosen by its 1-based index, or by any other text
+    /// that `matches` exactly one candidate (e.g. an ID prefix). Returns
+    /// `None` if the user enters `q` or `Q`, which always takes precedence
+    /// over `matches`, so callers should say so when listing the `q` option.
+    pub fn prompt_choice_by_index_or_match<T>(
+        &self,
+        prompt: &str,
+        candidates: &[T],
+        mut matches: impl FnMut(&T, &str) -> bool,
+    ) -> io::Result<Option<usize>> {
+        self.prompt_choice_with(prompt, None, |input| {
+            if input.eq_ignore_ascii_case("q") {
+                return Ok(None);
+            }
+            if let Some(index) = (1..=candidates.len()).position(|i| input == i.to_string()) {
+                return Ok(Some(index));
+            }
+            let mut matched = candidates
+                .iter()
+                .enumerate()
+                .filter(|(_, candidate)| matches(candidate, input))
+                .map(|(index, _)| index);
+            match (matched.next(), matched.next()) {
+                (Some(index), None) => Ok(Some(index)),
+                (Some(_), Some(_)) => Err("ambiguous response: matches more than one choice"),
+                (None, _) => Err("unrecognized response"),
+            }
+        })
+    }
+
     /// Prompts for a yes-or-no response, with yes = true and no = false.
     pub fn prompt_yes_no(&self, prompt: &str, default: Option<bool>) -> io::Result<bool> {
         let default_str = match &default {

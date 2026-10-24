@@ -222,7 +222,7 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
     Choose which change to converge (jj converge only converges one change at a time):
     1: zsuskulnrvyr
     2: kmkuslswpqwq
-    q: abort
+    q: abort (always takes precedence)
     Error: Cannot prompt for input since the output is not connected to a terminal
     [EOF]
     [exit status: 1]
@@ -244,8 +244,8 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
     Choose which change to converge (jj converge only converges one change at a time):
     1: zsuskulnrvyr
     2: kmkuslswpqwq
-    q: abort
-    Enter the index of the change to converge: Error: Prompt canceled by EOF
+    q: abort (always takes precedence)
+    Enter the index or change ID of the change to converge: Error: Prompt canceled by EOF
     [EOF]
     [exit status: 1]
     ");
@@ -335,19 +335,25 @@ fn test_converge_two_divergent_changes() {
     Choose which change to converge (jj converge only converges one change at a time):
     1: zsuskulnrvyr
     2: kmkuslswpqwq
-    q: abort
-    Enter the index of the change to converge: 
+    q: abort (always takes precedence)
+    Enter the index or change ID of the change to converge: 
 
     Aborting... nothing changed.
     [EOF]
     ");
 
-    // Run the command again, this time the user chooses the first divergent change.
+    // Run the command again, this time the user chooses the first divergent change
+    // by its change ID, after an unrecognized response. The change ID is matched
+    // case-insensitively, like in revsets.
     // This invocation succeeds to automatically converge that change. A hint is
     // printed to inform the user that there is still one divergent change
     // remaining.
     let output = work_dir
-        .run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("1\n"))
+        .run_jj_with(|cmd| {
+            force_interactive(cmd)
+                .args(["converge"])
+                .write_stdin("zz\nZS\n")
+        })
         .success();
 
     insta::assert_snapshot!(output, @"
@@ -364,8 +370,9 @@ fn test_converge_two_divergent_changes() {
     Choose which change to converge (jj converge only converges one change at a time):
     1: zsuskulnrvyr
     2: kmkuslswpqwq
-    q: abort
-    Enter the index of the change to converge: 
+    q: abort (always takes precedence)
+    Enter the index or change ID of the change to converge: unrecognized response
+    Enter the index or change ID of the change to converge: 
 
     Attempting to converge change zsuskulnrvyr...
 
@@ -658,8 +665,8 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     Choose which change to converge (jj converge only converges one change at a time):
     1: zsuskulnrvyr
     2: kmkuslswpqwq
-    q: abort
-    Enter the index of the change to converge: 
+    q: abort (always takes precedence)
+    Enter the index or change ID of the change to converge: 
 
     Aborting... nothing changed.
     [EOF]
