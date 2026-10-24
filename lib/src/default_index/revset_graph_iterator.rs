@@ -244,8 +244,11 @@ impl<'a> RevsetGraphWalk<'a> {
                     let parent_position = parent.position();
                     self.consume_to(index, parent_position)?;
                     if self.look_ahead.binary_search(&parent_position).is_ok() {
-                        // We have found a path back into the input set
-                        edges.push(CommitGraphEdge::indirect(parent_position));
+                        // We have found a path back into the input set. Another parent
+                        // may have led to the same commit.
+                        if !known_ancestors.get_set(parent_position) {
+                            edges.push(CommitGraphEdge::indirect(parent_position));
+                        }
                     } else if let Some(parent_edges) = self.edges.get(&parent_position) {
                         if parent_edges.iter().all(|edge| edge.is_missing()) {
                             edges.push(CommitGraphEdge::missing(parent_position));

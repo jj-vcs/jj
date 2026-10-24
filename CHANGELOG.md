@@ -121,6 +121,10 @@ and this project adheres to
 * On Unix, repository files under `.jj` are now created with default file
   permissions.
 
+* `jj log` no longer draws a commit as a merge with two elided edges to the
+  same commit when there's a merge between them whose parents both lead to
+  that commit.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
