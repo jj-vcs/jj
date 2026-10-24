@@ -155,12 +155,12 @@ pub async fn split_hunks_to_trees(
 
         // Compute annotation of parent (= left) content to map right hunks
         let mut annotator =
-            FileAnnotator::with_file_content(source.commit.id(), left_path, left_text.clone());
+            FileAnnotator::with_file_content(&source.commit, left_path, left_text.clone());
         annotator.compute(repo, destinations).await?;
         let annotation = annotator.to_annotation();
         let annotation_ranges = annotation
             .compact_line_ranges()
-            .filter_map(|(commit_id, range)| Some((commit_id.ok()?, range)))
+            .filter_map(|(commit, range)| Some((commit.ok()?.id(), range)))
             .collect_vec();
         let diff = ContentDiff::by_line([&left_text, &right_text]);
         let selected_ranges = split_file_hunks(&annotation_ranges, &diff);
