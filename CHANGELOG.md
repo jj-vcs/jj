@@ -67,6 +67,12 @@ and this project adheres to
   select a change ID starting with `q`.
   [#9790](https://github.com/jj-vcs/jj/issues/9790)
 
+* When `jj converge` asks which divergent change to converge, you can now enter
+  a change ID prefix (case-insensitive) instead of the index in the list. As in
+  `jj next`/`jj prev`, `q` (or `Q`) always aborts, even if it's also a valid
+  change ID prefix. Use a longer prefix such as `qp` to select a change ID
+  starting with `q`.
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
