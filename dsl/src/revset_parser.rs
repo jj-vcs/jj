@@ -69,7 +69,7 @@ const STRING_LITERAL_PARSER: StringLiteralParser<Rule> = StringLiteralParser {
 const FUNCTION_CALL_PARSER: FunctionCallParser<Rule> = FunctionCallParser {
     function_name_rule: Rule::function_name,
     function_arguments_rule: Rule::function_arguments,
-    keyword_argument_rule: Rule::keyword_argument,
+    argument_rule: Rule::argument,
     argument_name_rule: Rule::strict_identifier,
     argument_value_rule: Rule::expression,
 };
@@ -126,7 +126,6 @@ impl Rule {
             Self::infix_op => DepthRole::Ignore, // silent grouping rule
             Self::function => DepthRole::Ignore,
             Self::function_name => DepthRole::Ignore,
-            Self::keyword_argument => DepthRole::Ignore,
             Self::argument => DepthRole::Ignore,
             Self::function_arguments => DepthRole::Ignore,
             Self::formal_parameters => DepthRole::Ignore,
@@ -183,7 +182,6 @@ impl Rule {
             Self::infix_op => None,
             Self::function => None,
             Self::function_name => None,
-            Self::keyword_argument => None,
             Self::argument => None,
             Self::function_arguments => None,
             Self::formal_parameters => None,
@@ -1801,8 +1799,8 @@ mod tests {
         assert_eq!(depth("f(a)"), 2);
         assert_eq!(depth("f(g(a))"), 3);
         assert_eq!(depth("f(g(h(i(a))))"), 5);
-        assert_eq!(depth("f(a, b, c)"), 4); // actual: 2
-        assert_eq!(depth("f(g(a), h(b))"), 4); // actual: 3
+        assert_eq!(depth("f(a, b, c)"), 2);
+        assert_eq!(depth("f(g(a), h(b))"), 3);
         assert_eq!(depth("f(x=a, y=b)"), 2);
         assert_eq!(depth("f(x=g(a))"), 3);
         assert_eq!(depth("f(a|b)|c"), 4);

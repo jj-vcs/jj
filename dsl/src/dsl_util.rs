@@ -550,8 +550,8 @@ pub struct FunctionCallParser<R> {
     pub function_name_rule: R,
     /// List of positional and keyword arguments.
     pub function_arguments_rule: R,
-    /// Pair of parameter name and value.
-    pub keyword_argument_rule: R,
+    /// Pair of optional parameter name and value.
+    pub argument_rule: R,
     /// Parameter name.
     pub argument_name_rule: R,
     /// Value expression.
@@ -577,8 +577,11 @@ impl<R: RuleType> FunctionCallParser<R> {
         let mut args = Vec::new();
         let mut keyword_args = Vec::new();
         for pair in args_pair.into_inner() {
+            assert_eq!(pair.as_rule(), self.argument_rule);
             let span = pair.as_span();
-            if pair.as_rule() == self.argument_value_rule {
+            let pairs = pair.into_inner();
+            if pairs.peek().unwrap().as_rule() == self.argument_value_rule {
+                let [value_pair] = pairs.collect_array().unwrap();
                 if !keyword_args.is_empty() {
                     return Err(InvalidArguments {
                         name: function_name,
@@ -587,9 +590,9 @@ impl<R: RuleType> FunctionCallParser<R> {
                     }
                     .into());
                 }
-                args.push(parse_value(pair)?);
-            } else if pair.as_rule() == self.keyword_argument_rule {
-                let [name_pair, value_pair] = pair.into_inner().collect_array().unwrap();
+                args.push(parse_value(value_pair)?);
+            } else {
+                let [name_pair, value_pair] = pairs.collect_array().unwrap();
                 assert_eq!(name_pair.as_rule(), self.argument_name_rule);
                 assert_eq!(value_pair.as_rule(), self.argument_value_rule);
                 let name_span = name_pair.as_span();
@@ -599,8 +602,6 @@ impl<R: RuleType> FunctionCallParser<R> {
                     value: parse_value(value_pair)?,
                 };
                 keyword_args.push(arg);
-            } else {
-                panic!("unexpected argument rule {pair:?}");
             }
         }
         Ok(FunctionCallNode {

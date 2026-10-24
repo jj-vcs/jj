@@ -80,8 +80,10 @@ infix_op = _{ union_op | intersection_op | difference_op | compat_add_op | compa
 
 function = { function_name ~ "(" ~ whitespace* ~ function_arguments ~ whitespace* ~ ")" }
 function_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-keyword_argument = { strict_identifier ~ whitespace* ~ "=" ~ whitespace* ~ expression }
-argument = _{ keyword_argument | expression }
+argument = {
+  strict_identifier ~ whitespace* ~ "=" ~ whitespace* ~ expression
+  | expression
+}
 function_arguments = {
   argument ~ (whitespace* ~ "," ~ whitespace* ~ argument)* ~ (whitespace* ~ ",")?
   | ""

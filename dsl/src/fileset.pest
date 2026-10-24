@@ -56,8 +56,12 @@ infix_ops = _{ union_op | intersection_op | difference_op }
 
 function = { function_name ~ "(" ~ whitespace* ~ function_arguments ~ whitespace* ~ ")" }
 function_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+argument = {
+  strict_identifier ~ whitespace* ~ "=" ~ whitespace* ~ expression
+  | expression
+}
 function_arguments = {
-  expression ~ (whitespace* ~ "," ~ whitespace* ~ expression)* ~ (whitespace* ~ ",")?
+  argument ~ (whitespace* ~ "," ~ whitespace* ~ argument)* ~ (whitespace* ~ ",")?
   | ""
 }
 formal_parameters = {
