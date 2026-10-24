@@ -943,6 +943,56 @@ fn test_revset_committer_date_with_time_zone() {
 }
 
 #[test]
+fn test_user_trunk_absent_with_revset_warnings() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("revset-aliases.'trunk()' = 'main'");
+    test_env.add_config(r#"revset-aliases.'immutable_heads()' = 'trunk() | diff_contains("x")'"#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // The warning about immutable_heads() is printed only once, even though
+    // the expression is reloaded after falling back from trunk().
+    let output = work_dir.run_jj(["log", "-r@", "-Tcommit_id.short()"]);
+    insta::assert_snapshot!(output, @r#"
+    @  e8849ae12c70
+    │
+    ~
+    [EOF]
+    ------- stderr -------
+    Warning: In `revset-aliases.immutable_heads()`
+     --> 1:11
+      |
+    1 | trunk() | diff_contains("x")
+      |           ^-----------^
+      |
+      = diff_contains() is deprecated; use diff_lines() instead
+    Warning: In `revsets.short-prefixes`
+     --> 1:1
+      |
+    1 | builtin_log()
+      | ^-----------^
+      |
+      = In alias `builtin_log()`
+     --> 1:24
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                        ^---------------^
+      |
+      = In alias `immutable_heads()`
+     --> 1:11
+      |
+    1 | trunk() | diff_contains("x")
+      |           ^-----------^
+      |
+      = diff_contains() is deprecated; use diff_lines() instead
+    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main` doesn't exist
+    The `trunk()` alias is temporarily set to `root()`.
+    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_user_trunk_absent_or_conflicted() {
     let test_env = TestEnvironment::default();
     // If trunk() is set to a local bookmark, resolution may fail due to

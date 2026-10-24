@@ -556,10 +556,10 @@ impl CommandHelper {
                 .revset_aliases_map
                 .insert("trunk()", fallback, None)
                 .expect("valid syntax");
-            let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
-            let result = env.base.reload_revset_expressions(&mut diagnostics);
-            print_workspace_environment_diagnostics(ui, &diagnostics)?;
-            result?;
+            // Any warnings were already reported when the expressions were first
+            // loaded, and the fallback can't add new ones.
+            env.base
+                .reload_revset_expressions(&mut WorkspaceEnvironmentDiagnostics::new())?;
         }
         let may_snapshot_working_copy = self.is_working_copy_writable();
         WorkspaceCommandHelper::new(
