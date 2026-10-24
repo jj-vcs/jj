@@ -1393,6 +1393,15 @@ If the given path is a directory, files in the directory will be visited recursi
 * `-r`, `--revision <REVSET>` — The revision to get the file contents from
 
   Default value: `@`
+* `--id <FILE_ID>` — The file ID to get the file contents from
+
+   This reads the raw file contents for the given file ID directly from the store, which is useful for inspecting individual sides of a conflicted file. File IDs can be obtained from [`TreeEntry`][TreeEntry] template methods such as `normal_value`, `removed_values`, and `added_values`.
+
+   Exactly one file path must be specified when using `--id`.
+
+   [TreeValue]: https://docs.jj-vcs.dev/latest/templates/#treevalue-type
+
+   [TreeEntry]: https://docs.jj-vcs.dev/latest/templates/#treeentry-type
 * `-T`, `--template <TEMPLATE>` — Render each file metadata using the given template
 
    All 0-argument methods of the [`TreeEntry` type][TreeEntry] are available as keywords in the template expression. See [`jj help -k templates`][templates] for more information.

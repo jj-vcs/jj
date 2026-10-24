@@ -133,4 +133,29 @@ fn test_file_list_show() {
     Warning: Path 'secret' exists but access is denied: No access
     [EOF]
     ");
+
+    // "file show --id" should also respect path-based ACLs
+    let output = work_dir.run_jj([
+        "file",
+        "show",
+        "--id",
+        "257cc5642cb1a054f08cc83f2d943e56fd3ebe99",
+        "a-first",
+    ]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    foo
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "file",
+        "show",
+        "--id",
+        "257cc5642cb1a054f08cc83f2d943e56fd3ebe99",
+        "secret",
+    ]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    ------- stderr -------
+    Warning: Path 'secret' exists but access is denied: No access
+    [EOF]
+    ");
 }
