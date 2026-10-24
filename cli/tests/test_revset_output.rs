@@ -355,7 +355,7 @@ fn test_bad_function_call() {
     1 | remote_bookmarks(=foo)
       |                  ^---
       |
-      = expected <strict_identifier> or <expression>
+      = expected <argument>
     Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
     [EOF]
     [exit status: 1]

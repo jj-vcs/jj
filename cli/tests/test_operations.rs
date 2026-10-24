@@ -3873,7 +3873,7 @@ fn test_op_diff_invalid_revset() {
     1 | invalid(
       |         ^---
       |
-      = expected <strict_identifier> or <expression>
+      = expected <argument>
     [EOF]
     [exit status: 1]
     ");
@@ -3888,7 +3888,7 @@ fn test_op_diff_invalid_revset() {
     1 | invalid(
       |         ^---
       |
-      = expected <strict_identifier> or <expression>
+      = expected <argument>
     For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
