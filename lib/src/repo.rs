@@ -32,6 +32,7 @@ use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceType;
 use once_cell::sync::OnceCell;
 use thiserror::Error;
 use tracing::instrument;
@@ -70,6 +71,7 @@ use crate::merged_tree::MergedTree;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
+use crate::op_heads_store::OpHeadsKey;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store;
@@ -160,6 +162,26 @@ pub trait Repo {
     ) -> IndexResult<usize>;
 }
 
+#[derive(Debug, Clone)]
+pub enum OpContext {
+    /// The operation is running outside of any workspace
+    Repo,
+    /// The operation is running  in a workspace
+    Workspace {
+        name: WorkspaceNameBuf,
+        workspace_type: WorkspaceType,
+    },
+}
+
+impl OpContext {
+    pub fn maybe_workspace_name(&self) -> Option<&WorkspaceName> {
+        match self {
+            Self::Repo => None,
+            Self::Workspace { name, .. } => Some(name),
+        }
+    }
+}
+
 pub struct ReadonlyRepo {
     loader: RepoLoader,
     operation: Operation,
@@ -189,7 +211,7 @@ pub enum RepoInitError {
 
 impl ReadonlyRepo {
     pub fn default_workspace_store_initializer() -> &'static WorkspaceStoreInitializer<'static> {
-        &|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::init(store_path)?))
+        &|settings, store_path| Ok(Box::new(SimpleWorkspaceStore::init(settings, store_path)?))
     }
 
     pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
@@ -200,7 +222,9 @@ impl ReadonlyRepo {
 
     pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
         &|_settings, store_path, root_op_id| {
-            Ok(Box::new(SimpleOpHeadsStore::init(store_path, root_op_id)?))
+            Ok(Box::new(SimpleOpHeadsStore::init_op_heads_store(
+                store_path, root_op_id,
+            )?))
         }
     }
 
@@ -804,7 +828,8 @@ impl RepoLoader {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
-            async |op_heads| -> Result<Operation, RepoLoaderError> {
+            &OpHeadsKey::Repo,
+            async |op_heads, _op_heads_key| -> Result<Operation, RepoLoaderError> {
                 assert!(op_heads.len() > 1);
                 let workspace_name = None;
                 let transaction_description = Some("reconcile divergent operations");
