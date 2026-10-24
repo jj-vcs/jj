@@ -101,6 +101,10 @@ and this project adheres to
   parent of a merge commit, including when a Git import abandons it.
   [#8076](https://github.com/jj-vcs/jj/issues/8076)
 
+* `jj log` no longer draws a commit as a merge with two elided edges to the
+  same commit when there's a merge between them whose parents both lead to
+  that commit.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
