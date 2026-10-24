@@ -108,11 +108,11 @@ pub(crate) async fn cmd_file_annotate(
         .await?;
     let annotation = annotator.to_annotation();
 
-    render_file_annotation(repo.as_ref(), ui, &template, &annotation).await?;
+    render_file_annotation(repo.as_ref(), ui, &template, &annotation)?;
     Ok(())
 }
 
-async fn render_file_annotation(
+fn render_file_annotation(
     repo: &dyn Repo,
     ui: &mut Ui,
     template_render: &TemplateRenderer<'_, AnnotationLine>,
@@ -124,27 +124,23 @@ async fn render_file_annotation(
     // At least in cases where the repository was jj-initialized shallowly,
     // then unshallow'd with git, some changes will not have a commit id
     // because jj does not import the unshallow'd commits. So we default
-    // to the root commit id for now.
+    // to the root commit for now.
     let default_line_origin = LineOrigin {
-        commit_id: repo.store().root_commit_id().clone(),
+        commit: repo.store().root_commit(),
         line_number: 0,
     };
     for (line_number, (line_origin, content)) in annotation.line_origins().enumerate() {
         let line_origin = line_origin.unwrap_or(&default_line_origin);
-        let commit = repo
-            .store()
-            .get_commit_async(&line_origin.commit_id)
-            .await?;
-        let first_line_in_hunk = last_id != Some(&line_origin.commit_id);
+        let first_line_in_hunk = last_id != Some(line_origin.commit.id());
         let annotation_line = AnnotationLine {
-            commit,
+            commit: line_origin.commit.clone(),
             content: content.to_owned(),
             line_number: line_number + 1,
             original_line_number: line_origin.line_number + 1,
             first_line_in_hunk,
         };
         template_render.format(&annotation_line, formatter.as_mut())?;
-        last_id = Some(&line_origin.commit_id);
+        last_id = Some(line_origin.commit.id());
     }
 
     Ok(())
