@@ -143,7 +143,7 @@ impl GitSubprocessContext {
     fn spawn_cmd(&self, mut git_cmd: Command) -> Result<Child, GitSubprocessError> {
         tracing::debug!(cmd = ?git_cmd, "spawning a git subprocess");
 
-        git_cmd.spawn().map_err(|error| {
+        crate::subprocess_util::command_spawn(&mut git_cmd).map_err(|error| {
             if self.options.executable_path.is_absolute() {
                 GitSubprocessError::Spawn {
                     path: self.options.executable_path.clone(),

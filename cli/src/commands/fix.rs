@@ -438,13 +438,12 @@ fn run_tool(
     }
 
     tracing::debug!(?command, ?file_to_fix.repo_path, "spawning fix tool");
-    let Ok(mut child) = command
+    command
         .current_dir(workspace_root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-    else {
+        .stderr(Stdio::piped());
+    let Ok(mut child) = jj_lib::subprocess_util::command_spawn(&mut command) else {
         writeln!(
             ui.warning_default(),
             "Failed to start `{}`.",

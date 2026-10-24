@@ -351,10 +351,9 @@ async fn evaluate_commit(
         internal_error_with_message("Could not get path for the jj executable", err)
     })?;
     tracing::info!(?cmd, "running bisection evaluation command");
-    let status = cmd
-        .env("JJ_EXECUTABLE_PATH", jj_executable_path)
-        .env("JJ_BISECT_TARGET", &commit_id_hex)
-        .status()
+    cmd.env("JJ_EXECUTABLE_PATH", jj_executable_path)
+        .env("JJ_BISECT_TARGET", &commit_id_hex);
+    let status = jj_lib::subprocess_util::command_status(&mut cmd)
         .map_err(|err| user_error_with_message("Failed to run evaluation command", err))?;
     let evaluation = if status.success() {
         Evaluation::Good
