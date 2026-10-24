@@ -142,6 +142,9 @@ fn test_concurrent_operations_rebase_cycle() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 1 descendant commits onto commits rewritten by other operation.
+    Warning: Left these commits in place because rebasing them would create a cycle:
+      rlvkpnrzqnoo 0426248e2343 X
+    Hint: Some changes may now be divergent. Use `jj abandon` to remove the copies you don't want.
     [EOF]
     ");
 

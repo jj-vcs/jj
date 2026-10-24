@@ -859,7 +859,7 @@ pub async fn merge_operations(
     command_args: &[String],
 ) -> Result<Operation, CommandError> {
     let transaction_attributes = command_args_to_transaction_attribute(command_args);
-    let (merged_repo, num_rebased) = repo_loader
+    let (merged_repo, stats) = repo_loader
         .merge_operations(
             operations,
             workspace_name,
@@ -867,13 +867,36 @@ pub async fn merge_operations(
             transaction_attributes,
         )
         .await?;
-    if let Some(ui) = ui
-        && num_rebased > 0
-    {
-        writeln!(
-            ui.status(),
-            "Rebased {num_rebased} descendant commits onto commits rewritten by other operation.",
-        )?;
+    if let Some(ui) = ui {
+        let num_rebased = stats.num_rebased;
+        if num_rebased > 0 {
+            writeln!(
+                ui.status(),
+                "Rebased {num_rebased} descendant commits onto commits rewritten by other \
+                 operation.",
+            )?;
+        }
+        if !stats.commits_left_in_place.is_empty() {
+            writeln!(
+                ui.warning_default(),
+                "Left these commits in place because rebasing them would create a cycle:"
+            )?;
+            for commit_id in &stats.commits_left_in_place {
+                let commit = merged_repo.store().get_commit_async(commit_id).await?;
+                writeln!(
+                    ui.warning_no_heading(),
+                    "  {} {} {}",
+                    short_change_hash(commit.change_id()),
+                    short_commit_hash(commit.id()),
+                    commit.description().lines().next().unwrap_or_default()
+                )?;
+            }
+            writeln!(
+                ui.hint_default(),
+                "Some changes may now be divergent. Use `jj abandon` to remove the copies you \
+                 don't want."
+            )?;
+        }
     }
     Ok(merged_repo.operation().clone())
 }

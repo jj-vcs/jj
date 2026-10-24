@@ -29,6 +29,7 @@ use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::repo::MergeOperationsStats;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -1036,7 +1037,7 @@ fn move_commit(mut_repo: &mut MutableRepo, commit: &Commit, parents: &[&Commit])
 /// Returns the results in that order.
 fn merge_operations_both_ways(
     repos: &[&Arc<ReadonlyRepo>],
-) -> Result<[(Arc<ReadonlyRepo>, usize); 2], RepoLoaderError> {
+) -> Result<[(Arc<ReadonlyRepo>, MergeOperationsStats); 2], RepoLoaderError> {
     let loader = repos[0].loader();
     let ops = repos
         .iter()
@@ -1096,8 +1097,9 @@ fn test_merge_operations_rebase_cycle() -> TestResult {
     let repo2 = tx2.commit("move Z onto Y").block_on()?;
 
     // The result is the same whichever order the operations are merged in.
-    for (merged_repo, num_rebased) in merge_operations_both_ways(&[&repo1, &repo2])? {
-        assert_eq!(num_rebased, 1);
+    for (merged_repo, stats) in merge_operations_both_ways(&[&repo1, &repo2])? {
+        assert_eq!(stats.commits_left_in_place, [commit_x1.id().clone()]);
+        assert_eq!(stats.num_rebased, 1);
         let [commit_z3] = merged_repo
             .view()
             .heads()
@@ -1151,8 +1153,9 @@ fn test_merge_operations_rebase_cycle_without_descendants() -> TestResult {
     } else {
         (&commit_z2, &commit_x1)
     };
-    for (merged_repo, num_rebased) in merge_operations_both_ways(&[&repo1, &repo2])? {
-        assert_eq!(num_rebased, 1);
+    for (merged_repo, stats) in merge_operations_both_ways(&[&repo1, &repo2])? {
+        assert_eq!(stats.commits_left_in_place, [left.id().clone()]);
+        assert_eq!(stats.num_rebased, 1);
         let [head] = merged_repo
             .view()
             .heads()
@@ -1192,7 +1195,8 @@ fn test_merge_three_operations_rebase_cycle() -> TestResult {
     move_commit(tx3.repo_mut(), &commit_w, &[&commit_y]);
     let repo3 = tx3.commit("move W onto Y").block_on()?;
 
-    for (merged_repo, _num_rebased) in merge_operations_both_ways(&[&repo1, &repo2, &repo3])? {
+    for (merged_repo, stats) in merge_operations_both_ways(&[&repo1, &repo2, &repo3])? {
+        assert_eq!(stats.commits_left_in_place.len(), 1);
         assert_eq!(merged_repo.view().heads().len(), 1);
         // Loading the repo merges the operations too.
         let repo = merged_repo.reload_at_head().block_on()?;
