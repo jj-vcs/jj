@@ -39,6 +39,7 @@ use crate::dsl_util::DepthRole;
 use crate::dsl_util::Diagnostics;
 use crate::dsl_util::ExpressionFolder;
 use crate::dsl_util::FoldableExpression;
+use crate::dsl_util::FunctionCallParser;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
 
@@ -56,6 +57,13 @@ const MAX_TREE_DEPTH: usize = 256;
 const STRING_LITERAL_PARSER: StringLiteralParser<Rule> = StringLiteralParser {
     content_rule: Rule::string_content,
     escape_rule: Rule::string_escape,
+};
+const FUNCTION_CALL_PARSER: FunctionCallParser<Rule> = FunctionCallParser {
+    function_name_rule: Rule::function_name,
+    function_arguments_rule: Rule::function_arguments,
+    keyword_argument_rule: Rule::keyword_argument,
+    argument_name_rule: Rule::strict_identifier,
+    argument_value_rule: Rule::expression,
 };
 
 impl Rule {
@@ -83,6 +91,8 @@ impl Rule {
             Self::infix_ops => DepthRole::Ignore,
             Self::function => DepthRole::Ignore,
             Self::function_name => DepthRole::Ignore,
+            Self::keyword_argument => DepthRole::Ignore,
+            Self::argument => DepthRole::Ignore,
             Self::function_arguments => DepthRole::Ignore,
             Self::formal_parameters => DepthRole::Ignore,
             Self::pattern => DepthRole::Ignore,
@@ -120,6 +130,8 @@ impl Rule {
             Self::infix_ops => None,
             Self::function => None,
             Self::function_name => None,
+            Self::keyword_argument => None,
+            Self::argument => None,
             Self::function_arguments => None,
             Self::formal_parameters => None,
             Self::pattern => None,
@@ -363,27 +375,6 @@ fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> Expressi
     ExpressionNode::new(expr, span)
 }
 
-fn parse_function_call_node(pair: Pair<Rule>) -> FilesetParseResult<FunctionCallNode> {
-    assert_eq!(pair.as_rule(), Rule::function);
-    let [name_pair, args_pair] = pair.into_inner().collect_array().unwrap();
-    assert_eq!(name_pair.as_rule(), Rule::function_name);
-    assert_eq!(args_pair.as_rule(), Rule::function_arguments);
-    let name_span = name_pair.as_span();
-    let args_span = args_pair.as_span();
-    let name = name_pair.as_str();
-    let args = args_pair
-        .into_inner()
-        .map(parse_expression_node)
-        .try_collect()?;
-    Ok(FunctionCallNode {
-        name,
-        name_span,
-        args,
-        keyword_args: vec![], // unsupported
-        args_span,
-    })
-}
-
 fn parse_as_string_literal(pair: Pair<Rule>) -> String {
     match pair.as_rule() {
         Rule::identifier => pair.as_str().to_owned(),
@@ -405,7 +396,11 @@ fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
         // Ignore inner span to preserve parenthesized expression as such.
         Rule::expression => parse_expression_node(first)?.kind,
         Rule::function => {
-            let function = Box::new(parse_function_call_node(first)?);
+            let function = Box::new(FUNCTION_CALL_PARSER.parse(
+                first,
+                |pair| Ok(pair.as_str()),
+                |pair| parse_expression_node(pair),
+            )?);
             ExpressionKind::FunctionCall(function)
         }
         Rule::pattern => {
@@ -985,6 +980,23 @@ mod tests {
             Ok(ExpressionKind::FunctionCall(_))
         );
 
+        // Keyword arguments
+        assert_matches!(
+            parse_into_kind("foo(a=b)"),
+            Ok(ExpressionKind::FunctionCall(_))
+        );
+        assert_matches!(
+            parse_into_kind("foo(a, b=c)"),
+            Ok(ExpressionKind::FunctionCall(_))
+        );
+        assert!(parse_into_kind("foo(a=b, c)").is_err());
+
+        // Space is allowed around keyword arguments
+        assert_eq!(
+            parse_normalized("foo( a  =   b  )"),
+            parse_normalized("foo(a=b)")
+        );
+
         // Trailing comma isn't allowed for empty argument
         assert!(parse_into_kind("foo(,)").is_err());
 
@@ -996,14 +1008,21 @@ mod tests {
         assert!(parse_into_kind("foo(a  , , )").is_err());
         assert_eq!(parse_normalized("foo(a,b,)"), parse_normalized("foo(a,b)"));
         assert!(parse_into_kind("foo(a,,b)").is_err());
+        assert_eq!(
+            parse_normalized("foo(a,b=c  , )"),
+            parse_normalized("foo(a, b=c)")
+        );
+        assert!(parse_into_kind("foo(a,,b=c)").is_err());
 
         // Expression span
-        let function = unwrap_function_call(parse_program("foo( a, (b) , ~(c) )")?);
+        let function = unwrap_function_call(parse_program("foo( a, (b) , ~(c), d = (e) )")?);
         assert_eq!(function.name_span.as_str(), "foo");
-        assert_eq!(function.args_span.as_str(), "a, (b) , ~(c)");
+        assert_eq!(function.args_span.as_str(), "a, (b) , ~(c), d = (e)");
         assert_eq!(function.args[0].span.as_str(), "a");
         assert_eq!(function.args[1].span.as_str(), "(b)");
         assert_eq!(function.args[2].span.as_str(), "~(c)");
+        assert_eq!(function.keyword_args[0].name_span.as_str(), "d");
+        assert_eq!(function.keyword_args[0].value.span.as_str(), "(e)");
         Ok(())
     }
 
@@ -1121,6 +1140,8 @@ mod tests {
         assert_eq!(depth("f(g(h(i(a))))"), 5);
         assert_eq!(depth("f(a, b, c)"), 4); // actual: 2
         assert_eq!(depth("f(g(a), h(b))"), 4); // actual: 3
+        assert_eq!(depth("f(x=a, y=b)"), 2);
+        assert_eq!(depth("f(x=g(a))"), 3);
         assert_eq!(depth("f(a|b)|c"), 4);
 
         assert_matches!(
