@@ -546,21 +546,6 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
             "Try checking if you have permission to push to all the bookmarks."
         )?;
     }
-    if !stats.unexported_bookmarks.is_empty() {
-        writeln!(
-            ui.warning_default(),
-            "The following bookmarks couldn't be updated locally:"
-        )?;
-        let mut formatter = ui.stderr_formatter();
-        for (symbol, reason) in &stats.unexported_bookmarks {
-            write!(formatter, "  ")?;
-            write!(formatter.labeled("bookmark"), "{symbol}")?;
-            for err in iter::successors(Some(reason as &dyn error::Error), |err| err.source()) {
-                write!(formatter, ": {err}")?;
-            }
-            writeln!(formatter)?;
-        }
-    }
     Ok(())
 }
 

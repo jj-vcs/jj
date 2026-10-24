@@ -5462,7 +5462,6 @@ fn test_push_bookmarks_success() -> TestResult {
         ],
         rejected: [],
         remote_rejected: [],
-        unexported_bookmarks: [],
     }
     "#);
 
@@ -5472,17 +5471,15 @@ fn test_push_bookmarks_success() -> TestResult {
     let new_oid = git_id(&setup.child_of_main_commit);
     assert_eq!(new_target.target().id(), new_oid);
 
-    // Check that the ref got updated in the cloned repo. This just tests our
-    // assumptions about libgit2 because we want the refs/remotes/origin/main
-    // bookmark to be updated.
-    let new_target = clone_repo.find_reference("refs/remotes/origin/main")?;
-    assert_eq!(new_target.target().id(), new_oid);
+    // Check that the local remote-tracking ref is unchanged
+    let local_target = clone_repo.find_reference("refs/remotes/origin/main")?;
+    assert_eq!(local_target.target().id(), git_id(&setup.main_commit));
 
     // Check that the repo view got updated
     let view = tx.repo().view();
     assert_eq!(
         *view.get_git_ref("refs/remotes/origin/main".as_ref()),
-        RefTarget::normal(setup.child_of_main_commit.id().clone()),
+        RefTarget::normal(setup.main_commit.id().clone()),
     );
     assert_eq!(
         *view.get_remote_bookmark(remote_symbol("main", "origin")),
@@ -5490,6 +5487,16 @@ fn test_push_bookmarks_success() -> TestResult {
             target: RefTarget::normal(setup.child_of_main_commit.id().clone()),
             state: RemoteRefState::Tracked,
         },
+    );
+
+    // The pushed refs can be exported
+    git::export_refs(tx.repo_mut())?;
+    let view = tx.repo().view();
+    let new_target = clone_repo.find_reference("refs/remotes/origin/main")?;
+    assert_eq!(new_target.target().id(), new_oid);
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(setup.child_of_main_commit.id().clone()),
     );
 
     // Check that the repo view reflects the changes in the Git repo
@@ -5538,31 +5545,36 @@ fn test_push_bookmarks_deletion() -> TestResult {
         ],
         rejected: [],
         remote_rejected: [],
-        unexported_bookmarks: [],
     }
     "#);
 
     // Check that the ref got deleted in the source repo
     assert!(source_repo.find_reference("refs/heads/main").is_err());
 
-    // Check that the ref got deleted in the cloned repo. This just tests our
-    // assumptions about libgit2 because we want the refs/remotes/origin/main
-    // bookmark to be deleted.
-    assert!(
-        clone_repo
-            .find_reference("refs/remotes/origin/main")
-            .is_err()
-    );
-
     // Check that the repo view got updated
     let view = tx.repo().view();
     assert!(
         view.get_git_ref("refs/remotes/origin/main".as_ref())
-            .is_absent()
+            .is_present()
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef::absent()
+    );
+
+    // The pushed refs can be exported
+    git::export_refs(tx.repo_mut())?;
+    let view = tx.repo().view();
+
+    // Check that the ref got deleted in the cloned repo.
+    assert!(
+        clone_repo
+            .try_find_reference("refs/remotes/origin/main")?
+            .is_none()
+    );
+    assert!(
+        view.get_git_ref("refs/remotes/origin/main".as_ref())
+            .is_absent()
     );
 
     // Check that the repo view reflects the changes in the Git repo
@@ -5615,7 +5627,6 @@ fn test_push_bookmarks_mixed_deletion_and_addition() -> TestResult {
         ],
         rejected: [],
         remote_rejected: [],
-        unexported_bookmarks: [],
     }
     "#);
 
@@ -5634,15 +5645,15 @@ fn test_push_bookmarks_mixed_deletion_and_addition() -> TestResult {
     let view = tx.repo().view();
     assert!(
         view.get_git_ref("refs/remotes/origin/main".as_ref())
-            .is_absent()
+            .is_present()
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef::absent()
     );
-    assert_eq!(
-        *view.get_git_ref("refs/remotes/origin/topic".as_ref()),
-        RefTarget::normal(setup.child_of_main_commit.id().clone()),
+    assert!(
+        view.get_git_ref("refs/remotes/origin/topic".as_ref())
+            .is_absent(),
     );
     assert_eq!(
         *view.get_remote_bookmark(remote_symbol("topic", "origin")),
@@ -5650,6 +5661,18 @@ fn test_push_bookmarks_mixed_deletion_and_addition() -> TestResult {
             target: RefTarget::normal(setup.child_of_main_commit.id().clone()),
             state: RemoteRefState::Tracked,
         },
+    );
+
+    // The pushed refs can be exported
+    git::export_refs(tx.repo_mut())?;
+    let view = tx.repo().view();
+    assert!(
+        view.get_git_ref("refs/remotes/origin/main".as_ref())
+            .is_absent()
+    );
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/topic".as_ref()),
+        RefTarget::normal(setup.child_of_main_commit.id().clone()),
     );
 
     // Check that the repo view reflects the changes in the Git repo
@@ -5695,7 +5718,6 @@ fn test_push_bookmarks_not_fast_forward() -> TestResult {
         ],
         rejected: [],
         remote_rejected: [],
-        unexported_bookmarks: [],
     }
     "#);
 
@@ -5759,7 +5781,6 @@ fn test_push_bookmarks_partial_success() -> TestResult {
             ),
         ],
         remote_rejected: [],
-        unexported_bookmarks: [],
     }
     "#);
 
@@ -5767,7 +5788,7 @@ fn test_push_bookmarks_partial_success() -> TestResult {
     let view = tx.repo().view();
     assert_eq!(
         *view.get_git_ref("refs/remotes/origin/main".as_ref()),
-        RefTarget::normal(setup.child_of_main_commit.id().clone())
+        RefTarget::normal(setup.main_commit.id().clone())
     );
     assert_eq!(
         *view.get_remote_bookmark(remote_symbol("main", "origin")),
@@ -5784,6 +5805,19 @@ fn test_push_bookmarks_partial_success() -> TestResult {
         view.get_remote_bookmark(remote_symbol("other", "origin")),
         &RemoteRef::absent()
     );
+
+    // The pushed refs can be exported
+    git::export_refs(tx.repo_mut())?;
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(setup.child_of_main_commit.id().clone())
+    );
+    assert_eq!(
+        view.get_git_ref("refs/remotes/origin/other".as_ref()),
+        &RefTarget::absent()
+    );
+
     Ok(())
 }
 
@@ -5855,7 +5889,14 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
         ],
         rejected: [],
         remote_rejected: [],
-        unexported_bookmarks: [
+    }
+    "#);
+
+    // The pushed refs can be exported
+    let stats = git::export_refs(tx.repo_mut())?;
+    insta::assert_debug_snapshot!(stats, @r#"
+    GitExportStats {
+        failed_bookmarks: [
             (
                 RemoteRefSymbolBuf {
                     name: RefNameBuf(
@@ -5868,6 +5909,7 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
                 AddedInJjAddedInGit,
             ),
         ],
+        failed_tags: [],
     }
     "#);
 
@@ -5879,7 +5921,7 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
         git_id(&commit1)
     );
 
-    // Check that the repo view got updated only for the exported refs
+    // Check that the repo view got updated
     let view = tx.repo().view();
     assert_eq!(
         *view.get_git_ref("refs/remotes/origin/bookmark1".as_ref()),
@@ -5897,8 +5939,11 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
         &RefTarget::absent()
     );
     assert_eq!(
-        view.get_remote_bookmark(remote_symbol("bookmark2", "origin")),
-        &RemoteRef::absent()
+        *view.get_remote_bookmark(remote_symbol("bookmark2", "origin")),
+        RemoteRef {
+            target: RefTarget::normal(commit2b.id().clone()),
+            state: RemoteRefState::Tracked,
+        }
     );
     Ok(())
 }
@@ -5960,7 +6005,7 @@ fn test_push_bookmarks_unexported_refs() -> TestResult {
         remote_git_repo.find_reference("refs/heads/feature")?.id(),
         git_id(&new_commit)
     );
-    assert!(stats.unexported_bookmarks.is_empty(), "{stats:?}");
+    assert!(stats.all_ok(), "{stats:?}");
     assert_eq!(
         tx.repo()
             .view()
@@ -6453,7 +6498,6 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() -> TestResult {
         ],
         rejected: [],
         remote_rejected: [],
-        unexported_bookmarks: [],
     }
     "#);
     Ok(())
@@ -6605,7 +6649,6 @@ fn test_push_updates_success() -> TestResult {
         ],
         rejected: [],
         remote_rejected: [],
-        unexported_bookmarks: [],
     }
     "#);
 
@@ -6615,11 +6658,9 @@ fn test_push_updates_success() -> TestResult {
     let new_oid = git_id(&setup.child_of_main_commit);
     assert_eq!(new_target.target().id(), new_oid);
 
-    // Check that the ref got updated in the cloned repo. This just tests our
-    // assumptions about libgit2 because we want the refs/remotes/origin/main
-    // bookmark to be updated.
+    // Check that the local remote-tracking ref is unchanged
     let new_target = clone_repo.find_reference("refs/remotes/origin/main")?;
-    assert_eq!(new_target.target().id(), new_oid);
+    assert_eq!(new_target.target().id(), git_id(&setup.main_commit));
     Ok(())
 }
 
@@ -7392,9 +7433,7 @@ fn test_push_updates_with_options() -> TestResult {
         stats.pushed,
         vec![jj_lib::ref_name::GitRefNameBuf::from("refs/heads/main")]
     );
-    assert!(stats.rejected.is_empty());
-    assert!(stats.remote_rejected.is_empty());
-    assert!(stats.unexported_bookmarks.is_empty());
+    assert!(stats.all_ok(), "{stats:?}");
 
     let captured_bytes = remote_output.lock().unwrap();
     let captured_string = String::from_utf8_lossy(&captured_bytes);
