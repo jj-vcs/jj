@@ -427,7 +427,7 @@ pub async fn create_and_check_out_recovery_commit(
     workspace_name: WorkspaceNameBuf,
     description: &str,
 ) -> Result<(Arc<ReadonlyRepo>, Commit), RecoverWorkspaceError> {
-    let mut tx = repo.start_transaction();
+    let mut tx = repo.start_transaction_new(Some(&workspace_name));
     let repo_mut = tx.repo_mut();
 
     let commit_id = repo

@@ -17,6 +17,7 @@ use std::cmp::max;
 use std::thread;
 
 use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::repo::Repo as _;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::workspace::Workspace;
@@ -59,11 +60,12 @@ fn test_concurrent_checkout() -> TestResult {
         let mut ws2 = Workspace::load(
             &settings,
             &workspace1_root,
+            &*default_workspace_loader_factory(),
             &test_workspace1.env.default_backend_factories(),
             &default_working_copy_factories(),
         )?;
         // Reload commit from the store associated with the workspace
-        let repo = ws2.repo_loader().load_at(repo.operation()).block_on()?;
+        let repo = ws2.load_at(repo.operation()).block_on()?;
         let commit2 = repo.store().get_commit(commit2.id())?;
         ws2.check_out(repo.op_id().clone(), Some(&tree1), &commit2)
             .block_on()?;
@@ -80,6 +82,7 @@ fn test_concurrent_checkout() -> TestResult {
     let ws3 = Workspace::load(
         &settings,
         &workspace1_root,
+        &*default_workspace_loader_factory(),
         &test_workspace1.env.default_backend_factories(),
         &default_working_copy_factories(),
     )?;
@@ -125,16 +128,13 @@ fn test_checkout_parallel() -> TestResult {
                 let mut workspace = Workspace::load(
                     &settings,
                     &workspace_root,
+                    &*default_workspace_loader_factory(),
                     &test_env.default_backend_factories(),
                     &default_working_copy_factories(),
                 )
                 .unwrap();
                 // Reload commit from the store associated with the workspace
-                let repo = workspace
-                    .repo_loader()
-                    .load_at(repo.operation())
-                    .block_on()
-                    .unwrap();
+                let repo = workspace.load_at(repo.operation()).block_on().unwrap();
                 let commit = repo.store().get_commit(commit.id()).unwrap();
                 // The operation ID is not correct, but that doesn't matter for this test
                 let stats = workspace

@@ -23,6 +23,7 @@ use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
 use jj_cli::command_error::CommandError;
 use jj_cli::ui::Ui;
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::backend::Backend;
 use jj_lib::backend::BackendInitError;
 use jj_lib::backend::BackendLoadError;
@@ -80,6 +81,7 @@ async fn run_custom_command(
                 &settings,
                 wc_path,
                 WorkspaceName::DEFAULT,
+                WorkspaceType::Regular,
                 &|settings, store_path| Ok(Box::new(JitBackend::init(settings, store_path)?)),
                 signer_from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
             )
