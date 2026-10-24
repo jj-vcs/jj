@@ -60,6 +60,12 @@ and this project adheres to
   exposes `.object_id()`, `.file_type()`, and `.executable()` methods for
   inspecting each side of a (possibly conflicted) tree entry.
 
+* `jj file show -r` now accepts `parents_of(x)` to show file contents from the
+  merged parent tree of revision `x` (preserving `x`'s parent order). Unlike
+  `-r x-`, which fails on merge commits because `x-` resolves to multiple
+  revisions, `jj file show -r 'parents_of(x)' <path>` makes it possible for
+  users or diff tools to see the pre-commit state of a file.
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the

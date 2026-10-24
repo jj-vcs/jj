@@ -161,3 +161,78 @@ fn test_show_symlink() -> TestResult {
     ");
     Ok(())
 }
+
+#[test]
+fn test_show_parents_of_merge_commit() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a merge commit of c1 and c2.
+    work_dir.write_file("file", "c1-content");
+    work_dir.run_jj(["commit", "-m", "c1"]).success();
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir.write_file("file", "c2-content");
+    work_dir.run_jj(["commit", "-m", "c2"]).success();
+    work_dir
+        .run_jj(["new", "-r", "subject(c1)", "-r", "subject(c2)"])
+        .success();
+    work_dir.write_file("file", "merge-content");
+    work_dir
+        .run_jj(["describe", "-m", "merge commit"])
+        .success();
+
+    let output = work_dir.run_jj(["file", "show", "file"]);
+    insta::assert_snapshot!(output, @"merge-content[EOF]");
+
+    let output = work_dir.run_jj(["file", "show", "-r", "parents_of(@)", "file"]);
+    insta::assert_snapshot!(output, @r#"
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: zzzzzzzz 00000000
+    \\\\\\\        to: qpvuntsm 0605711e "c1" (no terminating newline)
+    -
+    +c1-content
+    +++++++ kkmpptxz 343c700e "c2" (no terminating newline)
+    c2-content
+    >>>>>>> conflict 1 of 1 ends[EOF]
+    "#);
+
+    // parents_of(@-) errors because @- resolves to multiple revisions
+    let output = work_dir.run_jj(["file", "show", "-r", "parents_of(@-)", "file"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Revset `@-` resolved to more than one revision
+    Hint: The revset `@-` resolved to these revisions:
+      kkmpptxz 343c700e c2
+      qpvuntsm 0605711e c1
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_show_parents_of_non_merge_commit() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "parent-content");
+    work_dir.run_jj(["commit", "-m", "parent"]).success();
+    work_dir.write_file("file", "child-content");
+    work_dir.run_jj(["describe", "-m", "child"]).success();
+
+    let output = work_dir.run_jj(["file", "show", "file"]);
+    insta::assert_snapshot!(output, @"child-content[EOF]");
+
+    let output = work_dir.run_jj(["file", "show", "-r", "parents_of(@)", "file"]);
+    insta::assert_snapshot!(output, @"parent-content[EOF]");
+
+    // parents_of(root()) resolves to the empty root tree
+    let output = work_dir.run_jj(["file", "show", "-r", "parents_of(root())", "file"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: No such path: file
+    [EOF]
+    [exit status: 1]
+    ");
+}

@@ -156,16 +156,18 @@ pub struct RemoteRefSymbolExpression {
 }
 
 mod private {
+    use std::fmt;
+
     /// Defines [`RevsetExpression`] variants depending on resolution state.
-    pub trait ExpressionState {
-        type CommitRef: Clone;
-        type Operation: Clone;
+    pub trait ExpressionState: Clone + fmt::Debug {
+        type CommitRef: Clone + fmt::Debug;
+        type Operation: Clone + fmt::Debug;
     }
 
     // Not constructible because these state types just define associated types.
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub enum UserExpressionState {}
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub enum ResolvedExpressionState {}
 }
 
@@ -188,6 +190,16 @@ pub type UserRevsetExpression = RevsetExpression<UserExpressionState>;
 
 /// [`RevsetExpression`] that never contains unresolved commit refs.
 pub type ResolvedRevsetExpression = RevsetExpression<ResolvedExpressionState>;
+
+/// [`TreeExpression`] that may contain unresolved commit refs.
+pub type UserTreeExpression = TreeExpression<UserExpressionState>;
+
+/// Expression that selects or constructs a tree from revisions.
+#[derive(Clone, Debug)]
+pub enum TreeExpression<St: ExpressionState> {
+    SingleRevision(Arc<RevsetExpression<St>>),
+    Parents(Arc<RevsetExpression<St>>, String),
+}
 
 /// Tree of revset expressions describing DAG operations.
 ///
@@ -1138,6 +1150,27 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     map
 });
 
+type TreeFunction = fn(
+    &mut RevsetDiagnostics,
+    &FunctionCallNode,
+    &LoweringContext,
+) -> Result<UserTreeExpression, RevsetParseError>;
+
+static BUILTIN_TREE_FUNCTION_MAP: LazyLock<HashMap<&str, TreeFunction>> = LazyLock::new(|| {
+    let mut map: HashMap<&str, TreeFunction> = HashMap::new();
+    map.insert("parents_of", |diagnostics, function, context| {
+        let [arg] = function.expect_exact_arguments()?;
+        revset_parser::catch_aliases(diagnostics, arg, |diagnostics, node| {
+            let expression = lower_expression(diagnostics, node, context)?;
+            Ok(TreeExpression::Parents(
+                expression,
+                node.span.as_str().to_owned(),
+            ))
+        })
+    });
+    map
+});
+
 fn expand_optional_files_arg(
     files_opt_arg: Option<&ExpressionNode>,
     diagnostics: &mut RevsetDiagnostics,
@@ -1376,6 +1409,54 @@ pub fn parse(
     let node =
         dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
     lower_expression(diagnostics, &node, &context.to_lowering_context())
+        .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
+}
+
+/// Transforms the given AST `node` into a [`UserTreeExpression`].
+pub fn lower_tree_expression(
+    diagnostics: &mut RevsetDiagnostics,
+    node: &ExpressionNode,
+    context: &LoweringContext,
+) -> Result<UserTreeExpression, RevsetParseError> {
+    revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
+        ExpressionKind::FunctionCall(function) => {
+            if let Some(func) = BUILTIN_TREE_FUNCTION_MAP.get(function.name) {
+                func(diagnostics, function, context)
+            } else if let Some(func) = context.extensions.function_map.get(function.name) {
+                let expression = func(diagnostics, function, context)?;
+                Ok(TreeExpression::SingleRevision(expression))
+            } else {
+                Err(RevsetParseError::with_span(
+                    RevsetParseErrorKind::NoSuchFunction {
+                        name: function.name.to_owned(),
+                        candidates: collect_similar(
+                            function.name,
+                            itertools::chain(
+                                context.extensions.function_map.keys(),
+                                BUILTIN_TREE_FUNCTION_MAP.keys(),
+                            ),
+                        ),
+                    },
+                    function.name_span,
+                ))
+            }
+        }
+        _ => {
+            let expression = lower_expression(diagnostics, node, context)?;
+            Ok(TreeExpression::SingleRevision(expression))
+        }
+    })
+}
+
+pub fn parse_tree(
+    diagnostics: &mut RevsetDiagnostics,
+    tree_str: &str,
+    context: &RevsetParseContext,
+) -> Result<UserTreeExpression, RevsetParseError> {
+    let node = parse_program(tree_str)?;
+    let node =
+        dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
+    lower_tree_expression(diagnostics, &node, &context.to_lowering_context())
         .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
 }
 
@@ -3532,6 +3613,27 @@ mod tests {
         super::parse(&mut RevsetDiagnostics::new(), revset_str, &context)
     }
 
+    fn parse_tree_with_aliases(
+        tree_str: &str,
+        aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
+    ) -> Result<UserTreeExpression, RevsetParseError> {
+        let mut aliases_map = RevsetAliasesMap::new();
+        for (decl, defn) in aliases {
+            aliases_map.insert(decl, defn, None)?;
+        }
+        let context = RevsetParseContext {
+            aliases_map: &aliases_map,
+            local_variables: HashMap::new(),
+            user_email: "test.user@example.com",
+            current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned(jiff::tz::TimeZone::UTC),
+            default_ignored_remote: Some("ignored".as_ref()),
+            fileset_aliases_map: &FilesetAliasesMap::new(),
+            extensions: &RevsetExtensions::default(),
+            workspace: None,
+        };
+        super::parse_tree(&mut RevsetDiagnostics::new(), tree_str, &context)
+    }
+
     fn insta_settings() -> insta::Settings {
         let mut settings = insta::Settings::clone_current();
         // Collapse short "Thing(_,)" repeatedly to save vertical space and make
@@ -4349,6 +4451,90 @@ mod tests {
         Union(
             Filter(AuthorName(Pattern(Exact("a")))),
             Filter(CommitterName(Pattern(Exact("a")))),
+        )
+        "#);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_tree_expression() -> TestResult {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+        let parse_tree = |s: &str| parse_tree_with_aliases(s, [] as [(&str, &str); 0]);
+
+        insta::assert_debug_snapshot!(
+            parse_tree("foo")?,
+            @r#"SingleRevision(CommitRef(Symbol("foo")))"#);
+        insta::assert_debug_snapshot!(
+            parse_tree("parents(foo)")?, @r#"
+        SingleRevision(
+            Ancestors {
+                heads: CommitRef(Symbol("foo")),
+                generation: 1..2,
+                parents_range: 0..4294967295,
+            },
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse_tree("parents_of(foo)")?, @r#"
+        Parents(
+            CommitRef(Symbol("foo")),
+            "foo",
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse_tree("parents_of()").unwrap_err().kind(), @r#"
+        InvalidFunctionArguments {
+            name: "parents_of",
+            message: "Expected 1 arguments",
+        }
+        "#);
+        insta::assert_debug_snapshot!(
+            parse_tree("parents_of(foo, bar)").unwrap_err().kind(), @r#"
+        InvalidFunctionArguments {
+            name: "parents_of",
+            message: "Expected 1 arguments",
+        }
+        "#);
+        // parents_of() cannot be nested inside a revset expression
+        insta::assert_debug_snapshot!(
+            parse_tree("parents_of(foo)-").unwrap_err().kind(), @r#"
+        NoSuchFunction {
+            name: "parents_of",
+            candidates: [
+                "parents",
+                "present",
+            ],
+        }
+        "#);
+        insta::assert_debug_snapshot!(
+            parse_tree("parents(parents_of(foo))").unwrap_err().kind(), @r#"
+        NoSuchFunction {
+            name: "parents_of",
+            candidates: [
+                "parents",
+                "present",
+            ],
+        }
+        "#);
+        // Unknown top-level function suggests BUILTIN_TREE_FUNCTION_MAP candidates too
+        insta::assert_debug_snapshot!(
+            parse_tree("parents_o(foo)").unwrap_err().kind(), @r#"
+        NoSuchFunction {
+            name: "parents_o",
+            candidates: [
+                "parents",
+                "parents_of",
+                "present",
+            ],
+        }
+        "#);
+        // Alias expansion works both inside parents_of() and for parents_of() itself
+        insta::assert_debug_snapshot!(
+            parse_tree_with_aliases("P(A)", [("A", "foo"), ("P(x)", "parents_of(x)")])?, @r#"
+        Parents(
+            CommitRef(Symbol("foo")),
+            "foo",
         )
         "#);
         Ok(())
