@@ -60,6 +60,11 @@ and this project adheres to
   exposes `.object_id()`, `.file_type()`, and `.executable()` methods for
   inspecting each side of a (possibly conflicted) tree entry.
 
+* `jj git worktree adopt` adopts existing Git worktrees as jj
+  workspaces. With no arguments it adopts the worktree at the current
+  directory; with names it adopts specific worktrees; with `--all` it
+  adopts every unadopted worktree at once.
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
