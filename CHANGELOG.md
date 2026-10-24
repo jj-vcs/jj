@@ -101,6 +101,9 @@ and this project adheres to
   parent of a merge commit, including when a Git import abandons it.
   [#8076](https://github.com/jj-vcs/jj/issues/8076)
 
+* On Unix, repository files under `.jj` are now created with default file
+  permissions.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights

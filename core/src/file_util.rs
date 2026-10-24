@@ -225,6 +225,18 @@ fn to_slash_separated(path: &Path) -> OsString {
     buf
 }
 
+/// Creates a temporary file with normal file creation permissions.
+pub fn new_temp_file_with_default_permissions(dir: impl AsRef<Path>) -> io::Result<NamedTempFile> {
+    let mut builder = tempfile::Builder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        // Request normal file mode. The umask applies to the actual mode.
+        builder.permissions(fs::Permissions::from_mode(0o666));
+    }
+    builder.tempfile_in(dir)
+}
+
 /// Persists the temporary file after synchronizing the content.
 ///
 /// After system crash, the persisted file should have a valid content if
@@ -633,6 +645,20 @@ mod tests {
                 Path::new(r"..\foo\bar")
             }
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_new_temp_file_with_default_permissions() -> TestResult {
+        use std::os::unix::fs::PermissionsExt as _;
+        let temp_dir = new_temp_dir();
+        let file = File::create(temp_dir.path().join("file"))?;
+        let temp_file = new_temp_file_with_default_permissions(temp_dir.path())?;
+        assert_eq!(
+            temp_file.as_file().metadata()?.permissions().mode() & 0o777,
+            file.metadata()?.permissions().mode() & 0o777
+        );
+        Ok(())
     }
 
     #[test]

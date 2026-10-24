@@ -31,7 +31,6 @@ use futures::TryStreamExt as _;
 use futures::stream;
 use itertools::Itertools as _;
 use prost::Message as _;
-use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use super::changed_path::ChangedPathIndexSegmentId;
@@ -53,6 +52,7 @@ use crate::dag_walk_async;
 use crate::file_util;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::new_temp_file_with_default_permissions;
 use crate::file_util::persist_temp_file;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
@@ -502,7 +502,7 @@ impl DefaultIndexStore {
                 .collect(),
         };
         let dir = self.op_links_dir();
-        let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
+        let mut temp_file = new_temp_file_with_default_permissions(&dir).context(&dir)?;
         let file = temp_file.as_file_mut();
         file.write_all(&proto.encode_to_vec())
             .context(temp_file.path())?;
