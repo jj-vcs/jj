@@ -22,8 +22,10 @@ use crate::backend::Timestamp;
 use crate::index::IndexError;
 use crate::index::ReadonlyIndex;
 use crate::index_store::IndexStoreError;
+use crate::op_heads_store::OpHeadsKey;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
+use crate::op_heads_store::get_op_heads_key;
 use crate::op_store;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationMetadata;
@@ -37,6 +39,7 @@ use crate::repo::RepoLoader;
 use crate::repo::RepoLoaderError;
 use crate::settings::UserSettings;
 use crate::view::View;
+use crate::workspace_store::WorkspaceStoreError;
 
 /// Error from attempts to write and publish transaction.
 #[derive(Debug, Error)]
@@ -46,6 +49,7 @@ pub enum TransactionCommitError {
     IndexStore(#[from] IndexStoreError),
     OpHeadsStore(#[from] OpHeadsStoreError),
     OpStore(#[from] OpStoreError),
+    WorkspaceStore(#[from] WorkspaceStoreError),
 }
 
 /// An in-memory representation of a repo and any changes being made to it.
@@ -113,10 +117,20 @@ impl Transaction {
         Ok(())
     }
 
+    /// Takes the union of op's view into this transaction.
+    pub async fn union_operation(&mut self, other_op: &Operation) -> Result<(), RepoLoaderError> {
+        let repo_loader = self.base_repo().loader();
+        let other_repo = repo_loader.load_at(other_op).await?;
+        self.parent_ops.push(other_op.clone());
+        self.repo_mut().union(&other_repo).await?;
+        Ok(())
+    }
+
     pub fn set_is_snapshot(&mut self, is_snapshot: bool) {
         self.op_metadata.is_snapshot = is_snapshot;
     }
 
+    // TODO: XXX:W pass the WorkspaceName in the transaction constructor instead.
     pub fn set_workspace_name(&mut self, workspace_name: &WorkspaceName) {
         self.op_metadata.workspace_name = Some(workspace_name.to_owned());
     }
@@ -126,7 +140,12 @@ impl Transaction {
         self,
         description: impl Into<String>,
     ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        self.write(description).await?.publish().await
+        // TODO: XXX:W Consider passing OpContext to tx.commit()
+        let op_heads_key = get_op_heads_key(
+            self.base_repo().loader().workspace_store(),
+            self.op_metadata.workspace_name.as_deref(),
+        )?;
+        self.write(description).await?.publish(&op_heads_key).await
     }
 
     /// Writes the transaction to the operation store, but does not publish it.
@@ -228,10 +247,17 @@ impl UnpublishedOperation {
         self.repo.operation()
     }
 
-    pub async fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        let _lock = self.op_heads_store.lock().await?;
+    pub async fn publish(
+        self,
+        op_heads_key: &OpHeadsKey,
+    ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
+        let _lock = self.op_heads_store.lock(op_heads_key).await?;
         self.op_heads_store
-            .update_op_heads(self.operation().parent_ids(), self.operation().id())
+            .update_op_heads(
+                op_heads_key,
+                self.operation().parent_ids(),
+                self.operation().id(),
+            )
             .await?;
         Ok(self.repo)
     }

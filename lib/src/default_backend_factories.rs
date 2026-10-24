@@ -60,7 +60,9 @@ pub fn default_backend_factories() -> StoreFactories {
     // WorkspaceStores
     factories.add_workspace_store(
         SimpleWorkspaceStore::NAME,
-        Box::new(|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::load(store_path)?))),
+        Box::new(|settings, store_path| {
+            Ok(Box::new(SimpleWorkspaceStore::load(settings, store_path)?))
+        }),
     );
 
     // OpStores
