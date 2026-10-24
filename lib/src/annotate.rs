@@ -314,9 +314,22 @@ async fn process_commits(
         .evaluate(repo)?;
 
     state.num_unresolved_roots = 0;
+    // Contents of commits that were dropped from `commit_source_map` because no
+    // lines mapped to them. Another child may map lines to them later, so we
+    // keep the contents until the commit itself is visited. Parents outside of
+    // the revset are never visited, so their contents are kept until the end.
+    let mut dropped_texts = HashMap::new();
     let mut nodes = revset.stream_graph();
     while let Some((commit_id, edge_list)) = nodes.try_next().await? {
-        process_commit(repo, file_name, state, &commit_id, &edge_list).await?;
+        process_commit(
+            repo,
+            file_name,
+            state,
+            &mut dropped_texts,
+            &commit_id,
+            &edge_list,
+        )
+        .await?;
         if state.commit_source_map.len() == state.num_unresolved_roots {
             // No more lines to propagate to ancestors.
             break;
@@ -332,9 +345,12 @@ async fn process_commit(
     repo: &dyn Repo,
     file_name: &RepoPath,
     state: &mut AnnotationState,
+    dropped_texts: &mut HashMap<CommitId, BString>,
     current_commit_id: &CommitId,
     edges: &[GraphEdge<CommitId>],
 ) -> Result<(), BackendError> {
+    // All children have been visited, so no other commit will need this text.
+    dropped_texts.remove(current_commit_id);
     let Some(mut current_source) = state.commit_source_map.remove(current_commit_id) else {
         return Ok(());
     };
@@ -344,8 +360,12 @@ async fn process_commit(
         let parent_source = match state.commit_source_map.entry(parent_commit_id.clone()) {
             hash_map::Entry::Occupied(entry) => entry.into_mut(),
             hash_map::Entry::Vacant(entry) => {
-                let commit = repo.store().get_commit_async(entry.key()).await?;
-                entry.insert(Source::load(&commit, file_name).await?)
+                if let Some(text) = dropped_texts.remove(entry.key()) {
+                    entry.insert(Source::new(text))
+                } else {
+                    let commit = repo.store().get_commit_async(entry.key()).await?;
+                    entry.insert(Source::load(&commit, file_name).await?)
+                }
             }
         };
 
@@ -382,7 +402,8 @@ async fn process_commit(
             itertools::merge(parent_source.line_map.iter().copied(), new_parent_line_map).collect()
         };
         if parent_source.line_map.is_empty() {
-            state.commit_source_map.remove(parent_commit_id);
+            let parent_source = state.commit_source_map.remove(parent_commit_id).unwrap();
+            dropped_texts.insert(parent_commit_id.clone(), parent_source.text);
         } else if parent_edge.is_missing() {
             // If an omitted parent had the file, leave these lines unresolved.
             // The origin of the unresolved lines is represented as
