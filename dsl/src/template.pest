@@ -76,8 +76,10 @@ infix_ops = _{
 }
 
 function = { identifier ~ "(" ~ function_arguments ~ ")" }
-keyword_argument = { identifier ~ "=" ~ template }
-argument = _{ keyword_argument | template }
+argument = {
+  identifier ~ "=" ~ template
+  | template
+}
 function_arguments = {
   argument ~ ("," ~ argument)* ~ ","?
   | ""
