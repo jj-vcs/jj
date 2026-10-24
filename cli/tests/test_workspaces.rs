@@ -2482,6 +2482,151 @@ fn test_workspaces_rename_workspace_from_before_workspace_store() {
 }
 
 #[test]
+fn test_workspaces_rename_workspace_then_restore() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir
+        .run_jj(["workspace", "rename", "third"])
+        .success();
+
+    // The working copy in ../secondary still says that it's workspace "third",
+    // so restoring the operation before the rename keeps the new name.
+    // Otherwise, the workspace would be left without a working-copy commit.
+    let output = main_dir.run_jj(["op", "restore", "@-"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Workspace third keeps its name instead of being renamed back to second.
+    Hint: Run `jj workspace rename second` in that workspace to rename it.
+    Restored to operation: ed9d67c42ed6 (2001-02-03 08:05:08) create initial working-copy commit in workspace second
+    Nothing changed.
+    [EOF]
+    ");
+    let output = main_dir.run_jj(["op", "revert"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Workspace third keeps its name instead of being renamed back to second.
+    Hint: Run `jj workspace rename second` in that workspace to rename it.
+    Reverted operation: eb824a5fba84 (2001-02-03 08:05:09) Renamed workspace 'second' to 'third'
+    Nothing changed.
+    [EOF]
+    ");
+    let output = main_dir.run_jj(["undo", "--allow-cross-workspace"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Workspace third keeps its name instead of being renamed back to second.
+    Hint: Run `jj workspace rename second` in that workspace to rename it.
+    Undid operation: eb824a5fba84 (2001-02-03 08:05:09) Renamed workspace 'second' to 'third'
+    Restored to operation: ed9d67c42ed6 (2001-02-03 08:05:08) create initial working-copy commit in workspace second
+    [EOF]
+    ");
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    third: ../secondary uuqppmxq 94f41578 (empty) (no description set)
+    [EOF]
+    ");
+    let output = secondary_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    The working copy has no changes.
+    Working copy  (@) : uuqppmxq 94f41578 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    // The workspace can be renamed back from within it
+    secondary_dir
+        .run_jj(["workspace", "rename", "second"])
+        .success();
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    second: ../secondary uuqppmxq 94f41578 (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_workspaces_rename_workspace_then_undo_redo() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    main_dir.run_jj(["describe", "-m", "main"]).success();
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir
+        .run_jj(["workspace", "rename", "third"])
+        .success();
+
+    // Undoing the rename doesn't change the repo, but a second undo still
+    // continues with the operation before it
+    let output = main_dir.run_jj(["undo", "--allow-cross-workspace"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Workspace third keeps its name instead of being renamed back to second.
+    Hint: Run `jj workspace rename second` in that workspace to rename it.
+    Undid operation: 4b6f65a8d2cd (2001-02-03 08:05:10) Renamed workspace 'second' to 'third'
+    Restored to operation: 4ea674bd15d8 (2001-02-03 08:05:09) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    [EOF]
+    ");
+    let output = main_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Workspace third keeps its name instead of being renamed back to second.
+    Hint: Run `jj workspace rename second` in that workspace to rename it.
+    Undid operation: 4ea674bd15d8 (2001-02-03 08:05:09) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    Restored to operation: ed9d67c42ed6 (2001-02-03 08:05:08) create initial working-copy commit in workspace second
+    Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&main_dir), @"
+    @  e8849ae12c70 default@
+    │ ○  94f41578a9e1 third@
+    ├─╯
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // Likewise for redo
+    let output = main_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Restored to operation: 7ef0a222538e (2001-02-03 08:05:11) undo: restore to operation 4ea674bd15d826bb0c3230874acb84051f5a63b457331a66b8363dc331060e9a3be5d44727cdd3523df2abe6de9159e8237c00155e7e0b334ad188228fc8fd18
+    Working copy  (@) now at: qpvuntsm 822f7f48 (empty) main
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    let output = main_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Restored to operation: 4b6f65a8d2cd (2001-02-03 08:05:10) Renamed workspace 'second' to 'third'
+    [EOF]
+    ");
+    let output = main_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Nothing to redo
+    [EOF]
+    [exit status: 1]
+    ");
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+    @  822f7f4810de default@ "main"
+    │ ○  94f41578a9e1 third@
+    ├─╯
+    ◆  000000000000
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_workspaces_add_forget_colocated() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");

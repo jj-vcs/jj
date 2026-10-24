@@ -72,10 +72,12 @@ pub async fn cmd_op_revert(
         .merge(repo_at_target_op, repo_at_target_op_parent)
         .await?;
     let new_view = view_with_desired_portions_restored(
+        ui,
         tx.repo().view().store_view(),
         tx.base_repo().view().store_view(),
         &args.what,
-    );
+        tx.base_repo().loader().workspace_store().as_ref(),
+    )?;
     tx.repo_mut().set_view(new_view);
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Reverted operation: ")?;

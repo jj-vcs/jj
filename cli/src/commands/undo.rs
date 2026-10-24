@@ -189,10 +189,12 @@ pub async fn cmd_undo(
 
     let mut tx = workspace_command.start_transaction();
     let new_view = view_with_desired_portions_restored(
+        ui,
         target_op_parent.view().await?.store_view(),
         tx.base_repo().view().store_view(),
         &DEFAULT_REVERT_WHAT,
-    );
+        tx.base_repo().loader().workspace_store().as_ref(),
+    )?;
     tx.repo_mut().set_view(new_view);
     if let Some(mut formatter) = ui.status_formatter() {
         let template = tx.base_workspace_helper().operation_summary_template();
@@ -205,7 +207,10 @@ pub async fn cmd_undo(
         template.format(&target_op_parent, formatter.as_mut())?;
         writeln!(formatter)?;
     }
-    tx.finish(
+    // Record the operation even if nothing changed, e.g. because the undone
+    // operation renamed a workspace. Otherwise, the next `jj undo` would try to
+    // undo the same operation again instead of an earlier one.
+    tx.finish_even_if_unchanged(
         ui,
         format!("{UNDO_OP_DESC_PREFIX}{}", target_op_parent.id().hex()),
     )
