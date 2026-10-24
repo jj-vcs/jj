@@ -60,6 +60,13 @@ and this project adheres to
   exposes `.object_id()`, `.file_type()`, and `.executable()` methods for
   inspecting each side of a (possibly conflicted) tree entry.
 
+* When `jj next` or `jj prev` asks which commit to target, you can now enter a
+  change ID or commit ID prefix instead of the index in the list. Matching is
+  case-insensitive, like in revsets. `q` (or `Q`) always quits the prompt, even
+  if it's also a valid change ID prefix. Use a longer prefix such as `qp` to
+  select a change ID starting with `q`.
+  [#9790](https://github.com/jj-vcs/jj/issues/9790)
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the

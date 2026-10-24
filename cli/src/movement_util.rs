@@ -18,6 +18,7 @@ use std::sync::Arc;
 use futures::TryStreamExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::object_id::HexPrefix;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
@@ -218,24 +219,25 @@ fn choose_commit<'a>(
     )?;
     let mut formatter = ui.stderr_formatter();
     let template = workspace_command.commit_summary_template();
-    let mut choices: Vec<String> = Default::default();
     for (i, commit) in commits.iter().enumerate() {
         write!(formatter, "{}: ", i + 1)?;
         template.format(commit, formatter.as_mut())?;
         writeln!(formatter)?;
-        choices.push(format!("{}", i + 1));
     }
-    writeln!(formatter, "q: quit the prompt")?;
-    choices.push("q".to_string());
+    writeln!(formatter, "q: quit the prompt (always takes precedence)")?;
     drop(formatter);
 
-    let index = ui.prompt_choice(
-        "enter the index of the commit you want to target",
-        &choices,
-        None,
+    let index = ui.prompt_choice_by_index_or_match(
+        "enter the index or change/commit ID of the commit you want to target",
+        commits,
+        |commit, input| {
+            HexPrefix::try_from_reverse_hex(input)
+                .is_some_and(|prefix| prefix.matches(commit.change_id()))
+                || HexPrefix::try_from_hex(input).is_some_and(|prefix| prefix.matches(commit.id()))
+        },
     )?;
-    commits
-        .get(index)
+    index
+        .map(|index| &commits[index])
         .ok_or_else(|| user_error("ambiguous target commit"))
 }
 
