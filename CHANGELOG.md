@@ -60,6 +60,9 @@ and this project adheres to
   exposes `.object_id()`, `.file_type()`, and `.executable()` methods for
   inspecting each side of a (possibly conflicted) tree entry.
 
+* `jj workspace move` moves a workspace to a new path.
+  [#7113](https://github.com/jj-vcs/jj/issues/7113)
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
