@@ -1185,7 +1185,7 @@ impl Backend for GitBackend {
                 let name = RepoPathComponentBuf::new(
                     str::from_utf8(entry.filename()).map_err(|err| to_invalid_utf8_err(err, id))?,
                 )
-                .unwrap();
+                .map_err(|err| to_read_object_err(err, id))?;
                 let value = match entry.mode().kind() {
                     gix::object::tree::EntryKind::Tree => {
                         let id = TreeId::from_bytes(entry.oid().as_bytes());
@@ -2130,6 +2130,33 @@ mod tests {
             no_extra_commit.change_id, original_change_id,
             "The change-id header did not roundtrip"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn read_tree_with_invalid_entry_name() -> TestResult {
+        let settings = user_settings();
+        let temp_dir = new_temp_dir();
+        let store_path = temp_dir.path();
+        let git_repo_path = temp_dir.path().join("git");
+        let git_repo = git_init(git_repo_path, gix::hash::Kind::default());
+
+        // Git doesn't create such a tree, but one can be written by hand.
+        let blob_id = git_repo.write_blob(b"content")?.detach();
+        let tree = gix::objs::Tree {
+            entries: vec![gix::objs::tree::Entry {
+                mode: gix::object::tree::EntryKind::Blob.into(),
+                filename: "a/b".into(),
+                oid: blob_id,
+            }],
+        };
+        let tree_id = git_repo.write_object(&tree)?.detach();
+
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
+        let result = backend
+            .read_tree(RepoPath::root(), &TreeId::from_bytes(tree_id.as_bytes()))
+            .block_on();
+        assert_matches!(result, Err(BackendError::ReadObject { .. }));
         Ok(())
     }
 
