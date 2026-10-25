@@ -64,86 +64,164 @@ y) * z`.
 
 The following functions are defined.
 
-* `fill(width: Integer, content: Template, [break_words: bool]) -> Template`:
-  Fill lines at the given `width`. If `break_words` is `true`, any words longer
-  than `width` will be split to fit in `width` characters.
-* `indent(prefix: Template, content: Template) -> Template`: Indent
-  non-empty lines by the given `prefix`.
-* `pad_start(width: Integer, content: Template, [fill_char: Template])`: Pad (or
-  right-justify) content by adding leading fill characters. The `content`
-  shouldn't have newline character.
-* `pad_end(width: Integer, content: Template, [fill_char: Template])`: Pad (or
-  left-justify) content by adding trailing fill characters. The `content`
-  shouldn't have newline character.
-* `pad_centered(width: Integer, content: Template, [fill_char: Template])`: Pad
-  content by adding both leading and trailing fill characters. If an odd number
-  of fill characters are needed, the trailing fill will be one longer than the
-  leading fill. The `content` shouldn't have newline characters.
-* `truncate_start(width: Integer, content: Template, [ellipsis: Template])`:
+* `fill(width: Integer, content: Template, [break_words: bool]) -> Template`
+  <a class="headerlink" id="function.fill" href="#function.fill" title="Permanent link">¶</a>
+
+  Fill lines at the given `width`. If `break_words` is `true`, any words
+  longer than `width` will be split to fit in `width` characters.
+
+* `indent(prefix: Template, content: Template) -> Template`
+  <a class="headerlink" id="function.indent" href="#function.indent" title="Permanent link">¶</a>
+
+  Indent non-empty lines by the given `prefix`.
+
+* `pad_start(width: Integer, content: Template, [fill_char: Template])`
+  <a class="headerlink" id="function.pad_start" href="#function.pad_start" title="Permanent link">¶</a>
+
+  Pad (or right-justify) content by adding leading fill characters. The
+  `content` shouldn't have newline character.
+
+* `pad_end(width: Integer, content: Template, [fill_char: Template])`
+  <a class="headerlink" id="function.pad_end" href="#function.pad_end" title="Permanent link">¶</a>
+
+  Pad (or left-justify) content by adding trailing fill characters. The
+  `content` shouldn't have newline character.
+
+* `pad_centered(width: Integer, content: Template, [fill_char: Template])`
+  <a class="headerlink" id="function.pad_centered" href="#function.pad_centered" title="Permanent link">¶</a>
+
+  Pad content by adding both leading and trailing fill characters. If an odd
+  number of fill characters are needed, the trailing fill will be one longer
+  than the leading fill. The `content` shouldn't have newline characters.
+
+* `truncate_start(width: Integer, content: Template, [ellipsis: Template])`
+  <a class="headerlink" id="function.truncate_start" href="#function.truncate_start" title="Permanent link">¶</a>
+
   Truncate `content` by removing leading characters. The `content` shouldn't
-  have newline character. If `ellipsis` is provided and `content` was truncated,
-  prepend the `ellipsis` to the result.
-* `truncate_end(width: Integer, content: Template, [ellipsis: Template])`:
+  have newline character. If `ellipsis` is provided and `content` was
+  truncated, prepend the `ellipsis` to the result.
+
+* `truncate_end(width: Integer, content: Template, [ellipsis: Template])`
+  <a class="headerlink" id="function.truncate_end" href="#function.truncate_end" title="Permanent link">¶</a>
+
   Truncate `content` by removing trailing characters. The `content` shouldn't
-  have newline character. If `ellipsis` is provided and `content` was truncated,
-  append the `ellipsis` to the result.
-* `hash(content: Stringify) -> String`:
+  have newline character. If `ellipsis` is provided and `content` was
+  truncated, append the `ellipsis` to the result.
+
+* `hash(content: Stringify) -> String`
+  <a class="headerlink" id="function.hash" href="#function.hash" title="Permanent link">¶</a>
+
   Hash the input and return a hexadecimal string representation of the digest.
-* `label(label: Stringify, content: Template) -> Template`: Apply a custom
-  [color label](#color-labels) to the content. The `label` is evaluated as a
-  space-separated string.
-* `hyperlink(url: Stringify, text: Template, [fallback: Template]) -> Template`:
-  Render `text` as a hyperlink to `url` using [OSC 8 escape sequences](https://github.com/Alhadis/OSC8-Adoption)
-  when outputting with color enabled. Otherwise, renders `fallback` instead,
-  which defaults to `text`. Use `--color=always` to force hyperlinks when piping
-  output to a terminal emulator that supports OSC 8.
-* `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
-  sequences in `content` (i.e., bypasses sanitization) and strips labels.
-  Note: This function is intended for escape sequences and as such, its output
-  is expected to be invisible / of no display width. Outputting content with
-  nonzero display width may break wrapping, indentation etc.
-* `replace(pattern: StringPattern, content: Template, replacement: |RegexCaptures| -> Template) -> Template`:
-  Replace every match of `pattern` in `content` by formatting the `replacement`
-  lambda for each match.
+
+* `label(label: Stringify, content: Template) -> Template`
+  <a class="headerlink" id="function.label" href="#function.label" title="Permanent link">¶</a>
+
+  Apply a custom [color label](#color-labels) to the content. The `label` is
+  evaluated as a space-separated string.
+
+* `hyperlink(url: Stringify, text: Template, [fallback: Template]) -> Template`
+  <a class="headerlink" id="function.hyperlink" href="#function.hyperlink" title="Permanent link">¶</a>
+
+  Render `text` as a hyperlink to `url` using [OSC 8 escape
+  sequences](https://github.com/Alhadis/OSC8-Adoption) when outputting with
+  color enabled. Otherwise, renders `fallback` instead, which defaults to
+  `text`. Use `--color=always` to force hyperlinks when piping output to a
+  terminal emulator that supports OSC 8.
+
+* `raw_escape_sequence(content: Template) -> Template`
+  <a class="headerlink" id="function.raw_escape_sequence" href="#function.raw_escape_sequence" title="Permanent link">¶</a>
+
+  Preserves any escape sequences in `content` (i.e., bypasses sanitization)
+  and strips labels. Note: This function is intended for escape sequences
+  and as such, its output is expected to be invisible / of no display
+  width. Outputting content with nonzero display width may break wrapping,
+  indentation etc.
+
+* `replace(pattern: StringPattern, content: Template, replacement: |RegexCaptures| -> Template) -> Template`
+  <a class="headerlink" id="function.replace" href="#function.replace" title="Permanent link">¶</a>
+
+  Replace every match of `pattern` in `content` by formatting the
+  `replacement` lambda for each match.
 
   This is similar to [`String.replace()`](#string-type), but operates on
-  `Template` content and preserves formatting of the parts of `content` that are
-  not replaced. The replacement itself is newly formatted template content.
-
-  The lambda argument is a [`RegexCaptures`](#regexcaptures-type) value for the
-  current match. Use `.get(index)` to access capture groups by index, `.name(name)`
-  to access named capture groups, and `.len()` to get the number of captures
-  including capture group 0 for the full match.
-* `stringify(content: Stringify) -> String`: Format `content` to string. This
-  effectively removes color labels.
-* `json(value: Serialize) -> String`: Serialize `value` in JSON format. To
-  serialize multiple values as a JSON object, use `json({key => value, ..})`.
-  For example, `json({"commit_id" => commit_id, "tags" => tags})`.
-* `if(condition: Boolean, then: Any, [else: Any]) -> Any`:
-  Conditionally evaluates to `then` / `else` content.
-* `try(expr: Any, fallback: Any...) -> Any`: Evaluates each expression in order
-  and returns the first successful result. Suppresses preceding runtime errors,
-  but lets parsing errors (such as type errors) pass through.
-* `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
+  `Template` content and preserves formatting of the parts of `content`
+  that are not replaced. The replacement itself is newly formatted template
   content.
-* `concat(content: Template...) -> Template`:
-  Same as `content_1 ++ ... ++ content_n`.
-* `join(separator: Template, content: Template...) -> Template`: Insert
-  `separator` between `content`s.
-* `separate(separator: Template, content: Template...) -> Template`: Insert
-  `separator` between **non-empty** `content`s.
-* `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
-  Surround **non-empty** content with texts such as parentheses.
-* `config(name: Stringify) -> Option<ConfigValue>`: Look up configuration
-   value by `name`.
-* `revset(revset: Stringify) -> List<Commit>`: Evaluates [a revset](revsets.md).
 
-  The revset is evaluated once during template parsing if its value evaluates to
-  a constant string. Queries built from values that aren't yet known during
+  The lambda argument is a [`RegexCaptures`](#regexcaptures-type) value for
+  the current match. Use `.get(index)` to access capture groups by index,
+  `.name(name)` to access named capture groups, and `.len()` to get the number
+  of captures including capture group 0 for the full match.
+
+* `stringify(content: Stringify) -> String`
+  <a class="headerlink" id="function.stringify" href="#function.stringify" title="Permanent link">¶</a>
+
+  Format `content` to string. This effectively removes color labels.
+
+* `json(value: Serialize) -> String`
+  <a class="headerlink" id="function.json" href="#function.json" title="Permanent link">¶</a>
+
+  Serialize `value` in JSON format. To serialize multiple values as a JSON
+  object, use `json({key => value, ..})`. For example, `json({"commit_id" =>
+  commit_id, "tags" => tags})`.
+
+* `if(condition: Boolean, then: Any, [else: Any]) -> Any`
+  <a class="headerlink" id="function.if" href="#function.if" title="Permanent link">¶</a>
+
+  Conditionally evaluates to `then` / `else` content.
+
+* `try(expr: Any, fallback: Any...) -> Any`
+  <a class="headerlink" id="function.try" href="#function.try" title="Permanent link">¶</a>
+
+  Evaluates each expression in order and returns the first successful result.
+  Suppresses preceding runtime errors, but lets parsing errors (such as type
+  errors) pass through.
+
+* `coalesce(content: Template...) -> Template`
+  <a class="headerlink" id="function.coalesce" href="#function.coalesce" title="Permanent link">¶</a>
+
+  Returns the first **non-empty** content.
+
+* `concat(content: Template...) -> Template`
+  <a class="headerlink" id="function.concat" href="#function.concat" title="Permanent link">¶</a>
+
+  Same as `content_1 ++ ... ++ content_n`.
+
+* `join(separator: Template, content: Template...) -> Template`
+  <a class="headerlink" id="function.join" href="#function.join" title="Permanent link">¶</a>
+
+  Insert `separator` between `content`s.
+
+* `separate(separator: Template, content: Template...) -> Template`
+  <a class="headerlink" id="function.separate" href="#function.separate" title="Permanent link">¶</a>
+
+  Insert `separator` between **non-empty** `content`s.
+
+* `surround(prefix: Template, suffix: Template, content: Template) -> Template`
+  <a class="headerlink" id="function.surround" href="#function.surround" title="Permanent link">¶</a>
+
+  Surround **non-empty** content with texts such as parentheses.
+
+* `config(name: Stringify) -> Option<ConfigValue>`
+  <a class="headerlink" id="function.config" href="#function.config" title="Permanent link">¶</a>
+
+  Look up configuration value by `name`.
+
+* `revset(revset: Stringify) -> List<Commit>`
+  <a class="headerlink" id="function.revset" href="#function.revset" title="Permanent link">¶</a>
+
+  Evaluates [a revset](revsets.md).
+
+  The revset is evaluated once during template parsing if its value evaluates
+  to a constant string. Queries built from values that aren't yet known during
   parsing, for example `self.change_id()`, are evaluated per call at runtime.
-* `git_web_url([remote: String]) -> String`: Best-effort conversion of a git
-  remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
-  empty string on failure. SSH host alias resolution is currently unsupported.
+
+* `git_web_url([remote: String]) -> String`
+  <a class="headerlink" id="function.git_web_url" href="#function.git_web_url" title="Permanent link">¶</a>
+
+  Best-effort conversion of a git remote URL to an HTTPS web URL. Defaults
+  to the "origin" remote. Returns an empty string on failure. SSH host alias
+  resolution is currently unsupported.
 
 ## Types
 
@@ -443,7 +521,7 @@ The following methods are defined.
 _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 A filesystem path. Paths can contain bytes that are not valid UTF-8. Rendering
-and path formatting methods preserve those bytes. Serialization with `json()`
+and path formatting methods preserve those bytes. Serialization with [`json()`](#function.json)
 follows Rust's `Path` serialization, which can reject non-UTF-8 paths.
 
 The following methods are defined.
@@ -547,7 +625,7 @@ to `Boolean`.
 _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 This type is passed to the replacement lambda of the global
-[`replace()`](#global-functions) function.
+[`replace()`](#function.replace) function.
 
 The following methods are defined.
 
@@ -874,7 +952,7 @@ present or which labels you should define or override colors for to get the
 output that you want.
 
 Additionally, you can **manually** insert arbitrary labels using the
-`label(label, content)` function. For example,
+[`label(label, content)`](#function.label) function. For example,
 
 ```sh
 jj op log -T '"ID: " ++ self.id().short().substr(0, 1) ++ label("id short", "<redacted>")'
@@ -883,7 +961,7 @@ jj op log -T '"ID: " ++ self.id().short().substr(0, 1) ++ label("id short", "<re
 will print "ID:" in the default style, and the string `<redacted>` in the same
 style as the first character of the id. It would also be fine to use an
 arbitrary template instead of the string `"<redacted>"`, possibly including
-nested invocations of `label()`.
+nested invocations of [`label()`](#function.label).
 
 You are free to use custom label names as well. This will only have a visible
 effect if you also [customize their colors][config-colors] explicitly.
