@@ -16,10 +16,8 @@ use std::assert_matches;
 use std::cmp::max;
 use std::thread;
 
-use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::repo::Repo as _;
 use jj_lib::working_copy::CheckoutError;
-use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use testutils::TestResult;
 use testutils::TestWorkspace;
@@ -56,12 +54,9 @@ fn test_concurrent_checkout() -> TestResult {
     // Check out tree2 from another process (simulated by another workspace
     // instance)
     {
-        let mut ws2 = Workspace::load(
-            &settings,
-            &workspace1_root,
-            &test_workspace1.env.default_backend_factories(),
-            &default_working_copy_factories(),
-        )?;
+        let mut ws2 = test_workspace1
+            .env
+            .load_workspace(&settings, &workspace1_root)?;
         // Reload commit from the store associated with the workspace
         let repo = ws2.load_at(repo.operation()).block_on()?;
         let commit2 = repo.store().get_commit(commit2.id())?;
@@ -77,12 +72,9 @@ fn test_concurrent_checkout() -> TestResult {
     );
 
     // Check that the tree2 is still checked out on disk.
-    let ws3 = Workspace::load(
-        &settings,
-        &workspace1_root,
-        &test_workspace1.env.default_backend_factories(),
-        &default_working_copy_factories(),
-    )?;
+    let ws3 = test_workspace1
+        .env
+        .load_workspace(&settings, &workspace1_root)?;
     assert_tree_eq!(*ws3.working_copy().tree()?, tree2);
     Ok(())
 }
@@ -122,13 +114,7 @@ fn test_checkout_parallel() -> TestResult {
             let settings = settings.clone();
             let workspace_root = workspace_root.clone();
             s.spawn(move || {
-                let mut workspace = Workspace::load(
-                    &settings,
-                    &workspace_root,
-                    &test_env.default_backend_factories(),
-                    &default_working_copy_factories(),
-                )
-                .unwrap();
+                let mut workspace = test_env.load_workspace(&settings, &workspace_root).unwrap();
                 // Reload commit from the store associated with the workspace
                 let repo = workspace.load_at(repo.operation()).block_on().unwrap();
                 let commit = repo.store().get_commit(commit.id()).unwrap();

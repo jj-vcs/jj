@@ -192,7 +192,6 @@ fn test_init_load_non_utf8_path() -> TestResult {
     use std::ffi::OsStr;
     use std::os::unix::ffi::OsStrExt as _;
 
-    use jj_lib::default_backend_factories::default_working_copy_factories;
     use pollster::FutureExt as _;
     use testutils::TestEnvironment;
 
@@ -224,12 +223,7 @@ fn test_init_load_non_utf8_path() -> TestResult {
     .block_on()?;
 
     // Workspace can be loaded
-    let workspace = Workspace::load(
-        &settings,
-        &workspace_root,
-        &test_env.default_backend_factories(),
-        &default_working_copy_factories(),
-    )?;
+    let workspace = test_env.load_workspace(&settings, &workspace_root)?;
 
     // Just test that we can write a commit to the store
     let repo = workspace.load_at_head().block_on()?;
