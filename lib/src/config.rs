@@ -20,6 +20,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::fs;
 use std::io;
+use std::io::Write as _;
 use std::ops::Range;
 use std::path::Path;
 use std::path::PathBuf;
@@ -43,6 +44,7 @@ pub use crate::config_resolver::migrate;
 pub use crate::config_resolver::resolve;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::new_temp_file_for_replacement;
 
 /// Config value or table node.
 pub type ConfigItem = toml_edit::Item;
@@ -593,9 +595,17 @@ impl ConfigFile {
 
     /// Writes serialized data to the source file.
     pub fn save(&self) -> Result<(), ConfigFileSaveError> {
-        fs::write(self.path(), self.layer.data.to_string())
+        let (mut file, new_path) = new_temp_file_for_replacement(self.path())
             .context(self.path())
-            .map_err(ConfigFileSaveError)
+            .map_err(ConfigFileSaveError)?;
+        file.write_all(self.layer.data.to_string().as_bytes())
+            .context(file.path())
+            .map_err(ConfigFileSaveError)?;
+        file.persist(&new_path)
+            .map_err(|err| err.error)
+            .context(&new_path)
+            .map_err(ConfigFileSaveError)?;
+        Ok(())
     }
 
     /// Source file path.

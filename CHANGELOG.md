@@ -121,6 +121,10 @@ and this project adheres to
 * On Unix, repository files under `.jj` are now created with default file
   permissions.
 
+* Racy `jj config set` invocations no longer corrupt the target file. The last
+  save wins; changes from other concurrent invocations may be lost.
+  [#10350](https://github.com/jj-vcs/jj/issues/10350)
+
 * `jj log` no longer draws a commit as a merge with two elided edges to the
   same commit when there's a merge between them whose parents both lead to
   that commit.
