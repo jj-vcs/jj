@@ -3037,10 +3037,12 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
             self.other_repos.push(at_op_repo.clone());
         }
         self.repo_stack.push(at_op_repo);
-        let candidates = self.fold_expression(candidates)?;
-        let expression = candidates.within_visibility(self.repo());
+        // Pop the repo even on error, which may be suppressed by `present()`.
+        let result = self
+            .fold_expression(candidates)
+            .map(|candidates| candidates.within_visibility(self.repo()));
         self.repo_stack.pop();
-        Ok(expression)
+        result
     }
 }
 

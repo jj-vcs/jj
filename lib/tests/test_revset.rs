@@ -4227,6 +4227,13 @@ fn test_evaluate_expression_at_operation() -> TestResult {
         resolve_commit_ids(repo2.as_ref(), "at_operation(@--, present(commit1_ref))"),
         vec![]
     );
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            "present(at_operation(@--, commit1_ref)) | commit1_ref"
+        ),
+        vec![commit1_op2.id().clone()]
+    );
 
     // Visibility resolution:
     assert_eq!(
