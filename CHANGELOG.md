@@ -65,6 +65,11 @@ and this project adheres to
   directory; with names it adopts specific worktrees; with `--all` it
   adopts every unadopted worktree at once.
 
+* `jj git worktree sync` synchronizes jj workspaces with Git worktrees in
+  colocated repositories: adopting external worktrees, forgetting removed
+  ones, and repairing moved paths. Set `git.auto-sync-worktrees = true`
+  to run this automatically on every jj invocation.
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
