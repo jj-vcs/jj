@@ -7866,6 +7866,11 @@ and this project adheres to
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p>The operations created by <code>jj workspace add</code> are now attributed to the
+  workspace the command was run in, so <code>jj undo</code> there undoes them instead of
+  refusing to undo an operation from another workspace.</p>
+</li>
+<li>
 <p>Date patterns such as <code>after:"2024-03-10 03:30"</code> are now resolved with the
   correct UTC offset on days with a daylight savings transition. Previously,
   the offset from the start of the day was used, so times after were off
