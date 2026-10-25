@@ -52,6 +52,7 @@ use jj_lib::default_backend_factories::default_op_heads_store_initializer;
 use jj_lib::default_backend_factories::default_op_store_initializer;
 use jj_lib::default_backend_factories::default_submodule_store_initializer;
 use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::default_backend_factories::default_workspace_store_initializer;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -235,12 +236,13 @@ impl TestEnvironment {
         settings: &UserSettings,
         workspace_root: &Path,
     ) -> Result<Workspace, WorkspaceLoadError> {
-        Workspace::load(
+        let loader = default_workspace_loader_factory().create(workspace_root)?;
+        let workspace = loader.load(
             settings,
-            workspace_root,
             &self.default_backend_factories(),
             &default_working_copy_factories(),
-        )
+        )?;
+        Ok(workspace)
     }
 
     pub fn load_repo_at_head(
