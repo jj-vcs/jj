@@ -35,6 +35,7 @@ use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::fileset_backend::FilesetExpression;
 use crate::graph::GraphNode;
+use crate::repo_path::RepoPathBuf;
 use crate::store::Store;
 use crate::str_util::StringExpression;
 use crate::time_util::DatePattern;
@@ -255,6 +256,17 @@ pub enum ResolvedExpression {
         candidates: Box<Self>,
         /// Maximum number of commits to select.
         count: usize,
+    },
+    /// Commits that modified the `line_range` of `path`.
+    ///
+    /// The block of lines is followed through the ancestors of `start`.
+    FollowLines {
+        /// File to follow.
+        path: RepoPathBuf,
+        /// 0-based, half-open range of lines of `path` in `start`.
+        line_range: Range<usize>,
+        /// Commits to start from.
+        start: Box<Self>,
     },
     /// The first set if it's non-empty, otherwise the second set.
     Coalesce(Box<Self>, Box<Self>),

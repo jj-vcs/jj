@@ -19,6 +19,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jiff::Zoned;
 use jiff::tz;
@@ -46,6 +47,7 @@ use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
@@ -1100,6 +1102,15 @@ fn resolve_commit_ids_in_workspace(
     workspace: &Workspace,
     cwd: Option<&Path>,
 ) -> Vec<CommitId> {
+    try_resolve_commit_ids_in_workspace(repo, revset_str, workspace, cwd).unwrap()
+}
+
+fn try_resolve_commit_ids_in_workspace(
+    repo: &dyn Repo,
+    revset_str: &str,
+    workspace: &Workspace,
+    cwd: Option<&Path>,
+) -> Result<Vec<CommitId>, RevsetEvaluationError> {
     let settings = testutils::user_settings();
     let path_converter = RepoPathUiConverter::Fs {
         cwd: cwd.unwrap_or_else(|| workspace.workspace_root()).to_owned(),
@@ -1124,13 +1135,7 @@ fn resolve_commit_ids_in_workspace(
     let expression = expression
         .resolve_user_expression(repo, &symbol_resolver)
         .unwrap();
-    expression
-        .evaluate()
-        .unwrap()
-        .stream()
-        .map(Result::unwrap)
-        .collect()
-        .block_on()
+    expression.evaluate()?.stream().try_collect().block_on()
 }
 
 #[test]
@@ -5175,6 +5180,331 @@ fn test_evaluate_expression_diff_lines_conflict(indexed: bool) -> TestResult {
         vec![]
     );
     Ok(())
+}
+
+/// Writes one commit per version of "file", each on top of the previous one.
+fn write_file_versions<const N: usize>(
+    mut_repo: &mut MutableRepo,
+    versions: [&str; N],
+) -> [Commit; N] {
+    let mut parent_id = mut_repo.store().root_commit_id().clone();
+    versions.map(|contents| {
+        let tree = create_tree(mut_repo.base_repo(), &[(repo_path("file"), contents)]);
+        let commit = mut_repo
+            .new_commit(vec![parent_id.clone()], tree)
+            .write_unwrap();
+        parent_id = commit.id().clone();
+        commit
+    })
+}
+
+/// Writes a merge where both sides changed the same line of "file".
+///
+/// ```text
+/// 1 -- 2 -- 6     1: creates "a\nb\nc\nd\n"    2: changes "c" to "X", appends "e"
+///  \       /      D: changes "c" to "Y"         6: merge keeping 2's version
+///   -- D --
+/// ```
+fn write_merge_history(mut_repo: &mut MutableRepo) -> [Commit; 4] {
+    let [commit1, commit2] = write_file_versions(mut_repo, ["a\nb\nc\nd\n", "a\nb\nX\nd\ne\n"]);
+    let tree_d = create_tree(mut_repo.base_repo(), &[(repo_path("file"), "a\nb\nY\nd\n")]);
+    let commit_d = mut_repo
+        .new_commit(vec![commit1.id().clone()], tree_d)
+        .write_unwrap();
+    let commit6 = mut_repo
+        .new_commit(
+            vec![commit2.id().clone(), commit_d.id().clone()],
+            commit2.tree(),
+        )
+        .write_unwrap();
+    [commit1, commit2, commit_d, commit6]
+}
+
+/// Evaluates `followlines("file", lines, start)`.
+fn try_followlines(
+    repo: &dyn Repo,
+    workspace: &Workspace,
+    lines: &str,
+    start: &Commit,
+) -> Result<Vec<CommitId>, RevsetEvaluationError> {
+    try_resolve_commit_ids_in_workspace(
+        repo,
+        &format!(r#"followlines("file", "{lines}", {})"#, start.id()),
+        workspace,
+        None,
+    )
+}
+
+fn followlines(
+    repo: &dyn Repo,
+    workspace: &Workspace,
+    lines: &str,
+    start: &Commit,
+) -> Vec<CommitId> {
+    try_followlines(repo, workspace, lines, start).unwrap()
+}
+
+#[test_case(false; "without changed-path index")]
+#[test_case(true; "with changed-path index")]
+fn test_evaluate_expression_followlines(indexed: bool) {
+    let test_workspace = TestWorkspace::init();
+    let repo = if indexed {
+        build_changed_path_index(&test_workspace.repo)
+    } else {
+        test_workspace.repo.clone()
+    };
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    // commit1 creates the file, commit2 changes line 2, commit3 changes line 3.
+    let [commit1, commit2, commit3] =
+        write_file_versions(mut_repo, ["a\nb\nc\n", "a\nB\nc\n", "a\nB\nC\n"]);
+
+    // Line 2 as of commit3: changed by commit2, introduced by commit1. commit3
+    // changed the file, but not that line.
+    assert_eq!(
+        followlines(mut_repo, ws, "2", &commit3),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_as_predicate() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let [commit1, commit2, commit3] =
+        write_file_versions(mut_repo, ["a\nb\nc\n", "a\nB\nc\n", "a\nB\nC\n"]);
+
+    // A union with a filter is evaluated as a predicate over the candidates,
+    // which walks the history on demand as well.
+    assert_eq!(
+        resolve_commit_ids_in_workspace(
+            mut_repo,
+            &format!(
+                r#"{}::{} & (followlines("file", "2", {}) | description("none"))"#,
+                commit1.id(),
+                commit3.id(),
+                commit3.id()
+            ),
+            &test_workspace.workspace,
+            None,
+        ),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_single_line_range() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    let [commit1, commit2] = write_file_versions(mut_repo, ["a\nb\n", "a\nB\n"]);
+
+    // "N" is the same as "N:N".
+    assert_eq!(
+        followlines(mut_repo, ws, "2", &commit2),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        followlines(mut_repo, ws, "2:2", &commit2),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_shifted_block() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    // commit2 changes line 3 to "X", commit3 inserts two lines above it.
+    let [commit1, commit2, commit3] = write_file_versions(
+        mut_repo,
+        ["a\nb\nc\nd\n", "a\nb\nX\nd\n", "p\nq\na\nb\nX\nd\n"],
+    );
+
+    // Line 5 of commit3 is "X". commit3 only shifted it down, so it isn't
+    // reported, and the line number is translated to find commit2's change.
+    assert_eq!(
+        followlines(mut_repo, ws, "5", &commit3),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    // Same for the whole original block.
+    assert_eq!(
+        followlines(mut_repo, ws, "3:6", &commit3),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+}
+
+#[test_case(false; "without changed-path index")]
+#[test_case(true; "with changed-path index")]
+fn test_evaluate_expression_followlines_untouched_file(indexed: bool) {
+    let test_workspace = TestWorkspace::init();
+    let repo = if indexed {
+        build_changed_path_index(&test_workspace.repo)
+    } else {
+        test_workspace.repo.clone()
+    };
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    let [commit1, commit2] = write_file_versions(mut_repo, ["a\nb\n", "a\nB\n"]);
+    // commit3 changes another file only.
+    let tree3 = create_tree(
+        &repo,
+        &[(repo_path("file"), "a\nB\n"), (repo_path("other"), "x")],
+    );
+    let commit3 = mut_repo
+        .new_commit(vec![commit2.id().clone()], tree3)
+        .write_unwrap();
+
+    assert_eq!(
+        followlines(mut_repo, ws, "2", &commit3),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_inserted_lines() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    // commit2 inserts "p" and "q" at the top.
+    let [commit1, commit2] = write_file_versions(mut_repo, ["a\nb\n", "p\nq\na\nb\n"]);
+
+    // The inserted lines have no history before commit2, so commit1 isn't
+    // reported.
+    assert_eq!(
+        followlines(mut_repo, ws, "1:2", &commit2),
+        vec![commit2.id().clone()]
+    );
+    // A range overlapping both the insertion and the original lines follows
+    // both.
+    assert_eq!(
+        followlines(mut_repo, ws, "2:3", &commit2),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_appended_line() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    let [commit1, commit2] = write_file_versions(mut_repo, ["a\n", "a\ne\n"]);
+
+    // Line "e" was appended by the starting commit itself.
+    assert_eq!(
+        followlines(mut_repo, ws, "2", &commit2),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        followlines(mut_repo, ws, "1", &commit2),
+        vec![commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_line_numbers_refer_to_start() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    // commit2 changes line 3, commit3 inserts a line at the top.
+    let [commit1, commit2, commit3] =
+        write_file_versions(mut_repo, ["a\nb\nc\n", "a\nb\nX\n", "p\na\nb\nX\n"]);
+
+    // Line 3 is "X" at commit2, but "b" at commit3.
+    assert_eq!(
+        followlines(mut_repo, ws, "3", &commit2),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        followlines(mut_repo, ws, "3", &commit3),
+        vec![commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_out_of_range() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    let [commit1] = write_file_versions(mut_repo, ["a\nb\n"]);
+
+    let err = try_followlines(mut_repo, ws, "3", &commit1).unwrap_err();
+    assert!(err.to_string().contains("exceeds file size"), "{err}");
+}
+
+#[test]
+fn test_evaluate_expression_followlines_merge_changed_line() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    let [commit1, commit2, commit_d, commit6] = write_merge_history(mut_repo);
+
+    // Line 3 of commit6 is "X". commit6 is identical to commit2 but differs
+    // from commitD ("Y") there, so the merge is reported, and the line is
+    // followed on both sides.
+    assert_eq!(
+        followlines(mut_repo, ws, "3", &commit6),
+        vec![
+            commit6.id().clone(),
+            commit_d.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone()
+        ]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_merge_one_sided_line() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    let [_commit1, commit2, _commit_d, commit6] = write_merge_history(mut_repo);
+
+    // Line "e" only exists on commit2's side. The merge brought it in with
+    // respect to commitD, so it is reported too.
+    assert_eq!(
+        followlines(mut_repo, ws, "5", &commit6),
+        vec![commit6.id().clone(), commit2.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_merge_untouched_line() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    let [commit1, _commit2, _commit_d, commit6] = write_merge_history(mut_repo);
+
+    // Line "b" was never modified on either side, so only its creation is
+    // reported, once.
+    assert_eq!(
+        followlines(mut_repo, ws, "2", &commit6),
+        vec![commit1.id().clone()]
+    );
 }
 
 #[test_case(false; "without changed-path index")]
