@@ -239,6 +239,11 @@ remote-tracking Git refs. Use <code dir="auto">jj git export</code> to export re
 Git.</p>
 </li>
 <li>
+<p>In non-colocated workspaces, <code dir="auto">jj git import; jj undo; jj git import</code> no longer
+re-imports external changes. Run <code dir="auto">jj git export</code> to reflect undone changes in
+Git. <code dir="auto">jj git fetch; jj undo; jj git fetch</code> continues to work as expected.</p>
+</li>
+<li>
 <p><code dir="auto">Timestamp.format()</code> now follows <a href="https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html">jiff's strftime
 syntax</a> instead of
 chrono's. Most directives, including the default format, are unchanged, but:</p>
@@ -339,6 +344,10 @@ config files.</p>
 <p>Fix a race condition in colocated workspaces where concurrent <code dir="auto">jj git fetch</code>
 and <code dir="auto">jj</code> commands could import partially fetched refs, causing divergence.
 <a href="https://github.com/jj-vcs/jj/issues/7349">#7349</a></p>
+</li>
+<li>
+<p>In colocated workspaces, Git export failures are no longer misidentified as
+external changes.</p>
 </li>
 <li>
 <p><code dir="auto">jj run</code> now materializes conflicts using <code dir="auto">ui.conflict-marker-style</code> instead
