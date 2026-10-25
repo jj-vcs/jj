@@ -3614,6 +3614,10 @@ ID. The following methods are defined.</p>
 <p>The following methods are defined.</p>
 <ul>
 <li><code>.name() -&gt; RefSymbol</code>: Returns the workspace name as a symbol.</li>
+<li><code>.current_workspace() -&gt; Boolean</code>: Returns whether this is the current
+  workspace. This is slightly different than
+  <code>self.target().current_working_copy()</code> because multiple workspaces can point
+  to the same commit.</li>
 <li><code>.target() -&gt; Commit</code>: Returns the working-copy commit of this workspace.</li>
 <li>
 <p><code>.root() -&gt; Option&lt;FsPath&gt;</code>: Returns the workspace root path, if the root path

@@ -7855,6 +7855,12 @@ and this project adheres to
   exposes <code>.object_id()</code>, <code>.file_type()</code>, and <code>.executable()</code> methods for
   inspecting each side of a (possibly conflicted) tree entry.</p>
 </li>
+<li>
+<p>The <code>WorkspaceRef</code> template type now has a <code>.current_workspace() -&gt; Boolean</code>
+  method, which can be used to identify the current workspace. This is slightly
+  different than <code>self.target().current_working_copy()</code> because multiple
+  workspaces can point to the same commit.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
