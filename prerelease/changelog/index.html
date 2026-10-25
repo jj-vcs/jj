@@ -7797,8 +7797,9 @@ and this project adheres to
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
-<p>In non-colocated workspaces, <code>jj git fetch</code> no longer updates remote-tracking
-  Git refs. Use <code>jj git export</code> to export remote bookmarks to Git.</p>
+<p>In non-colocated workspaces, <code>jj git fetch</code> and <code>push</code> no longer update
+  remote-tracking Git refs. Use <code>jj git export</code> to export remote bookmarks to
+  Git.</p>
 </li>
 <li>
 <p><code>Timestamp.format()</code> now follows <a href="https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html">jiff's strftime
