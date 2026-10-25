@@ -47,6 +47,7 @@ use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MergedTreeValue;
+use crate::backend::MergedTreeValueExt as _;
 use crate::backend::MillisSinceEpoch;
 use crate::commit::Commit;
 use crate::commit::merge_commit_trees_no_resolve;
@@ -1230,6 +1231,20 @@ impl EvaluationContext<'_> {
         let mut frontier: BTreeMap<GlobalCommitPosition, FollowLinesNode> = BTreeMap::new();
         for pos in start_positions {
             let mut source = FollowLinesSource::load(&self.store, self.index, path, pos)?;
+            if source.value.is_absent() {
+                return Err(RevsetEvaluationError::Other(
+                    format!("No such path: {}", path.as_internal_file_string()).into(),
+                ));
+            }
+            if source.value.to_file_merge().is_none() {
+                return Err(RevsetEvaluationError::Other(
+                    format!(
+                        "Path exists but is not a regular file: {}",
+                        path.as_internal_file_string()
+                    )
+                    .into(),
+                ));
+            }
             let num_lines = annotate::count_lines(source.contents(&self.store)?);
             if line_range.end > num_lines {
                 return Err(RevsetEvaluationError::Other(

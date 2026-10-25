@@ -5507,6 +5507,24 @@ fn test_evaluate_expression_followlines_merge_untouched_line() {
     );
 }
 
+#[test]
+fn test_evaluate_expression_followlines_missing_path() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let [commit1] = write_file_versions(mut_repo, ["a\n"]);
+
+    let err = try_resolve_commit_ids_in_workspace(
+        mut_repo,
+        &format!(r#"followlines("missing", "1", {})"#, commit1.id()),
+        &test_workspace.workspace,
+        None,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("No such path"), "{err}");
+}
+
 #[test_case(false; "without changed-path index")]
 #[test_case(true; "with changed-path index")]
 fn test_evaluate_expression_file_merged_parents(indexed: bool) {
