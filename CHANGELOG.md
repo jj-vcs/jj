@@ -68,6 +68,10 @@ and this project adheres to
 
 ### Fixed bugs
 
+* `jj converge` now runs in non-interactive mode automatically when terminal
+  prompting is unavailable (e.g. when `stderr` is not a TTY), instead of
+  auto-accepting the description-merge prompt and launching `ui.editor`.
+
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
   correct UTC offset on days with a daylight savings transition. Previously,
   the offset from the start of the day was used, so times after were off
