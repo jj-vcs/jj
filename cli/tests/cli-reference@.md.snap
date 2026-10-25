@@ -3052,7 +3052,7 @@ This is the natural counterpart of `jj undo`. Repeated invocations of `jj undo` 
 
 Use `jj op log` to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also `jj op restore` to explicitly restore an older operation by its id (available in the operation log).
 
-By default, `jj redo` refuses to redo an undo-operation that was performed in another workspace, since that is usually not what you meant to redo. Pass `--allow-cross-workspace` to redo it anyway, or use `jj op revert` to revert a specific undo operation.
+If the last operation was performed in another workspace, or is a merge of concurrent operations, `jj redo` redoes the operation most recently undone in this workspace instead. It reverts that `jj undo` like `jj op revert` does, keeping the operations performed in other workspaces since. Pass `--allow-cross-workspace` to redo undo-operations performed in other workspaces as well.
 
 **Usage:** `jj redo [OPTIONS]`
 
@@ -3715,7 +3715,7 @@ There is also a complementary `jj redo` command that would instead move in the d
 
 Use `jj op log` to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also `jj op restore` to explicitly restore an older operation by its id (available in the operation log).
 
-By default, `jj undo` refuses to undo an operation that was performed in another workspace, since that is usually not what you meant to undo. Pass `--allow-cross-workspace` to undo it anyway, or use `jj op revert` to revert a specific operation.
+If the last operation was performed in another workspace, or is a merge of concurrent operations, `jj undo` undoes the last operation performed in this workspace instead. Since restoring the parent of that operation would also undo the operations after it, `jj undo` reverts it like `jj op revert` does, keeping the operations performed in other workspaces since. Repeated `jj undo` continues with older operations of this workspace. Pass `--allow-cross-workspace` to undo operations performed in other workspaces as well.
 
 **Usage:** `jj undo [OPTIONS]`
 

@@ -33,6 +33,7 @@ use restore::OperationRestoreArgs;
 use restore::cmd_op_restore;
 use revert::OperationRevertArgs;
 use revert::cmd_op_revert;
+pub(crate) use revert::revert_operation;
 use show::OperationShowArgs;
 use show::cmd_op_show;
 

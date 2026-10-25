@@ -22,6 +22,7 @@ use super::DEFAULT_REVERT_WHAT;
 use super::RevertWhatToRestore;
 use super::view_with_desired_portions_restored;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::complete;
@@ -65,18 +66,7 @@ pub async fn cmd_op_revert(
     };
 
     let mut tx = workspace_command.start_transaction();
-    let repo_loader = tx.base_repo().loader();
-    let repo_at_target_op = &repo_loader.load_at(&target_op).await?;
-    let repo_at_target_op_parent = &repo_loader.load_at(&target_op_parent).await?;
-    tx.repo_mut()
-        .merge(repo_at_target_op, repo_at_target_op_parent)
-        .await?;
-    let new_view = view_with_desired_portions_restored(
-        tx.repo().view().store_view(),
-        tx.base_repo().view().store_view(),
-        &args.what,
-    );
-    tx.repo_mut().set_view(new_view);
+    revert_operation(&mut tx, &target_op, &target_op_parent, &args.what).await?;
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Reverted operation: ")?;
         let template = tx.base_workspace_helper().operation_summary_template();
@@ -85,5 +75,30 @@ pub async fn cmd_op_revert(
     }
     tx.finish(ui, tx_description(&target_op)).await?;
 
+    Ok(())
+}
+
+/// Applies the inverse of `op` to the repo of `tx`.
+///
+/// The repo at `op_parent` is merged into the repo of `tx`, with the repo at
+/// `op` as the base. Only the portions of the view selected by `what` are
+/// changed.
+// pub for `jj undo` and `jj redo`
+pub(crate) async fn revert_operation(
+    tx: &mut WorkspaceCommandTransaction<'_>,
+    op: &Operation,
+    op_parent: &Operation,
+    what: &[RevertWhatToRestore],
+) -> Result<(), CommandError> {
+    let repo_loader = tx.base_repo().loader();
+    let repo_at_op = &repo_loader.load_at(op).await?;
+    let repo_at_op_parent = &repo_loader.load_at(op_parent).await?;
+    tx.repo_mut().merge(repo_at_op, repo_at_op_parent).await?;
+    let new_view = view_with_desired_portions_restored(
+        tx.repo().view().store_view(),
+        tx.base_repo().view().store_view(),
+        what,
+    );
+    tx.repo_mut().set_view(new_view);
     Ok(())
 }
