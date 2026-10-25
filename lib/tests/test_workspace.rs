@@ -17,6 +17,7 @@ use std::thread;
 
 use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_working_copy_factory;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
@@ -36,6 +37,7 @@ fn test_load_bad_path() {
     let result = Workspace::load(
         &settings,
         &workspace_root,
+        &*default_workspace_loader_factory(),
         &test_env.default_backend_factories(),
         &default_working_copy_factories(),
     );
@@ -91,6 +93,7 @@ fn test_init_additional_workspace() -> TestResult {
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
+        &*default_workspace_loader_factory(),
         &test_workspace.env.default_backend_factories(),
         &default_working_copy_factories(),
     );
@@ -134,6 +137,7 @@ fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
+        &*default_workspace_loader_factory(),
         &test_workspace.env.default_backend_factories(),
         &default_working_copy_factories(),
     );
@@ -186,6 +190,7 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
+        &*default_workspace_loader_factory(),
         &test_env.default_backend_factories(),
         &default_working_copy_factories(),
     );

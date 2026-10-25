@@ -47,6 +47,8 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::default_backend_factories::default_backend_factories;
+use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::EverythingMatcher;
@@ -80,6 +82,7 @@ use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace::WorkspaceLoadError;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
 
@@ -233,6 +236,20 @@ impl TestEnvironment {
             .load_at_head(Some(WorkspaceName::DEFAULT))
             .block_on()
             .unwrap()
+    }
+
+    pub fn load_workspace(
+        &self,
+        settings: &UserSettings,
+        workspace_root: &Path,
+    ) -> Result<Workspace, WorkspaceLoadError> {
+        Workspace::load(
+            settings,
+            workspace_root,
+            &*default_workspace_loader_factory(),
+            &self.default_backend_factories(),
+            &default_working_copy_factories(),
+        )
     }
 }
 
