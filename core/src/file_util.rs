@@ -237,6 +237,34 @@ pub fn new_temp_file_with_default_permissions(dir: impl AsRef<Path>) -> io::Resu
     builder.tempfile_in(dir)
 }
 
+/// Creates a temporary file beside `path` for an atomic replacement.
+///
+/// If `path` is a symlink to an existing file, resolves it and returns the
+/// target path. Permissions are copied from the existing file.
+pub fn new_temp_file_for_replacement(
+    path: impl AsRef<Path>,
+) -> io::Result<(NamedTempFile, PathBuf)> {
+    let path = path.as_ref();
+    let (old_metadata, new_path) = match path.symlink_metadata() {
+        Ok(m) if m.is_symlink() => match path.canonicalize() {
+            Ok(new_path) => (Some(new_path.symlink_metadata()?), new_path),
+            Err(err) if err.kind() == io::ErrorKind::NotFound => (None, path.to_owned()),
+            Err(err) => return Err(err),
+        },
+        Ok(m) => (Some(m), path.to_owned()),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => (None, path.to_owned()),
+        Err(err) => return Err(err),
+    };
+    let dir = new_path
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "path has no parent"))?;
+    let temp_file = new_temp_file_with_default_permissions(dir)?;
+    if let Some(m) = old_metadata.filter(|m| m.is_file()) {
+        temp_file.as_file().set_permissions(m.permissions())?;
+    }
+    Ok((temp_file, new_path))
+}
+
 /// Persists the temporary file after synchronizing the content.
 ///
 /// After system crash, the persisted file should have a valid content if
@@ -494,6 +522,9 @@ mod fallback {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt as _;
+
     use futures::io::Cursor;
     use itertools::Itertools as _;
     use pollster::FutureExt as _;
@@ -650,7 +681,6 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn test_new_temp_file_with_default_permissions() -> TestResult {
-        use std::os::unix::fs::PermissionsExt as _;
         let temp_dir = new_temp_dir();
         let file = File::create(temp_dir.path().join("file"))?;
         let temp_file = new_temp_file_with_default_permissions(temp_dir.path())?;
@@ -658,6 +688,103 @@ mod tests {
             temp_file.as_file().metadata()?.permissions().mode() & 0o777,
             file.metadata()?.permissions().mode() & 0o777
         );
+        Ok(())
+    }
+
+    #[test_case(false; "new file")]
+    #[test_case(true; "existing file")]
+    fn test_new_temp_file_for_replacement(existing: bool) -> TestResult {
+        let temp_dir = new_temp_dir();
+        let path = temp_dir.path().join("file");
+        if existing {
+            fs::write(&path, b"")?;
+            #[cfg(unix)]
+            {
+                fs::set_permissions(&path, fs::Permissions::from_mode(0o640))?;
+            }
+        }
+        let (temp_file, new_path) = new_temp_file_for_replacement(&path)?;
+        assert_eq!(new_path, path);
+        assert_eq!(temp_file.path().parent(), path.parent());
+        #[cfg(unix)]
+        if existing {
+            assert_eq!(
+                temp_file.as_file().metadata()?.permissions(),
+                path.metadata()?.permissions()
+            );
+        } else {
+            let normal_file = File::create(temp_dir.path().join("normal"))?;
+            assert_eq!(
+                temp_file.as_file().metadata()?.permissions().mode() & 0o777,
+                normal_file.metadata()?.permissions().mode() & 0o777
+            );
+        }
+        Ok(())
+    }
+
+    #[test_case(false, false; "relative target")]
+    #[test_case(true, false; "absolute target")]
+    #[test_case(false, true; "relative chain")]
+    fn test_new_temp_file_for_replacement_valid_symlink(absolute: bool, chain: bool) -> TestResult {
+        if !check_symlink_support()? {
+            return Ok(());
+        }
+        let temp_dir = new_temp_dir();
+        let target_dir = temp_dir.path().join("target");
+        fs::create_dir(&target_dir)?;
+        let target_path = target_dir.join("file");
+        fs::write(&target_path, b"")?;
+        #[cfg(unix)]
+        {
+            fs::set_permissions(&target_path, fs::Permissions::from_mode(0o640))?;
+        }
+        let link_target = if chain {
+            symlink_file("file", target_dir.join("middle"))?;
+            PathBuf::from_iter(["target", "middle"])
+        } else {
+            PathBuf::from_iter(["target", "file"])
+        };
+        let link_target = if absolute {
+            temp_dir.path().join(link_target)
+        } else {
+            link_target
+        };
+        let link_path = temp_dir.path().join("link");
+        symlink_file(&link_target, &link_path)?;
+
+        let (temp_file, new_path) = new_temp_file_for_replacement(&link_path)?;
+        assert_eq!(new_path, target_path.canonicalize()?);
+        assert_eq!(temp_file.path().parent(), new_path.parent());
+        if cfg!(unix) {
+            assert_eq!(
+                temp_file.as_file().metadata()?.permissions(),
+                target_path.metadata()?.permissions()
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_new_temp_file_for_replacement_dangling_symlink() -> TestResult {
+        if !check_symlink_support()? {
+            return Ok(());
+        }
+        let temp_dir = new_temp_dir();
+        let link_path = temp_dir.path().join("link");
+        symlink_file("missing_file", &link_path)?;
+        let (temp_file, new_path) = new_temp_file_for_replacement(&link_path)?;
+        assert_eq!(new_path, link_path);
+        assert_eq!(temp_file.path().parent(), link_path.parent());
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_new_temp_file_for_replacement_symlink_loop() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let link_path = temp_dir.path().join("link");
+        symlink_file("link", &link_path)?;
+        assert!(new_temp_file_for_replacement(&link_path).is_err());
         Ok(())
     }
 
