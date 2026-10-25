@@ -16,7 +16,6 @@ use jj_lib::op_heads_store;
 use jj_lib::operation::Operation;
 
 use crate::cli_util::CommandHelper;
-use crate::cli_util::merge_operations;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -43,6 +42,8 @@ pub async fn cmd_op_integrate(
     let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
     let target_op = workspace_command.resolve_single_op(&args.operation)?;
     let repo_loader = workspace_command.repo().loader();
+    // Acquire the lock before the op heads lock is taken by resolve_op_heads().
+    let git_import_export_lock = workspace_command.lock_git_import_export()?;
     repo_loader
         .op_heads_store()
         .update_op_heads(target_op.parent_ids(), target_op.id())
@@ -53,16 +54,15 @@ pub async fn cmd_op_integrate(
         repo_loader.op_store(),
         async |op_heads| -> Result<Operation, CommandError> {
             // TODO: It may be helpful to print each operation we're merging here
-            let transaction_description = "reconcile divergent operations";
-            let merged_operation = merge_operations(
-                Some(ui),
-                repo_loader,
-                op_heads,
-                Some(workspace_command.workspace_name()),
-                Some(transaction_description),
-                command.string_args(),
-            )
-            .await?;
+            let merged_operation = workspace_command
+                .env()
+                .reconcile_divergent_operations(
+                    ui,
+                    repo_loader,
+                    op_heads,
+                    Some(&git_import_export_lock),
+                )
+                .await?;
             writeln!(
                 ui.status(),
                 "The specified operation has been integrated with other existing operations."

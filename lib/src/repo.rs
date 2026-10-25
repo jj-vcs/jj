@@ -874,11 +874,6 @@ impl RepoLoader {
         transaction_description: Option<&str>,
         transaction_attributes: impl IntoIterator<Item = (String, String)>,
     ) -> Result<(Arc<ReadonlyRepo>, usize), RepoLoaderError> {
-        // IMPLEMENTATION NOTE: This used to be implemented as a much simple
-        // recursive method, but unfortunately due to the async nature of the
-        // method itself and its dependencies, that leads to stack-overflow in
-        // some cases. See https://github.com/jj-vcs/jj/pull/9586 for more
-        // details.
         match &operations[..] {
             [] => {
                 let root_operation = self.root_operation().await;
@@ -892,10 +887,45 @@ impl RepoLoader {
             _ => {}
         }
 
+        let tx_description = merge_transaction_description(transaction_description, &operations);
+        let (tx, num_rebased) = self
+            .start_merge_operations(
+                operations,
+                workspace_name,
+                transaction_description,
+                transaction_attributes,
+            )
+            .await?;
+        let merged_repo = tx.write(tx_description).await?.leave_unpublished();
+        Ok((merged_repo, num_rebased))
+    }
+
+    /// Merges two or more `operations` in a new transaction. Returns the
+    /// transaction and the number of rebased commits.
+    ///
+    /// The returned transaction isn't written, so the caller can make further
+    /// changes to the merged repo before writing (and possibly publishing) it.
+    /// Merges of common ancestor operations, if any are needed, are written
+    /// but not published.
+    ///
+    /// Panics if fewer than two operations are given.
+    pub async fn start_merge_operations(
+        &self,
+        operations: Vec<Operation>,
+        workspace_name: Option<&WorkspaceName>,
+        transaction_description: Option<&str>,
+        transaction_attributes: impl IntoIterator<Item = (String, String)>,
+    ) -> Result<(Transaction, usize), RepoLoaderError> {
+        // IMPLEMENTATION NOTE: This used to be implemented as a much simple
+        // recursive method, but unfortunately due to the async nature of the
+        // method itself and its dependencies, that leads to stack-overflow in
+        // some cases. See https://github.com/jj-vcs/jj/pull/9586 for more
+        // details.
+        assert!(operations.len() > 1);
+
         let mut num_rebased = 0;
         let to_operation_ids =
             |ops: &[Operation]| ops.iter().map(|op| op.id().clone()).collect_vec();
-        let operation_ids = to_operation_ids(&operations);
 
         // Caches the result of merging some operations.
         let mut merged_operations: HashMap<Vec<OperationId>, Operation> = HashMap::new();
@@ -916,12 +946,15 @@ impl RepoLoader {
             assert!(operations.len() > 1);
             assert!(index <= operations.len());
             if index == operations.len() {
+                if stack.is_empty() {
+                    // We are done merging the requested operations, which were
+                    // at the bottom of the stack.
+                    return Ok((tx, num_rebased));
+                }
                 // We are done processing the operations, but there is more work on the stack.
                 // Commit the transaction and cache the result.
-                let tx_description = transaction_description.map_or_else(
-                    || format!("merge {} operations", operations.len()),
-                    |tx_description| tx_description.to_string(),
-                );
+                let tx_description =
+                    merge_transaction_description(transaction_description, &operations);
                 let merged_repo = tx.write(tx_description).await?.leave_unpublished();
                 merged_operations.insert(
                     to_operation_ids(&operations),
@@ -980,9 +1013,7 @@ impl RepoLoader {
             stack.push((1, ancestor_ops.clone(), new_tx));
         }
 
-        // We are all done! The result should be in the cache.
-        let merged_operation = merged_operations.get(&operation_ids).cloned().unwrap();
-        Ok((self.load_at(&merged_operation).await?, num_rebased))
+        unreachable!("the requested operations should have been merged");
     }
 
     async fn finish_load(
@@ -1003,6 +1034,16 @@ impl RepoLoader {
         };
         Ok(Arc::new(repo))
     }
+}
+
+fn merge_transaction_description(
+    transaction_description: Option<&str>,
+    operations: &[Operation],
+) -> String {
+    transaction_description.map_or_else(
+        || format!("merge {} operations", operations.len()),
+        |tx_description| tx_description.to_owned(),
+    )
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

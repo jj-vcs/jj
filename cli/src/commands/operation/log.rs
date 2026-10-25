@@ -121,8 +121,7 @@ pub async fn cmd_op_log(
         let workspace = command.load_workspace()?;
         let workspace_env = command.workspace_environment(ui, &workspace)?;
         let repo_loader = workspace.repo_loader();
-        let current_op =
-            command.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
+        let current_op = command.resolve_operation(ui, &workspace, &workspace_env, None)?;
         do_op_log(ui, &workspace_env, repo_loader, &current_op, args).await
     }
 }

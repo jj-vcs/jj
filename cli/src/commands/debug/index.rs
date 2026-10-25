@@ -35,8 +35,9 @@ pub async fn cmd_debug_index(
     // Resolve the operation without loading the repo, so this command won't
     // update the index.
     let workspace = command.load_workspace()?;
+    let workspace_env = command.workspace_environment(ui, &workspace)?;
     let repo_loader = workspace.repo_loader();
-    let op = command.resolve_operation(ui, repo_loader, workspace.workspace_name())?;
+    let op = command.resolve_operation(ui, &workspace, &workspace_env, None)?;
     let index_store = repo_loader.index_store();
     let index = index_store
         .get_index_at_op(&op, repo_loader.store())

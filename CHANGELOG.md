@@ -114,6 +114,12 @@ and this project adheres to
 * On Unix, repository files under `.jj` are now created with default file
   permissions.
 
+* In colocated workspaces, the operation that reconciles concurrent operations
+  now exports bookmarks to Git, and updates Git HEAD if the working-copy commit
+  moved. Previously, Git branches could lag behind bookmarks that were moved
+  while merging the operations, until another command exported them.
+  [#10478](https://github.com/jj-vcs/jj/issues/10478)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights

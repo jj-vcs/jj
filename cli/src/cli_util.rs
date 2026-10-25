@@ -482,7 +482,9 @@ impl CommandHelper {
             .is_working_copy_writable()
             .then(|| env.lock_git_import_export(&workspace))
             .transpose()?;
-        let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+        let mut workspace_command = self
+            .load_from_workspace(ui, workspace, env, git_import_export_lock.as_ref())
+            .await?;
         let Some(git_import_export_lock) = git_import_export_lock else {
             return Ok((workspace_command, SnapshotStats::default(), false));
         };
@@ -523,7 +525,7 @@ impl CommandHelper {
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let workspace = self.load_workspace()?;
         let env = self.workspace_environment(ui, &workspace)?;
-        self.load_from_workspace(ui, workspace, env).await
+        self.load_from_workspace(ui, workspace, env, None).await
     }
 
     async fn load_from_workspace(
@@ -531,9 +533,9 @@ impl CommandHelper {
         ui: &Ui,
         workspace: Workspace,
         mut env: WorkspaceCommandEnvironment,
+        git_import_export_lock: Option<&GitImportExportLock>,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
-        let op_head =
-            self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
+        let op_head = self.resolve_operation(ui, &workspace, &env, git_import_export_lock)?;
         let repo = workspace.repo_loader().load_at(&op_head).await?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
@@ -655,7 +657,9 @@ impl CommandHelper {
                 let stale_wc_commit = workspace_command.get_wc_commit().await?.unwrap();
 
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
-                let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+                let mut workspace_command = self
+                    .load_from_workspace(ui, workspace, env, Some(git_import_export_lock))
+                    .await?;
                 let repo = &workspace_command.user_repo.repo;
                 let desired_wc_commit = workspace_command.prepare_working_copy_mutation().await?;
                 let mut locked_ws = workspace_command
@@ -755,7 +759,9 @@ impl CommandHelper {
                      message from read attempt: {e}"
                 )?;
 
-                let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+                let mut workspace_command = self
+                    .load_from_workspace(ui, workspace, env, Some(git_import_export_lock))
+                    .await?;
                 let stats = workspace_command
                     .create_and_check_out_recovery_commit(ui, git_import_export_lock)
                     .await?;
@@ -793,40 +799,61 @@ impl CommandHelper {
     /// Resolves the current operation from the command-line argument.
     ///
     /// If no `--at-operation` is specified, the head operations will be
-    /// loaded. If there are multiple heads, they'll be merged.
+    /// loaded. If there are multiple heads, they'll be merged. If the
+    /// workspace is colocated with Git, the merge operation also exports the
+    /// merged state to Git while holding the `git_import_export_lock`. The lock
+    /// is acquired here if the caller doesn't hold it.
     #[instrument(skip_all)]
     pub fn resolve_operation(
         &self,
         ui: &Ui,
-        repo_loader: &RepoLoader,
-        workspace_name: &WorkspaceName,
+        workspace: &Workspace,
+        env: &WorkspaceCommandEnvironment,
+        git_import_export_lock: Option<&GitImportExportLock>,
     ) -> Result<Operation, CommandError> {
+        let repo_loader = workspace.repo_loader();
         if let Some(op_str) = &self.data.global_args.at_operation {
-            Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
-        } else {
-            op_heads_store::resolve_op_heads(
-                repo_loader.op_heads_store().as_ref(),
-                repo_loader.op_store(),
-                async |op_heads| {
-                    writeln!(
-                        ui.status(),
-                        "Concurrent modification detected, resolving automatically.",
-                    )?;
-                    // TODO: It may be helpful to print each operation we're merging here
-                    let transaction_description = "reconcile divergent operations";
-                    merge_operations(
-                        Some(ui),
-                        repo_loader,
-                        op_heads,
-                        Some(workspace_name),
-                        Some(transaction_description),
-                        &self.data.string_args,
-                    )
-                    .await
-                },
-            )
-            .block_on()
+            return Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?);
         }
+        // The Git import/export lock has to be taken before the op heads lock
+        // held while merging. Don't wait for the lock unless there are op heads
+        // to merge. If more op heads appear after this check, they'll be merged
+        // without exporting to Git, which will happen in a later transaction.
+        let acquired_git_import_export_lock;
+        let git_import_export_lock = match git_import_export_lock {
+            Some(lock) => Some(lock),
+            None if env.working_copy_shared_with_git
+                && repo_loader
+                    .op_heads_store()
+                    .get_op_heads()
+                    .block_on()?
+                    .len()
+                    != 1 =>
+            {
+                acquired_git_import_export_lock = env.lock_git_import_export(workspace)?;
+                Some(&acquired_git_import_export_lock)
+            }
+            None => None,
+        };
+        op_heads_store::resolve_op_heads(
+            repo_loader.op_heads_store().as_ref(),
+            repo_loader.op_store(),
+            async |op_heads| {
+                writeln!(
+                    ui.status(),
+                    "Concurrent modification detected, resolving automatically.",
+                )?;
+                // TODO: It may be helpful to print each operation we're merging here
+                env.reconcile_divergent_operations(
+                    ui,
+                    repo_loader,
+                    op_heads,
+                    git_import_export_lock,
+                )
+                .await
+            },
+        )
+        .block_on()
     }
 
     /// Creates helper for the repo whose view is supposed to be in sync with
@@ -1023,6 +1050,98 @@ impl WorkspaceCommandEnvironment {
             None
         };
         Ok(GitImportExportLock { _lock: lock })
+    }
+
+    /// Merges divergent operation heads into a new operation, which the caller
+    /// is supposed to publish as the single op head.
+    ///
+    /// If the workspace is colocated with Git and the `git_import_export_lock`
+    /// is held, the merge operation also updates the Git repo as
+    /// `WorkspaceCommandHelper::finish_transaction()` does for other
+    /// transactions: bookmarks and tags are exported, and Git HEAD is reset if
+    /// the working-copy commit was moved onto a different parent.
+    pub(crate) async fn reconcile_divergent_operations(
+        &self,
+        ui: &Ui,
+        repo_loader: &RepoLoader,
+        op_heads: Vec<Operation>,
+        git_import_export_lock: Option<&GitImportExportLock>,
+    ) -> Result<Operation, CommandError> {
+        let transaction_description = "reconcile divergent operations";
+        let transaction_attributes =
+            command_args_to_transaction_attribute(self.command.string_args());
+        let (mut tx, num_rebased) = repo_loader
+            .start_merge_operations(
+                op_heads,
+                Some(&self.workspace_name),
+                Some(transaction_description),
+                transaction_attributes,
+            )
+            .await?;
+        if num_rebased > 0 {
+            writeln!(
+                ui.status(),
+                "Rebased {num_rebased} descendant commits onto commits rewritten by other \
+                 operation.",
+            )?;
+        }
+
+        if let Some(git_import_export_lock) = git_import_export_lock {
+            self.export_reconciled_repo_to_git(ui, tx.repo_mut(), git_import_export_lock)
+                .await?;
+        }
+        let merged_repo = tx.write(transaction_description).await?.leave_unpublished();
+        Ok(merged_repo.operation().clone())
+    }
+
+    /// Updates the colocated Git repo, if any, to match the repo merged by
+    /// [`Self::reconcile_divergent_operations()`].
+    #[cfg(feature = "git")]
+    async fn export_reconciled_repo_to_git(
+        &self,
+        ui: &Ui,
+        mut_repo: &mut MutableRepo,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<(), CommandError> {
+        if !self.working_copy_shared_with_git {
+            return Ok(());
+        }
+        if let Some(wc_commit_id) = mut_repo.view().get_wc_commit_id(&self.workspace_name) {
+            let wc_commit = mut_repo.store().get_commit_async(wc_commit_id).await?;
+            // Unlike finish_transaction(), leave Git HEAD and the index alone
+            // unless the working-copy commit has moved to another parent.
+            // Operations can be merged by read-only commands.
+            let parent_id = &wc_commit.parent_ids()[0];
+            let new_head_target = if parent_id == mut_repo.store().root_commit_id() {
+                RefTarget::absent()
+            } else {
+                RefTarget::normal(parent_id.clone())
+            };
+            if *mut_repo.git_head(&self.workspace_name) != new_head_target {
+                try_reset_git_head(
+                    ui,
+                    mut_repo,
+                    &self.workspace_name,
+                    self.workspace_root(),
+                    &wc_commit,
+                    git_import_export_lock,
+                )
+                .await?;
+            }
+        }
+        let stats = jj_lib::git::export_refs(mut_repo)?;
+        crate::git_util::print_git_export_stats(ui, &stats)?;
+        Ok(())
+    }
+
+    #[cfg(not(feature = "git"))]
+    async fn export_reconciled_repo_to_git(
+        &self,
+        _ui: &Ui,
+        _mut_repo: &mut MutableRepo,
+        _git_import_export_lock: &GitImportExportLock,
+    ) -> Result<(), CommandError> {
+        Ok(())
     }
 
     pub fn auto_tracking_matcher(&self, ui: &Ui) -> Result<Box<dyn Matcher>, CommandError> {
@@ -1396,7 +1515,7 @@ impl WorkspaceCommandHelper {
     /// colocated with Git. Returns a token that can be passed to functions
     /// that need to import from or export to Git. For non-colocated repos,
     /// returns a token with no lock inside.
-    fn lock_git_import_export(&self) -> Result<GitImportExportLock, CommandError> {
+    pub(crate) fn lock_git_import_export(&self) -> Result<GitImportExportLock, CommandError> {
         self.env.lock_git_import_export(&self.workspace)
     }
 

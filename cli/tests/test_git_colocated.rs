@@ -15,6 +15,7 @@
 use std::fmt::Write as _;
 use std::path::Path;
 
+use test_case::test_case;
 use testutils::TestResult;
 use testutils::git;
 
@@ -2032,6 +2033,374 @@ fn test_git_colocated_operation_cleanup() -> TestResult {
     insta::assert_snapshot!(String::from_utf8(output.stdout)?, @"");
 
     Ok(())
+}
+
+#[test]
+fn test_git_colocated_reconcile_divergent_operations_exports_bookmarks() -> TestResult {
+    let test_env = TestEnvironment::default();
+    let work_dir = set_up_concurrent_rewrite_of_bookmark_target(&test_env);
+    let git_repo = git::open(work_dir.root());
+    insta::assert_snapshot!(
+        git_repo.find_reference("refs/heads/topic")?.id().to_string(),
+        @"fa91511fcbba57ab7ca3ef6958c27a175fb040c7"
+    );
+
+    // A read-only command merges the operations, which moves the bookmark to
+    // the rewritten commit. The merge operation should export it to Git.
+    let output = work_dir.run_jj(["log", "-T", "commit_id.short() ++ ' ' ++ bookmarks"]);
+    insta::assert_snapshot!(output, @"
+    @  313a3cc40a1f
+    ○  edd697bb706d topic
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        git_repo.find_reference("refs/heads/topic")?.id().to_string(),
+        @"edd697bb706d3c83b59b93bc9e4a664eb003c132"
+    );
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    topic: qpvuntsm edd697bb base, reworded
+      @git: qpvuntsm edd697bb base, reworded
+    [EOF]
+    ");
+    // No separate operation should be needed for the export
+    let output = work_dir.run_jj(["op", "show", "--no-op-diff", "-T", "description"]);
+    insta::assert_snapshot!(output, @"reconcile divergent operations[EOF]");
+
+    Ok(())
+}
+
+#[test_case(&["status"]; "status")]
+#[test_case(&["log", "--ignore-working-copy"]; "log_ignore_working_copy")]
+#[test_case(&["op", "log", "--ignore-working-copy"]; "op_log_ignore_working_copy")]
+fn test_git_colocated_reconcile_divergent_operations_exports_bookmarks_from(
+    command: &[&str],
+) -> TestResult {
+    let test_env = TestEnvironment::default();
+    let work_dir = set_up_concurrent_rewrite_of_bookmark_target(&test_env);
+    let git_repo = git::open(work_dir.root());
+
+    work_dir.run_jj(command).success();
+    insta::assert_snapshot!(
+        git_repo.find_reference("refs/heads/topic")?.id().to_string(),
+        @"edd697bb706d3c83b59b93bc9e4a664eb003c132"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_git_colocated_reconcile_divergent_operations_resets_git_head() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
+
+    // Two commits with the same content, and the working-copy commit on top of
+    // "other"
+    work_dir.write_file("file", "contents\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+    work_dir.run_jj(["new", "root()", "-m", "other"]).success();
+    work_dir.write_file("file", "contents\n");
+    work_dir.run_jj(["new"]).success();
+    let base_op_id = work_dir.current_operation_id();
+
+    // One operation rewrites "base", and the other concurrently checks out a new
+    // commit on top of the old "base"
+    work_dir
+        .run_jj(["describe", "-r", "subject(base)", "-m", "base, reworded"])
+        .success();
+    work_dir
+        .run_jj(["new", "--at-op", &base_op_id, "subject(base)"])
+        .success();
+    insta::assert_snapshot!(git_repo.head_id()?.to_string(), @"fa91511fcbba57ab7ca3ef6958c27a175fb040c7");
+
+    // Merging the operations rebases the working-copy commit onto the rewritten
+    // "base". Git HEAD should follow it.
+    let output = work_dir.run_jj(["log", "-T", "commit_id.short() ++ ' ' ++ description"]);
+    insta::assert_snapshot!(output, @"
+    @  308f36d69d33
+    ○  ffe07c7bac32 base, reworded
+    │ ○  ca9733d3051d other
+    ├─╯
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Rebased 1 descendant commits onto commits rewritten by other operation.
+    [EOF]
+    ");
+    insta::assert_snapshot!(git_repo.head_id()?.to_string(), @"ffe07c7bac324db5438f963175a8b6373bd346df");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
+    Workspace 'default' is currently colocated with Git.
+    Last imported/exported Git HEAD: ffe07c7bac324db5438f963175a8b6373bd346df
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    The working copy has no changes.
+    Working copy  (@) : royxmykx 308f36d6 (empty) (no description set)
+    Parent commit (@-): qpvuntsm ffe07c7b base, reworded
+    [EOF]
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn test_git_colocated_reconcile_divergent_operations_conflicted_bookmark() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
+
+    work_dir.write_file("file", "base\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+    work_dir.write_file("file", "left\n");
+    work_dir.run_jj(["commit", "-m", "left"]).success();
+    work_dir
+        .run_jj(["new", "subject(base)", "-m", "right"])
+        .success();
+    work_dir.write_file("file", "right\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r", "subject(base)", "topic"])
+        .success();
+    let base_op_id = work_dir.current_operation_id();
+
+    // Move the bookmark to sibling commits concurrently
+    work_dir
+        .run_jj(["bookmark", "move", "topic", "--to", "subject(left)"])
+        .success();
+    work_dir
+        .run_jj([
+            "bookmark",
+            "move",
+            "topic",
+            "--to",
+            "subject(right)",
+            "--at-op",
+            &base_op_id,
+        ])
+        .success();
+    insta::assert_snapshot!(
+        git_repo.find_reference("refs/heads/topic")?.id().to_string(),
+        @"ff9b160550244570edc91d4c6c3e81dd901cfd71"
+    );
+
+    // The merged bookmark is conflicted, so it isn't exported, and the Git
+    // branch is left alone.
+    let output = work_dir.run_jj(["log", "-T", "commit_id.short() ++ ' ' ++ bookmarks"]);
+    insta::assert_snapshot!(output, @"
+    @  fd0570f388ef topic??
+    │ ○  ff9b16055024 topic?? topic@git
+    ├─╯
+    ○  698e6cfd4f24
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        git_repo.find_reference("refs/heads/topic")?.id().to_string(),
+        @"ff9b160550244570edc91d4c6c3e81dd901cfd71"
+    );
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    topic (conflicted):
+      - qpvuntsm 698e6cfd base
+      + rlvkpnrz ff9b1605 left
+      + zsuskuln fd0570f3 right
+      @git (behind by 1 commits): rlvkpnrz ff9b1605 left
+    [EOF]
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn test_git_colocated_reconcile_divergent_operations_bookmark_moved_in_git() -> TestResult {
+    let test_env = TestEnvironment::default();
+    let work_dir = set_up_concurrent_rewrite_of_bookmark_target(&test_env);
+    let git_repo = git::open(work_dir.root());
+
+    // Move the Git branch to a new commit before the operations are merged
+    let old_target = git_repo.find_reference("refs/heads/topic")?.id().detach();
+    git::add_commit(
+        &git_repo,
+        "refs/heads/topic",
+        "file",
+        b"modified in git\n",
+        "git commit",
+        &[old_target],
+    );
+
+    // The bookmark can't be exported because the Git branch has moved. The
+    // change made in Git is imported instead.
+    let output = work_dir.run_jj(["log", "-T", "commit_id.short() ++ ' ' ++ bookmarks"]);
+    insta::assert_snapshot!(output, @r#"
+    @  313a3cc40a1f
+    ○  edd697bb706d topic??
+    │ ○  c6d8760ee3b7 topic?? topic@git
+    │ ○  fa91511fcbba
+    ├─╯
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Warning: Failed to export some bookmarks:
+      topic@git: Failed to set: Could not prepare reference edit, reference="refs/heads/topic": Expected reference content fa91511fcbba57ab7ca3ef6958c27a175fb040c7: The reference "refs/heads/topic" changed to c6d8760ee3b7fe05a7773c0aaa34e58c12993203
+    Hint: Git doesn't allow a branch/tag name that looks like a parent directory of
+    another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks/tags that failed
+    to export or their "parent" bookmarks/tags.
+    Done importing changes from the underlying Git repo.
+    [EOF]
+    "#);
+    insta::assert_snapshot!(
+        git_repo.find_reference("refs/heads/topic")?.id().to_string(),
+        @"c6d8760ee3b7fe05a7773c0aaa34e58c12993203"
+    );
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    topic (conflicted):
+      - qpvuntsm/1 fa91511f (divergent) base
+      + qpvuntsm/0 edd697bb (divergent) base, reworded
+      + nzvnqqvr c6d8760e git commit
+      @git (behind by 1 commits): nzvnqqvr c6d8760e git commit
+    [EOF]
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn test_git_colocated_op_integrate_exports_bookmarks() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
+
+    work_dir.write_file("file", "contents\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+    // Create a bookmark in an operation that isn't integrated, so it isn't
+    // exported
+    let output = work_dir.run_jj([
+        "bookmark",
+        "create",
+        "-r",
+        "subject(base)",
+        "topic",
+        "--no-integrate-operation",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Created 1 bookmarks pointing to qpvuntsm fa91511f topic | base
+    Operation left uncommitted because --no-integrate-operation was requested: 41575745d0aa
+    [EOF]
+    ");
+    let unintegrated_op_id = output.stderr.raw().split_whitespace().last().unwrap();
+    work_dir
+        .run_jj(["describe", "-r", "subject(base)", "-m", "base, reworded"])
+        .success();
+    assert!(git_repo.try_find_reference("refs/heads/topic")?.is_none());
+
+    let output = work_dir.run_jj(["op", "integrate", unintegrated_op_id]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    The specified operation has been integrated with other existing operations.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        git_repo.find_reference("refs/heads/topic")?.id().to_string(),
+        @"a75b62af221f9521263ecd1f4c4a1e17032ff72c"
+    );
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    topic: qpvuntsm a75b62af base, reworded
+      @git: qpvuntsm a75b62af base, reworded
+    [EOF]
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn test_git_non_colocated_reconcile_divergent_operations() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root().join(".jj/repo/store/git"));
+
+    work_dir.write_file("file", "contents\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+    let base_op_id = work_dir.current_operation_id();
+    work_dir
+        .run_jj(["describe", "-r", "subject(base)", "-m", "base, reworded"])
+        .success();
+    work_dir
+        .run_jj([
+            "bookmark",
+            "create",
+            "-r",
+            "subject(base)",
+            "topic",
+            "--at-op",
+            &base_op_id,
+        ])
+        .success();
+
+    // The bookmark is moved, but not exported to the backing Git repo
+    let output = work_dir.run_jj(["log", "-T", "commit_id.short() ++ ' ' ++ bookmarks"]);
+    insta::assert_snapshot!(output, @"
+    @  313a3cc40a1f
+    ○  edd697bb706d topic
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    [EOF]
+    ");
+    assert!(git_repo.try_find_reference("refs/heads/topic")?.is_none());
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    topic: qpvuntsm edd697bb base, reworded
+    [EOF]
+    ");
+
+    Ok(())
+}
+
+/// Creates a colocated repo in which one operation rewrites a "base" commit
+/// while a concurrent operation creates a "topic" bookmark pointing to the old
+/// "base" commit.
+fn set_up_concurrent_rewrite_of_bookmark_target(test_env: &TestEnvironment) -> TestWorkDir<'_> {
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file", "contents\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+    let base_op_id = work_dir.current_operation_id();
+    work_dir
+        .run_jj(["describe", "-r", "subject(base)", "-m", "base, reworded"])
+        .success();
+    work_dir
+        .run_jj([
+            "bookmark",
+            "create",
+            "-r",
+            "subject(base)",
+            "topic",
+            "--at-op",
+            &base_op_id,
+        ])
+        .success();
+    work_dir
 }
 
 #[must_use]
