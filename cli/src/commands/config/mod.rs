@@ -25,6 +25,7 @@ use std::path::PathBuf;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
+use jj_lib::lock::FileLock;
 use tracing::instrument;
 
 use self::edit::ConfigEditArgs;
@@ -44,6 +45,7 @@ use self::unset::cmd_config_unset;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_message;
 use crate::config::ConfigEnv;
 use crate::ui::Ui;
 
@@ -169,6 +171,30 @@ impl ConfigTargetArgs {
         } else {
             panic!("No config_target provided")
         }
+    }
+
+    /// Loads the config file for `set`/`unset` and locks its write path.
+    ///
+    /// The returned [`FileLock`] must be held until the caller has saved. The
+    /// contents that are modified are read only after the lock is held. An
+    /// earlier snapshot from path lookup is discarded.
+    fn edit_config_file_for_update(
+        &self,
+        ui: &Ui,
+        command: &CommandHelper,
+    ) -> Result<(FileLock, ConfigFile), CommandError> {
+        let probed = self.edit_config_file(ui, command)?;
+        let source = probed.layer().source;
+        let path = probed.path().to_owned();
+        let lock_path = probed
+            .write_path()
+            .map_err(|err| user_error_with_message("Failed to access config file", err))?
+            .with_extension("lock");
+        let lock = FileLock::lock(lock_path).map_err(|err| {
+            user_error_with_message("Failed to take lock on the config file", err)
+        })?;
+        let file = ConfigFile::load_or_empty(source, path)?;
+        Ok((lock, file))
     }
 }
 
