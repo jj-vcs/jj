@@ -333,7 +333,7 @@ impl WorkspaceEnvironment {
     /// Resolves the effective `immutable()` expression to test against commits
     /// during a rewrite. If `ignore_immutable` is true, only the root commit is
     /// considered immutable.
-    pub fn resolve_immutable_expression(
+    pub async fn resolve_immutable_expression(
         &self,
         repo: &dyn Repo,
         ignore_immutable: bool,
@@ -352,6 +352,7 @@ impl WorkspaceEnvironment {
             .with_id_prefix_context(&id_prefix_context);
         let (expression, _other_repos) = immutable_expression
             .resolve_user_expression(repo, &symbol_resolver)
+            .await
             .map_err(RunnerError::InvalidImmutableHeads)?
             .into_inner();
         Ok(expression)

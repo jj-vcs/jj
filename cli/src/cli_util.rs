@@ -549,7 +549,9 @@ impl CommandHelper {
         if let Err(err) = jj_frontend::revset_util::try_resolve_trunk_alias(
             repo.as_ref(),
             &env.revset_parse_context(),
-        ) {
+        )
+        .await
+        {
             // The fallback can be builtin_trunk() if we're willing to support
             // inferred trunk forever. (#7990)
             let fallback = "root()";
@@ -1857,7 +1859,8 @@ impl WorkspaceOperationRunner {
             tx.set_is_snapshot(true);
             let immutable_expr = self
                 .env
-                .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)?;
+                .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)
+                .await?;
             let wc_immutable = !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
                 .evaluate(tx.repo())?
@@ -1986,6 +1989,7 @@ impl WorkspaceOperationRunner {
             && let Ok(immutable_expr) = self
                 .env
                 .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)
+                .await
             && !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
                 .evaluate(tx.repo())?
@@ -2716,7 +2720,8 @@ to the current parents may contain changes from multiple commits.
         let immutable_expr = self
             .env
             .base
-            .resolve_immutable_expression(repo, self.runner.options.ignore_immutable)?;
+            .resolve_immutable_expression(repo, self.runner.options.ignore_immutable)
+            .await?;
         let Some(commit_id) = immutable_expr
             .intersection(to_rewrite_expr)
             .evaluate(repo)?
@@ -3404,8 +3409,9 @@ async fn rebase_mutable_descendants(
     // tx.base_repo() here because we're interested in existing immutable
     // commits that are still reachable.
     let mut num_rebased = 0;
-    let immutable =
-        env.resolve_immutable_expression(tx.base_repo().as_ref(), options.ignore_immutable)?;
+    let immutable = env
+        .resolve_immutable_expression(tx.base_repo().as_ref(), options.ignore_immutable)
+        .await?;
     tx.repo_mut()
         .rebase_descendants_with_options(
             &immutable,

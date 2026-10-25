@@ -72,7 +72,8 @@ pub async fn cmd_debug_revset(
         workspace_command.id_prefix_context(),
     );
     let (mut expression, other_repos) = expression
-        .resolve_user_expression(repo, &symbol_resolver)?
+        .resolve_user_expression(repo, &symbol_resolver)
+        .await?
         .into_inner();
 
     writeln!(ui.stdout(), "-- Resolved:")?;

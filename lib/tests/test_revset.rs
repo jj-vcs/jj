@@ -17,7 +17,11 @@ use std::collections::HashMap;
 use std::iter;
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::task::Poll;
 
+use async_trait::async_trait;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jiff::Zoned;
@@ -56,6 +60,7 @@ use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
+use jj_lib::revset::PartialSymbolResolver;
 use jj_lib::revset::ResolvedRevset;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
@@ -116,7 +121,8 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
     assert_matches!(*expression, RevsetExpression::CommitRef(_));
     let symbol_resolver = default_symbol_resolver(repo);
     let (resolved_expression, _other_repos) = expression
-        .resolve_user_expression(repo, &symbol_resolver)?
+        .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()?
         .into_inner();
     match resolved_expression.as_ref() {
         RevsetExpression::Commits(commits) => Ok(commits.clone()),
@@ -128,6 +134,7 @@ fn revset_for_commits(repo: &dyn Repo, commits: &[&Commit]) -> Box<dyn Revset> {
     let symbol_resolver = default_symbol_resolver(repo);
     RevsetExpression::commits(commits.iter().map(|commit| commit.id().clone()).collect())
         .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()
         .unwrap()
         .evaluate()
         .unwrap()
@@ -249,7 +256,7 @@ fn test_resolve_symbol_commit_id() -> TestResult {
     };
     assert_matches!(
         parse(&mut RevsetDiagnostics::new(), "present(01)", &context)?
-            .resolve_user_expression(repo.as_ref(), &symbol_resolver),
+            .resolve_user_expression(repo.as_ref(), &symbol_resolver).block_on(),
         Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "01"
     );
     assert_eq!(
@@ -549,26 +556,116 @@ fn test_resolve_symbol_in_different_disambiguation_context() -> TestResult {
     // Sanity check
     let change_hex = commit2.change_id().reverse_hex();
     assert_eq!(
-        symbol_resolver.resolve_symbol(repo2.as_ref(), &change_hex[0..1])?,
+        symbol_resolver
+            .resolve_symbol(repo2.as_ref(), &change_hex[0..1])
+            .block_on()?,
         commit2.id().clone()
     );
     assert_eq!(
-        symbol_resolver.resolve_symbol(repo2.as_ref(), &commit2.id().hex()[0..1])?,
+        symbol_resolver
+            .resolve_symbol(repo2.as_ref(), &commit2.id().hex()[0..1])
+            .block_on()?,
         commit2.id().clone()
     );
 
     // Change ID is disambiguated within repo2, then resolved in repo1.
     assert_eq!(
-        symbol_resolver.resolve_symbol(repo1.as_ref(), &change_hex[0..1])?,
+        symbol_resolver
+            .resolve_symbol(repo1.as_ref(), &change_hex[0..1])
+            .block_on()?,
         commit1.id().clone()
     );
 
     // Commit ID can be found in the disambiguation index, but doesn't exist in
     // repo1.
     assert_matches!(
-        symbol_resolver.resolve_symbol(repo1.as_ref(), &commit2.id().hex()[0..1]),
+        symbol_resolver
+            .resolve_symbol(repo1.as_ref(), &commit2.id().hex()[0..1])
+            .block_on(),
         Err(RevsetResolutionError::NoSuchRevision { .. })
     );
+    Ok(())
+}
+
+#[test]
+fn test_resolve_symbols_concurrently_populates_id_prefix_index_once() -> TestResult {
+    /// Resolves `counted` to `commit_id` after yielding once, counting how
+    /// many times it was asked to.
+    struct CountingResolverExtension {
+        commit_id: CommitId,
+        count: Arc<AtomicUsize>,
+    }
+
+    impl SymbolResolverExtension for CountingResolverExtension {
+        fn new_resolvers<'a>(
+            &self,
+            _context_repo: &'a dyn Repo,
+        ) -> Vec<Box<dyn PartialSymbolResolver + 'a>> {
+            vec![Box::new(CountingResolver {
+                commit_id: self.commit_id.clone(),
+                count: self.count.clone(),
+            })]
+        }
+    }
+
+    struct CountingResolver {
+        commit_id: CommitId,
+        count: Arc<AtomicUsize>,
+    }
+
+    #[async_trait(?Send)]
+    impl PartialSymbolResolver for CountingResolver {
+        async fn resolve_symbol(
+            &self,
+            _repo: &dyn Repo,
+            symbol: &str,
+        ) -> Result<Option<CommitId>, RevsetResolutionError> {
+            if symbol != "counted" {
+                return Ok(None);
+            }
+            self.count.fetch_add(1, Ordering::Relaxed);
+            // Suspend so that other symbols get a chance to start resolving.
+            let mut yielded = false;
+            futures::future::poll_fn(|cx| {
+                if yielded {
+                    Poll::Ready(())
+                } else {
+                    yielded = true;
+                    cx.waker().wake_by_ref();
+                    Poll::Pending
+                }
+            })
+            .await;
+            Ok(Some(self.commit_id.clone()))
+        }
+    }
+
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit(tx.repo_mut());
+    let repo = tx.commit("test").block_on()?;
+
+    let count = Arc::new(AtomicUsize::new(0));
+    let mut extensions = RevsetExtensions::new();
+    extensions.add_symbol_resolver(Box::new(CountingResolverExtension {
+        commit_id: commit1.id().clone(),
+        count: count.clone(),
+    }));
+    let id_prefix_context = IdPrefixContext::new(Arc::new(extensions))
+        .disambiguate_within(RevsetExpression::symbol("counted".to_owned()));
+    let symbol_resolver =
+        default_symbol_resolver(repo.as_ref()).with_id_prefix_context(&id_prefix_context);
+
+    // Both prefixes are resolved concurrently, and both need the index.
+    let expression = RevsetExpression::symbol(commit1.id().hex())
+        .union(&RevsetExpression::symbol(commit2.id().hex()));
+    expression
+        .resolve_user_expression(repo.as_ref(), &symbol_resolver)
+        .block_on()?;
+    assert_eq!(count.load(Ordering::Relaxed), 1);
     Ok(())
 }
 
@@ -588,7 +685,7 @@ fn test_resolve_working_copy() -> TestResult {
     let symbol_resolver = default_symbol_resolver(tx.repo());
     assert_matches!(
         RevsetExpression::working_copy(ws1.clone())
-            .resolve_user_expression(tx.repo(), &symbol_resolver),
+            .resolve_user_expression(tx.repo(), &symbol_resolver).block_on(),
         Err(RevsetResolutionError::WorkspaceMissingWorkingCopy { name }) if name == "ws1"
     );
 
@@ -596,7 +693,8 @@ fn test_resolve_working_copy() -> TestResult {
     assert_eq!(
         RevsetExpression::working_copy(ws1.clone())
             .present()
-            .resolve_user_expression(tx.repo(), &symbol_resolver)?
+            .resolve_user_expression(tx.repo(), &symbol_resolver)
+            .block_on()?
             .evaluate()?
             .stream()
             .map(Result::unwrap)
@@ -615,6 +713,7 @@ fn test_resolve_working_copy() -> TestResult {
     let resolve = |name: WorkspaceNameBuf| -> Vec<CommitId> {
         RevsetExpression::working_copy(name)
             .resolve_user_expression(tx.repo(), &symbol_resolver)
+            .block_on()
             .unwrap()
             .evaluate()
             .unwrap()
@@ -653,6 +752,7 @@ fn test_resolve_working_copies() -> TestResult {
     let resolve = || -> Vec<CommitId> {
         RevsetExpression::working_copies()
             .resolve_user_expression(tx.repo(), &symbol_resolver)
+            .block_on()
             .unwrap()
             .evaluate()
             .unwrap()
@@ -1078,7 +1178,9 @@ fn try_resolve_expression<'a>(
     };
     let expression = parse(&mut RevsetDiagnostics::new(), revset_str, &context).unwrap();
     let symbol_resolver = default_symbol_resolver(repo);
-    expression.resolve_user_expression(repo, &symbol_resolver)
+    expression
+        .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()
 }
 
 fn try_resolve_commit_ids(
@@ -1130,6 +1232,7 @@ fn resolve_commit_ids_in_workspace(
     let symbol_resolver = default_symbol_resolver(repo);
     let expression = expression
         .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()
         .unwrap();
     expression
         .evaluate()
@@ -1258,6 +1361,7 @@ fn test_evaluate_expression_root_and_checkout() -> TestResult {
     let resolve = || -> Vec<CommitId> {
         RevsetExpression::commit(commit1.id().clone())
             .resolve_user_expression(tx.repo(), &symbol_resolver)
+            .block_on()
             .unwrap()
             .evaluate()
             .unwrap()

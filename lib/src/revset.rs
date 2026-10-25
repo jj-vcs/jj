@@ -24,6 +24,8 @@ use std::ops::Range;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
+use async_trait::async_trait;
+use futures::future;
 use itertools::Itertools as _;
 use jiff::Zoned;
 use jj_core::backend::BackendError;
@@ -77,7 +79,6 @@ pub use jj_dsl::revset_parser::new_string_node;
 pub use jj_dsl::revset_parser::parse_program;
 pub use jj_dsl::revset_parser::parse_symbol;
 use once_cell::unsync::OnceCell;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::fileset;
@@ -718,12 +719,14 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 impl UserRevsetExpression {
     /// Resolve a user-provided expression. Symbols will be resolved using the
     /// provided [`SymbolResolver`].
-    pub fn resolve_user_expression<'a>(
+    pub async fn resolve_user_expression<'a>(
         self: &Arc<Self>,
         repo: &'a dyn Repo,
-        symbol_resolver: &SymbolResolver,
+        symbol_resolver: &SymbolResolver<'_>,
     ) -> Result<ResolvedRevset<'a>, RevsetResolutionError> {
-        let symbols = ReferencedSymbols::collect(self).resolve(repo, symbol_resolver);
+        let symbols = ReferencedSymbols::collect(self)
+            .resolve(repo, symbol_resolver)
+            .await;
         let mut resolver = ExpressionSymbolResolver::new(repo, symbols);
         let expression = resolver.fold_expression(self)?;
         Ok(ResolvedRevset {
@@ -2660,17 +2663,17 @@ pub fn walk_revs(
         .evaluate(repo)
 }
 
-fn reload_repo_at_operation(
+async fn reload_repo_at_operation(
     repo: &dyn Repo,
     op_str: &str,
 ) -> Result<Arc<ReadonlyRepo>, RevsetResolutionError> {
     let base_repo = repo.base_repo();
     let operation = op_walk::resolve_op_with_repo(base_repo, op_str)
-        .block_on()
+        .await
         .map_err(|err| RevsetResolutionError::Other(err.into()))?;
     base_repo
         .reload_at(&operation)
-        .block_on()
+        .await
         .map_err(|err| match err {
             RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
             RepoLoaderError::Index(_)
@@ -2746,10 +2749,11 @@ fn make_no_such_symbol_error(repo: &dyn Repo, name: String) -> RevsetResolutionE
 /// A symbol resolver for a specific namespace of labels.
 ///
 /// Returns None if it cannot handle the symbol.
+#[async_trait(?Send)]
 pub trait PartialSymbolResolver {
     /// Resolves the `symbol` to a commit, or returns `None` if this resolver
     /// doesn't handle it.
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2758,8 +2762,9 @@ pub trait PartialSymbolResolver {
 
 struct TagResolver;
 
+#[async_trait(?Send)]
 impl PartialSymbolResolver for TagResolver {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2771,8 +2776,9 @@ impl PartialSymbolResolver for TagResolver {
 
 struct BookmarkResolver;
 
+#[async_trait(?Send)]
 impl PartialSymbolResolver for BookmarkResolver {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2790,7 +2796,7 @@ struct CommitPrefixResolver<'a> {
 }
 
 impl CommitPrefixResolver<'_> {
-    fn try_resolve(
+    async fn try_resolve(
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
@@ -2798,13 +2804,13 @@ impl CommitPrefixResolver<'_> {
         let index = match self.context {
             Some(ctx) => ctx
                 .populate(self.context_repo)
-                .block_on()
+                .await
                 .map_err(|err| RevsetResolutionError::Other(err.into()))?,
             None => IdPrefixIndex::empty(),
         };
         match index
             .resolve_commit_prefix(repo, prefix)
-            .block_on()
+            .await
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
         {
             PrefixResolution::AmbiguousMatch => {
@@ -2816,14 +2822,15 @@ impl CommitPrefixResolver<'_> {
     }
 }
 
+#[async_trait(?Send)]
 impl PartialSymbolResolver for CommitPrefixResolver<'_> {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<CommitId>, RevsetResolutionError> {
         if let Some(prefix) = HexPrefix::try_from_hex(symbol) {
-            self.try_resolve(repo, &prefix)
+            self.try_resolve(repo, &prefix).await
         } else {
             Ok(None)
         }
@@ -2836,7 +2843,7 @@ struct ChangePrefixResolver<'a> {
 }
 
 impl ChangePrefixResolver<'_> {
-    fn try_resolve(
+    async fn try_resolve(
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
@@ -2844,13 +2851,13 @@ impl ChangePrefixResolver<'_> {
         let index = match self.context {
             Some(ctx) => ctx
                 .populate(self.context_repo)
-                .block_on()
+                .await
                 .map_err(|err| RevsetResolutionError::Other(err.into()))?,
             None => IdPrefixIndex::empty(),
         };
         match index
             .resolve_change_prefix(repo, prefix)
-            .block_on()
+            .await
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
         {
             PrefixResolution::AmbiguousMatch => Err(
@@ -2862,8 +2869,9 @@ impl ChangePrefixResolver<'_> {
     }
 }
 
+#[async_trait(?Send)]
 impl PartialSymbolResolver for ChangePrefixResolver<'_> {
-    fn resolve_symbol(
+    async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2882,7 +2890,7 @@ impl PartialSymbolResolver for ChangePrefixResolver<'_> {
         let Some(prefix) = HexPrefix::try_from_reverse_hex(change_id) else {
             return Ok(None);
         };
-        let Some(targets) = self.try_resolve(repo, &prefix)? else {
+        let Some(targets) = self.try_resolve(repo, &prefix).await? else {
             return Ok(None);
         };
         if let Some(offset) = offset {
@@ -2967,7 +2975,7 @@ impl<'a> SymbolResolver<'a> {
     }
 
     /// Looks up `symbol` in the given `repo`.
-    pub fn resolve_symbol(
+    pub async fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2977,7 +2985,7 @@ impl<'a> SymbolResolver<'a> {
         }
 
         for partial_resolver in self.partial_resolvers() {
-            if let Some(id) = partial_resolver.resolve_symbol(repo, symbol)? {
+            if let Some(id) = partial_resolver.resolve_symbol(repo, symbol).await? {
                 return Ok(id);
             }
         }
@@ -3010,26 +3018,31 @@ impl SymbolKey {
         }
     }
 
-    fn resolve(
+    async fn resolve(
         &self,
         repo: &dyn Repo,
-        symbol_resolver: &SymbolResolver,
+        symbol_resolver: &SymbolResolver<'_>,
     ) -> Result<Vec<CommitId>, RevsetResolutionError> {
         match self {
             Self::Symbol(symbol) => {
-                let commit_id = symbol_resolver.resolve_symbol(repo, symbol)?;
+                let commit_id = symbol_resolver.resolve_symbol(repo, symbol).await?;
                 Ok(vec![commit_id])
             }
             Self::ChangeId(prefix) => {
                 let resolver = &symbol_resolver.change_id_resolver;
                 Ok(resolver
-                    .try_resolve(repo, prefix)?
+                    .try_resolve(repo, prefix)
+                    .await?
                     .and_then(ResolvedChangeTargets::into_visible)
                     .unwrap_or_else(Vec::new))
             }
             Self::CommitId(prefix) => {
                 let resolver = &symbol_resolver.commit_id_resolver;
-                Ok(resolver.try_resolve(repo, prefix)?.into_iter().collect())
+                Ok(resolver
+                    .try_resolve(repo, prefix)
+                    .await?
+                    .into_iter()
+                    .collect())
             }
         }
     }
@@ -3225,7 +3238,11 @@ impl ReferencedSymbols {
         );
     }
 
-    fn resolve(self, base_repo: &dyn Repo, symbol_resolver: &SymbolResolver) -> ResolvedSymbols {
+    async fn resolve(
+        self,
+        base_repo: &dyn Repo,
+        symbol_resolver: &SymbolResolver<'_>,
+    ) -> ResolvedSymbols {
         let mut nested_repos: Vec<Option<Arc<ReadonlyRepo>>> = vec![None; self.scopes.len()];
         let mut scopes = Vec::with_capacity(self.scopes.len());
         for (index, scope) in self.scopes.into_iter().enumerate() {
@@ -3238,19 +3255,26 @@ impl ReferencedSymbols {
                 scopes.push(ResolvedScope::default());
                 continue;
             };
-            let symbols = scope
-                .symbols
+            let symbol_resolutions = scope.symbols.into_iter().map(async |key| {
+                let resolution = key.resolve(scope_repo, symbol_resolver).await.map_err(Some);
+                (key, resolution)
+            });
+            let operation_resolutions =
+                scope
+                    .operations
+                    .into_iter()
+                    .map(async |(operation, nested_index)| {
+                        let result = reload_repo_at_operation(scope_repo, &operation).await;
+                        (operation, nested_index, result)
+                    });
+            let (symbols, operation_results) = future::join(
+                future::join_all(symbol_resolutions),
+                future::join_all(operation_resolutions),
+            )
+            .await;
+            let operations = operation_results
                 .into_iter()
-                .map(|key| {
-                    let resolution = key.resolve(scope_repo, symbol_resolver).map_err(Some);
-                    (key, resolution)
-                })
-                .collect();
-            let operations = scope
-                .operations
-                .into_iter()
-                .map(|(operation, nested_index)| {
-                    let result = reload_repo_at_operation(scope_repo, &operation);
+                .map(|(operation, nested_index, result)| {
                     if let Ok(nested_repo) = &result {
                         nested_repos[nested_index] = Some(nested_repo.clone());
                     }
@@ -3259,7 +3283,7 @@ impl ReferencedSymbols {
                 .collect();
             scopes.push(ResolvedScope {
                 operations,
-                symbols,
+                symbols: symbols.into_iter().collect(),
             });
         }
         ResolvedSymbols { scopes }

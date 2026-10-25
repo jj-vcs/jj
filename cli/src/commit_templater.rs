@@ -986,6 +986,7 @@ fn evaluate_revset_expression(
     );
     let revset = expression
         .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()
         .map_err(UserRevsetEvaluationError::Resolution)?
         .evaluate()
         .map_err(UserRevsetEvaluationError::Evaluation)?;
