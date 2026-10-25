@@ -728,8 +728,7 @@ fn test_resolve_current_op() -> TestResult {
 #[test]
 fn test_resolve_op_parents_children() -> TestResult {
     // Use monotonic timestamp to stabilize merge order of transactions
-    let settings = testutils::user_settings();
-    let test_repo = TestRepo::init_with_settings(&settings);
+    let test_repo = TestRepo::init();
     let mut repo = &test_repo.repo;
 
     let mut repos = Vec::new();

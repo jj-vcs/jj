@@ -35,8 +35,7 @@ use testutils::write_working_copy_file;
 fn test_concurrent_checkout() -> TestResult {
     // Test that we error out if a concurrent checkout is detected (i.e. if the
     // working-copy commit changed on disk after we read it).
-    let settings = testutils::user_settings();
-    let mut test_workspace1 = TestWorkspace::init_with_settings(&settings);
+    let mut test_workspace1 = TestWorkspace::init();
     let repo = test_workspace1.repo.clone();
     let workspace1_root = test_workspace1.workspace.workspace_root().to_owned();
 
@@ -91,8 +90,7 @@ fn test_concurrent_checkout() -> TestResult {
 fn test_checkout_parallel() -> TestResult {
     // Test that concurrent checkouts by different processes (simulated by using
     // different repo instances) is safe.
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init_with_settings(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 

@@ -89,8 +89,7 @@ fn test_commit_parallel(backend: TestRepoBackend) -> TestResult {
 fn test_commit_parallel_instances(backend: TestRepoBackend) -> TestResult {
     // Like the test above but creates a new repo instance for every thread, which
     // makes it behave very similar to separate processes.
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
+    let test_workspace = TestWorkspace::init_with_backend(backend);
     let test_env = &test_workspace.env;
 
     let num_threads = max(num_cpus::get(), 4);

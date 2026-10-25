@@ -47,8 +47,7 @@ fn test_load_bad_path() {
 
 #[test]
 fn test_init_additional_workspace() -> TestResult {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_settings(&settings);
+    let test_workspace = TestWorkspace::init();
     let workspace = &test_workspace.workspace;
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
@@ -107,8 +106,7 @@ fn test_init_additional_workspace() -> TestResult {
 
 #[test]
 fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_settings(&settings);
+    let test_workspace = TestWorkspace::init();
     let workspace = &test_workspace.workspace;
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
