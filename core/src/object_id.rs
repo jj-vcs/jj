@@ -149,7 +149,7 @@ pub use _impl_id_type;
 
 /// An identifier prefix (typically from a type implementing the [`ObjectId`]
 /// trait) with facilities for converting between bytes and a hex string.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct HexPrefix {
     // For odd-length prefixes, the lower 4 bits of the last byte are
     // zero-filled (e.g. the prefix "abc" is stored in two bytes as "abc0").
