@@ -723,7 +723,8 @@ impl UserRevsetExpression {
         repo: &'a dyn Repo,
         symbol_resolver: &SymbolResolver,
     ) -> Result<ResolvedRevset<'a>, RevsetResolutionError> {
-        let mut resolver = ExpressionSymbolResolver::new(repo, symbol_resolver);
+        let symbols = ReferencedSymbols::collect(self).resolve(repo, symbol_resolver);
+        let mut resolver = ExpressionSymbolResolver::new(repo, symbols);
         let expression = resolver.fold_expression(self)?;
         Ok(ResolvedRevset {
             repo,
@@ -2985,15 +2986,64 @@ impl<'a> SymbolResolver<'a> {
     }
 }
 
+/// Commit ref that's resolved by [`SymbolResolver`].
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum SymbolKey {
+    Symbol(String),
+    ChangeId(HexPrefix),
+    CommitId(HexPrefix),
+}
+
+impl SymbolKey {
+    fn from_commit_ref(commit_ref: &RevsetCommitRef) -> Option<Self> {
+        match commit_ref {
+            RevsetCommitRef::Symbol(symbol) => Some(Self::Symbol(symbol.clone())),
+            RevsetCommitRef::ChangeId(prefix) => Some(Self::ChangeId(prefix.clone())),
+            RevsetCommitRef::CommitId(prefix) => Some(Self::CommitId(prefix.clone())),
+            RevsetCommitRef::WorkingCopy(_)
+            | RevsetCommitRef::WorkingCopies
+            | RevsetCommitRef::RemoteSymbol(_)
+            | RevsetCommitRef::Bookmarks(_)
+            | RevsetCommitRef::RemoteBookmarks { .. }
+            | RevsetCommitRef::Tags(_)
+            | RevsetCommitRef::RemoteTags { .. } => None,
+        }
+    }
+
+    fn resolve(
+        &self,
+        repo: &dyn Repo,
+        symbol_resolver: &SymbolResolver,
+    ) -> Result<Vec<CommitId>, RevsetResolutionError> {
+        match self {
+            Self::Symbol(symbol) => {
+                let commit_id = symbol_resolver.resolve_symbol(repo, symbol)?;
+                Ok(vec![commit_id])
+            }
+            Self::ChangeId(prefix) => {
+                let resolver = &symbol_resolver.change_id_resolver;
+                Ok(resolver
+                    .try_resolve(repo, prefix)?
+                    .and_then(ResolvedChangeTargets::into_visible)
+                    .unwrap_or_else(Vec::new))
+            }
+            Self::CommitId(prefix) => {
+                let resolver = &symbol_resolver.commit_id_resolver;
+                Ok(resolver.try_resolve(repo, prefix)?.into_iter().collect())
+            }
+        }
+    }
+}
+
 fn resolve_commit_ref(
     repo: &dyn Repo,
     commit_ref: &RevsetCommitRef,
-    symbol_resolver: &SymbolResolver,
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
     match commit_ref {
-        RevsetCommitRef::Symbol(symbol) => {
-            let commit_id = symbol_resolver.resolve_symbol(repo, symbol)?;
-            Ok(vec![commit_id])
+        RevsetCommitRef::Symbol(_)
+        | RevsetCommitRef::ChangeId(_)
+        | RevsetCommitRef::CommitId(_) => {
+            unreachable!("symbols should have been resolved by SymbolResolver")
         }
         RevsetCommitRef::RemoteSymbol(symbol) => {
             let commit_id = resolve_remote_symbol(repo, symbol.as_ref())?;
@@ -3009,17 +3059,6 @@ fn resolve_commit_ref(
         RevsetCommitRef::WorkingCopies => {
             let wc_commits = repo.view().wc_commit_ids().values().cloned().collect_vec();
             Ok(wc_commits)
-        }
-        RevsetCommitRef::ChangeId(prefix) => {
-            let resolver = &symbol_resolver.change_id_resolver;
-            Ok(resolver
-                .try_resolve(repo, prefix)?
-                .and_then(ResolvedChangeTargets::into_visible)
-                .unwrap_or_else(Vec::new))
-        }
-        RevsetCommitRef::CommitId(prefix) => {
-            let resolver = &symbol_resolver.commit_id_resolver;
-            Ok(resolver.try_resolve(repo, prefix)?.into_iter().collect())
         }
         RevsetCommitRef::Bookmarks(expression) => {
             let commit_ids = repo
@@ -3076,9 +3115,34 @@ fn resolve_commit_ref(
     }
 }
 
+/// Result of resolving a symbol or an operation, which may be referenced
+/// multiple times.
+///
+/// The error is `None` once it has been returned and couldn't be cloned.
+type Resolution<T> = Result<T, Option<RevsetResolutionError>>;
+
+/// Returns the resolved value or error for another reference.
+fn take_resolution<T: Clone>(resolution: &mut Resolution<T>) -> Result<T, RevsetResolutionError> {
+    match resolution {
+        Ok(value) => Ok(value.clone()),
+        Err(err) => {
+            // An error that `present()` can suppress may have to be returned
+            // for another reference too. Other errors fail the whole
+            // resolution.
+            let suppressible = err.as_ref().and_then(clone_suppressible_error);
+            Err(suppressible.unwrap_or_else(|| {
+                err.take()
+                    .expect("unsuppressible error should have failed the resolution")
+            }))
+        }
+    }
+}
+
 /// Returns a copy of `err` if it's suppressed by `present()`.
 ///
-/// This also decides which errors `present()` suppresses.
+/// This also decides which errors `present()` suppresses, so that every
+/// suppressed error can be returned again for another reference to the same
+/// symbol.
 fn clone_suppressible_error(err: &RevsetResolutionError) -> Option<RevsetResolutionError> {
     match err {
         RevsetResolutionError::NoSuchRevision { name, candidates } => {
@@ -3100,39 +3164,165 @@ fn clone_suppressible_error(err: &RevsetResolutionError) -> Option<RevsetResolut
     }
 }
 
-/// Resolves symbols and commit refs recursively.
-struct ExpressionSymbolResolver<'a, 'b> {
+/// Symbols and operations referenced by an expression, grouped by
+/// `at_operation()` scope.
+///
+/// They are resolved all at once before the expression is folded, so the
+/// folding doesn't have to resolve them recursively.
+struct ReferencedSymbols {
+    /// The first scope is the root scope, which is resolved in the base repo.
+    /// Nested scopes come after the scope they are nested in.
+    scopes: Vec<ReferencedScope>,
+}
+
+#[derive(Default)]
+struct ReferencedScope {
+    /// Indices of the scopes of `at_operation()` expressions within this
+    /// scope, keyed by operation.
+    operations: HashMap<String, usize>,
+    symbols: HashSet<SymbolKey>,
+}
+
+impl ReferencedSymbols {
+    fn collect(expression: &Arc<UserRevsetExpression>) -> Self {
+        let mut symbols = Self {
+            scopes: vec![ReferencedScope::default()],
+        };
+        symbols.collect_in_scope(0, expression);
+        symbols
+    }
+
+    fn collect_in_scope(&mut self, scope_index: usize, expression: &Arc<UserRevsetExpression>) {
+        transform_expression(
+            expression,
+            |expression| {
+                match expression.as_ref() {
+                    RevsetExpression::CommitRef(commit_ref) => {
+                        if let Some(key) = SymbolKey::from_commit_ref(commit_ref) {
+                            self.scopes[scope_index].symbols.insert(key);
+                        }
+                    }
+                    RevsetExpression::AtOperation {
+                        operation,
+                        candidates,
+                    } => {
+                        let new_index = self.scopes.len();
+                        let nested_index = *self.scopes[scope_index]
+                            .operations
+                            .entry(operation.clone())
+                            .or_insert(new_index);
+                        if nested_index == new_index {
+                            self.scopes.push(ReferencedScope::default());
+                        }
+                        self.collect_in_scope(nested_index, candidates);
+                        return ControlFlow::Break(None);
+                    }
+                    _ => {}
+                }
+                ControlFlow::Continue(())
+            },
+            |_| None,
+        );
+    }
+
+    fn resolve(self, base_repo: &dyn Repo, symbol_resolver: &SymbolResolver) -> ResolvedSymbols {
+        let mut nested_repos: Vec<Option<Arc<ReadonlyRepo>>> = vec![None; self.scopes.len()];
+        let mut scopes = Vec::with_capacity(self.scopes.len());
+        for (index, scope) in self.scopes.into_iter().enumerate() {
+            let repo = nested_repos[index].take();
+            let scope_repo: &dyn Repo = if index == 0 {
+                base_repo
+            } else if let Some(repo) = &repo {
+                repo.as_ref()
+            } else {
+                scopes.push(ResolvedScope::default());
+                continue;
+            };
+            let symbols = scope
+                .symbols
+                .into_iter()
+                .map(|key| {
+                    let resolution = key.resolve(scope_repo, symbol_resolver).map_err(Some);
+                    (key, resolution)
+                })
+                .collect();
+            let operations = scope
+                .operations
+                .into_iter()
+                .map(|(operation, nested_index)| {
+                    let result = reload_repo_at_operation(scope_repo, &operation);
+                    if let Ok(nested_repo) = &result {
+                        nested_repos[nested_index] = Some(nested_repo.clone());
+                    }
+                    (operation, (nested_index, result.map_err(Some)))
+                })
+                .collect();
+            scopes.push(ResolvedScope {
+                operations,
+                symbols,
+            });
+        }
+        ResolvedSymbols { scopes }
+    }
+}
+
+/// Symbols and operations referenced by an expression, resolved in the repo
+/// of their `at_operation()` scope.
+struct ResolvedSymbols {
+    /// Scopes in the same order as in [`ReferencedSymbols`].
+    scopes: Vec<ResolvedScope>,
+}
+
+/// Resolved [`ReferencedScope`]. Scopes whose repo couldn't be loaded are
+/// empty.
+#[derive(Default)]
+struct ResolvedScope {
+    /// Scopes of `at_operation()` expressions within this scope, keyed by
+    /// operation.
+    operations: HashMap<String, (usize, Resolution<Arc<ReadonlyRepo>>)>,
+    symbols: HashMap<SymbolKey, Resolution<Vec<CommitId>>>,
+}
+
+/// Replaces symbols and commit refs recursively with their resolved commits.
+struct ExpressionSymbolResolver<'a> {
     // The repo the expression will be evaluated against.
     base_repo: &'a dyn Repo,
-    symbol_resolver: &'a SymbolResolver<'b>,
-    // Other repos brought into context via `at_operation()`.
-    repo_stack: Vec<Arc<ReadonlyRepo>>,
-    // This is the cumulative set of repos that were ever added to repo_stack.
+    symbols: ResolvedSymbols,
+    // Indices and repos of the scopes brought into context via
+    // `at_operation()`.
+    scope_stack: Vec<(usize, Arc<ReadonlyRepo>)>,
+    // This is the cumulative set of repos of the scopes that were ever added
+    // to scope_stack.
     other_repos: Vec<Arc<ReadonlyRepo>>,
     // The set of operations brought into context via `at_operation()`.
     other_operations: HashSet<OperationId>,
 }
 
-impl<'a, 'b> ExpressionSymbolResolver<'a, 'b> {
-    fn new(base_repo: &'a dyn Repo, symbol_resolver: &'a SymbolResolver<'b>) -> Self {
+impl<'a> ExpressionSymbolResolver<'a> {
+    fn new(base_repo: &'a dyn Repo, symbols: ResolvedSymbols) -> Self {
         Self {
             base_repo,
-            symbol_resolver,
-            repo_stack: vec![],
+            symbols,
+            scope_stack: vec![],
             other_repos: vec![],
             other_operations: HashSet::new(),
         }
     }
 
     fn repo(&self) -> &dyn Repo {
-        self.repo_stack
+        self.scope_stack
             .last()
-            .map_or(self.base_repo, |repo| repo.as_ref())
+            .map_or(self.base_repo, |(_, repo)| repo.as_ref())
+    }
+
+    fn scope_mut(&mut self) -> &mut ResolvedScope {
+        let index = self.scope_stack.last().map_or(0, |&(index, _)| index);
+        &mut self.symbols.scopes[index]
     }
 }
 
 impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
-    for ExpressionSymbolResolver<'_, '_>
+    for ExpressionSymbolResolver<'_>
 {
     type Error = RevsetResolutionError;
 
@@ -3159,7 +3349,16 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         &mut self,
         commit_ref: &RevsetCommitRef,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
-        let commit_ids = resolve_commit_ref(self.repo(), commit_ref, self.symbol_resolver)?;
+        let commit_ids = if let Some(key) = SymbolKey::from_commit_ref(commit_ref) {
+            let resolution = self
+                .scope_mut()
+                .symbols
+                .get_mut(&key)
+                .expect("symbol should have been collected");
+            take_resolution(resolution)?
+        } else {
+            resolve_commit_ref(self.repo(), commit_ref)?
+        };
         Ok(RevsetExpression::commits(commit_ids))
     }
 
@@ -3168,19 +3367,25 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         operation: &String,
         candidates: &UserRevsetExpression,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
-        let at_op_repo = reload_repo_at_operation(self.repo(), operation)?;
+        let (scope_index, resolution) = self
+            .scope_mut()
+            .operations
+            .get_mut(operation)
+            .expect("operation should have been collected");
+        let scope_index = *scope_index;
+        let at_op_repo = take_resolution(resolution)?;
         let at_op_operation = at_op_repo.op_id().clone();
         if self.other_operations.insert(at_op_operation) {
             // TODO: if we can test if at_op_operation is an ancestor of self.repo().op_id(), we can
             // skip adding those repos to other_repos.
             self.other_repos.push(at_op_repo.clone());
         }
-        self.repo_stack.push(at_op_repo);
-        // Pop the repo even on error, which may be suppressed by `present()`.
+        self.scope_stack.push((scope_index, at_op_repo));
+        // Pop the scope even on error, which may be suppressed by `present()`.
         let result = self
             .fold_expression(candidates)
             .map(|candidates| candidates.within_visibility(self.repo()));
-        self.repo_stack.pop();
+        self.scope_stack.pop();
         result
     }
 }
