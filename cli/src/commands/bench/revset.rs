@@ -96,6 +96,7 @@ async fn bench_revset<M: Measurement>(
             SymbolResolver::new(repo, &([] as [Box<dyn SymbolResolverExtension>; 0]));
         let resolved = expression
             .resolve_user_expression(repo, &symbol_resolver)
+            .await
             .unwrap();
         let revset = resolved.evaluate().unwrap();
         revset.stream().count().await

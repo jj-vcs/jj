@@ -62,9 +62,9 @@ pub fn parse_immutable_heads_expression(
 ///
 /// Returns `None` if the alias couldn't be parsed. Returns `Err` if the parsed
 /// expression had name resolution error.
-pub fn try_resolve_trunk_alias(
+pub async fn try_resolve_trunk_alias(
     repo: &dyn Repo,
-    context: &RevsetParseContext,
+    context: &RevsetParseContext<'_>,
 ) -> Result<Option<Arc<ResolvedRevsetExpression>>, RevsetResolutionError> {
     let (_, _, revset_str, _) = context
         .aliases_map
@@ -76,7 +76,9 @@ pub fn try_resolve_trunk_alias(
     // Not using IdPrefixContext since trunk() revset shouldn't contain short
     // prefixes.
     let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
-    let resolved = expression.resolve_user_expression(repo, &symbol_resolver)?;
+    let resolved = expression
+        .resolve_user_expression(repo, &symbol_resolver)
+        .await?;
     let (expression, _other_repos) = resolved.into_inner();
     Ok(Some(expression))
 }

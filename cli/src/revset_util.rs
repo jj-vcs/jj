@@ -124,6 +124,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
         );
         self.expression
             .resolve_user_expression(self.repo, &symbol_resolver)
+            .await
     }
 
     /// Evaluates the expression.

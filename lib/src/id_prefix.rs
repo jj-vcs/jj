@@ -80,7 +80,8 @@ impl DisambiguationData {
         let symbol_resolver = SymbolResolver::new(repo, extensions);
         let revset = self
             .expression
-            .resolve_user_expression(repo, &symbol_resolver)?
+            .resolve_user_expression(repo, &symbol_resolver)
+            .await?
             .evaluate()?;
 
         let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect().await?;
