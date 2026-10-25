@@ -257,6 +257,8 @@ pub enum RevsetExpression<St: ExpressionState> {
         /// 0-based, half-open line range of the file at `start`.
         line_range: Range<usize>,
         start: Arc<Self>,
+        /// Follow the descendants of `start` instead of its ancestors.
+        descend: bool,
     },
     HasSize {
         candidates: Arc<Self>,
@@ -518,11 +520,13 @@ impl<St: ExpressionState> RevsetExpression<St> {
         self: &Arc<Self>,
         path: RepoPathBuf,
         line_range: Range<usize>,
+        descend: bool,
     ) -> Arc<Self> {
         Arc::new(Self::FollowLines {
             path,
             line_range,
             start: self.clone(),
+            descend,
         })
     }
 
@@ -1095,7 +1099,8 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
                 function.args_span,
             )
         })?;
-        let ([path_arg, lines_arg], [start_opt_arg]) = function.expect_arguments()?;
+        let ([path_arg, lines_arg], [start_opt_arg, descend_opt_arg]) =
+            function.expect_named_arguments(&["file", "lines", "start", "descend"])?;
         let path_str = expect_string_literal("file path", path_arg)?;
         let path = fileset_context
             .path_converter
@@ -1115,7 +1120,12 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             })?;
             RevsetExpression::working_copy(ctx.workspace_name.to_owned())
         };
-        Ok(start.follow_lines(path, line_range))
+        let descend = if let Some(descend_arg) = descend_opt_arg {
+            expect_literal("boolean", descend_arg)?
+        } else {
+            false
+        };
+        Ok(start.follow_lines(path, line_range, descend))
     });
     map.insert("diff_lines", |diagnostics, function, context| {
         if function.name != "diff_lines" {
@@ -1603,10 +1613,12 @@ fn try_transform_expression<St: ExpressionState, E>(
                 path,
                 line_range,
                 start,
+                descend,
             } => transform_rec(start, pre, post)?.map(|start| RevsetExpression::FollowLines {
                 path: path.clone(),
                 line_range: line_range.clone(),
                 start,
+                descend: *descend,
             }),
             RevsetExpression::HasSize { candidates, count } => {
                 transform_rec(candidates, pre, post)?.map(|candidates| RevsetExpression::HasSize {
@@ -1865,12 +1877,14 @@ where
             path,
             line_range,
             start,
+            descend,
         } => {
             let start = folder.fold_expression(start)?;
             RevsetExpression::FollowLines {
                 path: path.clone(),
                 line_range: line_range.clone(),
                 start,
+                descend: *descend,
             }
             .into()
         }
@@ -3247,10 +3261,13 @@ impl VisibilityResolutionContext<'_> {
                 path,
                 line_range,
                 start,
+                descend,
             } => ResolvedExpression::FollowLines {
                 path: path.clone(),
                 line_range: line_range.clone(),
                 start: self.resolve(start).into(),
+                descend: *descend,
+                visible_heads: self.resolve_visible_heads_or_referenced().into(),
             },
             RevsetExpression::Latest { candidates, count } => ResolvedExpression::Latest {
                 candidates: self.resolve(candidates).into(),

@@ -267,6 +267,11 @@ pub enum ResolvedExpression {
         line_range: Range<usize>,
         /// Commits to start from.
         start: Box<Self>,
+        /// Whether to follow the descendants of `start` instead of its
+        /// ancestors.
+        descend: bool,
+        /// Bounds the walk of descendants.
+        visible_heads: Box<Self>,
     },
     /// The first set if it's non-empty, otherwise the second set.
     Coalesce(Box<Self>, Box<Self>),

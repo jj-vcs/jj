@@ -5369,6 +5369,11 @@ fn test_evaluate_expression_followlines_untouched_file(indexed: bool) {
         followlines(mut_repo, ws, "2", &commit3),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
+    // Same when descending: commit3 is skipped as well.
+    assert_eq!(
+        followlines_descend(mut_repo, ws, "2", &commit1),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
 }
 
 #[test]
@@ -5625,6 +5630,116 @@ fn test_evaluate_expression_followlines_merge_without_file_on_one_side() {
     // its lines, and the side without the file isn't followed.
     assert_eq!(
         h.followlines("2", &h.commit5),
+        vec![h.commit3.id().clone(), h.commit1.id().clone()]
+    );
+}
+
+/// Evaluates `followlines("file", lines, start, descend=true)`.
+fn followlines_descend(
+    repo: &dyn Repo,
+    workspace: &Workspace,
+    lines: &str,
+    start: &Commit,
+) -> Vec<CommitId> {
+    resolve_commit_ids_in_workspace(
+        repo,
+        &format!(
+            r#"followlines("file", "{lines}", {}, descend=true)"#,
+            start.id()
+        ),
+        workspace,
+        None,
+    )
+}
+
+#[test]
+fn test_evaluate_expression_followlines_descend() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    let [commit1, commit2, commit_d, commit6] = write_merge_history(mut_repo);
+
+    // Line 3 of commit1 is "c". It was changed to "X" by commit2 and to "Y"
+    // by commitD, both merged by commit6. commit1 itself created the line.
+    assert_eq!(
+        followlines_descend(mut_repo, ws, "3", &commit1),
+        vec![
+            commit6.id().clone(),
+            commit_d.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone()
+        ]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_descend_untouched_line() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    // commit2 changes line 2 and commit3 appends a line.
+    let [commit1, _commit2, _commit3] =
+        write_file_versions(mut_repo, ["a\nb\n", "a\nB\n", "a\nB\nc\n"]);
+
+    // Line "a" of commit1 was never changed afterwards. Only the commit that
+    // introduced it is reported.
+    assert_eq!(
+        followlines_descend(mut_repo, ws, "1", &commit1),
+        vec![commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_descend_merge_parent_outside() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let ws = &test_workspace.workspace;
+
+    let [_commit1, commit2, _commit_d, _commit6] = write_merge_history(mut_repo);
+
+    // Line 3 of commit2 is "X". commitD isn't a descendant of commit2, so
+    // commit6 is only compared with commit2, where the line is the same.
+    assert_eq!(
+        followlines_descend(mut_repo, ws, "3", &commit2),
+        vec![commit2.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_descend_positional() {
+    let test_workspace = TestWorkspace::init();
+    let mut tx = test_workspace.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let [commit1, commit2] = write_file_versions(mut_repo, ["a\n", "A\n"]);
+
+    // `descend` can also be passed positionally.
+    assert_eq!(
+        resolve_commit_ids_in_workspace(
+            mut_repo,
+            &format!(r#"followlines("file", "1", {}, true)"#, commit1.id()),
+            &test_workspace.workspace,
+            None,
+        ),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_descend_through_rename() {
+    let h = FollowLinesRenameHistory::init();
+    // Line 2 of "old" at commit1 is followed into "new", where commit3
+    // changed it.
+    assert_eq!(
+        h.resolve(&format!(
+            r#"followlines("old", "2", {}, descend=true)"#,
+            h.commit1.id()
+        )),
         vec![h.commit3.id().clone(), h.commit1.id().clone()]
     );
 }
