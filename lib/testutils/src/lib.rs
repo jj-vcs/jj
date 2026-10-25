@@ -51,6 +51,7 @@ use jj_lib::default_backend_factories::default_index_store_initializer;
 use jj_lib::default_backend_factories::default_op_heads_store_initializer;
 use jj_lib::default_backend_factories::default_op_store_initializer;
 use jj_lib::default_backend_factories::default_submodule_store_initializer;
+use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_workspace_store_initializer;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -85,6 +86,7 @@ use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace::WorkspaceLoadError;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
 
@@ -226,6 +228,19 @@ impl TestEnvironment {
             }),
         );
         factories
+    }
+
+    pub fn load_workspace(
+        &self,
+        settings: &UserSettings,
+        workspace_root: &Path,
+    ) -> Result<Workspace, WorkspaceLoadError> {
+        Workspace::load(
+            settings,
+            workspace_root,
+            &self.default_backend_factories(),
+            &default_working_copy_factories(),
+        )
     }
 
     pub fn load_repo_at_head(

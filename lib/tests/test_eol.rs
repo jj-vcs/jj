@@ -18,12 +18,9 @@ use std::io::Write as _;
 use bstr::ByteSlice as _;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
-use jj_lib::default_backend_factories::default_backend_factories;
-use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::settings::UserSettings;
-use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
@@ -153,13 +150,10 @@ fn test_eol_conversion_snapshot(
         base_user_settings_with_extra_configs("working-copy.eol-conversion = \"none\"\n");
     // Reload the workspace with the new working-copy.eol-conversion = "none"
     // setting to verify the EOL of files previously written to the store.
-    let mut workspace = Workspace::load(
-        &user_settings,
-        test_workspace.workspace.workspace_root(),
-        &default_backend_factories(),
-        &default_working_copy_factories(),
-    )
-    .expect("Failed to reload the workspace");
+    let mut workspace = test_workspace
+        .env
+        .load_workspace(&user_settings, test_workspace.workspace.workspace_root())
+        .expect("Failed to reload the workspace");
     // We have to query the Commit again. The Workspace is backed by a different
     // Store from the original Commit.
     let file_added_commit = workspace
@@ -263,13 +257,10 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     let extra_setting = format!("{extra_setting}\n");
     let user_settings = base_user_settings_with_extra_configs(&extra_setting);
     // Reload the Workspace to apply the settings under testing.
-    test_workspace.workspace = Workspace::load(
-        &user_settings,
-        test_workspace.workspace.workspace_root(),
-        &default_backend_factories(),
-        &default_working_copy_factories(),
-    )
-    .expect("Failed to reload the workspace");
+    test_workspace.workspace = test_workspace
+        .env
+        .load_workspace(&user_settings, test_workspace.workspace.workspace_root())
+        .expect("Failed to reload the workspace");
     let tree = test_workspace.snapshot().unwrap();
     let new_tree = test_workspace.snapshot().unwrap();
     assert_tree_eq!(new_tree, tree, "The working copy should be clean.");
@@ -278,13 +269,13 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
 
     // Reload the Workspace with the working-copy.eol-conversion = "none" setting to
     // check the EOL of the file written to the store previously.
-    test_workspace.workspace = Workspace::load(
-        &no_eol_conversion_settings,
-        test_workspace.workspace.workspace_root(),
-        &default_backend_factories(),
-        &default_working_copy_factories(),
-    )
-    .expect("Failed to reload the workspace");
+    test_workspace.workspace = test_workspace
+        .env
+        .load_workspace(
+            &no_eol_conversion_settings,
+            test_workspace.workspace.workspace_root(),
+        )
+        .expect("Failed to reload the workspace");
     // Checkout the empty commit to clear the directory, so that the test file will
     // be recreated.
     test_workspace
@@ -558,13 +549,10 @@ fn test_eol_conversion_checkout(
     let user_settings = base_user_settings_with_extra_configs(&extra_setting);
     // Change the working-copy.eol-conversion setting to the configuration under
     // testing.
-    test_workspace.workspace = Workspace::load(
-        &user_settings,
-        test_workspace.workspace.workspace_root(),
-        &default_backend_factories(),
-        &default_working_copy_factories(),
-    )
-    .expect("Failed to reload the workspace");
+    test_workspace.workspace = test_workspace
+        .env
+        .load_workspace(&user_settings, test_workspace.workspace.workspace_root())
+        .expect("Failed to reload the workspace");
     // We have to query the Commit again. The Workspace is backed by a different
     // Store from the original Commit.
     let commit = test_workspace

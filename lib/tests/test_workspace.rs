@@ -15,7 +15,6 @@
 use std::assert_matches;
 use std::thread;
 
-use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_working_copy_factory;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
@@ -33,12 +32,7 @@ fn test_load_bad_path() {
     let test_env = TestEnvironment::init();
     let workspace_root = test_env.root().to_owned();
     // We haven't created a repo in the workspace_root, so it should fail to load.
-    let result = Workspace::load(
-        &settings,
-        &workspace_root,
-        &test_env.default_backend_factories(),
-        &default_working_copy_factories(),
-    );
+    let result = test_env.load_workspace(&settings, &workspace_root);
     assert_matches!(
         result.err(),
         Some(WorkspaceLoadError::NoWorkspaceHere(root)) if root == workspace_root
@@ -88,12 +82,7 @@ fn test_init_additional_workspace() -> TestResult {
     let stored_path = String::from_utf8(repo_file_contents)?;
     assert_eq!(stored_path, "../../repo/.jj/repo");
 
-    let same_workspace = Workspace::load(
-        &settings,
-        &ws2_root,
-        &test_workspace.env.default_backend_factories(),
-        &default_working_copy_factories(),
-    );
+    let same_workspace = test_workspace.env.load_workspace(&settings, &ws2_root);
     assert!(same_workspace.is_ok());
     let same_workspace = same_workspace?;
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
@@ -131,12 +120,7 @@ fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
         abs_repo_path.as_os_str().as_encoded_bytes(),
     )?;
 
-    let same_workspace = Workspace::load(
-        &settings,
-        &ws2_root,
-        &test_workspace.env.default_backend_factories(),
-        &default_working_copy_factories(),
-    );
+    let same_workspace = test_workspace.env.load_workspace(&settings, &ws2_root);
     assert!(same_workspace.is_ok());
     let same_workspace = same_workspace?;
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
@@ -183,12 +167,7 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
     assert_eq!(ws2.workspace_name(), &ws2_name);
     assert_eq!(*ws2.repo_path(), dunce::canonicalize(ws1.repo_path())?);
     assert_eq!(*ws2.workspace_root(), dunce::canonicalize(&ws2_root)?);
-    let same_workspace = Workspace::load(
-        &settings,
-        &ws2_root,
-        &test_env.default_backend_factories(),
-        &default_working_copy_factories(),
-    );
+    let same_workspace = test_env.load_workspace(&settings, &ws2_root);
     let same_workspace = same_workspace?;
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
     assert_eq!(
