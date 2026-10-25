@@ -232,6 +232,10 @@ fn test_resolve_symbol_commit_id() -> TestResult {
 
     // Test present() suppresses only NoSuchRevision error
     assert_eq!(resolve_commit_ids(repo.as_ref(), "present(foo)"), []);
+    assert_matches!(
+        try_resolve_commit_ids(repo.as_ref(), "present(foo) | foo"),
+        Err(RevsetResolutionError::NoSuchRevision { name, .. }) if name == "foo"
+    );
     let symbol_resolver = default_symbol_resolver(repo.as_ref());
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
@@ -4346,6 +4350,28 @@ fn test_evaluate_expression_at_operation() -> TestResult {
             "present(at_operation(@--, commit1_ref)) | commit1_ref"
         ),
         vec![commit1_op2.id().clone()]
+    );
+    assert_matches!(
+        try_resolve_commit_ids(
+            repo2.as_ref(),
+            "present(at_operation(@--, commit1_ref)) | at_operation(@--, commit1_ref)"
+        ),
+        Err(RevsetResolutionError::NoSuchRevision { .. })
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            "at_operation(@-, commit1_ref) | at_operation(@, commit1_ref) | at_operation(@-, \
+             at_operation(@, commit1_ref))"
+        ),
+        vec![commit1_op2.id().clone(), commit1_op1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            "present(at_operation(@-, foo) | at_operation(@, foo)) | at_operation(@-, commit1_ref)"
+        ),
+        vec![commit1_op1.id().clone()]
     );
 
     // Visibility resolution:
