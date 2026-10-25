@@ -450,7 +450,8 @@ revsets (expressions) as arguments.
   introduced it.
 
   `file` is a single path relative to the directory `jj` was invoked from.
-  Renames are not followed yet.
+  Renames are followed when the backend detects them (as the Git backend
+  does.)
 
   For example, `followlines("src/lib.rs", "40:60")` returns the commits that
   touched what is now lines 40 to 60 of `src/lib.rs`.

@@ -5525,6 +5525,110 @@ fn test_evaluate_expression_followlines_missing_path() {
     assert!(err.to_string().contains("No such path"), "{err}");
 }
 
+/// History shared by the `followlines()` rename tests below. It uses the Git
+/// backend because the test backend has no copy records.
+///
+/// ```text
+/// 5       merges 3 and 4; "new" only exists on 3's side
+/// |\
+/// 3 |     changes line 2 of "new"
+/// | |
+/// 2 |     renames "old" to "new" without changing it
+/// | |
+/// 1 4     1: creates "old" as "a\nb\nc\n"    4: creates an unrelated file
+/// ```
+struct FollowLinesRenameHistory {
+    workspace: TestWorkspace,
+    repo: Arc<ReadonlyRepo>,
+    commit1: Commit,
+    commit2: Commit,
+    commit3: Commit,
+    commit5: Commit,
+}
+
+impl FollowLinesRenameHistory {
+    fn init() -> Self {
+        let test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
+        let repo = &test_workspace.repo;
+        let mut tx = repo.start_transaction();
+        let mut_repo = tx.repo_mut();
+
+        let old = repo_path("old");
+        let new = repo_path("new");
+        let other = repo_path("other");
+        let tree1 = create_tree(repo, &[(old, "a\nb\nc\n")]);
+        let tree2 = create_tree(repo, &[(new, "a\nb\nc\n")]);
+        let tree3 = create_tree(repo, &[(new, "a\nB\nc\n")]);
+        let tree4 = create_tree(repo, &[(other, "x")]);
+        let tree5 = create_tree(repo, &[(new, "a\nB\nc\n"), (other, "x")]);
+        let commit1 = mut_repo
+            .new_commit(vec![repo.store().root_commit_id().clone()], tree1)
+            .write_unwrap();
+        let commit2 = mut_repo
+            .new_commit(vec![commit1.id().clone()], tree2)
+            .write_unwrap();
+        let commit3 = mut_repo
+            .new_commit(vec![commit2.id().clone()], tree3)
+            .write_unwrap();
+        let commit4 = mut_repo
+            .new_commit(vec![repo.store().root_commit_id().clone()], tree4)
+            .write_unwrap();
+        let commit5 = mut_repo
+            .new_commit(vec![commit3.id().clone(), commit4.id().clone()], tree5)
+            .write_unwrap();
+        let repo = tx.commit("test").block_on().unwrap();
+        Self {
+            workspace: test_workspace,
+            repo,
+            commit1,
+            commit2,
+            commit3,
+            commit5,
+        }
+    }
+
+    fn resolve(&self, revset_str: &str) -> Vec<CommitId> {
+        resolve_commit_ids_in_workspace(
+            self.repo.as_ref(),
+            revset_str,
+            &self.workspace.workspace,
+            None,
+        )
+    }
+
+    /// Evaluates `followlines("new", lines, start)`.
+    fn followlines(&self, lines: &str, start: &Commit) -> Vec<CommitId> {
+        self.resolve(&format!(r#"followlines("new", "{lines}", {})"#, start.id()))
+    }
+}
+
+#[test]
+fn test_evaluate_expression_followlines_rename() {
+    let h = FollowLinesRenameHistory::init();
+    // Line 2 is followed through the rename: changed by commit3, introduced
+    // by commit1 as "old". The pure rename isn't reported.
+    assert_eq!(
+        h.followlines("2", &h.commit3),
+        vec![h.commit3.id().clone(), h.commit1.id().clone()]
+    );
+    assert_eq!(h.followlines("1", &h.commit3), vec![h.commit1.id().clone()]);
+    assert_eq!(
+        h.followlines("1:3", &h.commit2),
+        vec![h.commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_followlines_merge_without_file_on_one_side() {
+    let h = FollowLinesRenameHistory::init();
+    // The merge brought the whole file from one side. That isn't a change to
+    // its lines, and the side without the file isn't followed.
+    assert_eq!(
+        h.followlines("2", &h.commit5),
+        vec![h.commit3.id().clone(), h.commit1.id().clone()]
+    );
+}
+
 #[test_case(false; "without changed-path index")]
 #[test_case(true; "with changed-path index")]
 fn test_evaluate_expression_file_merged_parents(indexed: bool) {
