@@ -30,7 +30,6 @@ use crate::default_backend_factories::default_op_heads_store_initializer;
 use crate::default_backend_factories::default_op_store_initializer;
 use crate::default_backend_factories::default_submodule_store_initializer;
 use crate::default_backend_factories::default_working_copy_factory;
-use crate::default_backend_factories::default_workspace_loader_factory;
 use crate::default_backend_factories::default_workspace_store_initializer;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
@@ -459,17 +458,6 @@ impl Workspace {
         )?;
         workspace_store.add(workspace.workspace_name(), workspace.workspace_root())?;
         Ok((workspace, repo))
-    }
-
-    pub fn load(
-        user_settings: &UserSettings,
-        workspace_path: &Path,
-        store_factories: &StoreFactories,
-        working_copy_factories: &WorkingCopyFactories,
-    ) -> Result<Self, WorkspaceLoadError> {
-        let loader = default_workspace_loader_factory().create(workspace_path)?;
-        let workspace = loader.load(user_settings, store_factories, working_copy_factories)?;
-        Ok(workspace)
     }
 
     pub fn workspace_root(&self) -> &Path {
