@@ -131,8 +131,10 @@ set on the existing change.
 Keep this association in mind when splitting or squashing changes. For example,
 when splitting a revision, the portion that you want associated with the
 original Gerrit change should be left in the remaining changes (the second half
-of the split). Similarly, when squashing new changes, you typically want to
-squash into the revision that was previously uploaded to Gerrit.
+of the split), or you can pass `--identity=selected` to keep the original
+change ID on the selected changes instead. Similarly, when squashing new
+changes, you typically want to squash into the revision that was previously
+uploaded to Gerrit.
 
 If your JJ changes no longer align with the desired mapping to Gerrit changes,
 you can manually copy a Gerrit `Change-Id` trailer into your JJ change

@@ -3453,6 +3453,16 @@ achieved with `jj new`.
 
    Forces an editor to open when using `--message` to allow the message to be edited afterward.
 * `-p`, `--parallel` — Split the revision into two parallel revisions instead of a parent and child
+* `--identity <IDENTITY>` — Which commit retains the original change ID and bookmarks
+
+  Default value: `remaining`
+
+  Possible values:
+  - `remaining`:
+    The commit with the remaining (unselected) changes retains the identity
+  - `selected`:
+    The commit with the selected changes retains the identity
+
 
 
 

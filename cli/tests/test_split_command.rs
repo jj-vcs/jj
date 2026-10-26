@@ -1683,6 +1683,192 @@ fn test_split_with_bookmarks() -> TestResult {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
+
+    // Test with --identity=selected.
+    main_dir.run_jj(["op", "restore", &setup_opid]).success();
+    std::fs::write(&edit_script, [edit_instr].join("\0"))?;
+    let output = main_dir.run_jj(["split", "--identity=selected", "file2"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Selected changes : qpvuntsm 6b31cf0a *le-signet* | first-commit
+    Remaining changes: kpqxywon 407d2bb9 second-commit
+    Working copy  (@) now at: kpqxywon 407d2bb9 second-commit
+    Parent commit (@-)      : qpvuntsm 6b31cf0a *le-signet* | first-commit
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&main_dir), @"
+    @  kpqxywonksrl false second-commit
+    ○  qpvuntsmwlqt false *le-signet* first-commit
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // Test with --identity=selected and --parallel.
+    main_dir.run_jj(["op", "restore", &setup_opid]).success();
+    std::fs::write(&edit_script, [edit_instr].join("\0"))?;
+    main_dir
+        .run_jj(["split", "--identity=selected", "--parallel", "file2"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&main_dir), @"
+    @  lylxulplsnyw false second-commit
+    │ ○  qpvuntsmwlqt false *le-signet* first-commit
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
+fn test_split_identity_with_descendants_and_move_flags() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir
+        .run_jj(["commit", "-m", "Add file1 & file2"])
+        .success();
+    work_dir.write_file("file3", "baz\n");
+    work_dir.run_jj(["describe", "-m", "Add file3"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "feature", "-r", "qpvuntsmwlqt"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  rlvkpnrzqnoo false Add file3
+    ○  qpvuntsmwlqt false feature Add file1 & file2
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+    let setup_opid = work_dir.current_operation_id();
+
+    let edit_instr = indoc! {"
+        update-describe
+        JJ: describe ************ -------
+        Add file1
+        JJ: describe ************ -------
+        Add file2
+    "};
+    std::fs::write(&edit_script, [edit_instr].join("\0"))?;
+    let output = work_dir.run_jj([
+        "split",
+        "-r",
+        "qpvuntsmwlqt",
+        "--identity=selected",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 descendant commits.
+    Selected changes : qpvuntsm 74306e35 feature | Add file1
+    Remaining changes: royxmykx 0a37745e Add file2
+    Working copy  (@) now at: rlvkpnrz d335bd94 Add file3
+    Parent commit (@-)      : royxmykx 0a37745e Add file2
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  rlvkpnrzqnoo false Add file3
+    ○  royxmykxtrkr false Add file2
+    ○  qpvuntsmwlqt false feature Add file1
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // Test --identity=selected with --insert-before (move flag).
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "Add file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--identity=selected",
+        "--insert-before",
+        "qpvuntsmwlqt",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 descendant commits.
+    Selected changes : qpvuntsm 67608e5f feature | Add file1
+    Remaining changes: yostqsxw 290e079b Add file1 & file2
+    Working copy  (@) now at: rlvkpnrz fc401561 Add file3
+    Parent commit (@-)      : yostqsxw 290e079b Add file1 & file2
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  rlvkpnrzqnoo false Add file3
+    ○  yostqsxwqrlt false Add file1 & file2
+    ○  qpvuntsmwlqt false feature Add file1
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // Test --identity=selected with --onto (move flag).
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "Add file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--identity=selected",
+        "--onto",
+        "root()",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 descendant commits.
+    Selected changes : qpvuntsm 966c5941 feature | Add file1
+    Remaining changes: kmkuslsw 97ae1047 Add file1 & file2
+    Working copy  (@) now at: rlvkpnrz c4457486 Add file3
+    Parent commit (@-)      : kmkuslsw 97ae1047 Add file1 & file2
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  rlvkpnrzqnoo false Add file3
+    ○  kmkuslswpqwq false Add file1 & file2
+    │ ○  qpvuntsmwlqt false feature Add file1
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // Test splitting @ with --onto and --identity=selected keeps @ on the
+    // remaining changes while moving the selected changes and bookmark.
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    work_dir.run_jj(["edit", "-r", "qpvuntsmwlqt"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "Add file1",
+        "--identity=selected",
+        "--onto",
+        "root()",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 descendant commits.
+    Selected changes : qpvuntsm 6515da70 feature | Add file1
+    Remaining changes: nkmrtpmo cb7ebbd4 Add file1 & file2
+    Working copy  (@) now at: nkmrtpmo cb7ebbd4 Add file1 & file2
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    ○  rlvkpnrzqnoo false Add file3
+    @  nkmrtpmomlro false Add file1 & file2
+    │ ○  qpvuntsmwlqt false feature Add file1
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
     Ok(())
 }
 
@@ -1700,7 +1886,7 @@ fn test_split_deprecated_legacy_bookmark_behavior_config() -> TestResult {
     let output = main_dir.run_jj(["split", "file2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Deprecated user-level config: `split.legacy-bookmark-behavior` is deprecated.
+    Warning: Deprecated user-level config: `split.legacy-bookmark-behavior` is deprecated; use `jj split --identity` instead.
     Selected changes : rlvkpnrz 9f8a490c (no description set)
     Remaining changes: qpvuntsm 724a6def (no description set)
     Working copy  (@) now at: qpvuntsm 724a6def (no description set)

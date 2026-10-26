@@ -1064,7 +1064,13 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                     Ok(Some(_))
                 )
             },
-            |_| Ok("`split.legacy-bookmark-behavior` is deprecated.".into()),
+            |_| {
+                Ok(
+                    "`split.legacy-bookmark-behavior` is deprecated; use `jj split --identity` \
+                     instead."
+                        .into(),
+                )
+            },
         ),
     ]
 }

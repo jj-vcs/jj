@@ -49,6 +49,16 @@ use crate::description_util::edit_multiple_descriptions;
 use crate::description_util::join_message_paragraphs;
 use crate::ui::Ui;
 
+/// Which commit retains the original commit's change ID and bookmarks.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum SplitIdentity {
+    /// The commit with the remaining (unselected) changes retains the identity.
+    #[default]
+    Remaining,
+    /// The commit with the selected changes retains the identity.
+    Selected,
+}
+
 /// Split a revision in two
 ///
 /// Starts a [diff editor] on the changes in the revision. Edit the right side
@@ -190,6 +200,10 @@ pub(crate) struct SplitArgs {
     #[arg(long, short)]
     parallel: bool,
 
+    /// Which commit retains the original change ID and bookmarks
+    #[arg(long, value_enum, default_value_t = SplitIdentity::Remaining)]
+    identity: SplitIdentity,
+
     /// Files matching any of these filesets are put in the selected changes
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     #[arg(add = ArgValueCompleter::new(complete::modified_revision_files))]
@@ -251,6 +265,7 @@ impl SplitArgs {
             matcher,
             diff_selector,
             parallel: self.parallel,
+            identity: self.identity,
             use_move_flags,
             new_parent_ids,
             new_child_ids,
@@ -263,6 +278,7 @@ struct ResolvedSplitArgs {
     matcher: Box<dyn Matcher>,
     diff_selector: DiffSelector,
     parallel: bool,
+    identity: SplitIdentity,
     use_move_flags: bool,
     new_parent_ids: Vec<CommitId>,
     new_child_ids: Vec<CommitId>,
@@ -280,6 +296,7 @@ pub(crate) async fn cmd_split(
         matcher,
         diff_selector,
         parallel,
+        identity,
         use_move_flags,
         new_parent_ids,
         new_child_ids,
@@ -294,10 +311,12 @@ pub(crate) async fn cmd_split(
     let mut first_commit_builder = {
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree(target.selected_tree.clone());
-        commit_builder.clear_rewrite_source();
-        // Generate a new change id so that the commit being split doesn't
-        // become divergent.
-        commit_builder.generate_new_change_id();
+        if identity == SplitIdentity::Remaining {
+            commit_builder.clear_rewrite_source();
+            // Generate a new change id so that the commit being split doesn't
+            // become divergent.
+            commit_builder.generate_new_change_id();
+        }
         let description = match &args.message_paragraphs {
             Some(paragraphs) => join_message_paragraphs(paragraphs),
             None => commit_builder.description().to_owned(),
@@ -344,6 +363,12 @@ pub(crate) async fn cmd_split(
         };
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree(new_tree);
+        if identity == SplitIdentity::Selected {
+            commit_builder.clear_rewrite_source();
+            // Generate a new change id so that the commit being split doesn't
+            // become divergent.
+            commit_builder.generate_new_change_id();
+        }
         commit_builder
     };
 
@@ -393,11 +418,27 @@ pub(crate) async fn cmd_split(
             second_commit,
             new_parent_ids,
             new_child_ids,
+            identity,
         )
         .await?
     } else {
-        rewrite_descendants(&mut tx, &target, first_commit, second_commit, parallel).await?
+        rewrite_descendants(
+            &mut tx,
+            &target,
+            first_commit,
+            second_commit,
+            parallel,
+            identity,
+        )
+        .await?
     };
+    // Move the working copy commit (@) to the second commit for any workspaces
+    // where the target commit is the working copy commit.
+    for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
+        if working_copy_commit == target.commit.id() {
+            tx.repo_mut().edit(name.clone(), &second_commit).await?;
+        }
+    }
     if let Some(mut formatter) = ui.status_formatter() {
         if num_rebased > 0 {
             writeln!(formatter, "Rebased {num_rebased} descendant commits.")?;
@@ -420,14 +461,23 @@ async fn move_first_commit(
     mut second_commit: Commit,
     new_parent_ids: Vec<CommitId>,
     new_child_ids: Vec<CommitId>,
+    identity: SplitIdentity,
 ) -> Result<(Commit, Commit, usize), CommandError> {
     let mut rewritten_commits: HashMap<CommitId, CommitId> = HashMap::new();
     rewritten_commits.insert(target.commit.id().clone(), second_commit.id().clone());
     tx.repo_mut()
         .transform_descendants(
             vec![target.commit.id().clone()],
-            async |rewriter: CommitRewriter<'_>| {
+            async |mut rewriter: CommitRewriter<'_>| {
                 let old_commit_id = rewriter.old_commit().id().clone();
+                match identity {
+                    SplitIdentity::Remaining => {}
+                    SplitIdentity::Selected => {
+                        // Descendants should stay on second_commit (the remaining changes),
+                        // not follow first_commit (which retained the rewrite source).
+                        rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
+                    }
+                }
                 let new_commit = rewriter.rebase().await?.write().await?;
                 rewritten_commits.insert(old_commit_id, new_commit.id().clone());
                 Ok(())
@@ -491,6 +541,7 @@ async fn rewrite_descendants(
     first_commit: Commit,
     second_commit: Commit,
     parallel: bool,
+    identity: SplitIdentity,
 ) -> Result<(Commit, Commit, usize), CommandError> {
     let mut num_rebased = 0;
     tx.repo_mut()
@@ -498,26 +549,29 @@ async fn rewrite_descendants(
             vec![target.commit.id().clone()],
             async |mut rewriter: CommitRewriter<'_>| {
                 num_rebased += 1;
-                if parallel {
-                    // The old_parent is the second commit because it retained the rewrite
-                    // source.
-                    rewriter.replace_parent(
-                        second_commit.id(),
-                        [first_commit.id(), second_commit.id()],
-                    );
+                match (parallel, identity) {
+                    (true, SplitIdentity::Remaining) => {
+                        rewriter.replace_parent(
+                            second_commit.id(),
+                            [first_commit.id(), second_commit.id()],
+                        );
+                    }
+                    (true, SplitIdentity::Selected) => {
+                        rewriter.replace_parent(
+                            first_commit.id(),
+                            [first_commit.id(), second_commit.id()],
+                        );
+                    }
+                    (false, SplitIdentity::Remaining) => {}
+                    (false, SplitIdentity::Selected) => {
+                        rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
+                    }
                 }
                 rewriter.rebase().await?.write().await?;
                 Ok(())
             },
         )
         .await?;
-    // Move the working copy commit (@) to the second commit for any workspaces
-    // where the target commit is the working copy commit.
-    for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
-        if working_copy_commit == target.commit.id() {
-            tx.repo_mut().edit(name.clone(), &second_commit).await?;
-        }
-    }
 
     Ok((first_commit, second_commit, num_rebased))
 }
