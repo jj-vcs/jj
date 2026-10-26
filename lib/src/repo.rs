@@ -764,15 +764,15 @@ impl RepoLoader {
         let submodule_store = Arc::from(
             store_factories.load_submodule_store(settings, &repo_path.join("submodule_store"))?,
         );
-        Ok(Self {
-            settings: settings.clone(),
+        Ok(Self::new(
+            settings.clone(),
             store,
             workspace_store,
             op_store,
             op_heads_store,
             index_store,
             submodule_store,
-        })
+        ))
     }
 
     pub fn settings(&self) -> &UserSettings {
