@@ -25,6 +25,7 @@ use crate::index_store::IndexStoreError;
 use crate::op_heads_store::OpHeadsKey;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
+use crate::op_heads_store::get_op_heads_key;
 use crate::op_store;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationMetadata;
@@ -38,6 +39,7 @@ use crate::repo::RepoLoader;
 use crate::repo::RepoLoaderError;
 use crate::settings::UserSettings;
 use crate::view::View;
+use crate::workspace_store::WorkspaceStoreError;
 
 /// Error from attempts to write and publish transaction.
 #[derive(Debug, Error)]
@@ -47,6 +49,7 @@ pub enum TransactionCommitError {
     IndexStore(#[from] IndexStoreError),
     OpHeadsStore(#[from] OpHeadsStoreError),
     OpStore(#[from] OpStoreError),
+    WorkspaceStore(#[from] WorkspaceStoreError),
 }
 
 /// An in-memory representation of a repo and any changes being made to it.
@@ -123,11 +126,16 @@ impl Transaction {
     }
 
     /// Writes the transaction to the operation store and publishes it.
+    // TODO: XXX:W Pass OpContext or OpHeadsKey to tx.commit()
     pub async fn commit(
         self,
         description: impl Into<String>,
     ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        self.write(description).await?.publish().await
+        let op_heads_key = get_op_heads_key(
+            self.base_repo().loader().workspace_store(),
+            self.op_metadata.workspace_name.as_deref(),
+        )?;
+        self.write(description).await?.publish(&op_heads_key).await
     }
 
     /// Writes the transaction to the operation store, but does not publish it.
@@ -229,12 +237,14 @@ impl UnpublishedOperation {
         self.repo.operation()
     }
 
-    pub async fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        let op_heads_key = OpHeadsKey::Repo;
-        let _lock = self.op_heads_store.lock(&op_heads_key).await?;
+    pub async fn publish(
+        self,
+        op_heads_key: &OpHeadsKey,
+    ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
+        let _lock = self.op_heads_store.lock(op_heads_key).await?;
         self.op_heads_store
             .update_op_heads(
-                &op_heads_key,
+                op_heads_key,
                 self.operation().parent_ids(),
                 self.operation().id(),
             )

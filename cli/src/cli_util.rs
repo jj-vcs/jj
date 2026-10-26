@@ -429,11 +429,15 @@ impl CommandHelper {
     async fn maybe_commit_transaction(
         &self,
         tx: Transaction,
+        op_context: &OpContext,
         description: impl Into<String>,
     ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
+        let base_repo = tx.base_repo().clone();
         let unpublished_op = tx.write(description).await?;
         if self.should_commit_transaction() {
-            unpublished_op.publish().await
+            let op_heads_key =
+                get_op_heads_key_for_opcontext(base_repo.loader().workspace_store(), op_context)?;
+            unpublished_op.publish(&op_heads_key).await
         } else {
             Ok(unpublished_op.leave_unpublished())
         }
@@ -658,6 +662,7 @@ impl CommandHelper {
                 let stale_wc_commit = workspace_command.get_wc_commit().await?.unwrap();
 
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
+                let op_context = workspace.op_context();
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
                 let repo = &workspace_command.user_repo.repo;
                 let desired_wc_commit = workspace_command.prepare_working_copy_mutation().await?;
@@ -700,8 +705,9 @@ impl CommandHelper {
                             )
                             .await?;
                             if tx.repo().has_changes() {
-                                let repo =
-                                    self.maybe_commit_transaction(tx, "reset git head").await?;
+                                let repo = self
+                                    .maybe_commit_transaction(tx, &op_context, "reset git head")
+                                    .await?;
                                 workspace_command.user_repo = ReadonlyUserRepo::new(repo);
                             }
                         }
@@ -1479,6 +1485,7 @@ impl WorkspaceCommandHelper {
         assert!(self.may_snapshot_working_copy);
         let workspace_name = self.workspace_name().to_owned();
         let workspace_root = self.workspace_root().to_owned();
+        let op_context = self.workspace.op_context();
         let mut tx = self.start_transaction();
         jj_lib::git::import_head(tx.repo_mut(), &workspace_name, &workspace_root).await?;
         if !tx.repo().has_changes() {
@@ -1503,7 +1510,7 @@ impl WorkspaceCommandHelper {
             self.user_repo = ReadonlyUserRepo::new(
                 self.env
                     .command
-                    .maybe_commit_transaction(tx, "import git head")
+                    .maybe_commit_transaction(tx, &op_context, "import git head")
                     .await?,
             );
             if self.env.command.should_commit_transaction() {
@@ -2123,6 +2130,7 @@ to the current parents may contain changes from multiple commits.
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         let workspace_name = self.workspace_name().to_owned();
+        let op_context = self.workspace.op_context();
         let repo = self.repo().clone();
         let auto_tracking_matcher = self
             .env
@@ -2255,7 +2263,7 @@ to the current parents may contain changes from multiple commits.
             let repo = self
                 .env
                 .command
-                .maybe_commit_transaction(tx, "snapshot working copy")
+                .maybe_commit_transaction(tx, &op_context, "snapshot working copy")
                 .await
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
@@ -2445,7 +2453,7 @@ to the current parents may contain changes from multiple commits.
         self.user_repo = ReadonlyUserRepo::new(
             self.env
                 .command
-                .maybe_commit_transaction(tx, description)
+                .maybe_commit_transaction(tx, &self.workspace.op_context(), description)
                 .await?,
         );
 
