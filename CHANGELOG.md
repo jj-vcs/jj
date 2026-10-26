@@ -87,6 +87,13 @@ and this project adheres to
   stdout. Use `--binary-as-text` to force text treatment, or `--skip-binary` to
   skip binary files entirely.
 
+* `jj workspace add --adopt` turns an existing directory into a workspace
+  without rewriting the files in it, resetting only files that differ from
+  the new working-copy commit. Combined with a copy-on-write filesystem, this
+  makes creating a workspace nearly instantaneous, e.g. by running
+  `btrfs subvolume snapshot . ../workspace`, removing `../workspace/.jj` and
+  `../workspace/.git`, and then `jj workspace add --adopt ../workspace`.
+
 ### Fixed bugs
 
 * `jj git push` no longer validates (e.g. for empty descriptions) commits that

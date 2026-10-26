@@ -2787,6 +2787,115 @@ fn test_workspaces_add_colocated_unborn_head() {
     assert!(!test_env.env_root().join("tertiary/file").exists());
 }
 
+#[test]
+fn test_workspaces_add_adopt() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let ws_dir = test_env.work_dir("workspace");
+
+    main_dir.write_file("common", "common\n");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+    // Simulate copying the workspace with an uncommitted change in it
+    main_dir.write_file("working_copy", "working_copy\n");
+    ws_dir.write_file("common", "common\n");
+    ws_dir.write_file("working_copy", "working_copy\n");
+
+    let output = main_dir.run_jj(["workspace", "add", "--adopt", "../workspace"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../workspace"
+    Working copy  (@) now at: kkmpptxz 54c7ee16 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm fce12334 initial
+    Added 0 files, modified 0 files, removed 1 files
+    Warning: Reset files in "../workspace" to match @- in the source workspace 'default'. To recover the previous contents, run `jj undo`.
+    [EOF]
+    "#);
+
+    // The uncommitted change was reset
+    assert!(ws_dir.root().join("common").exists());
+    assert!(!ws_dir.root().join("working_copy").exists());
+    let output = ws_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    The working copy has no changes.
+    Working copy  (@) : kkmpptxz 54c7ee16 (empty) (no description set)
+    Parent commit (@-): qpvuntsm fce12334 initial
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&ws_dir), @r#"
+    @  54c7ee16fb88 workspace@
+    │ ○  f5cd01e8ae3d default@
+    ├─╯
+    ○  fce123340f96 "initial"
+    ◆  000000000000
+    [EOF]
+    "#);
+
+    // The change can be recovered with `jj undo`
+    ws_dir.run_jj(["undo"]).success();
+    let output = ws_dir.run_jj(["diff", "--summary"]);
+    insta::assert_snapshot!(output, @"
+    A working_copy
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_workspaces_add_adopt_clean() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let ws_dir = test_env.work_dir("workspace");
+
+    main_dir.write_file("common", "common\n");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+    ws_dir.write_file("common", "common\n");
+
+    let output = main_dir.run_jj(["workspace", "add", "--adopt", "../workspace", "-m", "msg"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../workspace"
+    [EOF]
+    "#);
+    let output = ws_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    The working copy has no changes.
+    Working copy  (@) : kkmpptxz 8709e743 (empty) msg
+    Parent commit (@-): qpvuntsm fce12334 initial
+    [EOF]
+    ");
+    let output = main_dir.run_jj(["op", "log", "-n2", "-Tdescription"]);
+    insta::assert_snapshot!(output, @"
+    @  add workspace 'workspace'
+    ○  commit 3c8b0b3fdd48be2142a351a6c95004a8161f8332
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_workspaces_add_adopt_existing_jj_dir() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    test_env.run_jj_in(".", ["git", "init", "other"]).success();
+
+    let output = main_dir.run_jj(["workspace", "add", "--adopt", "../other"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    ------- stderr -------
+    Error: Destination path already contains a .jj directory
+    Hint: If this directory was copied from an existing workspace, delete its .jj directory before adopting it.
+    [EOF]
+    [exit status: 1]
+    ");
+    let output = main_dir.run_jj(["workspace", "add", "--adopt", "../nonexistent"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    ------- stderr -------
+    Error: Destination path is not a directory
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
 /// Returns the repo's Git HEAD: the ref name if HEAD points at a ref, or the
 /// commit id if HEAD is detached.
 fn git_head(repo: &gix::Repository) -> String {
