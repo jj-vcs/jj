@@ -145,6 +145,13 @@ pub(crate) async fn cmd_arrange(
     let mut state = State::new(commits, external_children).await?;
     state.update_commit_order();
 
+    // TODO(https://github.com/ratatui/ansi-to-tui/issues/82): Hyperlinks do not
+    // work in ratatui (the hyperlink and the rest of its line are completely
+    // stripped). To prevent this from hitting any users, we will specifically
+    // disable hyperlinks in `jj arrange`, which renders `templates.arrange`
+    // with color, which may contain hyperlinks. Once this issue is closed, we
+    // can remove this method.
+    workspace_command.add_hyperlink_template_overrides_for_arrange();
     let template_string = workspace_command
         .settings()
         .get_string("templates.arrange")?;

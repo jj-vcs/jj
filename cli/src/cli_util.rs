@@ -1992,6 +1992,26 @@ to the current parents may contain changes from multiple commits.
             .get_or_init(|| self.env.new_id_prefix_context())
     }
 
+    /// Adds hyperlink overrides for `jj arrange`, since they do not work in the
+    /// TUI.
+    ///
+    /// See <https://github.com/ratatui/ansi-to-tui/issues/82> and the comment
+    /// in `cli/src/commands/arrange.rs`. This method should be removed once the
+    /// issue is fixed.
+    pub fn add_hyperlink_template_overrides_for_arrange(&mut self) {
+        self.env
+            .template_aliases_map
+            .insert("hyperlink(url, text, fallback)", "fallback", None)
+            .expect("literal template alias declaration should be valid");
+        // Always use the text instead of the URL. If a user doesn't like this
+        // and wants the URL to show instead, then they should use the
+        // 3-argument version with `fallback`.
+        self.env
+            .template_aliases_map
+            .insert("hyperlink(url, text)", "text", None)
+            .expect("literal template alias declaration should be valid");
+    }
+
     /// Parses template of the given language into evaluation tree.
     pub fn parse_template<'a, C, L>(
         &self,
