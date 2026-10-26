@@ -2044,6 +2044,29 @@ impl MutableRepo {
         self.view.set_view(data, head_normalized);
     }
 
+    pub async fn set_view_for_new_independent_workspace(
+        &mut self,
+        workspace_name: &WorkspaceName,
+        new_wc_commit: &Commit,
+    ) -> BackendResult<()> {
+        let other_wc_commits = self.view.wc_commit_ids().keys().cloned().collect_vec();
+        let previous_heads = self.view.heads().clone();
+        for workspace in other_wc_commits {
+            if workspace != workspace_name {
+                self.view.remove_workspace(&workspace);
+            }
+        }
+        self.add_head(new_wc_commit).await?;
+        for head in previous_heads {
+            if head != *new_wc_commit.id() {
+                self.remove_head(&head);
+            }
+        }
+        self.view
+            .set_wc_commit(workspace_name.to_owned(), new_wc_commit.id().clone());
+        Ok(())
+    }
+
     pub async fn merge(
         &mut self,
         base_repo: &ReadonlyRepo,
