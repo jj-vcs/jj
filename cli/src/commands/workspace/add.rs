@@ -27,6 +27,7 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace_store::WorkspaceType;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -172,6 +173,7 @@ pub async fn cmd_workspace_add(
         repo,
         working_copy_factory,
         workspace_name.clone(),
+        WorkspaceType::Regular,
         Some(old_workspace_command.workspace_name()),
     )
     .await?;

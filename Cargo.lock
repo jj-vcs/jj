@@ -2687,6 +2687,7 @@ dependencies = [
  "itertools 0.15.0",
  "jiff",
  "jj-cli",
+ "jj-core",
  "jj-lib",
  "jsonschema",
  "libc",

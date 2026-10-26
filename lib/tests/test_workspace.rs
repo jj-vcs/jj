@@ -15,6 +15,7 @@
 use std::assert_matches;
 use std::thread;
 
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::default_backend_factories::default_working_copy_factory;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
@@ -54,6 +55,7 @@ fn test_init_additional_workspace() -> TestResult {
         &test_workspace.repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        WorkspaceType::Regular,
         Some(WorkspaceName::DEFAULT),
     )
     .block_on()?;
@@ -109,6 +111,7 @@ fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
         &test_workspace.repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        WorkspaceType::Regular,
         None,
     )
     .block_on()?;
@@ -149,8 +152,13 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
 
     let ws1_root = test_env.root().join(OsStr::from_bytes(b"ws1_root\xe0"));
     std::fs::create_dir(&ws1_root)?;
-    let (ws1, repo) =
-        Workspace::init_simple(&settings, &ws1_root, WorkspaceName::DEFAULT).block_on()?;
+    let (ws1, repo) = Workspace::init_simple(
+        &settings,
+        &ws1_root,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
+    )
+    .block_on()?;
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_env.root().join(OsStr::from_bytes(b"ws2_root\xe0"));
@@ -161,6 +169,7 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
         &repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        WorkspaceType::Regular,
         None,
     )
     .block_on()?;

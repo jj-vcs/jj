@@ -85,6 +85,7 @@ indexmap = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
 jiff = { workspace = true }
+jj-core = { workspace = true }
 jj-lib = { workspace = true }
 maplit = { workspace = true }
 mimalloc = { workspace = true }

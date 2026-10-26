@@ -30,6 +30,7 @@ use std::thread;
 
 use gix::remote::Direction;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -2598,6 +2599,7 @@ fn test_import_export_head_bare_and_worktree() -> TestResult {
         repo,
         &*default_working_copy_factory(),
         "wt".into(),
+        WorkspaceType::Regular,
         None,
     )
     .block_on()?;
@@ -4168,6 +4170,7 @@ fn test_update_intent_to_add_drops_stale_cache_tree() -> TestResult {
         &settings,
         &workspace_root,
         WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         &workspace_root.join(".git"),
     )
     .block_on()?;
@@ -6805,6 +6808,8 @@ fn test_bulk_update_extra_on_import_refs() -> TestResult {
 fn test_rewrite_imported_commit() -> TestResult {
     let test_repo = TestRepo::init_with_backend_and_settings(
         TestRepoBackend::Git,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         &user_settings_without_change_id(),
     );
     let repo = &test_repo.repo;
