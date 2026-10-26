@@ -58,15 +58,15 @@ use crate::ui::Ui;
 /// [diff editor]:
 ///     https://docs.jj-vcs.dev/latest/config/#editing-diffs
 ///
-/// By default, the selected changes stay in the original commit, and the
-/// remaining changes go into a new child commit:
+/// By default, the selected changes go into a new parent commit, and the
+/// remaining changes stay in the original commit as its child:
 ///
 /// ```text
 /// L                 L'
 /// |                 |
-/// K (split)   =>    K" (remaining)
+/// K (split)   =>    K' (remaining)
 /// |                 |
-/// J                 K' (selected)
+/// J                 K" (selected)
 ///                   |
 ///                   J
 /// ```
@@ -294,12 +294,10 @@ pub(crate) async fn cmd_split(
     let mut first_commit_builder = {
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree(target.selected_tree.clone());
-        if use_move_flags {
-            commit_builder.clear_rewrite_source();
-            // Generate a new change id so that the commit being split doesn't
-            // become divergent.
-            commit_builder.generate_new_change_id();
-        }
+        commit_builder.clear_rewrite_source();
+        // Generate a new change id so that the commit being split doesn't
+        // become divergent.
+        commit_builder.generate_new_change_id();
         let description = match &args.message_paragraphs {
             Some(paragraphs) => join_message_paragraphs(paragraphs),
             None => commit_builder.description().to_owned(),
@@ -346,12 +344,6 @@ pub(crate) async fn cmd_split(
         };
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree(new_tree);
-        if !use_move_flags {
-            commit_builder.clear_rewrite_source();
-            // Generate a new change id so that the commit being split doesn't
-            // become divergent.
-            commit_builder.generate_new_change_id();
-        }
         commit_builder
     };
 
@@ -500,11 +492,6 @@ async fn rewrite_descendants(
     second_commit: Commit,
     parallel: bool,
 ) -> Result<(Commit, Commit, usize), CommandError> {
-    // Mark the commit being split as rewritten to the second commit. This
-    // moves any bookmarks pointing to the target commit to the second
-    // commit.
-    tx.repo_mut()
-        .set_rewritten_commit(target.commit.id().clone(), second_commit.id().clone());
     let mut num_rebased = 0;
     tx.repo_mut()
         .transform_descendants(
@@ -512,13 +499,12 @@ async fn rewrite_descendants(
             async |mut rewriter: CommitRewriter<'_>| {
                 num_rebased += 1;
                 if parallel {
-                    // The old_parent is the second commit due to the rewrite above.
+                    // The old_parent is the second commit because it retained the rewrite
+                    // source.
                     rewriter.replace_parent(
                         second_commit.id(),
                         [first_commit.id(), second_commit.id()],
                     );
-                } else {
-                    rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
                 }
                 rewriter.rebase().await?.write().await?;
                 Ok(())

@@ -3377,15 +3377,15 @@ close the editor, your revision will be split into two commits.
 [diff editor]:
     https://docs.jj-vcs.dev/latest/config/#editing-diffs
 
-By default, the selected changes stay in the original commit, and the
-remaining changes go into a new child commit:
+By default, the selected changes go into a new parent commit, and the
+remaining changes stay in the original commit as its child:
 
 ```text
 L                 L'
 |                 |
-K (split)   =>    K" (remaining)
+K (split)   =>    K' (remaining)
 |                 |
-J                 K' (selected)
+J                 K" (selected)
                   |
                   J
 ```
