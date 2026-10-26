@@ -73,7 +73,7 @@ insta = { version = "1.47.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["jiff_0_2"] }
 itertools = "0.15.0"
 jiff = { version = "0.2", features = ["serde"] }
-jsonschema = { version = "0.58.2", default-features = false }
+jsonschema = { version = "0.59.0", default-features = false }
 libc = { version = "0.2.186" }
 maplit = "1.0.2"
 memchr = "2.8.2"
