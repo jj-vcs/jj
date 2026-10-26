@@ -4062,6 +4062,22 @@ By default, the new workspace inherits the sparse patterns of the current worksp
 * `--name <NAME>` — A name for the workspace
 
    To override the default, which is the basename of the destination directory.
+* `--adopt` — Adopt the files already in the destination directory
+
+   The destination directory must already exist and must not contain a
+   `.jj` directory. Files that differ from the new working-copy commit are
+   reset to match it, so the result is the same as without `--adopt`. The
+   previous contents can be recovered with `jj undo`.
+
+   This is useful in combination with a copy-on-write filesystem, such as
+   Btrfs or ZFS, to create a workspace without writing all its files.
+
+   Example:
+   ```shell
+   btrfs subvolume snapshot src dst
+   rm -rf dst/.jj dst/.git
+   jj -R src workspace add --adopt dst
+   ```
 * `-r`, `--revision <REVSETS>` — A list of parent revisions for the working-copy commit of the newly created workspace. You may specify nothing, or any number of parents.
 
    If no revisions are specified, the new workspace will be created, and its working-copy commit will exist on top of the parent(s) of the working-copy commit in the current workspace, i.e. they will share the same parent(s).
