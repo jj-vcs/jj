@@ -26,6 +26,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::evolution::walk_predecessors;
 use jj_lib::index::Index;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_heads_store::OpHeadsKey;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_walk;
 use jj_lib::op_walk::OpsetEvaluationError;
@@ -666,7 +667,9 @@ fn test_resolve_op_id() -> TestResult {
     "#);
 
     let repo_loader = repo.loader();
-    let resolve = |op_str: &str| op_walk::resolve_op_for_load(repo_loader, op_str).block_on();
+    let resolve = |op_str: &str| {
+        op_walk::resolve_op_for_load(repo_loader, &OpHeadsKey::Repo, op_str).block_on()
+    };
 
     // Full id
     assert_eq!(resolve(&operations[0].id().hex())?, operations[0]);

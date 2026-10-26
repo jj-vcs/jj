@@ -804,7 +804,7 @@ impl CommandHelper {
         workspace_name: &WorkspaceName,
     ) -> Result<Operation, CommandError> {
         if let Some(op_str) = &self.data.global_args.at_operation {
-            Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
+            Ok(op_walk::resolve_op_for_load(repo_loader, &OpHeadsKey::Repo, op_str).block_on()?)
         } else {
             op_heads_store::resolve_op_heads(
                 repo_loader.op_heads_store().as_ref(),
