@@ -137,6 +137,29 @@ pub async fn cmd_workspace_add(
             name = workspace_name.as_symbol()
         )));
     }
+    // Resolve the parents before creating the workspace so an invalid revset
+    // doesn't leave a half-created workspace behind. If no parent revisions are
+    // specified, create a working-copy commit based on the parents of the current
+    // working-copy commit.
+    let parents = if args.revisions.is_empty() {
+        // Check out parents of the current workspace's working-copy commit, or the
+        // root if there is no working-copy commit in the current workspace.
+        if let Some(old_wc_commit) = old_workspace_command.get_wc_commit().await? {
+            old_wc_commit.parents().await?
+        } else {
+            vec![repo.store().root_commit()]
+        }
+    } else {
+        try_join_all(
+            old_workspace_command
+                .resolve_some_revsets(ui, &args.revisions)
+                .await?
+                .iter()
+                .map(|id| repo.store().get_commit_async(id)),
+        )
+        .await?
+    };
+
     if !destination_path.exists() {
         fs::create_dir(&destination_path).context(&destination_path)?;
     } else if !file_util::is_empty_dir(&destination_path)? {
@@ -225,36 +248,6 @@ pub async fn cmd_workspace_add(
     // Attribute the operation to the workspace the command was run in, so e.g.
     // `jj undo` there undoes it
     tx.set_workspace_name(old_workspace_command.workspace_name());
-
-    // If no parent revisions are specified, create a working-copy commit based
-    // on the parent of the current working-copy commit.
-    let parents = if args.revisions.is_empty() {
-        // Check out parents of the current workspace's working-copy commit, or the
-        // root if there is no working-copy commit in the current workspace.
-        if let Some(old_wc_commit_id) = tx
-            .base_repo()
-            .view()
-            .get_wc_commit_id(old_workspace_command.workspace_name())
-        {
-            tx.repo()
-                .store()
-                .get_commit_async(old_wc_commit_id)
-                .await?
-                .parents()
-                .await?
-        } else {
-            vec![tx.repo().store().root_commit()]
-        }
-    } else {
-        try_join_all(
-            old_workspace_command
-                .resolve_some_revsets(ui, &args.revisions)
-                .await?
-                .iter()
-                .map(|id| tx.repo().store().get_commit_async(id)),
-        )
-        .await?
-    };
 
     let tree = merge_commit_trees(tx.repo(), &parents).await?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
