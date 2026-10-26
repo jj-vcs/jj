@@ -47,6 +47,7 @@ use jj_lib::revset::RevsetExpression;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::cli_util::parse_index_or_change_id_choice;
 use crate::cli_util::short_change_hash;
 use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
@@ -198,9 +199,7 @@ pub(crate) async fn cmd_converge(
         return Ok(());
     }
     report_divergent_changes(ui, &divergent_changes, &tx.commit_summary_template())?;
-    let Some(change_id) = choose_change(ui, &divergent_changes, interactive)? else {
-        return Ok(());
-    };
+    let change_id = choose_change(ui, &divergent_changes, interactive)?;
 
     Converge::new(ui, tx, &divergent_changes, change_id.clone(), interactive)
         .await?
@@ -521,11 +520,11 @@ fn choose_change<'a>(
     ui: &Ui,
     divergent_changes: &'a CommitsByChangeId,
     interactive: bool,
-) -> Result<Option<&'a ChangeId>, CommandError> {
+) -> Result<&'a ChangeId, CommandError> {
     assert!(!divergent_changes.is_empty());
     let mut formatter = ui.stderr_formatter();
     if divergent_changes.len() == 1 {
-        return Ok(Some(divergent_changes.keys().next().unwrap()));
+        return Ok(divergent_changes.keys().next().unwrap());
     }
     // TODO: consider using heuristics to automatically choose a "good" change-id to
     // converge, falling back to prompting the user only if the heuristics are
@@ -543,25 +542,20 @@ fn choose_change<'a>(
         "Choose which change to converge (jj converge only converges one change at a time):",
     )?;
 
-    let mut choices: Vec<String> = Default::default();
     let change_ids: Vec<&ChangeId> = divergent_changes.keys().collect();
     for (i, change_id) in change_ids.iter().enumerate() {
         // TODO: is there a better way to display the change-id? perhaps with
         // format_short_change_id?
         writeln!(formatter, "{}: {}", i + 1, short_change_hash(change_id))?;
-        choices.push(format!("{}", i + 1));
     }
-    writeln!(formatter, "q: abort")?;
-    choices.push("q".to_string());
     drop(formatter);
-    let index = ui.prompt_choice("Enter the index of the change to converge", &choices, None)?;
+    let index = ui.prompt_choice_with(
+        "Enter the index or change ID of the change to converge",
+        None,
+        |input| parse_index_or_change_id_choice(input, &change_ids, |change_id| *change_id),
+    )?;
     writeln!(ui.status(), "\n")?;
-    if index >= change_ids.len() {
-        writeln!(ui.status(), "Aborting... nothing changed.")?;
-        Ok(None)
-    } else {
-        Ok(Some(change_ids[index]))
-    }
+    Ok(change_ids[index])
 }
 
 fn choose_helper<T, ValueFn, DisplayFn>(

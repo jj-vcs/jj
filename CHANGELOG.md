@@ -74,6 +74,10 @@ and this project adheres to
   target commit. The special `q` quit choice was removed; cancel with EOF.
   [#9790](https://github.com/jj-vcs/jj/issues/9790)
 
+* `jj converge` now accepts a change ID prefix when prompting for the change
+  to converge. The special `q` abort choice was removed; canceling with EOF now
+  exits with an error (previously `q` aborted successfully).
+
 ### Fixed bugs
 
 * The operations created by `jj workspace add` are now attributed to the
