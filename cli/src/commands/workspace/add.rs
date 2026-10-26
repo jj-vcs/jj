@@ -27,7 +27,6 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::workspace::Workspace;
-use jj_lib::workspace_store::WorkspaceType;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -52,6 +51,20 @@ pub(crate) enum SparseInheritance {
     Empty,
 }
 
+/// The type of workspace to create.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
+enum WorkspaceType {
+    /// The workspace will store operations in the repo op log (alias: normal)
+    // We use short names for enum values so that errors say that the possible values are `n, i`.
+    #[value(name = "n", alias("normal"))]
+    Normal,
+
+    /// The workspace will store operations in its own independent op log
+    /// (alias: independent)
+    #[value(name = "i", alias("independent"))]
+    Independent,
+}
+
 /// Add a workspace
 ///
 /// By default, the new workspace inherits the sparse patterns of the current
@@ -68,6 +81,10 @@ pub struct WorkspaceAddArgs {
     /// directory.
     #[arg(long)]
     name: Option<WorkspaceNameBuf>,
+
+    /// The type of workspace to create
+    #[arg(long, value_enum, default_value_t = WorkspaceType::Normal)]
+    workspace_type: WorkspaceType,
 
     /// A list of parent revisions for the working-copy commit of the newly
     /// created workspace. You may specify nothing, or any number of parents.
@@ -107,6 +124,12 @@ pub struct WorkspaceAddArgs {
     /// How to handle sparse patterns when creating a new workspace.
     #[arg(long, value_enum, default_value_t = SparseInheritance::Copy)]
     sparse_patterns: SparseInheritance,
+
+    /// When adding a new independent workspace, whether to fork the oplog from
+    /// the current workspace. If false, the new independent workspace will
+    /// start with an empty oplog.
+    #[arg(long = "fork-oplog", default_value_t = false)]
+    fork_oplog: bool,
 }
 
 #[instrument(skip_all)]
@@ -130,7 +153,37 @@ pub async fn cmd_workspace_add(
         return Err(user_error("New workspace name cannot be empty"));
     }
 
+    let workspace_type = match args.workspace_type {
+        WorkspaceType::Normal => jj_lib::workspace_store::WorkspaceType::Regular,
+        WorkspaceType::Independent => jj_lib::workspace_store::WorkspaceType::Independent,
+    };
+
+    if workspace_type == jj_lib::workspace_store::WorkspaceType::Regular
+        && old_workspace_command.workspace().workspace_type()
+            == jj_lib::workspace_store::WorkspaceType::Independent
+    {
+        return Err(
+            user_error("Cannot create a regular workspace from an independent workspace").hinted(
+                "Change your working directory to the main workspace then retry this command. \
+                 Alternatively, you can create an independent workspace with \
+                 `--workspace-type=independent`.",
+            ),
+        );
+    }
+
     let repo = old_workspace_command.repo();
+    // if repo
+    //     .base_repo()
+    //     .loader()
+    //     .workspace_store()
+    //     .get_workspace_metadata_by_workspace_name(&workspace_name)?
+    //     .is_some()
+    // {
+    //     return Err(user_error(format!(
+    //         "Workspace named '{name}' already exists",
+    //         name = workspace_name.as_symbol()
+    //     )));
+    // }
     if repo.view().get_wc_commit_id(&workspace_name).is_some() {
         return Err(user_error(format!(
             "Workspace named '{name}' already exists",
@@ -164,16 +217,68 @@ pub async fn cmd_workspace_add(
     }
 
     let working_copy_factory = command.get_working_copy_factory()?;
-    let repo_path = old_workspace_command.repo_path();
+    let repo_path = old_workspace_command.repo_path().to_path_buf();
+
+    // If no parent revisions are specified, create a working-copy commit based
+    // on the parent of the current working-copy commit.
+    let parents = if args.revisions.is_empty() {
+        // Check out parents of the current workspace's working-copy commit, or the
+        // root if there is no working-copy commit in the current workspace.
+        if let Some(old_wc_commit_id) = repo
+            .base_repo()
+            .view()
+            .get_wc_commit_id(old_workspace_command.workspace_name())
+        {
+            repo.store()
+                .get_commit_async(old_wc_commit_id)
+                .await?
+                .parents()
+                .await?
+        } else {
+            vec![repo.store().root_commit()]
+        }
+    } else {
+        try_join_all(
+            old_workspace_command
+                .resolve_some_revsets(ui, &args.revisions)
+                .await?
+                .iter()
+                .map(|id| repo.store().get_commit_async(id)),
+        )
+        .await?
+    };
+
+    let sparsity = match args.sparse_patterns {
+        SparseInheritance::Full => None,
+        SparseInheritance::Empty => Some(vec![]),
+        SparseInheritance::Copy => {
+            let sparse_patterns = old_workspace_command
+                .working_copy()
+                .sparse_patterns()?
+                .to_vec();
+            Some(sparse_patterns)
+        }
+    };
+
+    // fork_oplog=false is only allowed for independent workspaces (regular
+    // workspaces always use the repo's oplog).
+    let repo =
+        if args.fork_oplog || workspace_type == jj_lib::workspace_store::WorkspaceType::Regular {
+            repo.clone()
+        } else {
+            let root_operation = repo.base_repo().loader().root_operation().await;
+            repo.reload_at(&root_operation).await?
+        };
+
     // If we add per-workspace configuration, we'll need to reload settings for
     // the new workspace.
     let (new_workspace, repo) = Workspace::init_workspace_with_existing_repo(
         &destination_path,
-        repo_path,
-        repo,
+        &repo_path,
+        &repo,
         working_copy_factory,
         workspace_name.clone(),
-        WorkspaceType::Regular,
+        workspace_type,
         Some(old_workspace_command.workspace_name()),
     )
     .await?;
@@ -198,18 +303,6 @@ pub async fn cmd_workspace_add(
     #[cfg(feature = "git")]
     maybe_add_gitignore(&new_workspace_command)?;
 
-    let sparsity = match args.sparse_patterns {
-        SparseInheritance::Full => None,
-        SparseInheritance::Empty => Some(vec![]),
-        SparseInheritance::Copy => {
-            let sparse_patterns = old_workspace_command
-                .working_copy()
-                .sparse_patterns()?
-                .to_vec();
-            Some(sparse_patterns)
-        }
-    };
-
     if let Some(sparse_patterns) = sparsity {
         let (mut locked_ws, _wc_commit) =
             new_workspace_command.start_working_copy_mutation().await?;
@@ -227,36 +320,6 @@ pub async fn cmd_workspace_add(
     // `jj undo` there undoes it
     tx.set_workspace_name(old_workspace_command.workspace_name());
 
-    // If no parent revisions are specified, create a working-copy commit based
-    // on the parent of the current working-copy commit.
-    let parents = if args.revisions.is_empty() {
-        // Check out parents of the current workspace's working-copy commit, or the
-        // root if there is no working-copy commit in the current workspace.
-        if let Some(old_wc_commit_id) = tx
-            .base_repo()
-            .view()
-            .get_wc_commit_id(old_workspace_command.workspace_name())
-        {
-            tx.repo()
-                .store()
-                .get_commit_async(old_wc_commit_id)
-                .await?
-                .parents()
-                .await?
-        } else {
-            vec![tx.repo().store().root_commit()]
-        }
-    } else {
-        try_join_all(
-            old_workspace_command
-                .resolve_some_revsets(ui, &args.revisions)
-                .await?
-                .iter()
-                .map(|id| tx.repo().store().get_commit_async(id)),
-        )
-        .await?
-    };
-
     let tree = merge_commit_trees(tx.repo(), &parents).await?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
     let mut commit_builder = tx.repo_mut().new_commit(parent_ids, tree).detach();
@@ -273,6 +336,13 @@ pub async fn cmd_workspace_add(
     let new_wc_commit = commit_builder.write(tx.repo_mut()).await?;
 
     tx.edit(&new_wc_commit)?;
+
+    if workspace_type == jj_core::workspace_store::WorkspaceType::Independent {
+        tx.repo_mut()
+            .set_view_for_new_independent_workspace(&workspace_name, &new_wc_commit)
+            .await?;
+    }
+
     tx.finish(
         ui,
         format!(
