@@ -2963,8 +2963,12 @@ jj git init",
             err @ (StoreLoadError::ReadError { .. } | StoreLoadError::Backend(_)),
         ) => internal_error_with_message("The repository appears broken or inaccessible", err),
         WorkspaceLoadError::StoreLoadError(StoreLoadError::Signing(err)) => user_error(err),
+        WorkspaceLoadError::WorkspaceStoreError(err) => {
+            internal_error_with_message("The repository appears broken or inaccessible", err)
+        }
         WorkspaceLoadError::WorkingCopyState(err) => internal_error(err),
-        WorkspaceLoadError::DecodeRepoPath(_) | WorkspaceLoadError::Path(_) => user_error(err),
+        WorkspaceLoadError::DecodeRepoPath(_) => user_error(err),
+        WorkspaceLoadError::Path(_) => user_error(err),
     }
 }
 

@@ -97,6 +97,57 @@ fn test_init_additional_workspace() -> TestResult {
 }
 
 #[test]
+fn test_init_independent_workspace() -> TestResult {
+    let settings = testutils::user_settings();
+    let test_workspace = TestWorkspace::init_with_settings(&settings);
+    let workspace = &test_workspace.workspace;
+
+    let ws2_name = WorkspaceNameBuf::from("ws2");
+    let ws2_root = test_workspace.root_dir().join("ws2_root");
+    std::fs::create_dir(&ws2_root)?;
+    let (ws2, repo) = Workspace::init_workspace_with_existing_repo(
+        &ws2_root,
+        test_workspace.repo_path(),
+        &test_workspace.repo,
+        &*default_working_copy_factory(),
+        ws2_name.clone(),
+        WorkspaceType::Independent,
+        Some(WorkspaceName::DEFAULT),
+    )
+    .block_on()?;
+    let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
+    assert_ne!(wc_commit_id, None);
+    let wc_commit_id = wc_commit_id.unwrap();
+    let wc_commit = repo.store().get_commit(wc_commit_id)?;
+    assert_eq!(
+        wc_commit.parent_ids(),
+        vec![repo.store().root_commit_id().clone()]
+    );
+    assert_eq!(ws2.workspace_name(), &ws2_name);
+    assert_eq!(ws2.workspace_type(), WorkspaceType::Independent);
+    assert_eq!(
+        *ws2.repo_path(),
+        dunce::canonicalize(workspace.repo_path())?
+    );
+    assert_eq!(*ws2.workspace_root(), dunce::canonicalize(&ws2_root)?);
+    let ws2_root = ws2.workspace_root();
+
+    let repo_file_path = ws2_root.join(".jj").join("repo");
+    let repo_file_contents = std::fs::read(&repo_file_path)?;
+    let stored_path = String::from_utf8(repo_file_contents)?;
+    assert_eq!(stored_path, "../../repo/.jj/repo");
+
+    let same_workspace = test_workspace.env.load_workspace(&settings, ws2_root)?;
+    assert_eq!(same_workspace.workspace_name(), &ws2_name);
+    assert_eq!(
+        *same_workspace.repo_path(),
+        dunce::canonicalize(workspace.repo_path())?
+    );
+    assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
+    Ok(())
+}
+
+#[test]
 fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
     let settings = testutils::user_settings();
     let test_workspace = TestWorkspace::init_with_settings(&settings);

@@ -32,6 +32,7 @@ use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceStoreError;
 use jj_core::workspace_store::WorkspaceType;
 use once_cell::sync::OnceCell;
 use thiserror::Error;
@@ -69,9 +70,9 @@ use crate::merged_tree::MergedTree;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
-use crate::op_heads_store::OpHeadsKey;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
+use crate::op_heads_store::get_op_heads_key_for_opcontext;
 use crate::op_store;
 use crate::op_store::OpStore;
 use crate::op_store::OpStoreError;
@@ -342,9 +343,9 @@ impl ReadonlyRepo {
 
     pub async fn reload_at_head(
         &self,
-        workspace_name: Option<&WorkspaceName>,
+        op_context: &OpContext,
     ) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at_head(workspace_name).await
+        self.loader().load_at_head(op_context).await
     }
 
     #[instrument]
@@ -679,6 +680,8 @@ pub enum RepoLoaderError {
     OpStore(#[from] OpStoreError),
     #[error(transparent)]
     TransactionCommit(#[from] TransactionCommitError),
+    #[error(transparent)]
+    WorkspaceStore(#[from] WorkspaceStoreError),
 }
 
 /// Helps create `ReadonlyRepo` instances of a repo at the head operation or at
@@ -790,12 +793,20 @@ impl RepoLoader {
 
     pub async fn load_at_head(
         &self,
-        workspace_name: Option<&WorkspaceName>,
+        op_context: &OpContext,
     ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        let workspace_name = match op_context {
+            OpContext::Repo => None,
+            OpContext::Workspace {
+                name,
+                workspace_type: _,
+            } => Some(name.as_ref()),
+        };
+        let op_heads_key = get_op_heads_key_for_opcontext(self.workspace_store(), op_context)?;
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
-            &OpHeadsKey::Repo,
+            &op_heads_key,
             async |op_heads| -> Result<Operation, RepoLoaderError> {
                 assert!(op_heads.len() > 1);
                 let transaction_description = Some("reconcile divergent operations");

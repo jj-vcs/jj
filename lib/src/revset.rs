@@ -2562,7 +2562,8 @@ fn reload_repo_at_operation(
             | RepoLoaderError::IndexStore(_)
             | RepoLoaderError::OpHeadsStoreError(_)
             | RepoLoaderError::OpStore(_)
-            | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
+            | RepoLoaderError::TransactionCommit(_)
+            | RepoLoaderError::WorkspaceStore(_) => RevsetResolutionError::Other(err.into()),
         })
 }
 

@@ -44,6 +44,7 @@ use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::BackendInitializer;
 use crate::repo::CheckOutCommitError;
 use crate::repo::IndexStoreInitializer;
+use crate::repo::OpContext;
 use crate::repo::OpHeadsStoreInitializer;
 use crate::repo::OpStoreInitializer;
 use crate::repo::ReadonlyRepo;
@@ -103,6 +104,8 @@ pub enum WorkspaceLoadError {
     NoWorkspaceHere(PathBuf),
     #[error("Cannot read the repo")]
     StoreLoadError(#[from] StoreLoadError),
+    #[error(transparent)]
+    WorkspaceStoreError(#[from] WorkspaceStoreError),
     #[error("Repo path could not be decoded")]
     DecodeRepoPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -522,7 +525,10 @@ impl Workspace {
 
     pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         self.repo_loader()
-            .load_at_head(Some(self.workspace_name()))
+            .load_at_head(&OpContext::Workspace {
+                name: self.workspace_name().to_owned(),
+                workspace_type: self.workspace_type(),
+            })
             .await
     }
 
@@ -695,9 +701,18 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
         store_factories: &StoreFactories,
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Workspace, WorkspaceLoadError> {
-        let workspace_type = WorkspaceType::Regular;
         let repo_loader =
             RepoLoader::init_from_file_system(user_settings, &self.repo_path, store_factories)?;
+        let workspace_type = if let Some(workspace_metadata) = repo_loader
+            .workspace_store()
+            .get_workspace_metadata_by_workspace_path(&self.workspace_root)?
+        {
+            workspace_metadata.workspace_type()
+        } else {
+            // For now we assume regular workspaces if we cannot find the
+            // workspace in the WorkspaceStore.
+            WorkspaceType::Regular
+        };
         let working_copy_factory = get_working_copy_factory(self, working_copy_factories)?;
         let working_copy = working_copy_factory.load_working_copy(
             repo_loader.store().clone(),
