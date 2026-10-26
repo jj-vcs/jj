@@ -222,7 +222,6 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
     Choose which change to converge (jj converge only converges one change at a time):
     1: zsuskulnrvyr
     2: kmkuslswpqwq
-    q: abort
     Error: Cannot prompt for input since the output is not connected to a terminal
     [EOF]
     [exit status: 1]
@@ -244,8 +243,7 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
     Choose which change to converge (jj converge only converges one change at a time):
     1: zsuskulnrvyr
     2: kmkuslswpqwq
-    q: abort
-    Enter the index of the change to converge: Error: Prompt canceled by EOF
+    Enter the index or change ID of the change to converge: Error: Prompt canceled by EOF
     [EOF]
     [exit status: 1]
     ");
@@ -316,10 +314,9 @@ fn test_converge_two_divergent_changes() {
     [EOF]
     ");
 
-    // If the user chooses to abort the converge operation nothing changes.
-    let output = work_dir
-        .run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("q\n"))
-        .success();
+    // If the user cancels the prompt by EOF nothing changes.
+    let output =
+        work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin(""));
 
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -335,19 +332,24 @@ fn test_converge_two_divergent_changes() {
     Choose which change to converge (jj converge only converges one change at a time):
     1: zsuskulnrvyr
     2: kmkuslswpqwq
-    q: abort
-    Enter the index of the change to converge: 
-
-    Aborting... nothing changed.
+    Enter the index or change ID of the change to converge: Error: Prompt canceled by EOF
     [EOF]
+    [exit status: 1]
     ");
 
-    // Run the command again, this time the user chooses the first divergent change.
+    // Run the command again, this time the user chooses the first divergent change
+    // by its change ID, after an unrecognized response. The change ID is matched
+    // case-insensitively, like in revsets.
     // This invocation succeeds to automatically converge that change. A hint is
     // printed to inform the user that there is still one divergent change
     // remaining.
+    let before_choice_opid = work_dir.current_operation_id();
     let output = work_dir
-        .run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("1\n"))
+        .run_jj_with(|cmd| {
+            force_interactive(cmd)
+                .args(["converge"])
+                .write_stdin("zz\nZS\n")
+        })
         .success();
 
     insta::assert_snapshot!(output, @"
@@ -364,8 +366,8 @@ fn test_converge_two_divergent_changes() {
     Choose which change to converge (jj converge only converges one change at a time):
     1: zsuskulnrvyr
     2: kmkuslswpqwq
-    q: abort
-    Enter the index of the change to converge: 
+    Enter the index or change ID of the change to converge: unrecognized response
+    Enter the index or change ID of the change to converge: 
 
     Attempting to converge change zsuskulnrvyr...
 
@@ -452,6 +454,53 @@ fn test_converge_two_divergent_changes() {
     ------- stderr -------
     No revisions were found to be divergent with each other in revsets.converge: mutable() & divergent()
     Hint: Multiple revisions in the search space must have the same change ID to be considered divergent.
+    [EOF]
+    ");
+
+    // Go back to before the first divergent change was chosen, and choose the
+    // same change by its index instead. The created commit ID may differ from
+    // the run above, but the same change is converged.
+    work_dir
+        .run_jj(["op", "restore", &before_choice_opid])
+        .success();
+    let output = work_dir
+        .run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("1\n"))
+        .success();
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 2 divergent change(s) in the specified revset:
+    - Change: zsuskulnrvyr with 2 commits:
+        zsuskuln/1 2c2bd25d b2 | (divergent) b2
+        zsuskuln/2 59a77004 b1 | (divergent) b2
+
+    - Change: kmkuslswpqwq with 2 commits:
+        kmkuslsw/1 b54f15d8 e2 | (divergent) e2
+        kmkuslsw/2 15962bae e1 | (divergent) e2
+
+    Choose which change to converge (jj converge only converges one change at a time):
+    1: zsuskulnrvyr
+    2: kmkuslswpqwq
+    Enter the index or change ID of the change to converge: 
+
+    Attempting to converge change zsuskulnrvyr...
+
+    Successfully converged change: created commit 46c6a9a65bf5.
+    Rebased 1 descendants
+    Hint: There are still 1 divergent changes remaining in the specified revset, you can run this command again to converge another one.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
+    @  g  xznxytkn  46658cae - description: g
+    ○  e1  kmkuslsw/2  15962bae - description: e2
+    │ ○  e2  kmkuslsw/1  b54f15d8 - description: e2
+    │ ○  f  lylxulpl  d50e2761 - description: f
+    ├─╯
+    │ ○  d  znkkpsqq  56a600f3 - description: d
+    │ ○  b1 b2  zsuskuln  46c6a9a6 - description: b2
+    │ ○  c  royxmykx  4343fc61 - description: c
+    ├─╯
+    ○  a  rlvkpnrz  e9a731d9 - description: a
+    ◆    zzzzzzzz  00000000
     [EOF]
     ");
 }
@@ -635,14 +684,12 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     ");
 
     // `-r a::` does resolve to both divergent changes. In this test we simulate the
-    // user aborts at the prompt.
-    let output = work_dir
-        .run_jj_with(|cmd| {
-            force_interactive(cmd)
-                .args(["converge", "-r", "a::"])
-                .write_stdin("q\n")
-        })
-        .success();
+    // user cancels the prompt by EOF.
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["converge", "-r", "a::"])
+            .write_stdin("")
+    });
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 2 divergent change(s) in the specified revset:
@@ -658,11 +705,9 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     Choose which change to converge (jj converge only converges one change at a time):
     1: zsuskulnrvyr
     2: kmkuslswpqwq
-    q: abort
-    Enter the index of the change to converge: 
-
-    Aborting... nothing changed.
+    Enter the index or change ID of the change to converge: Error: Prompt canceled by EOF
     [EOF]
+    [exit status: 1]
     ");
 
     // `-r b1|e3` resolve to those two commits. Both ARE divergent commits, but in
