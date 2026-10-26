@@ -3034,6 +3034,12 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         Ok(())
     }
 
+    async fn adopt(&mut self, commit: &Commit) -> Result<(), ResetError> {
+        // Forgetting all file states makes the next snapshot examine every
+        // file on disk.
+        self.recover(commit).await
+    }
+
     fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
         self.wc.sparse_patterns()
     }

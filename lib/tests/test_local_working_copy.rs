@@ -84,6 +84,7 @@ use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
 use testutils::write_random_commit;
+use testutils::write_working_copy_file;
 
 fn check_icase_fs(dir: &Path) -> bool {
     let test_file = tempfile::Builder::new()
@@ -758,6 +759,59 @@ fn test_reset() -> TestResult {
     assert!(wc.file_states()?.contains_path(ignored_path));
     let new_tree = test_workspace.snapshot()?;
     assert_tree_eq!(new_tree, tree_with_file);
+    Ok(())
+}
+
+#[test]
+fn test_adopt() -> TestResult {
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let op_id = repo.op_id().clone();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    let unchanged_path = repo_path("unchanged");
+    let modified_path = repo_path("modified");
+    let added_path = repo_path("added");
+    let removed_path = repo_path("removed");
+
+    let tree = create_tree(
+        repo,
+        &[
+            (unchanged_path, "unchanged"),
+            (modified_path, "old"),
+            (removed_path, "removed"),
+        ],
+    );
+    let commit = commit_with_tree(repo.store(), tree);
+
+    // Files that already exist on disk but have never been checked out
+    write_working_copy_file(&workspace_root, unchanged_path, "unchanged");
+    write_working_copy_file(&workspace_root, modified_path, "new");
+    write_working_copy_file(&workspace_root, added_path, "added");
+
+    let ws = &mut test_workspace.workspace;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
+    locked_ws.locked_wc().adopt(&commit).block_on()?;
+    locked_ws.finish(op_id).block_on()?;
+
+    // Adopting doesn't touch the files on disk
+    assert!(!removed_path.to_fs_path_unchecked(&workspace_root).exists());
+    assert_eq!(
+        std::fs::read_to_string(modified_path.to_fs_path_unchecked(&workspace_root))?,
+        "new"
+    );
+
+    // The snapshot records the differences between the commit and the disk
+    let new_tree = test_workspace.snapshot()?;
+    let expected_tree = create_tree(
+        &test_workspace.repo,
+        &[
+            (unchanged_path, "unchanged"),
+            (modified_path, "new"),
+            (added_path, "added"),
+        ],
+    );
+    assert_tree_eq!(new_tree, expected_tree);
     Ok(())
 }
 
