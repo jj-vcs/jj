@@ -457,6 +457,29 @@ fn test_workspaces_add_workspace_at_revision() {
     "#);
 }
 
+/// Test that an invalid '-r' doesn't leave a half-created workspace behind
+#[test]
+fn test_workspaces_add_workspace_at_invalid_revision() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    let output = main_dir.run_jj(["workspace", "add", "../secondary", "-r", "nonexistent"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Revision `nonexistent` doesn't exist
+    [EOF]
+    [exit status: 1]
+    ");
+    assert!(!test_env.env_root().join("secondary").exists());
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @"
+    default (current): . qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+}
+
 /// Test multiple `-r` flags to `workspace add` to create a workspace
 /// working-copy commit with multiple parents.
 #[test]
