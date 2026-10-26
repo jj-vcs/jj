@@ -82,6 +82,7 @@ use jj_lib::matchers::Matcher;
 use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
+use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_heads_store;
 use jj_lib::op_store::OpStoreError;
@@ -3604,6 +3605,51 @@ pub fn short_change_hash(change_id: &ChangeId) -> String {
     format!("{change_id:.12}")
 }
 
+/// Parses the response to a prompt asking to choose one of the `candidates`.
+///
+/// A candidate can be chosen by its 1-based index, or by any other text that
+/// `matches` exactly one candidate (e.g. an ID prefix). Indices take
+/// precedence over `matches`.
+pub fn parse_index_or_match_choice<T>(
+    input: &str,
+    candidates: &[T],
+    mut matches: impl FnMut(&T, &str) -> bool,
+) -> Result<usize, &'static str> {
+    if let Ok(index) = input.parse::<usize>()
+        && input == index.to_string() // reject "01", "+1", etc.
+        && (1..=candidates.len()).contains(&index)
+    {
+        return Ok(index - 1);
+    }
+    let mut matched = candidates
+        .iter()
+        .enumerate()
+        .filter(|(_, candidate)| matches(candidate, input))
+        .map(|(index, _)| index);
+    match (matched.next(), matched.next()) {
+        (Some(index), None) => Ok(index),
+        (Some(_), Some(_)) => Err("ambiguous response: matches more than one choice"),
+        (None, _) => Err("unrecognized response"),
+    }
+}
+
+/// Parses the response to a prompt asking to choose one of the `candidates`
+/// by its 1-based index or by a prefix of its change ID.
+///
+/// See [`parse_index_or_match_choice()`] for details.
+pub fn parse_index_or_change_id_choice<T>(
+    input: &str,
+    candidates: &[T],
+    mut change_id: impl FnMut(&T) -> &ChangeId,
+) -> Result<usize, &'static str> {
+    let prefix = HexPrefix::try_from_reverse_hex(input);
+    parse_index_or_match_choice(input, candidates, |candidate, _| {
+        prefix
+            .as_ref()
+            .is_some_and(|prefix| prefix.matches(change_id(candidate)))
+    })
+}
+
 pub fn short_operation_hash(operation_id: &OperationId) -> String {
     format!("{operation_id:.12}")
 }
@@ -4408,4 +4454,120 @@ pub fn shell_quote(s: &str) -> Cow<'_, str> {
     // shlex::try_quote fails if `s` has a nul byte, which
     // shouldn't usually happen. Fall back to unquoted on error.
     shlex::try_quote(s).unwrap_or(s.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_index_or_match_choice() {
+        let candidates = ["qpvuntsm", "kkmpptxz", "kmkuslsw"];
+        let parse = |input: &str| {
+            parse_index_or_match_choice(input, &candidates, |candidate, input| {
+                candidate.starts_with(&input.to_ascii_lowercase())
+            })
+        };
+
+        // Indices are 1-based
+        assert_eq!(parse("1"), Ok(0));
+        assert_eq!(parse("3"), Ok(2));
+
+        // Anything else is passed to the matcher
+        assert_eq!(parse("qp"), Ok(0));
+        assert_eq!(parse("QP"), Ok(0));
+        assert_eq!(parse("kk"), Ok(1));
+        // "q" isn't special, and is matched like any other prefix
+        assert_eq!(parse("q"), Ok(0));
+        assert_eq!(parse("Q"), Ok(0));
+        assert_eq!(
+            parse("k"),
+            Err("ambiguous response: matches more than one choice")
+        );
+        assert_eq!(parse("z"), Err("unrecognized response"));
+        assert_eq!(parse("0"), Err("unrecognized response"));
+        assert_eq!(parse("4"), Err("unrecognized response"));
+        assert_eq!(parse("01"), Err("unrecognized response"));
+        assert_eq!(parse("+1"), Err("unrecognized response"));
+    }
+
+    #[test]
+    fn test_parse_index_or_match_choice_number_as_match() {
+        // Helper contract only (the matcher is supplied by the caller);
+        // next/prev and converge never match digits, since change IDs have no
+        // digits.
+        // Numbers that aren't exact indices can still match a candidate
+        let candidates = ["2245ef74", "0133fd16", "9439bf06"];
+        let parse = |input: &str| {
+            parse_index_or_match_choice(input, &candidates, |candidate, input| {
+                candidate.starts_with(input)
+            })
+        };
+        // Indices take precedence over matches
+        assert_eq!(parse("2"), Ok(1));
+        assert_eq!(parse("22"), Ok(0));
+        assert_eq!(parse("01"), Ok(1));
+        assert_eq!(parse("9"), Ok(2));
+    }
+
+    #[test]
+    fn test_parse_index_or_change_id_choice() {
+        let change_id = |hex: &str| ChangeId::try_from_reverse_hex(hex).unwrap();
+        let parse = |input: &str, candidates: &[ChangeId]| {
+            parse_index_or_change_id_choice(input, candidates, |id| id)
+        };
+
+        let candidates = [
+            change_id("qpvuntsm"),
+            change_id("kkmpptxz"),
+            change_id("kmkuslsw"),
+        ];
+        // Indices are 1-based
+        assert_eq!(parse("1", &candidates), Ok(0));
+        assert_eq!(parse("3", &candidates), Ok(2));
+        // Anything else is matched as a change ID prefix, case-insensitively
+        assert_eq!(parse("qp", &candidates), Ok(0));
+        assert_eq!(parse("QP", &candidates), Ok(0));
+        assert_eq!(parse("kk", &candidates), Ok(1));
+        assert_eq!(
+            parse("k", &candidates),
+            Err("ambiguous response: matches more than one choice")
+        );
+        assert_eq!(parse("z", &candidates), Err("unrecognized response"));
+        // With 3 candidates, these are not valid indices and are rejected
+        // (change ID prefixes contain no digits)
+        assert_eq!(parse("0", &candidates), Err("unrecognized response"));
+        assert_eq!(parse("4", &candidates), Err("unrecognized response"));
+        assert_eq!(parse("22", &candidates), Err("unrecognized response"));
+        assert_eq!(parse("01", &candidates), Err("unrecognized response"));
+        assert_eq!(parse("+1", &candidates), Err("unrecognized response"));
+        // "a" is outside the change ID alphabet.
+        assert_eq!(parse("a", &candidates), Err("unrecognized response"));
+
+        // Whether "22" is rejected depends on the number of candidates: with at
+        // least 22 candidates, it's a valid index
+        let many_candidates = (0..22)
+            .map(|i| ChangeId::new(vec![i; 4]))
+            .collect::<Vec<_>>();
+        assert_eq!(parse("22", &many_candidates), Ok(21));
+        assert_eq!(parse("23", &many_candidates), Err("unrecognized response"));
+
+        // Candidates may share a change ID (e.g. divergent commits); indices
+        // still disambiguate.
+        let candidates = [
+            change_id("qpvuntsm"),
+            change_id("qpvuntsm"),
+            change_id("zsuskuln"),
+        ];
+        assert_eq!(
+            parse("qpvuntsm", &candidates),
+            Err("ambiguous response: matches more than one choice")
+        );
+        assert_eq!(
+            parse("qp", &candidates),
+            Err("ambiguous response: matches more than one choice")
+        );
+        assert_eq!(parse("1", &candidates), Ok(0));
+        assert_eq!(parse("2", &candidates), Ok(1));
+    }
 }

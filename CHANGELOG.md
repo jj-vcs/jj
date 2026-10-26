@@ -70,6 +70,10 @@ and this project adheres to
   different than `self.target().current_working_copy()` because multiple
   workspaces can point to the same commit.
 
+* `jj next`/`jj prev` now accept a change ID prefix when prompting for the
+  target commit. The special `q` quit choice was removed; cancel with EOF.
+  [#9790](https://github.com/jj-vcs/jj/issues/9790)
+
 ### Fixed bugs
 
 * The operations created by `jj workspace add` are now attributed to the

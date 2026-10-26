@@ -26,6 +26,7 @@ use jj_lib::revset::RevsetStreamExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
+use crate::cli_util::parse_index_or_change_id_choice;
 use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
@@ -218,25 +219,19 @@ fn choose_commit<'a>(
     )?;
     let mut formatter = ui.stderr_formatter();
     let template = workspace_command.commit_summary_template();
-    let mut choices: Vec<String> = Default::default();
     for (i, commit) in commits.iter().enumerate() {
         write!(formatter, "{}: ", i + 1)?;
         template.format(commit, formatter.as_mut())?;
         writeln!(formatter)?;
-        choices.push(format!("{}", i + 1));
     }
-    writeln!(formatter, "q: quit the prompt")?;
-    choices.push("q".to_string());
     drop(formatter);
 
-    let index = ui.prompt_choice(
-        "enter the index of the commit you want to target",
-        &choices,
+    let index = ui.prompt_choice_with(
+        "enter the index or change ID of the commit you want to target",
         None,
+        |input| parse_index_or_change_id_choice(input, commits, |commit| commit.change_id()),
     )?;
-    commits
-        .get(index)
-        .ok_or_else(|| user_error("ambiguous target commit"))
+    Ok(&commits[index])
 }
 
 pub(crate) async fn move_to_commit(
