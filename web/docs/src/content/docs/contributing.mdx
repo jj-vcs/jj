@@ -480,16 +480,16 @@ version and the dependencies needed to build the docs. Install it like so:
 To build the docs, run while inside the `jj` repository:
 
 ```shell
-uv run mkdocs serve
+uv run mkdocs serve --livereload
 ```
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser to see the docs.
+Open <http://127.0.0.1:8000> in your browser to see the docs.
 
 As you edit the `.md` files in `docs/`, the website should be rebuilt and
 reloaded in your browser automatically.
 
 :::note[If the docs are not updating]
-Check the terminal from which you ran `uv run mkdocs serve` for any build
+Check the terminal from which you ran `uv run mkdocs serve --livereload` for any build
 errors or warnings. Warnings about `"GET /versions.json HTTP/1.1" code 404`
 are expected and harmless.
 :::

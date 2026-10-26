@@ -141,7 +141,7 @@ run = "rumdl check --fix ."
 [tasks."serve:docs"]
 description = "Preview documentation with live reloading"
 tools.uv = "{{vars.uv_version}}"
-run = "uv run mkdocs serve"
+run = "uv run mkdocs serve --livereload"
 
 [tasks."serve:web"]
 description = "Preview the new astro-based documentation with live reloading"
