@@ -60,9 +60,3 @@ show-ruler = true
 max-new-file-size = "1MiB"
 auto-track = "all()"
 auto-update-stale = false
-
-# TODO: https://github.com/jj-vcs/jj/issues/3419 - Remove when fully deprecated.
-# The behavior when this flag is set to false is experimental and may be changed
-# in the future.
-[split]
-legacy-bookmark-behavior = true

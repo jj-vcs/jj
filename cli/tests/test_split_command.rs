@@ -15,7 +15,6 @@
 use std::path::PathBuf;
 
 use indoc::indoc;
-use test_case::test_case;
 use testutils::TestResult;
 
 use crate::common::CommandOutput;
@@ -1627,31 +1626,12 @@ fn test_split_move_first_commit() -> TestResult {
     Ok(())
 }
 
-enum BookmarkBehavior {
-    Default,
-    MoveBookmarkToChild,
-    LeaveBookmarkWithTarget,
-}
-
-// TODO: https://github.com/jj-vcs/jj/issues/3419 - Delete params when the config is removed.
-#[test_case(BookmarkBehavior::Default; "default_behavior")]
-#[test_case(BookmarkBehavior::MoveBookmarkToChild; "move_bookmark_to_child")]
-#[test_case(BookmarkBehavior::LeaveBookmarkWithTarget; "leave_bookmark_with_target")]
-fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) -> TestResult {
+#[test]
+fn test_split_with_bookmarks() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_dir = test_env.work_dir("main");
-
-    match bookmark_behavior {
-        BookmarkBehavior::LeaveBookmarkWithTarget => {
-            test_env.add_config("split.legacy-bookmark-behavior=false");
-        }
-        BookmarkBehavior::MoveBookmarkToChild => {
-            test_env.add_config("split.legacy-bookmark-behavior=true");
-        }
-        BookmarkBehavior::Default => (),
-    }
 
     // Setup.
     main_dir.run_jj(["desc", "-m", "first-commit"]).success();
@@ -1660,13 +1640,11 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) -> TestResult 
     main_dir
         .run_jj(["bookmark", "set", "*le-signet*", "-r", "@"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  qpvuntsmwlqt false *le-signet* first-commit
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
-    }
     let setup_opid = main_dir.current_operation_id();
 
     // Do the split.
@@ -1679,77 +1657,56 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) -> TestResult 
     "};
     std::fs::write(&edit_script, [edit_instr].join("\0"))?;
     let output = main_dir.run_jj(["split", "file2"]);
-    match bookmark_behavior {
-        BookmarkBehavior::LeaveBookmarkWithTarget => {
-            insta::allow_duplicates! {
-            insta::assert_snapshot!(output, @"
-            ------- stderr -------
-            Selected changes : qpvuntsm a481fe8a *le-signet* | first-commit
-            Remaining changes: mzvwutvl 5f597a6e second-commit
-            Working copy  (@) now at: mzvwutvl 5f597a6e second-commit
-            Parent commit (@-)      : qpvuntsm a481fe8a *le-signet* | first-commit
-            [EOF]
-            ");
-            }
-            insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @"
-            @  mzvwutvlkqwt false second-commit
-            ○  qpvuntsmwlqt false *le-signet* first-commit
-            ◆  zzzzzzzzzzzz true
-            [EOF]
-            ");
-            }
-        }
-        BookmarkBehavior::Default | BookmarkBehavior::MoveBookmarkToChild => {
-            insta::allow_duplicates! {
-            insta::assert_snapshot!(output, @"
-            ------- stderr -------
-            Selected changes : qpvuntsm a481fe8a first-commit
-            Remaining changes: mzvwutvl 5f597a6e *le-signet* | second-commit
-            Working copy  (@) now at: mzvwutvl 5f597a6e *le-signet* | second-commit
-            Parent commit (@-)      : qpvuntsm a481fe8a first-commit
-            [EOF]
-            ");
-            }
-            insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @"
-            @  mzvwutvlkqwt false *le-signet* second-commit
-            ○  qpvuntsmwlqt false first-commit
-            ◆  zzzzzzzzzzzz true
-            [EOF]
-            ");
-            }
-        }
-    }
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Selected changes : qpvuntsm a481fe8a first-commit
+    Remaining changes: mzvwutvl 5f597a6e *le-signet* | second-commit
+    Working copy  (@) now at: mzvwutvl 5f597a6e *le-signet* | second-commit
+    Parent commit (@-)      : qpvuntsm a481fe8a first-commit
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&main_dir), @"
+    @  mzvwutvlkqwt false *le-signet* second-commit
+    ○  qpvuntsmwlqt false first-commit
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
 
     // Test again with a --parallel split.
     main_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, [edit_instr].join("\0"))?;
     main_dir.run_jj(["split", "file2", "--parallel"]).success();
-    match bookmark_behavior {
-        BookmarkBehavior::LeaveBookmarkWithTarget => {
-            insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @"
-            @  vruxwmqvtpmx false second-commit
-            │ ○  qpvuntsmwlqt false *le-signet* first-commit
-            ├─╯
-            ◆  zzzzzzzzzzzz true
-            [EOF]
-            ");
-            }
-        }
-        BookmarkBehavior::Default | BookmarkBehavior::MoveBookmarkToChild => {
-            insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @"
-            @  vruxwmqvtpmx false *le-signet* second-commit
-            │ ○  qpvuntsmwlqt false first-commit
-            ├─╯
-            ◆  zzzzzzzzzzzz true
-            [EOF]
-            ");
-            }
-        }
-    }
+    insta::assert_snapshot!(get_log_output(&main_dir), @"
+    @  vruxwmqvtpmx false *le-signet* second-commit
+    │ ○  qpvuntsmwlqt false first-commit
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
+fn test_split_deprecated_legacy_bookmark_behavior_config() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    test_env.add_config("split.legacy-bookmark-behavior = false");
+
+    main_dir.write_file("file1", "foo");
+    main_dir.write_file("file2", "foo");
+    std::fs::write(&edit_script, "")?;
+    let output = main_dir.run_jj(["split", "file2"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Deprecated user-level config: `split.legacy-bookmark-behavior` is deprecated.
+    Selected changes : qpvuntsm 76cad11d (no description set)
+    Remaining changes: rlvkpnrz def941fc (no description set)
+    Working copy  (@) now at: rlvkpnrz def941fc (no description set)
+    Parent commit (@-)      : qpvuntsm 76cad11d (no description set)
+    [EOF]
+    ");
     Ok(())
 }
 

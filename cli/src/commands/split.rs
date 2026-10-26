@@ -500,29 +500,23 @@ async fn rewrite_descendants(
     second_commit: Commit,
     parallel: bool,
 ) -> Result<(Commit, Commit, usize), CommandError> {
-    let legacy_bookmark_behavior = tx.settings().get_bool("split.legacy-bookmark-behavior")?;
-    if legacy_bookmark_behavior {
-        // Mark the commit being split as rewritten to the second commit. This
-        // moves any bookmarks pointing to the target commit to the second
-        // commit.
-        tx.repo_mut()
-            .set_rewritten_commit(target.commit.id().clone(), second_commit.id().clone());
-    }
+    // Mark the commit being split as rewritten to the second commit. This
+    // moves any bookmarks pointing to the target commit to the second
+    // commit.
+    tx.repo_mut()
+        .set_rewritten_commit(target.commit.id().clone(), second_commit.id().clone());
     let mut num_rebased = 0;
     tx.repo_mut()
         .transform_descendants(
             vec![target.commit.id().clone()],
             async |mut rewriter: CommitRewriter<'_>| {
                 num_rebased += 1;
-                if parallel && legacy_bookmark_behavior {
+                if parallel {
                     // The old_parent is the second commit due to the rewrite above.
                     rewriter.replace_parent(
                         second_commit.id(),
                         [first_commit.id(), second_commit.id()],
                     );
-                } else if parallel {
-                    rewriter
-                        .replace_parent(first_commit.id(), [first_commit.id(), second_commit.id()]);
                 } else {
                     rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
                 }

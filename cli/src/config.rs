@@ -1056,6 +1056,16 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 Ok(messages.join(", "))
             },
         ),
+        // TODO: Remove in jj 0.53+
+        ConfigMigrationRule::custom(
+            |layer| {
+                matches!(
+                    layer.look_up_item("split.legacy-bookmark-behavior"),
+                    Ok(Some(_))
+                )
+            },
+            |_| Ok("`split.legacy-bookmark-behavior` is deprecated.".into()),
+        ),
     ]
 }
 
