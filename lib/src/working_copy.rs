@@ -133,6 +133,16 @@ pub trait LockedWorkingCopy: Any + Send {
     /// without assuming that the previous tree exists.
     async fn recover(&mut self, commit: &Commit) -> Result<(), ResetError>;
 
+    /// Start tracking the files already present in the working copy directory,
+    /// using the specified commit as the base. Nothing is assumed about the
+    /// files on disk, so the next snapshot will record any differences from
+    /// the commit. Files on disk are not modified.
+    ///
+    /// Returns `ResetError::AdoptNotSupported` if the implementation can't
+    /// adopt existing files (e.g. because it's backed by a virtual file
+    /// system).
+    async fn adopt(&mut self, commit: &Commit) -> Result<(), ResetError>;
+
     /// See `WorkingCopy::sparse_patterns()`
     fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError>;
 
@@ -329,6 +339,10 @@ pub enum ResetError {
     /// Failed to load the working copy state.
     #[error(transparent)]
     WorkingCopyStateError(#[from] WorkingCopyStateError),
+    /// The working copy implementation doesn't support adopting existing
+    /// files.
+    #[error("Adopting existing files is not supported by this working copy")]
+    AdoptNotSupported,
     /// Some other error happened while resetting the working copy.
     #[error("{message}")]
     Other {
