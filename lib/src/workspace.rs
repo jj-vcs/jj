@@ -528,6 +528,13 @@ impl Workspace {
         self.workspace_type
     }
 
+    pub fn op_context(&self) -> OpContext {
+        OpContext::Workspace {
+            name: self.workspace_name().to_owned(),
+            workspace_type: self.workspace_type(),
+        }
+    }
+
     pub fn repo_path(&self) -> &Path {
         &self.repo_path
     }

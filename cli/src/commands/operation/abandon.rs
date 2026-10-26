@@ -20,7 +20,6 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::op_heads_store::get_op_heads_key_for_opcontext;
 use jj_lib::op_walk;
-use jj_lib::repo::OpContext;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::short_operation_hash;
@@ -67,7 +66,7 @@ pub async fn cmd_op_abandon(
         return Err(cli_error("--at-op is not respected"));
     }
     let op_heads_key =
-        get_op_heads_key_for_opcontext(repo_loader.workspace_store(), &OpContext::Repo)?;
+        get_op_heads_key_for_opcontext(repo_loader.workspace_store(), &workspace.op_context())?;
     let current_head_ops =
         op_walk::get_current_head_ops(op_store, op_heads_store.as_ref(), &op_heads_key).await?;
     let resolve_op = |op_str| op_walk::resolve_op_at(op_store, &current_head_ops, op_str);

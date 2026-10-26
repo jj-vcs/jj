@@ -85,7 +85,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_heads_store;
-use jj_lib::op_heads_store::OpHeadsKey;
+use jj_lib::op_heads_store::get_op_heads_key_for_opcontext;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::RefTarget;
@@ -100,6 +100,7 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::EditCommitError;
 use jj_lib::repo::MutableRepo;
+use jj_lib::repo::OpContext;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo::RepoLoader;
@@ -534,8 +535,8 @@ impl CommandHelper {
         workspace: Workspace,
         mut env: WorkspaceCommandEnvironment,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
-        let op_head =
-            self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
+        let op_context = workspace.op_context();
+        let op_head = self.resolve_operation(ui, workspace.repo_loader(), &op_context)?;
         let repo = workspace.load_at(&op_head).await?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
@@ -801,15 +802,24 @@ impl CommandHelper {
         &self,
         ui: &Ui,
         repo_loader: &RepoLoader,
-        workspace_name: &WorkspaceName,
+        op_context: &OpContext,
     ) -> Result<Operation, CommandError> {
+        let workspace_name = match op_context {
+            OpContext::Repo => None,
+            OpContext::Workspace {
+                name,
+                workspace_type: _,
+            } => Some(name.as_ref()),
+        };
+        let op_heads_key =
+            get_op_heads_key_for_opcontext(repo_loader.workspace_store(), op_context)?;
         if let Some(op_str) = &self.data.global_args.at_operation {
-            Ok(op_walk::resolve_op_for_load(repo_loader, &OpHeadsKey::Repo, op_str).block_on()?)
+            Ok(op_walk::resolve_op_for_load(repo_loader, &op_heads_key, op_str).block_on()?)
         } else {
             op_heads_store::resolve_op_heads(
                 repo_loader.op_heads_store().as_ref(),
                 repo_loader.op_store(),
-                &OpHeadsKey::Repo,
+                &op_heads_key,
                 async |op_heads| {
                     writeln!(
                         ui.status(),
@@ -821,7 +831,7 @@ impl CommandHelper {
                         Some(ui),
                         repo_loader,
                         op_heads,
-                        Some(workspace_name),
+                        workspace_name,
                         Some(transaction_description),
                         &self.data.string_args,
                     )
@@ -1482,7 +1492,7 @@ impl WorkspaceCommandHelper {
             let new_git_head_commit = tx.repo().store().get_commit_async(new_git_head_id).await?;
             let wc_commit = tx
                 .repo_mut()
-                .check_out(workspace_name, &new_git_head_commit)
+                .check_out(workspace_name.clone(), &new_git_head_commit)
                 .await?;
             let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
             // The working copy was presumably updated by the git command that updated
