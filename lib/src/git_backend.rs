@@ -1508,7 +1508,8 @@ impl Backend for GitBackend {
                 let dest = str::from_utf8(dest_location)
                     .map_err(|err| to_invalid_utf8_err(err, head_id))?;
 
-                let target = RepoPathBuf::from_internal_string(dest).unwrap();
+                let target = RepoPathBuf::from_internal_string(dest)
+                    .map_err(|err| to_read_object_err(err, head_id))?;
                 if !paths.is_none_or(|paths| paths.contains(&target)) {
                     return Ok(None);
                 }
@@ -1516,7 +1517,8 @@ impl Backend for GitBackend {
                 Ok(Some(CopyRecord {
                     target,
                     target_commit: head_id.clone(),
-                    source: RepoPathBuf::from_internal_string(source).unwrap(),
+                    source: RepoPathBuf::from_internal_string(source)
+                        .map_err(|err| to_read_object_err(err, root_id))?,
                     source_file: FileId::from_bytes(source_id.as_bytes()),
                     source_commit: root_id.clone(),
                 }))
@@ -2157,6 +2159,71 @@ mod tests {
             .read_tree(RepoPath::root(), &TreeId::from_bytes(tree_id.as_bytes()))
             .block_on();
         assert_matches!(result, Err(BackendError::ReadObject { .. }));
+        Ok(())
+    }
+
+    #[test]
+    fn copy_records_with_invalid_path() -> TestResult {
+        let settings = user_settings();
+        let temp_dir = new_temp_dir();
+        let store_path = temp_dir.path();
+        let git_repo_path = temp_dir.path().join("git");
+        let git_repo = git_init(git_repo_path, gix::hash::Kind::default());
+
+        // A file renamed to a name ending in "/", which git doesn't create but
+        // can be written by hand. The new path, "file/", is not a valid repo
+        // path.
+        let blob_id = git_repo.write_blob(b"content\n")?.detach();
+        let write_tree = |filename: &str| -> TestResult<gix::ObjectId> {
+            let tree = gix::objs::Tree {
+                entries: vec![gix::objs::tree::Entry {
+                    mode: gix::object::tree::EntryKind::Blob.into(),
+                    filename: filename.into(),
+                    oid: blob_id,
+                }],
+            };
+            Ok(git_repo.write_object(&tree)?.detach())
+        };
+        let before_tree = write_tree("file")?;
+        let after_tree = write_tree("file/")?;
+        let signature = gix::actor::Signature {
+            name: GIT_USER.into(),
+            email: GIT_EMAIL.into(),
+            time: gix::date::Time::now_utc(),
+        };
+        let commit = |reference: &str, tree| {
+            git_repo.commit_as(
+                signature.to_ref(&mut TimeBuf::default()),
+                signature.to_ref(&mut TimeBuf::default()),
+                reference,
+                "commit",
+                tree,
+                [] as [gix::ObjectId; 0],
+            )
+        };
+        let before = commit("refs/heads/before", before_tree)?.detach();
+        let after = commit("refs/heads/after", after_tree)?.detach();
+
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
+        let copy_records = |root: gix::ObjectId, head: gix::ObjectId| -> TestResult<Vec<_>> {
+            Ok(backend
+                .get_copy_records(
+                    None,
+                    &CommitId::from_bytes(root.as_bytes()),
+                    &CommitId::from_bytes(head.as_bytes()),
+                )?
+                .collect()
+                .block_on())
+        };
+        // The invalid path as the target, then as the source.
+        assert_matches!(
+            copy_records(before, after)?.as_slice(),
+            [Err(BackendError::ReadObject { .. })]
+        );
+        assert_matches!(
+            copy_records(after, before)?.as_slice(),
+            [Err(BackendError::ReadObject { .. })]
+        );
         Ok(())
     }
 
