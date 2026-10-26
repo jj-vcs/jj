@@ -286,13 +286,16 @@ These are listed roughly in order of decreasing importance.
    On Linux, you may be able to speed up `nextest` even further by using
    the `mold` linker, as explained below.
 
-### Configuring `jj fix` to run `rustfmt`
+### Configuring `jj fix` to run `rustfmt` and `rumdl`
 
 Run this in the jj repo:
 
 ```shell
 jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt", "+nightly"], patterns = ["glob:**/*.rs"] }'
+jj config set --repo fix.tools.rumdl '{ command = ["rumdl", "fmt", "--stdin", "--silent", "--stdin-filename=$path"], patterns = ["glob:**/*.md"] }'
 ```
+
+Install `rumdl` with `cargo install rumdl`.
 
 > Note: users of Nix and `direnv` should drop the `"+nightly"` argument above
 > since the devShell is already configured to pull in a nightly version of
