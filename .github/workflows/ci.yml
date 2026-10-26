@@ -84,7 +84,7 @@ jobs:
         toolchain: 1.97.1
         # comma-separated list of extra targets to install
         targets: ${{ matrix.extra_targets }}
-    - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8
+    - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283
       with:
         tool: nextest
     - name: Install mold
@@ -140,7 +140,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
+      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702
       - run: nix flake check -L --show-trace
 
   check-protos:
@@ -180,7 +180,7 @@ jobs:
         with:
           persist-credentials: false
       # Keep the version in sync with mise and the Nix development shell.
-      - uses: rvben/rumdl@9c4cc2a2ebe176de68e1788106e25af8a9bd3899 # v0.2.78
+      - uses: rvben/rumdl@19006897519812a2fdc508314b34738e5c281233 # v0.3.0
         with:
           version: "0.2.78"
           config: .config/rumdl.toml
@@ -319,7 +319,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
         with:
           sarif_file: results.sarif
           category: zizmor
