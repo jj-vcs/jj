@@ -508,6 +508,12 @@ impl From<WorkspaceInitError> for CommandError {
             WorkspaceInitError::CheckOutCommit(err) => {
                 internal_error_with_message("Failed to check out the initial commit", err)
             }
+            WorkspaceInitError::AdoptWorkingCopy(err @ ResetError::AdoptNotSupported) => {
+                user_error(err)
+            }
+            WorkspaceInitError::AdoptWorkingCopy(err) => {
+                internal_error_with_message("Failed to adopt the working copy", err)
+            }
             WorkspaceInitError::Path(err) => {
                 internal_error_with_message("Failed to access the repository", err)
             }
