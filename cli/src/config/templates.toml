@@ -682,3 +682,15 @@ concat(
 "format_gerrit_change_id_trailer(commit)" = '''
 "Change-Id: I" ++ commit.change_id().normal_hex() ++ "6a6a6964\n"
 '''
+
+[[--scope]]
+--when.commands = ["arrange"]
+[--scope.template-aliases]
+# TODO(https://github.com/ratatui/ansi-to-tui/issues/82): Hyperlinks do not work
+# in ratatui (the hyperlink and the rest of its line are completely stripped).
+# To prevent this from hitting any users, we will specifically disable
+# hyperlinks in `jj arrange`, which renders `templates.arrange` with color,
+# which may contain hyperlinks. Once this issue is closed, we can remove this
+# scoped section.
+'hyperlink(url, text, fallback)' = 'fallback'
+'hyperlink(url, text)' = 'text'
