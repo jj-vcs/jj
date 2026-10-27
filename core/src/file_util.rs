@@ -255,6 +255,30 @@ pub fn persist_temp_file<P: AsRef<Path>>(
         .map_err(|PersistError { error, file: _ }| error)
 }
 
+/// Persists the temporary file, preserving permissions of an existing target.
+///
+/// If `new_path` already exists, its permissions are copied onto `temp_file`
+/// before the rename. A missing target leaves the temporary file's permissions
+/// unchanged. Any other error while reading the target's metadata is returned.
+///
+/// See [`persist_temp_file()`] for crash-safety notes.
+pub fn persist_temp_file_with_permissions<P: AsRef<Path>>(
+    temp_file: NamedTempFile,
+    new_path: P,
+) -> io::Result<File> {
+    copy_permissions_if_exists(new_path.as_ref(), temp_file.as_file())?;
+    persist_temp_file(temp_file, new_path)
+}
+
+/// Copies permissions from `source` onto `target` when `source` exists.
+fn copy_permissions_if_exists(source: &Path, target: &File) -> io::Result<()> {
+    match source.metadata() {
+        Ok(metadata) => target.set_permissions(metadata.permissions()),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
 /// Like [`persist_temp_file()`], but doesn't try to overwrite the existing
 /// target on Windows.
 pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
@@ -658,6 +682,67 @@ mod tests {
             temp_file.as_file().metadata()?.permissions().mode() & 0o777,
             file.metadata()?.permissions().mode() & 0o777
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_persist_temp_file_with_permissions_overwrites() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let target = temp_dir.path().join("file");
+        fs::write(&target, b"old")?;
+        let mut temp_file = NamedTempFile::new_in(&temp_dir)?;
+        temp_file.write_all(b"new")?;
+        persist_temp_file_with_permissions(temp_file, &target)?;
+        assert_eq!(fs::read(&target)?, b"new");
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_persist_temp_file_with_permissions_missing_target() -> TestResult {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let temp_dir = new_temp_dir();
+        let target = temp_dir.path().join("file");
+        let mut temp_file = tempfile::Builder::new()
+            .permissions(fs::Permissions::from_mode(0o640))
+            .tempfile_in(&temp_dir)?;
+        temp_file.write_all(b"contents")?;
+        persist_temp_file_with_permissions(temp_file, &target)?;
+        assert_eq!(fs::read(&target)?, b"contents");
+        assert_eq!(fs::metadata(&target)?.permissions().mode() & 0o777, 0o640);
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_persist_temp_file_with_permissions_preserves_existing_mode() -> TestResult {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let temp_dir = new_temp_dir();
+        let target = temp_dir.path().join("file");
+        fs::write(&target, b"old")?;
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o640))?;
+        // NamedTempFile defaults to 0o600, which must not replace 0o640.
+        let mut temp_file = NamedTempFile::new_in(&temp_dir)?;
+        temp_file.write_all(b"new")?;
+        persist_temp_file_with_permissions(temp_file, &target)?;
+        assert_eq!(fs::read(&target)?, b"new");
+        assert_eq!(fs::metadata(&target)?.permissions().mode() & 0o777, 0o640);
+        Ok(())
+    }
+
+    #[test]
+    fn test_persist_temp_file_with_permissions_metadata_error() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let not_dir = temp_dir.path().join("not-a-dir");
+        fs::write(&not_dir, b"x")?;
+        let target = not_dir.join("file");
+        let mut temp_file = NamedTempFile::new_in(&temp_dir)?;
+        temp_file.write_all(b"contents")?;
+        let error = persist_temp_file_with_permissions(temp_file, &target).unwrap_err();
+        assert_ne!(error.kind(), io::ErrorKind::NotFound);
+        assert!(!target.exists());
         Ok(())
     }
 

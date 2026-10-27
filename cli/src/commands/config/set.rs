@@ -65,16 +65,15 @@ pub async fn cmd_config_set(
     command: &CommandHelper,
     args: &ConfigSetArgs,
 ) -> Result<(), CommandError> {
-    let mut file = args.target.edit_config_file(ui, command)?;
-
-    // If the user is trying to change the author config, we should warn them
-    // that it won't affect the working copy author
+    // The author warning reads the working copy, not the config file. Do it
+    // before taking the config lock.
     if args.name == ConfigNamePathBuf::from_iter(vec!["user", "name"]) {
         check_wc_author(ui, command, &args.value, AuthorChange::Name).await?;
     } else if args.name == ConfigNamePathBuf::from_iter(vec!["user", "email"]) {
         check_wc_author(ui, command, &args.value, AuthorChange::Email).await?;
     }
 
+    let (_lock, mut file) = args.target.edit_config_file_for_update(ui, command)?;
     file.set_value(&args.name, &args.value)
         .map_err(|err| user_error_with_message(format!("Failed to set {}", args.name), err))?;
     file.save()?;

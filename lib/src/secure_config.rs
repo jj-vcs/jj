@@ -34,6 +34,8 @@ use crate::file_util::new_temp_file_with_default_permissions;
 use crate::file_util::path_from_bytes;
 use crate::file_util::path_to_bytes;
 use crate::hex_util::encode_hex;
+use crate::lock::FileLock;
+use crate::lock::FileLockError;
 use crate::protos::secure_config::ConfigMetadata;
 
 const CONFIG_FILE: &str = "config.toml";
@@ -81,6 +83,10 @@ pub enum SecureConfigError {
     /// The config ID isn't CONFIG_ID_BYTES * 2 hex chars.
     #[error("Found an invalid config ID")]
     BadConfigIdError,
+
+    /// Failed to lock the config ID file while creating one.
+    #[error(transparent)]
+    LockError(#[from] FileLockError),
 }
 
 /// The path to the config file for a secure config.
@@ -400,6 +406,21 @@ impl SecureConfig {
         Ok(loaded)
     }
 
+    /// Locks creation of the config ID. Readers do not take this lock.
+    ///
+    /// Returns `None` when the repo directory does not exist yet, in which
+    /// case no config file can be written anyway.
+    fn lock_config_id(&self) -> Result<Option<FileLock>, SecureConfigError> {
+        if !self.repo_dir.try_exists().unwrap_or(false) {
+            return Ok(None);
+        }
+        let lock_path = self
+            .repo_dir
+            .join(self.config_id_name)
+            .with_extension("lock");
+        Ok(Some(FileLock::lock(lock_path)?))
+    }
+
     /// Determines the path to the config, and any metadata associated with it.
     /// If no config exists, an empty config file will be generated.
     pub fn load_config(
@@ -407,6 +428,12 @@ impl SecureConfig {
         rng: &mut ChaCha20Rng,
         root_config_dir: &Path,
     ) -> Result<LoadedSecureConfig, SecureConfigError> {
+        // Several `jj config set --repo` processes can otherwise each mint a
+        // config ID and leave keys in a directory that is no longer current.
+        // A miss cached before this lock was taken is discarded: another
+        // process may have created the config since.
+        let _lock = self.lock_config_id()?;
+        self.cache.take();
         let mut loaded = self.maybe_load_config(rng, root_config_dir)?;
         if loaded.config_file.is_none() {
             let (path, metadata) =
@@ -496,6 +523,24 @@ mod tests {
         assert_eq!(loaded2.config_file.unwrap(), path);
         assert_eq!(loaded2.metadata, loaded.metadata);
         assert!(loaded2.warnings.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_cached_missing_config_created_by_another_instance() -> TestResult {
+        let mut env = TestEnv::new();
+        assert_eq!(
+            env.config
+                .maybe_load_config(&mut env.rng, &env.config_dir)?
+                .config_file,
+            None
+        );
+        let other = env.secure_config_for_dir(env.repo_dir.clone());
+        let created = other.load_config(&mut env.rng, &env.config_dir)?;
+        let loaded = env.config.load_config(&mut env.rng, &env.config_dir)?;
+        assert_eq!(loaded.config_file, created.config_file);
+        assert_eq!(loaded.metadata, created.metadata);
+        assert_eq!(fs::read_dir(&env.config_dir)?.count(), 1);
         Ok(())
     }
 
