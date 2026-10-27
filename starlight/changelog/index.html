@@ -370,6 +370,11 @@ parent of a merge commit, including when a Git import abandons it.
 permissions.</p>
 </li>
 <li>
+<p>Racy <code dir="auto">jj config set</code> invocations no longer corrupt the target file. The last
+save wins; changes from other concurrent invocations may be lost.
+<a href="https://github.com/jj-vcs/jj/issues/10350">#10350</a></p>
+</li>
+<li>
 <p><code dir="auto">jj log</code> no longer draws a commit as a merge with two elided edges to the
 same commit when there's a merge between them whose parents both lead to
 that commit.</p>
