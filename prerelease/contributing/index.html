@@ -1526,9 +1526,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#configuring-jj-fix-to-run-rustfmt" class="md-nav__link">
+  <a href="#configuring-jj-fix-to-run-rustfmt-and-rumdl" class="md-nav__link">
     <span class="md-ellipsis">
-      Configuring jj fix to run rustfmt
+      Configuring jj fix to run rustfmt and rumdl
     </span>
   </a>
   
@@ -2392,9 +2392,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#configuring-jj-fix-to-run-rustfmt" class="md-nav__link">
+  <a href="#configuring-jj-fix-to-run-rustfmt-and-rumdl" class="md-nav__link">
     <span class="md-ellipsis">
-      Configuring jj fix to run rustfmt
+      Configuring jj fix to run rustfmt and rumdl
     </span>
   </a>
   
@@ -2943,10 +2943,12 @@ Cargo will happily use up your entire hard drive. If this happens, run
  the <code>mold</code> linker, as explained below.</p>
 </li>
 </ol>
-<h3 id="configuring-jj-fix-to-run-rustfmt">Configuring <code>jj fix</code> to run <code>rustfmt</code><a class="headerlink" href="#configuring-jj-fix-to-run-rustfmt" title="Permanent link">&para;</a></h3>
+<h3 id="configuring-jj-fix-to-run-rustfmt-and-rumdl">Configuring <code>jj fix</code> to run <code>rustfmt</code> and <code>rumdl</code><a class="headerlink" href="#configuring-jj-fix-to-run-rustfmt-and-rumdl" title="Permanent link">&para;</a></h3>
 <p>Run this in the jj repo:</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>fix.tools.rustfmt<span class="w"> </span><span class="s1">&#39;{ command = [&quot;rustfmt&quot;, &quot;+nightly&quot;], patterns = [&quot;glob:**/*.rs&quot;] }&#39;</span>
+jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>fix.tools.rumdl<span class="w"> </span><span class="s1">&#39;{ command = [&quot;rumdl&quot;, &quot;fmt&quot;, &quot;--stdin&quot;, &quot;--silent&quot;, &quot;--stdin-filename=$path&quot;], patterns = [&quot;glob:**/*.md&quot;] }&#39;</span>
 </code></pre></div>
+<p>Install <code>rumdl</code> with <code>cargo install rumdl</code>.</p>
 <blockquote>
 <p>Note: users of Nix and <code>direnv</code> should drop the <code>"+nightly"</code> argument above
 since the devShell is already configured to pull in a nightly version of
