@@ -314,6 +314,7 @@ fn test_tag_track_untrack() {
     tag3: qpvuntsm 4de4efb4 (empty) commit 1
       @origin: qpvuntsm 4de4efb4 (empty) commit 1
     tag4 (conflicted):
+      - (absent)
       + kpqxywon 3fea8afe (empty) (no description set)
       + qpvuntsm 4de4efb4 (empty) commit 1
       @origin (behind by 2 commits): qpvuntsm 4de4efb4 (empty) commit 1
@@ -354,6 +355,7 @@ fn test_tag_track_untrack() {
     tag3: rlvkpnrz bdaad04f (empty) commit 3
       @origin: rlvkpnrz bdaad04f (empty) commit 3
     tag4 (conflicted):
+      - (absent)
       + kpqxywon 3fea8afe (empty) (no description set)
       + rlvkpnrz bdaad04f (empty) commit 3
       @origin (behind by 2 commits): rlvkpnrz bdaad04f (empty) commit 3
@@ -416,11 +418,13 @@ fn test_tag_track_untrack_multiple_remotes() {
       @git: qpvuntsm 4de4efb4 (empty) commit 1
       @remote1: qpvuntsm 4de4efb4 (empty) commit 1
     tag2 (conflicted):
+      - (absent)
       + qpvuntsm 4de4efb4 (empty) commit 1
       + zsuskuln b322488a (empty) commit 2
       @remote1 (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
       @remote2 (behind by 1 commits): zsuskuln b322488a (empty) commit 2
     tag3 (conflicted):
+      - (absent)
       + qpvuntsm 4de4efb4 (empty) commit 1
       + zsuskuln b322488a (empty) commit 2
       @remote1 (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
@@ -541,6 +545,7 @@ fn test_tag_track_untrack_multiple_remotes() {
       @remote1: qpvuntsm 4de4efb4 (empty) commit 1
     tag2@remote2: zsuskuln b322488a (empty) commit 2
     tag3 (conflicted):
+      - (absent)
       + qpvuntsm 4de4efb4 (empty) commit 1
       + zsuskuln b322488a (empty) commit 2
       @git (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
@@ -568,12 +573,14 @@ fn test_tag_track_untrack_multiple_remotes() {
       @remote1: qpvuntsm 4de4efb4 (empty) commit 1
       @remote2 (not created yet)
     tag2 (conflicted):
+      - (absent)
       + qpvuntsm 4de4efb4 (empty) commit 1
       + zsuskuln b322488a (empty) commit 2
       @git (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
       @remote1 (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
       @remote2 (behind by 1 commits): zsuskuln b322488a (empty) commit 2
     tag3 (conflicted):
+      - (absent)
       + qpvuntsm 4de4efb4 (empty) commit 1
       + zsuskuln b322488a (empty) commit 2
       @git (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1

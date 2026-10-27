@@ -1721,6 +1721,7 @@ fn test_bookmark_track_untrack() -> TestResult {
     feature1: qxxqrkql bd843888 commit 1
       @origin: qxxqrkql bd843888 commit 1
     feature2 (conflicted):
+      - (absent)
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qxxqrkql bd843888 commit 1
       @origin (behind by 1 commits): qxxqrkql bd843888 commit 1
@@ -1895,6 +1896,7 @@ fn test_bookmark_track_conflict() {
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
+      - (absent)
       + qpvuntsm/0 cfb13288 (divergent) (empty) c
       + qpvuntsm/2 6b9445d7 (divergent) (empty) a
       @origin (behind by 1 commits): qpvuntsm/2 6b9445d7 (divergent) (empty) a
@@ -1904,6 +1906,7 @@ fn test_bookmark_track_conflict() {
     // origin2 differs but is not in conflict
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main (conflicted):
+      - (absent)
       + qpvuntsm/0 cfb13288 (divergent) (empty) c
       + qpvuntsm/2 6b9445d7 (divergent) (empty) a
       @origin (behind by 1 commits): qpvuntsm/2 6b9445d7 (divergent) (empty) a
@@ -1921,6 +1924,8 @@ fn test_bookmark_track_conflict() {
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
+      - (absent)
+      - (absent)
       + qpvuntsm/0 cfb13288 (divergent) (empty) c
       + qpvuntsm/2 6b9445d7 (divergent) (empty) a
       + qpvuntsm/1 bdc03fa9 (divergent) (empty) b
@@ -2411,7 +2416,7 @@ fn test_bookmark_list() -> TestResult {
     conflict: false
     normal_target: <Error: No value set to Option<Commit>>
     removed_targets:
-    added_targets:
+    added_targets: <Error: No value set to Option<Commit>>
     tracked: true
     tracking_present: true
     tracking_ahead_count: 0
@@ -2431,7 +2436,7 @@ fn test_bookmark_list() -> TestResult {
     conflict: false
     normal_target: <Error: No value set to Option<Commit>>
     removed_targets:
-    added_targets:
+    added_targets: <Error: No value set to Option<Commit>>
     tracked: false
     tracking_present: false
     tracking_ahead_count: <Error: Not a tracked remote ref>
@@ -3077,23 +3082,42 @@ fn test_bookmark_list_conflicted() {
     // Track existing bookmark. Local bookmark should result in conflict.
     work_dir.run_jj(["new", "root()", "-m", "a"]).success();
     work_dir.run_jj(["new", "root()", "-m", "b"]).success();
-    work_dir.run_jj(["bookmark", "create", "bar"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "bar", "baz"])
+        .success();
+    work_dir.run_jj(["new", "-m", "c"]).success();
     work_dir
         .run_jj(["bookmark", "create", "foo", "-rsubject(a)"])
         .success();
     work_dir
         .run_jj(["bookmark", "create", "foo", "-rsubject(b)", "--at-op=@-"])
         .success();
+    work_dir
+        .run_jj(["bookmark", "move", "baz", "--to=@"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "delete", "baz", "--at-op=@-"])
+        .success();
     work_dir.run_jj(["status"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     bar: kkmpptxz a82129fb (empty) b
+    baz (conflicted):
+      - kkmpptxz a82129fb (empty) b
+      + mzvwutvl 016d6cfc (empty) c
+      + (absent)
     foo (conflicted):
+      - (absent)
       + rlvkpnrz 4e1b2d80 (empty) a
       + kkmpptxz a82129fb (empty) b
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["bookmark", "list", "--conflicted"]), @"
+    baz (conflicted):
+      - kkmpptxz a82129fb (empty) b
+      + mzvwutvl 016d6cfc (empty) c
+      + (absent)
     foo (conflicted):
+      - (absent)
       + rlvkpnrz 4e1b2d80 (empty) a
       + kkmpptxz a82129fb (empty) b
     [EOF]

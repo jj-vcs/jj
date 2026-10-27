@@ -37,6 +37,10 @@ and this project adheres to
   * `json(timestamp)` now prints a UTC time zone offset as `+00:00` instead of
     `Z`.
 
+* The bookmarks and tags list now include absent targets for conflicted
+  bookmarks and tags. The `.removed_targets()` and `.added_targets()` template
+  methods now return `List<Option<Commit>>`.
+
 ### Deprecations
 
 ### New features
