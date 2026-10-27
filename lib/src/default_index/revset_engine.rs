@@ -1262,7 +1262,7 @@ impl EvaluationContext<'_> {
             if line_range.end > num_lines {
                 return Err(RevsetEvaluationError::Other(
                     format!(
-                        "Line range {}:{} exceeds file size ({num_lines} lines)",
+                        "Line range {}-{} exceeds file size ({num_lines} lines)",
                         line_range.start + 1,
                         line_range.end
                     )

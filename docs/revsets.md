@@ -443,7 +443,7 @@ revsets (expressions) as arguments.
   through history. This is similar to
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `followlines()`.
 
-  `lines` is a line number or an inclusive 1-based range like `"10:20"`,
+  `lines` is a line number or an inclusive 1-based range like `"10-20"`,
   referring to the content of `file` in the `start` commit. `start` defaults to
   the working-copy commit `@`. Ancestors of `start` that changed, added or
   removed lines within the block are returned, as well as the commit that
@@ -454,7 +454,7 @@ revsets (expressions) as arguments.
   Renames are followed when the backend detects them (as the Git backend
   does.)
 
-  For example, `followlines("src/lib.rs", "40:60")` returns the commits that
+  For example, `followlines("src/lib.rs", "40-60")` returns the commits that
   touched what is now lines 40 to 60 of `src/lib.rs`.
 
 * `diff_lines(text, [files])`: Commits containing diffs matching the given

@@ -440,11 +440,11 @@ fn copy_same_lines_with(
     }
 }
 
-/// Parses a line number or an inclusive, 1-based line range `"from:to"`.
+/// Parses a line number or an inclusive, 1-based line range `"from-to"`.
 ///
 /// Returns a 0-based, half-open range.
 pub fn parse_line_range(text: &str) -> Result<Range<usize>, LineRangeParseError> {
-    let (from, to) = match text.split_once(':') {
+    let (from, to) = match text.split_once('-') {
         Some((from, to)) => (from, to),
         None => (text, text),
     };
@@ -468,8 +468,8 @@ pub fn parse_line_range(text: &str) -> Result<Range<usize>, LineRangeParseError>
 /// Error from [`parse_line_range()`].
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum LineRangeParseError {
-    /// Not a number nor a `"from:to"` range.
-    #[error("Expected line number or range \"from:to\"")]
+    /// Not a number nor a `"from-to"` range.
+    #[error("Expected line number or range \"from-to\"")]
     Invalid,
     /// A line number is 0.
     #[error("Line numbers are 1-based")]
@@ -711,12 +711,12 @@ mod tests {
     #[test]
     fn test_parse_line_range() {
         assert_eq!(parse_line_range("1"), Ok(0..1));
-        assert_eq!(parse_line_range("10:20"), Ok(9..20));
-        assert_eq!(parse_line_range(" 3 : 3 "), Ok(2..3));
+        assert_eq!(parse_line_range("10-20"), Ok(9..20));
+        assert_eq!(parse_line_range(" 3 - 3 "), Ok(2..3));
         assert_eq!(parse_line_range("0"), Err(LineRangeParseError::ZeroBased));
-        assert_eq!(parse_line_range("5:2"), Err(LineRangeParseError::Empty));
+        assert_eq!(parse_line_range("5-2"), Err(LineRangeParseError::Empty));
         assert_eq!(parse_line_range("x"), Err(LineRangeParseError::Invalid));
-        assert_eq!(parse_line_range("1:2:3"), Err(LineRangeParseError::Invalid));
+        assert_eq!(parse_line_range("1-2-3"), Err(LineRangeParseError::Invalid));
         assert_eq!(parse_line_range(""), Err(LineRangeParseError::Invalid));
     }
 

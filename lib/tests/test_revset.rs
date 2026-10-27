@@ -5311,7 +5311,7 @@ fn test_evaluate_expression_followlines_single_line_range() {
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     assert_eq!(
-        followlines(mut_repo, ws, "2:2", &commit2),
+        followlines(mut_repo, ws, "2-2", &commit2),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
 }
@@ -5337,7 +5337,7 @@ fn test_evaluate_expression_followlines_shifted_block() {
     );
     // Same for the whole original block.
     assert_eq!(
-        followlines(mut_repo, ws, "3:6", &commit3),
+        followlines(mut_repo, ws, "3-6", &commit3),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
 }
@@ -5389,13 +5389,13 @@ fn test_evaluate_expression_followlines_inserted_lines() {
     // The inserted lines have no history before commit2, so commit1 isn't
     // reported.
     assert_eq!(
-        followlines(mut_repo, ws, "1:2", &commit2),
+        followlines(mut_repo, ws, "1-2", &commit2),
         vec![commit2.id().clone()]
     );
     // A range overlapping both the insertion and the original lines follows
     // both.
     assert_eq!(
-        followlines(mut_repo, ws, "2:3", &commit2),
+        followlines(mut_repo, ws, "2-3", &commit2),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
 }
@@ -5618,7 +5618,7 @@ fn test_evaluate_expression_followlines_rename() {
     );
     assert_eq!(h.followlines("1", &h.commit3), vec![h.commit1.id().clone()]);
     assert_eq!(
-        h.followlines("1:3", &h.commit2),
+        h.followlines("1-3", &h.commit2),
         vec![h.commit1.id().clone()]
     );
 }

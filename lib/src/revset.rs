@@ -1225,7 +1225,7 @@ fn expand_optional_files_arg(
     }
 }
 
-/// Parses a line number or an inclusive, 1-based line range `"from:to"` into
+/// Parses a line number or an inclusive, 1-based line range `"from-to"` into
 /// a 0-based, half-open range.
 fn expect_line_range(node: &ExpressionNode) -> Result<Range<usize>, RevsetParseError> {
     let text = expect_string_literal("line range", node)?;
