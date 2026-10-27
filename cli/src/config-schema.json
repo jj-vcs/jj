@@ -1064,17 +1064,6 @@
                 }
             }
         },
-        "split": {
-            "type": "object",
-            "description": "Settings for jj split",
-            "properties": {
-                "legacy-bookmark-behavior": {
-                    "type": "boolean",
-                    "description": "If true, bookmarks will move to the second commit instead of the first.",
-                    "default": true
-                }
-            }
-        },
         "hints": {
             "type": "object",
             "description": "Various hints in jj's UI that can be disabled",

@@ -12,6 +12,15 @@ and this project adheres to
 
 ### Breaking changes
 
+* The `split.legacy-bookmark-behavior` config option has been removed. Use `jj
+  split --identity` instead.
+
+* `jj split` now keeps the target revision's change ID and bookmarks on the
+  remaining changes (the second revision) by default, rather than moving them
+  to the selected changes (the first revision). Use `--identity=selected` to
+  keep the previous behavior.
+  [#3419](https://github.com/jj-vcs/jj/issues/3419)
+
 * In non-colocated workspaces, `jj git fetch` and `push` no longer update
   remote-tracking Git refs. Use `jj git export` to export remote bookmarks to
   Git.
@@ -40,6 +49,10 @@ and this project adheres to
 ### Deprecations
 
 ### New features
+
+* `jj split` gained an `--identity` option (`remaining` or `selected`) to
+  choose which revision retains the target revision's change ID and bookmarks.
+  [#3419](https://github.com/jj-vcs/jj/issues/3419)
 
 * `jj git push` with `git.sign-on-push` enabled now signs commits in a
   separate transaction before the push, so commits stay signed if the push

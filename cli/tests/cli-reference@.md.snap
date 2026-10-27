@@ -3377,15 +3377,15 @@ close the editor, your revision will be split into two commits.
 [diff editor]:
     https://docs.jj-vcs.dev/latest/config/#editing-diffs
 
-By default, the selected changes stay in the original commit, and the
-remaining changes go into a new child commit:
+By default, the selected changes go into a new parent commit, and the
+remaining changes stay in the original commit as its child:
 
 ```text
 L                 L'
 |                 |
-K (split)   =>    K" (remaining)
+K (split)   =>    K' (remaining)
 |                 |
-J                 K' (selected)
+J                 K" (selected)
                   |
                   J
 ```
@@ -3453,6 +3453,16 @@ achieved with `jj new`.
 
    Forces an editor to open when using `--message` to allow the message to be edited afterward.
 * `-p`, `--parallel` — Split the revision into two parallel revisions instead of a parent and child
+* `--identity <IDENTITY>` — Which commit retains the original change ID and bookmarks
+
+  Default value: `remaining`
+
+  Possible values:
+  - `remaining`:
+    The commit with the remaining (unselected) changes retains the identity
+  - `selected`:
+    The commit with the selected changes retains the identity
+
 
 
 
