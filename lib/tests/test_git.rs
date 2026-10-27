@@ -40,7 +40,12 @@ use jj_lib::commit::Commit;
 use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
+use jj_lib::default_backend_factories::default_index_store_initializer;
+use jj_lib::default_backend_factories::default_op_heads_store_initializer;
+use jj_lib::default_backend_factories::default_op_store_initializer;
+use jj_lib::default_backend_factories::default_submodule_store_initializer;
 use jj_lib::default_backend_factories::default_working_copy_factory;
+use jj_lib::default_backend_factories::default_workspace_store_initializer;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitFetch;
@@ -188,11 +193,11 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
             Ok(Box::new(backend))
         },
         signer_from_settings(settings).unwrap(),
-        ReadonlyRepo::default_workspace_store_initializer(),
-        ReadonlyRepo::default_op_store_initializer(),
-        ReadonlyRepo::default_op_heads_store_initializer(),
-        ReadonlyRepo::default_index_store_initializer(),
-        ReadonlyRepo::default_submodule_store_initializer(),
+        default_workspace_store_initializer(),
+        default_op_store_initializer(),
+        default_op_heads_store_initializer(),
+        default_index_store_initializer(),
+        default_submodule_store_initializer(),
     )
     .block_on()?;
     Ok(repo)
@@ -2435,11 +2440,11 @@ impl GitRepoData {
                 )?))
             },
             signer_from_settings(&settings).unwrap(),
-            ReadonlyRepo::default_workspace_store_initializer(),
-            ReadonlyRepo::default_op_store_initializer(),
-            ReadonlyRepo::default_op_heads_store_initializer(),
-            ReadonlyRepo::default_index_store_initializer(),
-            ReadonlyRepo::default_submodule_store_initializer(),
+            default_workspace_store_initializer(),
+            default_op_store_initializer(),
+            default_op_heads_store_initializer(),
+            default_index_store_initializer(),
+            default_submodule_store_initializer(),
         )
         .block_on()
         .unwrap();
@@ -4260,11 +4265,11 @@ fn test_init() -> TestResult {
             )?))
         },
         signer_from_settings(&settings)?,
-        ReadonlyRepo::default_workspace_store_initializer(),
-        ReadonlyRepo::default_op_store_initializer(),
-        ReadonlyRepo::default_op_heads_store_initializer(),
-        ReadonlyRepo::default_index_store_initializer(),
-        ReadonlyRepo::default_submodule_store_initializer(),
+        default_workspace_store_initializer(),
+        default_op_store_initializer(),
+        default_op_heads_store_initializer(),
+        default_index_store_initializer(),
+        default_submodule_store_initializer(),
     )
     .block_on()?;
     // The refs were *not* imported -- it's the caller's responsibility to import
@@ -5382,11 +5387,11 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
             )?))
         },
         signer_from_settings(settings).unwrap(),
-        ReadonlyRepo::default_workspace_store_initializer(),
-        ReadonlyRepo::default_op_store_initializer(),
-        ReadonlyRepo::default_op_heads_store_initializer(),
-        ReadonlyRepo::default_index_store_initializer(),
-        ReadonlyRepo::default_submodule_store_initializer(),
+        default_workspace_store_initializer(),
+        default_op_store_initializer(),
+        default_op_heads_store_initializer(),
+        default_index_store_initializer(),
+        default_submodule_store_initializer(),
     )
     .block_on()
     .unwrap();

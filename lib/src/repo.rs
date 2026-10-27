@@ -49,9 +49,7 @@ use crate::commit_builder::CommitBuilder;
 use crate::commit_builder::DetachedCommitBuilder;
 use crate::dag_walk;
 use crate::dag_walk_async;
-use crate::default_index::DefaultIndexStore;
 use crate::default_index::DefaultMutableIndex;
-use crate::default_submodule_store::DefaultSubmoduleStore;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::index::ChangeIdIndex;
@@ -109,8 +107,6 @@ use crate::settings::UserSettings;
 use crate::signing::Signer;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
-use crate::simple_op_heads_store::SimpleOpHeadsStore;
-use crate::simple_op_store::SimpleOpStore;
 use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
@@ -188,30 +184,6 @@ pub enum RepoInitError {
 }
 
 impl ReadonlyRepo {
-    pub fn default_workspace_store_initializer() -> &'static WorkspaceStoreInitializer<'static> {
-        &|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::init(store_path)?))
-    }
-
-    pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
-        &|_settings, store_path, root_data| {
-            Ok(Box::new(SimpleOpStore::init(store_path, root_data)?))
-        }
-    }
-
-    pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
-        &|_settings, store_path, root_op_id| {
-            Ok(Box::new(SimpleOpHeadsStore::init(store_path, root_op_id)?))
-        }
-    }
-
-    pub fn default_index_store_initializer() -> &'static IndexStoreInitializer<'static> {
-        &|_settings, store_path| Ok(Box::new(DefaultIndexStore::init(store_path)?))
-    }
-
-    pub fn default_submodule_store_initializer() -> &'static SubmoduleStoreInitializer<'static> {
-        &|_settings, store_path| Ok(Box::new(DefaultSubmoduleStore::init(store_path)))
-    }
-
     #[expect(clippy::too_many_arguments)]
     pub async fn init(
         settings: &UserSettings,

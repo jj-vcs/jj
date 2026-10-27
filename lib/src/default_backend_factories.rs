@@ -12,14 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides the default backend factories, i.e. `GitBackend` (if the `git`
-//! feature is enabled), `SimpleOpStore`, `LocalWorkingCopy`, etc.
+//! Provides the default backend factories and initializers, i.e. `GitBackend`
+//! (if the `git` feature is enabled), `SimpleOpStore`, `LocalWorkingCopy`, etc.
 
 use crate::default_index::DefaultIndexStore;
 use crate::default_submodule_store::DefaultSubmoduleStore;
 use crate::local_working_copy::LocalWorkingCopy;
 use crate::local_working_copy::LocalWorkingCopyFactory;
+use crate::repo::IndexStoreInitializer;
+use crate::repo::OpHeadsStoreInitializer;
+use crate::repo::OpStoreInitializer;
 use crate::repo::StoreFactories;
+use crate::repo::SubmoduleStoreInitializer;
+use crate::repo::WorkspaceStoreInitializer;
 use crate::simple_backend::SimpleBackend;
 use crate::simple_op_heads_store::SimpleOpHeadsStore;
 use crate::simple_op_store::SimpleOpStore;
@@ -90,6 +95,33 @@ pub fn default_backend_factories() -> StoreFactories {
     );
 
     factories
+}
+
+/// Returns the initializer for the default workspace store.
+pub fn default_workspace_store_initializer() -> &'static WorkspaceStoreInitializer<'static> {
+    &|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::init(store_path)?))
+}
+
+/// Returns the initializer for the default operation store.
+pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
+    &|_settings, store_path, root_data| Ok(Box::new(SimpleOpStore::init(store_path, root_data)?))
+}
+
+/// Returns the initializer for the default operation heads store.
+pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
+    &|_settings, store_path, root_op_id| {
+        Ok(Box::new(SimpleOpHeadsStore::init(store_path, root_op_id)?))
+    }
+}
+
+/// Returns the initializer for the default index store.
+pub fn default_index_store_initializer() -> &'static IndexStoreInitializer<'static> {
+    &|_settings, store_path| Ok(Box::new(DefaultIndexStore::init(store_path)?))
+}
+
+/// Returns the initializer for the default submodule store.
+pub fn default_submodule_store_initializer() -> &'static SubmoduleStoreInitializer<'static> {
+    &|_settings, store_path| Ok(Box::new(DefaultSubmoduleStore::init(store_path)))
 }
 
 /// Returns default working copy factories.
