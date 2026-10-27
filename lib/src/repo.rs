@@ -709,6 +709,16 @@ pub struct RepoLoader {
     submodule_store: Arc<dyn SubmoduleStore>,
 }
 
+/// Statistics about the merge done by [`RepoLoader::merge_operations()`].
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct MergeOperationsStats {
+    /// Number of commits rebased onto commits rewritten by another operation.
+    pub num_rebased: usize,
+    /// Commits that were left in place because the operations rewrote commits
+    /// in ways that would have made them their own descendants.
+    pub commits_left_in_place: Vec<CommitId>,
+}
+
 impl RepoLoader {
     pub fn new(
         settings: UserSettings,
@@ -814,7 +824,7 @@ impl RepoLoader {
                 assert!(op_heads.len() > 1);
                 let transaction_description = Some("reconcile divergent operations");
                 let transaction_attributes = [];
-                let (merged_repo, _num_rebased) = self
+                let (merged_repo, _stats) = self
                     .merge_operations(
                         op_heads,
                         workspace_name,
@@ -868,8 +878,8 @@ impl RepoLoader {
         Ok(Operation::new(self.op_store.clone(), id.clone(), data))
     }
 
-    /// Merges the given `operations`. Returns the merged repo and the number of
-    /// rebased commits. If `operations` is empty returns the root repo. If
+    /// Merges the given `operations`. Returns the merged repo and statistics
+    /// about the merge. If `operations` is empty returns the root repo. If
     /// `operations` has a single entry, returns that entry's repo. Otherwise
     /// an actual merge happens. The new operation is not published.
     pub async fn merge_operations(
@@ -878,7 +888,7 @@ impl RepoLoader {
         workspace_name: Option<&WorkspaceName>,
         transaction_description: Option<&str>,
         transaction_attributes: impl IntoIterator<Item = (String, String)>,
-    ) -> Result<(Arc<ReadonlyRepo>, usize), RepoLoaderError> {
+    ) -> Result<(Arc<ReadonlyRepo>, MergeOperationsStats), RepoLoaderError> {
         // IMPLEMENTATION NOTE: This used to be implemented as a much simple
         // recursive method, but unfortunately due to the async nature of the
         // method itself and its dependencies, that leads to stack-overflow in
@@ -888,16 +898,16 @@ impl RepoLoader {
             [] => {
                 let root_operation = self.root_operation().await;
                 let root_repo = self.load_at(&root_operation).await?;
-                return Ok((root_repo, 0));
+                return Ok((root_repo, MergeOperationsStats::default()));
             }
             [op] => {
                 let repo = self.load_at(op).await?;
-                return Ok((repo, 0));
+                return Ok((repo, MergeOperationsStats::default()));
             }
             _ => {}
         }
 
-        let mut num_rebased = 0;
+        let mut stats = MergeOperationsStats::default();
         let to_operation_ids =
             |ops: &[Operation]| ops.iter().map(|op| op.id().clone()).collect_vec();
         let operation_ids = to_operation_ids(&operations);
@@ -969,7 +979,10 @@ impl RepoLoader {
                 // We have the merge of the ancestor operations. We can proceed to merge with
                 // other_op.
                 tx.merge_operation(merged_ancestor_op, other_op).await?;
-                num_rebased += tx.repo_mut().rebase_descendants().await?;
+                let (num_rebased, commits_left_in_place) =
+                    tx.repo_mut().rebase_descendants_after_merge().await?;
+                stats.num_rebased += num_rebased;
+                stats.commits_left_in_place.extend(commits_left_in_place);
                 // Push state on the stack to continue merging the rest of the operations.
                 stack.push((index + 1, operations, tx));
                 continue;
@@ -987,7 +1000,7 @@ impl RepoLoader {
 
         // We are all done! The result should be in the cache.
         let merged_operation = merged_operations.get(&operation_ids).cloned().unwrap();
-        Ok((self.load_at(&merged_operation).await?, num_rebased))
+        Ok((self.load_at(&merged_operation).await?, stats))
     }
 
     async fn finish_load(
@@ -1440,50 +1453,155 @@ impl MutableRepo {
         Ok(to_visit)
     }
 
+    /// Returns the commits that `commit` will be rebased onto and that are
+    /// themselves going to be rebased, so they must be rebased first.
+    fn rebase_dependencies(
+        &self,
+        commit: &Commit,
+        new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
+        is_rebased: impl Fn(&CommitId) -> bool,
+    ) -> Vec<CommitId> {
+        let mut new_parent_ids = self.new_parents(rebase_parent_ids(commit, new_parents_map));
+        new_parent_ids.retain(|id| is_rebased(id));
+        new_parent_ids
+    }
+
     /// Order a set of commits in an order they should be rebased in. The result
     /// is in reverse order so the next value can be removed from the end.
+    ///
+    /// Commits that can't be rebased because the recorded rewrites would make
+    /// them their own descendants are left out of the order and returned
+    /// separately. See [`Self::find_commits_to_leave_for_rebase()`].
     async fn order_commits_for_rebase(
         &self,
         to_visit: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
-    ) -> BackendResult<Vec<Commit>> {
-        let to_visit_set: HashSet<CommitId> =
-            to_visit.iter().map(|commit| commit.id().clone()).collect();
-        let mut visited = HashSet::new();
+    ) -> BackendResult<(Vec<Commit>, Vec<CommitId>)> {
+        let start_ids = to_visit
+            .iter()
+            .map(|commit| commit.id().clone())
+            .collect_vec();
+        let mut commits: HashMap<CommitId, Commit> = to_visit
+            .into_iter()
+            .map(|commit| (commit.id().clone(), commit))
+            .collect();
         // Calculate an order where we rebase parents first, but if the parents were
         // rewritten, make sure we rebase the rewritten parent first.
-        let store = self.store();
-        dag_walk_async::topo_order_reverse(
-            to_visit.into_iter().map(Ok),
-            |commit| commit.id().clone(),
-            async |commit| -> Vec<BackendResult<Commit>> {
-                visited.insert(commit.id().clone());
-                let mut dependents = vec![];
-                let parent_ids = new_parents_map
-                    .get(commit.id())
-                    .map_or(commit.parent_ids(), |parent_ids| parent_ids);
-                for parent_id in parent_ids {
-                    let parent = store.get_commit_async(parent_id).await;
-                    let Ok(parent) = parent else {
-                        dependents.push(parent);
-                        continue;
-                    };
-                    if let Some(rewrite) = self.parent_mapping.get(parent.id()) {
-                        for target in rewrite.new_parent_ids() {
-                            if to_visit_set.contains(target) && !visited.contains(target) {
-                                dependents.push(store.get_commit_async(target).await);
-                            }
-                        }
-                    }
-                    if to_visit_set.contains(parent.id()) {
-                        dependents.push(Ok(parent));
-                    }
-                }
-                dependents
+        let dependencies: HashMap<CommitId, Vec<CommitId>> = commits
+            .values()
+            .map(|commit| {
+                let ids = self
+                    .rebase_dependencies(commit, new_parents_map, |id| commits.contains_key(id));
+                (commit.id().clone(), ids)
+            })
+            .collect();
+        let left_in_place = self
+            .find_commits_to_leave_for_rebase(&commits, new_parents_map, &dependencies)
+            .await?;
+        for id in &left_in_place {
+            commits.remove(id);
+        }
+        let sorted_ids = dag_walk::topo_order_reverse(
+            start_ids.into_iter().filter(|id| commits.contains_key(id)),
+            |id| id.clone(),
+            |id| {
+                dependencies[id]
+                    .iter()
+                    .filter(|id| commits.contains_key(id))
+                    .cloned()
+                    .collect_vec()
             },
-            |_| panic!("graph has cycle"),
-        )
-        .await
+            |id| {
+                BackendError::Other(
+                    format!("Cycle between rebased commits involving commit {id}").into(),
+                )
+            },
+        )?;
+        let sorted_commits = sorted_ids
+            .into_iter()
+            .map(|id| commits.remove(&id).unwrap())
+            .collect();
+        Ok((sorted_commits, left_in_place))
+    }
+
+    /// Finds commits that can't be rebased because the recorded rewrites would
+    /// make them their own descendants.
+    ///
+    /// Concurrent operations can rewrite commits like that. For example, one
+    /// operation may rebase commit X onto commit Z, while another one rebases
+    /// Z onto X's child Y. Combining the two would put Z on top of Y and X
+    /// (and therefore Y) on top of Z. A single operation can also do it by
+    /// recording a commit as rewritten into one of its descendants.
+    ///
+    /// Leaving the returned commits where they are breaks all such cycles.
+    /// Their rewritten ancestors then remain visible, which typically makes
+    /// those changes divergent. From each cycle, we pick a commit that is moved
+    /// only because some of its parents were rewritten (not along with any of
+    /// its parents), preferring the one with the fewest rewritten ancestors,
+    /// and then the one with the smallest commit id. The result doesn't depend
+    /// on the order of the commits or of the recorded rewrites.
+    async fn find_commits_to_leave_for_rebase(
+        &self,
+        commits: &HashMap<CommitId, Commit>,
+        new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
+        dependencies: &HashMap<CommitId, Vec<CommitId>>,
+    ) -> BackendResult<Vec<CommitId>> {
+        let mut remaining: HashSet<&CommitId> = commits.keys().collect();
+        let mut cyclic = find_nodes_on_cycles(&remaining, |id| &dependencies[id]);
+        if cyclic.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // Leaving a commit in place also leaves its ancestors visible. Count
+        // how many of them are rewritten or rebased.
+        let rewritten_expression = RevsetExpression::commits(
+            self.parent_mapping
+                .keys()
+                .chain(commits.keys())
+                .cloned()
+                .collect(),
+        );
+        let mut num_rewritten_ancestors: HashMap<&CommitId, usize> = HashMap::new();
+        let mut to_leave = vec![];
+        while !cyclic.is_empty() {
+            // Prefer commits that aren't moved along with any of their parents,
+            // so we don't separate a commit from its parent.
+            let mut candidates = cyclic
+                .iter()
+                .copied()
+                .filter(|&id| {
+                    rebase_parent_ids(&commits[id], new_parents_map)
+                        .iter()
+                        .all(|parent_id| !commits.contains_key(parent_id))
+                })
+                .collect_vec();
+            if candidates.is_empty() {
+                candidates = cyclic;
+            }
+            for &id in &candidates {
+                if let Entry::Vacant(entry) = num_rewritten_ancestors.entry(id) {
+                    let parent_ids = rebase_parent_ids(&commits[id], new_parents_map);
+                    let count = RevsetExpression::commits(parent_ids.to_vec())
+                        .ancestors()
+                        .intersection(&rewritten_expression)
+                        .evaluate(self)
+                        .map_err(|err| err.into_backend_error())?
+                        .stream()
+                        .try_fold(0, async |count, _| Ok(count + 1))
+                        .await
+                        .map_err(|err| err.into_backend_error())?;
+                    entry.insert(count);
+                }
+            }
+            let id = candidates
+                .into_iter()
+                .min_by_key(|&id| (num_rewritten_ancestors[id], id))
+                .unwrap();
+            remaining.remove(id);
+            to_leave.push(id.clone());
+            cyclic = find_nodes_on_cycles(&remaining, |id| &dependencies[id]);
+        }
+        Ok(to_leave)
     }
 
     /// Rewrite descendants of the given roots.
@@ -1497,6 +1615,10 @@ impl MutableRepo {
     /// adds new descendants, then the callback will not be called for those.
     /// Similarly, if the callback rewrites unrelated commits, then the callback
     /// will not be called for descendants of those commits.
+    ///
+    /// If the recorded rewrites would make some commits their own descendants,
+    /// some of those commits are left in place, and the callback is not called
+    /// for them.
     pub async fn transform_descendants(
         &mut self,
         roots: Vec<CommitId>,
@@ -1544,16 +1666,26 @@ impl MutableRepo {
         commits: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
+        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
-        let mut to_visit = self
+        let (to_visit, _left_in_place) = self
             .order_commits_for_rebase(commits, new_parents_map)
             .await?;
+        self.transform_ordered_commits(to_visit, new_parents_map, options, callback)
+            .await
+    }
+
+    /// Rewrites commits like [`Self::transform_commits()`], given in the order
+    /// returned by [`Self::order_commits_for_rebase()`].
+    async fn transform_ordered_commits(
+        &mut self,
+        mut to_visit: Vec<Commit>,
+        new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
+        options: &RewriteRefsOptions,
+        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
+    ) -> BackendResult<()> {
         while let Some(old_commit) = to_visit.pop() {
-            let parent_ids = new_parents_map
-                .get(old_commit.id())
-                .map_or(old_commit.parent_ids(), |parent_ids| parent_ids);
-            let new_parent_ids = self.new_parents(parent_ids);
+            let new_parent_ids = self.new_parents(rebase_parent_ids(&old_commit, new_parents_map));
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
             callback(rewriter).await?;
         }
@@ -1633,6 +1765,40 @@ impl MutableRepo {
         )
         .await?;
         Ok(num_rebased)
+    }
+
+    /// Rebase descendants of the rewritten commits after merging concurrent
+    /// operations.
+    ///
+    /// This is like [`MutableRepo::rebase_descendants`], but it also returns
+    /// the ids of the commits that were left in place because they would have
+    /// been rebased onto their own descendants, which concurrent operations
+    /// can cause.
+    async fn rebase_descendants_after_merge(&mut self) -> BackendResult<(usize, Vec<CommitId>)> {
+        let roots = self.parent_mapping.keys().cloned().collect();
+        let commits = self
+            .find_descendants_for_rebase(roots, &RevsetExpression::none())
+            .await?;
+        let (to_visit, left_in_place) = self
+            .order_commits_for_rebase(commits, &HashMap::new())
+            .await?;
+        let options = RebaseOptions::default();
+        let mut num_rebased = 0;
+        self.transform_ordered_commits(
+            to_visit,
+            &HashMap::new(),
+            &options.rewrite_refs,
+            async |rewriter| {
+                if rewriter.parents_changed() {
+                    rebase_commit_with_options(rewriter, &options).await?;
+                    num_rebased += 1;
+                }
+                Ok(())
+            },
+        )
+        .await?;
+        self.parent_mapping.clear();
+        Ok((num_rebased, left_in_place))
     }
 
     /// Reparent descendants of the rewritten commits.
@@ -2256,6 +2422,100 @@ impl Repo for MutableRepo {
             .change_id_index(&mut self.view().heads().iter())?;
         change_id_index.shortest_unique_prefix_len(target_id).await
     }
+}
+
+/// Returns the parents that `commit` is rebased from: those in
+/// `new_parents_map` if present, or else the commit's own parents.
+fn rebase_parent_ids<'a>(
+    commit: &'a Commit,
+    new_parents_map: &'a HashMap<CommitId, Vec<CommitId>>,
+) -> &'a [CommitId] {
+    new_parents_map
+        .get(commit.id())
+        .map_or(commit.parent_ids(), |parent_ids| parent_ids)
+}
+
+/// Returns the `nodes` that are part of a cycle in the graph formed by `nodes`
+/// and the edges from `neighbors_fn`, in sorted order. Edges to nodes outside
+/// `nodes` are ignored.
+fn find_nodes_on_cycles<'a, 'b>(
+    nodes: &HashSet<&'a CommitId>,
+    neighbors_fn: impl Fn(&CommitId) -> &'b [CommitId],
+) -> Vec<&'a CommitId> {
+    let edges: HashMap<&CommitId, Vec<&CommitId>> = nodes
+        .iter()
+        .map(|&id| {
+            let neighbors = neighbors_fn(id)
+                .iter()
+                .filter_map(|neighbor| nodes.get(neighbor).copied())
+                .collect();
+            (id, neighbors)
+        })
+        .collect();
+    let mut reverse_edges: HashMap<&CommitId, Vec<&CommitId>> = HashMap::new();
+    for (&id, neighbors) in &edges {
+        for &neighbor in neighbors {
+            reverse_edges.entry(neighbor).or_default().push(id);
+        }
+    }
+
+    // Repeatedly remove nodes without outgoing or incoming edges, which can't
+    // be part of a cycle. This is cheap and usually leaves just the cycles.
+    let mut num_out: HashMap<&CommitId, usize> = edges
+        .iter()
+        .map(|(&id, neighbors)| (id, neighbors.len()))
+        .collect();
+    let mut num_in: HashMap<&CommitId, usize> = nodes
+        .iter()
+        .map(|&id| (id, reverse_edges.get(id).map_or(0, Vec::len)))
+        .collect();
+    let mut to_remove = nodes
+        .iter()
+        .copied()
+        .filter(|id| num_out[id] == 0 || num_in[id] == 0)
+        .collect_vec();
+    let mut removed = HashSet::new();
+    while let Some(id) = to_remove.pop() {
+        if !removed.insert(id) {
+            continue;
+        }
+        for &neighbor in &edges[id] {
+            let count = num_in.get_mut(neighbor).unwrap();
+            *count -= 1;
+            if *count == 0 {
+                to_remove.push(neighbor);
+            }
+        }
+        for &neighbor in reverse_edges.get(id).into_iter().flatten() {
+            let count = num_out.get_mut(neighbor).unwrap();
+            *count -= 1;
+            if *count == 0 {
+                to_remove.push(neighbor);
+            }
+        }
+    }
+
+    // The remaining nodes may still include nodes on paths between cycles, so
+    // check which nodes can reach themselves.
+    let is_on_cycle = |start: &CommitId| {
+        let mut visited = HashSet::new();
+        let mut to_visit = edges[start].clone();
+        while let Some(id) = to_visit.pop() {
+            if id == start {
+                return true;
+            }
+            if !removed.contains(id) && visited.insert(id) {
+                to_visit.extend(&edges[id]);
+            }
+        }
+        false
+    };
+    nodes
+        .iter()
+        .copied()
+        .filter(|&id| !removed.contains(id) && is_on_cycle(id))
+        .sorted()
+        .collect()
 }
 
 /// Error from attempts to check out the root commit for editing
