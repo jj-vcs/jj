@@ -30,6 +30,7 @@ use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
+use crate::annotate;
 use crate::backend::BackendError;
 use crate::backend::CommitId;
 use crate::dsl_util;
@@ -59,6 +60,7 @@ use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo;
 use crate::repo::RepoLoaderError;
+use crate::repo_path::RepoPathBuf;
 pub use crate::revset_backend::DiffMatchSide;
 pub use crate::revset_backend::GENERATION_RANGE_EMPTY;
 pub use crate::revset_backend::GENERATION_RANGE_FULL;
@@ -82,6 +84,7 @@ pub use crate::revset_parser::RevsetParseError;
 pub use crate::revset_parser::RevsetParseErrorKind;
 pub use crate::revset_parser::UnaryOp;
 pub use crate::revset_parser::expect_literal;
+use crate::revset_parser::expect_string_literal;
 pub use crate::revset_parser::format_remote_symbol;
 pub use crate::revset_parser::format_symbol;
 pub use crate::revset_parser::new_string_node;
@@ -246,6 +249,17 @@ pub enum RevsetExpression<St: ExpressionState> {
     ForkPoint(Arc<Self>),
     MergePoint(Arc<Self>),
     Bisect(Arc<Self>),
+    /// Commits that modified the given line range of the file at `start`.
+    ///
+    /// The block of lines is followed through the ancestors of `start`.
+    FollowLines {
+        path: RepoPathBuf,
+        /// 0-based, half-open line range of the file at `start`.
+        line_range: Range<usize>,
+        start: Arc<Self>,
+        /// Follow the descendants of `start` instead of its ancestors.
+        descend: bool,
+    },
     HasSize {
         candidates: Arc<Self>,
         count: usize,
@@ -496,6 +510,24 @@ impl<St: ExpressionState> RevsetExpression<St> {
     /// Commits with ~half of the descendants in `self`.
     pub fn bisect(self: &Arc<Self>) -> Arc<Self> {
         Arc::new(Self::Bisect(self.clone()))
+    }
+
+    /// Ancestors of `self` that modified the `line_range` of the file at
+    /// `path`.
+    ///
+    /// The block of lines is followed as it moves through history.
+    pub fn follow_lines(
+        self: &Arc<Self>,
+        path: RepoPathBuf,
+        line_range: Range<usize>,
+        descend: bool,
+    ) -> Arc<Self> {
+        Arc::new(Self::FollowLines {
+            path,
+            line_range,
+            start: self.clone(),
+            descend,
+        })
     }
 
     /// Commits in `self`, the number of which must be exactly equal to `count`.
@@ -1060,6 +1092,41 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let expr = expect_fileset_expression(diagnostics, arg, &fileset_context)?;
         Ok(RevsetExpression::filter(RevsetFilterPredicate::File(expr)))
     });
+    map.insert("followlines", |diagnostics, function, context| {
+        let fileset_context = context.fileset_parse_context().ok_or_else(|| {
+            RevsetParseError::with_span(
+                RevsetParseErrorKind::FsPathWithoutWorkspace,
+                function.args_span,
+            )
+        })?;
+        let ([path_arg, lines_arg], [start_opt_arg, descend_opt_arg]) =
+            function.expect_named_arguments(&["file", "lines", "start", "descend"])?;
+        let path_str = expect_string_literal("file path", path_arg)?;
+        let path = fileset_context
+            .path_converter
+            .parse_file_path(path_str)
+            .map_err(|err| {
+                RevsetParseError::expression("Invalid file path", path_arg.span).with_source(err)
+            })?;
+        let line_range = expect_line_range(lines_arg)?;
+        let start = if let Some(start_arg) = start_opt_arg {
+            lower_expression(diagnostics, start_arg, context)?
+        } else {
+            let ctx = context.workspace.as_ref().ok_or_else(|| {
+                RevsetParseError::with_span(
+                    RevsetParseErrorKind::WorkingCopyWithoutWorkspace,
+                    function.name_span,
+                )
+            })?;
+            RevsetExpression::working_copy(ctx.workspace_name.to_owned())
+        };
+        let descend = if let Some(descend_arg) = descend_opt_arg {
+            expect_literal("boolean", descend_arg)?
+        } else {
+            false
+        };
+        Ok(start.follow_lines(path, line_range, descend))
+    });
     map.insert("diff_lines", |diagnostics, function, context| {
         if function.name != "diff_lines" {
             // TODO: Remove in jj 0.44+
@@ -1156,6 +1223,14 @@ fn expand_optional_files_arg(
         // https://github.com/jj-vcs/jj/issues/2933#issuecomment-1925870731
         Ok(FilesetExpression::all())
     }
+}
+
+/// Parses a line number or an inclusive, 1-based line range `"from-to"` into
+/// a 0-based, half-open range.
+fn expect_line_range(node: &ExpressionNode) -> Result<Range<usize>, RevsetParseError> {
+    let text = expect_string_literal("line range", node)?;
+    annotate::parse_line_range(text)
+        .map_err(|err| RevsetParseError::expression(err.to_string(), node.span))
 }
 
 /// Parses the given `node` as a fileset expression.
@@ -1534,6 +1609,17 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::Bisect(expression) => {
                 transform_rec(expression, pre, post)?.map(RevsetExpression::Bisect)
             }
+            RevsetExpression::FollowLines {
+                path,
+                line_range,
+                start,
+                descend,
+            } => transform_rec(start, pre, post)?.map(|start| RevsetExpression::FollowLines {
+                path: path.clone(),
+                line_range: line_range.clone(),
+                start,
+                descend: *descend,
+            }),
             RevsetExpression::HasSize { candidates, count } => {
                 transform_rec(candidates, pre, post)?.map(|candidates| RevsetExpression::HasSize {
                     candidates,
@@ -1786,6 +1872,21 @@ where
         RevsetExpression::Bisect(expression) => {
             let expression = folder.fold_expression(expression)?;
             RevsetExpression::Bisect(expression).into()
+        }
+        RevsetExpression::FollowLines {
+            path,
+            line_range,
+            start,
+            descend,
+        } => {
+            let start = folder.fold_expression(start)?;
+            RevsetExpression::FollowLines {
+                path: path.clone(),
+                line_range: line_range.clone(),
+                start,
+                descend: *descend,
+            }
+            .into()
         }
         RevsetExpression::HasSize { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
@@ -3156,6 +3257,18 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::Bisect(expression) => {
                 ResolvedExpression::Bisect(self.resolve(expression).into())
             }
+            RevsetExpression::FollowLines {
+                path,
+                line_range,
+                start,
+                descend,
+            } => ResolvedExpression::FollowLines {
+                path: path.clone(),
+                line_range: line_range.clone(),
+                start: self.resolve(start).into(),
+                descend: *descend,
+                visible_heads: self.resolve_visible_heads_or_referenced().into(),
+            },
             RevsetExpression::Latest { candidates, count } => ResolvedExpression::Latest {
                 candidates: self.resolve(candidates).into(),
                 count: *count,
@@ -3300,6 +3413,7 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::ForkPoint(_)
             | RevsetExpression::MergePoint(_)
             | RevsetExpression::Bisect(_)
+            | RevsetExpression::FollowLines { .. }
             | RevsetExpression::HasSize { .. }
             | RevsetExpression::Latest { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())

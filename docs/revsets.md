@@ -438,6 +438,25 @@ revsets (expressions) as arguments.
   Some file patterns might need quoting because the `expression` must also be
   parsable as a revset. For example, `.` has to be quoted in `files(".")`.
 
+* `followlines(file, lines, [start], [descend])`: Commits that modified the
+  given range of lines of `file`, following the block of lines as it moves
+  through history. This is similar to
+  [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `followlines()`.
+
+  `lines` is a line number or an inclusive 1-based range like `"10-20"`,
+  referring to the content of `file` in the `start` commit. `start` defaults to
+  the working-copy commit `@`. Ancestors of `start` that changed, added or
+  removed lines within the block are returned, as well as the commit that
+  introduced it. If `descend` is `true`, descendants of `start` that modified
+  the block are returned instead (including `start` itself if it did.)
+
+  `file` is a single path relative to the directory `jj` was invoked from.
+  Renames are followed when the backend detects them (as the Git backend
+  does.)
+
+  For example, `followlines("src/lib.rs", "40-60")` returns the commits that
+  touched what is now lines 40 to 60 of `src/lib.rs`.
+
 * `diff_lines(text, [files])`: Commits containing diffs matching the given
   `text` pattern line by line.
 

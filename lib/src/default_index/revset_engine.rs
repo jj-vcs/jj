@@ -15,6 +15,7 @@
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::cmp::Reverse;
+use std::collections::BTreeMap;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
 use std::collections::hash_map::HashMap;
@@ -29,6 +30,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use bstr::BString;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -41,20 +43,25 @@ use super::rev_walk::PeekableRevWalk;
 use super::rev_walk::RevWalk;
 use super::rev_walk::RevWalkBuilder;
 use super::revset_graph_iterator::RevsetGraphWalk;
+use crate::annotate;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
+use crate::backend::MergedTreeValue;
+use crate::backend::MergedTreeValueExt as _;
 use crate::backend::MillisSinceEpoch;
 use crate::commit::Commit;
 use crate::commit::merge_commit_trees_no_resolve;
 use crate::conflict_labels::ConflictLabels;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_tree_value;
+use crate::copies::CopyRecords;
 use crate::default_index::bit_set::AncestorsBitSet;
 use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
 use crate::files;
 use crate::files::MergeOptions;
+use crate::fileset::FilesetExpression;
 use crate::graph::GraphNode;
 use crate::matchers::FilesMatcher;
 use crate::matchers::Matcher;
@@ -63,6 +70,7 @@ use crate::merge::Merge;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::repo_path::RepoPath;
+use crate::repo_path::RepoPathBuf;
 use crate::revset::DiffMatchSide;
 use crate::revset::GENERATION_RANGE_FULL;
 use crate::revset::ResolvedExpression;
@@ -1062,6 +1070,31 @@ impl EvaluationContext<'_> {
                 };
                 Ok(Box::new(EagerRevset { positions }))
             }
+            ResolvedExpression::FollowLines {
+                path,
+                line_range,
+                start,
+                descend,
+                visible_heads,
+            } => {
+                let start_positions = self
+                    .evaluate(start)?
+                    .positions()
+                    .attach(index)
+                    .try_collect()?;
+                let revset = self.follow_lines(path, line_range, start_positions)?;
+                if *descend {
+                    let head_positions = self
+                        .evaluate(visible_heads)?
+                        .positions()
+                        .attach(index)
+                        .try_collect()?;
+                    let positions = revset.walk().descendants(index, head_positions)?;
+                    Ok(Box::new(EagerRevset { positions }))
+                } else {
+                    Ok(Box::new(revset))
+                }
+            }
             ResolvedExpression::Latest { candidates, count } => {
                 let candidate_set = self.evaluate(candidates)?;
                 Ok(Box::new(self.take_latest_revset(&*candidate_set, *count)?))
@@ -1195,6 +1228,59 @@ impl EvaluationContext<'_> {
         Ok(EagerRevset { positions })
     }
 
+    /// Returns the ancestors of `start_positions` that modified the
+    /// `line_range` of `path`.
+    ///
+    /// The block of lines is followed as it moves through history. Renames
+    /// are followed through the copy records of the backend. The history is
+    /// only walked as the revset is iterated. The descendants can be walked
+    /// instead with `FollowLinesRevWalk::descendants()`.
+    fn follow_lines(
+        &self,
+        path: &RepoPath,
+        line_range: &Range<usize>,
+        start_positions: Vec<GlobalCommitPosition>,
+    ) -> Result<FollowLinesRevset, RevsetEvaluationError> {
+        let mut frontier: BTreeMap<GlobalCommitPosition, FollowLinesNode> = BTreeMap::new();
+        for pos in start_positions {
+            let mut source = FollowLinesSource::load(&self.store, self.index, path, pos)?;
+            if source.value.is_absent() {
+                return Err(RevsetEvaluationError::Other(
+                    format!("No such path: {}", path.as_internal_file_string()).into(),
+                ));
+            }
+            if source.value.to_file_merge().is_none() {
+                return Err(RevsetEvaluationError::Other(
+                    format!(
+                        "Path exists but is not a regular file: {}",
+                        path.as_internal_file_string()
+                    )
+                    .into(),
+                ));
+            }
+            let num_lines = annotate::count_lines(source.contents(&self.store)?);
+            if line_range.end > num_lines {
+                return Err(RevsetEvaluationError::Other(
+                    format!(
+                        "Line range {}-{} exceeds file size ({num_lines} lines)",
+                        line_range.start + 1,
+                        line_range.end
+                    )
+                    .into(),
+                ));
+            }
+            let node = frontier
+                .entry(pos)
+                .or_insert_with(|| FollowLinesNode::new(path.to_owned()));
+            node.source = Some(source);
+            insert_coalesced(&mut node.ranges, line_range.clone());
+        }
+        Ok(FollowLinesRevset {
+            store: self.store.clone(),
+            frontier,
+        })
+    }
+
     fn take_latest_revset(
         &self,
         candidate_set: &dyn InternalRevset,
@@ -1280,6 +1366,457 @@ where
         + 'a,
 {
     Box::new(PurePredicateFn(f))
+}
+
+/// Ancestors of some commits that modified a block of lines of a file, see
+/// `follow_lines()`.
+struct FollowLinesRevset {
+    store: Arc<Store>,
+    /// Starting positions, with the ranges to follow and the file there.
+    frontier: BTreeMap<GlobalCommitPosition, FollowLinesNode>,
+}
+
+impl fmt::Debug for FollowLinesRevset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FollowLinesRevset")
+            .field(
+                "paths",
+                &self.frontier.values().map(|node| &node.path).collect_vec(),
+            )
+            .finish_non_exhaustive()
+    }
+}
+
+impl FollowLinesRevset {
+    fn walk(&self) -> FollowLinesRevWalk<'static> {
+        FollowLinesRevWalk {
+            store: self.store.clone(),
+            modifies_file_fns: HashMap::new(),
+            frontier: self.frontier.clone(),
+        }
+    }
+}
+
+impl InternalRevset for FollowLinesRevset {
+    fn positions<'a>(&self) -> BoxedRevWalk<'a>
+    where
+        Self: 'a,
+    {
+        Box::new(self.walk())
+    }
+}
+
+impl ToPredicateFn for FollowLinesRevset {
+    fn to_predicate_fn<'a>(&self) -> BoxedPredicateFn<'a>
+    where
+        Self: 'a,
+    {
+        // Like `predicate_fn_from_rev_walk()`, but the walk may fail.
+        let mut walk = self.walk().peekable();
+        Box::new(move |index, entry_pos| {
+            while walk
+                .next_if(index, |item| matches!(item, Ok(pos) if *pos > entry_pos))
+                .is_some()
+            {
+                continue;
+            }
+            match walk.peek(index) {
+                Some(Err(_)) => Err(walk.next(index).unwrap().unwrap_err()),
+                Some(Ok(pos)) if *pos == entry_pos => {
+                    walk.next(index);
+                    Ok(true)
+                }
+                _ => Ok(false),
+            }
+        })
+    }
+}
+
+/// Follows a block of lines of a file through history, for `followlines()`.
+///
+/// As a `RevWalk`, this walks the ancestors: positions are visited in
+/// descending order, so each one is visited at most once, after all its
+/// children have translated their ranges to it. `descendants()` walks the
+/// other way.
+struct FollowLinesRevWalk<'a> {
+    store: Arc<Store>,
+    /// Only commits modifying the file need a content diff; the others just
+    /// pass the ranges through. The file may have a different path in each
+    /// node, so there is one `files()` predicate per path.
+    modifies_file_fns: HashMap<RepoPathBuf, BoxedPredicateFn<'a>>,
+    /// Positions to visit, each with the path of the file there, the ranges
+    /// to follow and the file contents once loaded.
+    frontier: BTreeMap<GlobalCommitPosition, FollowLinesNode>,
+}
+
+impl RevWalk<CompositeIndex> for FollowLinesRevWalk<'_> {
+    type Item = Result<GlobalCommitPosition, RevsetEvaluationError>;
+
+    fn next(&mut self, index: &CompositeIndex) -> Option<Self::Item> {
+        while let Some((pos, node)) = self.frontier.pop_last() {
+            match self.visit_parents(index, pos, node) {
+                Ok(true) => return Some(Ok(pos)),
+                Ok(false) => {}
+                Err(err) => {
+                    self.frontier.clear();
+                    return Some(Err(err));
+                }
+            }
+        }
+        None
+    }
+}
+
+impl FollowLinesRevWalk<'_> {
+    /// Returns the descendants of the starting positions (up to
+    /// `head_positions`) that modified the block, in descending order.
+    ///
+    /// Unlike the ancestors, these are computed eagerly, since the
+    /// descendants are visited in ascending order.
+    fn descendants(
+        mut self,
+        index: &CompositeIndex,
+        head_positions: Vec<GlobalCommitPosition>,
+    ) -> Result<Vec<GlobalCommitPosition>, RevsetEvaluationError> {
+        let mut result = Vec::new();
+        let start_positions = self.frontier.keys().copied().collect_vec();
+        // The starting commits themselves are reported if they modified the
+        // block. This leaves their parents in the frontier, hence the reset.
+        let seeded = self.frontier.clone();
+        for &pos in &start_positions {
+            let node = self.frontier.remove(&pos).unwrap();
+            if self.visit_parents(index, pos, node)? {
+                result.push(pos);
+            }
+        }
+        self.frontier = seeded;
+        // Parents before children. Nodes stay in the frontier since any
+        // later commit may be a child.
+        let candidates = RevWalkBuilder::new(index)
+            .wanted_heads(head_positions)
+            .descendants(start_positions.iter().copied().collect());
+        for pos in candidates {
+            if !start_positions.contains(&pos) && self.visit_child(index, pos)? {
+                result.push(pos);
+            }
+        }
+        result.sort_unstable_by(|a, b| b.cmp(a));
+        Ok(result)
+    }
+
+    /// Translates the ranges of `node` to the parents of `pos`, adding them to
+    /// the frontier. Returns whether `pos` modified the block.
+    fn visit_parents(
+        &mut self,
+        index: &CompositeIndex,
+        pos: GlobalCommitPosition,
+        node: FollowLinesNode,
+    ) -> Result<bool, RevsetEvaluationError> {
+        let parent_positions = index.commits().entry_by_pos(pos).parent_positions();
+        if !self.modifies_file(index, &node.path, pos)? {
+            // Cheap check (changed-path index when available): the file is
+            // the same as in the parents, the ranges apply there as is.
+            for &parent_pos in &parent_positions {
+                let parent = self
+                    .frontier
+                    .entry(parent_pos)
+                    .or_insert_with(|| FollowLinesNode::new(node.path.clone()));
+                for range in &node.ranges {
+                    insert_coalesced(&mut parent.ranges, range.clone());
+                }
+            }
+            return Ok(false);
+        }
+        let mut source = match node.source {
+            Some(source) => source,
+            None => FollowLinesSource::load(&self.store, index, &node.path, pos)?,
+        };
+        let mut touched = false;
+        let mut has_parent_with_file = false;
+        for &parent_pos in &parent_positions {
+            // The file may have been renamed in this commit. If the parent
+            // doesn't have it at all, it isn't an ancestor of the file.
+            let (parent_path, loaded) = if let Some(parent) = self.frontier.get(&parent_pos) {
+                (parent.path.clone(), None)
+            } else {
+                let parent_source =
+                    FollowLinesSource::load(&self.store, index, &node.path, parent_pos)?;
+                if !parent_source.value.is_absent() {
+                    (node.path.clone(), Some(parent_source))
+                } else if let Some(source_path) =
+                    self.copy_source(index, &node.path, parent_pos, pos)?
+                {
+                    let parent_source =
+                        FollowLinesSource::load(&self.store, index, &source_path, parent_pos)?;
+                    (source_path, Some(parent_source))
+                } else {
+                    continue;
+                }
+            };
+            has_parent_with_file = true;
+            let loaded = match loaded {
+                None if self.frontier[&parent_pos].source.is_none() => Some(
+                    FollowLinesSource::load(&self.store, index, &parent_path, parent_pos)?,
+                ),
+                loaded => loaded,
+            };
+            let parent = self
+                .frontier
+                .entry(parent_pos)
+                .or_insert_with(|| FollowLinesNode::new(parent_path));
+            if let Some(loaded) = loaded {
+                parent.source = Some(loaded);
+            }
+            let parent_source = parent.source.as_mut().unwrap();
+            touched |= translate_ranges(
+                &self.store,
+                &node.ranges,
+                &mut source,
+                parent_source,
+                &mut parent.ranges,
+            )?;
+            if parent.ranges.is_empty() {
+                // Nothing left to follow there: the block was introduced
+                // by this commit.
+                self.frontier.remove(&parent_pos);
+            }
+        }
+        // The block was modified here, or the file was created here.
+        Ok(touched || !has_parent_with_file)
+    }
+
+    /// Translates the ranges of the parents of `child_pos` that are in the
+    /// frontier to `child_pos`, adding it to the frontier. Returns whether
+    /// `child_pos` modified the block.
+    fn visit_child(
+        &mut self,
+        index: &CompositeIndex,
+        child_pos: GlobalCommitPosition,
+    ) -> Result<bool, RevsetEvaluationError> {
+        let parent_positions = index.commits().entry_by_pos(child_pos).parent_positions();
+        let mut touched = false;
+        let mut child: Option<FollowLinesNode> = None;
+        for &parent_pos in &parent_positions {
+            let Some(parent_path) = self.frontier.get(&parent_pos).map(|node| node.path.clone())
+            else {
+                continue;
+            };
+            if child.is_none() {
+                // The file may have been renamed or deleted in this commit.
+                let mut source =
+                    FollowLinesSource::load(&self.store, index, &parent_path, child_pos)?;
+                if source.value.is_absent() {
+                    match self.copy_target(index, &parent_path, parent_pos, child_pos)? {
+                        Some(target_path) => {
+                            source = FollowLinesSource::load(
+                                &self.store,
+                                index,
+                                &target_path,
+                                child_pos,
+                            )?;
+                        }
+                        None => continue,
+                    }
+                }
+                let mut node = FollowLinesNode::new(source.path.clone());
+                node.source = Some(source);
+                child = Some(node);
+            }
+            let child_node = child.as_mut().unwrap();
+            if !self.modifies_file(index, &child_node.path, child_pos)? {
+                let parent = &self.frontier[&parent_pos];
+                for range in &parent.ranges {
+                    insert_coalesced(&mut child_node.ranges, range.clone());
+                }
+                continue;
+            }
+            if self.frontier[&parent_pos].source.is_none() {
+                let parent_source =
+                    FollowLinesSource::load(&self.store, index, &parent_path, parent_pos)?;
+                self.frontier.get_mut(&parent_pos).unwrap().source = Some(parent_source);
+            }
+            let parent = self.frontier.get_mut(&parent_pos).unwrap();
+            touched |= translate_ranges(
+                &self.store,
+                &parent.ranges,
+                parent.source.as_mut().unwrap(),
+                child_node.source.as_mut().unwrap(),
+                &mut child_node.ranges,
+            )?;
+        }
+        if let Some(child) = child.filter(|child| !child.ranges.is_empty()) {
+            self.frontier.insert(child_pos, child);
+        }
+        Ok(touched)
+    }
+
+    fn modifies_file(
+        &mut self,
+        index: &CompositeIndex,
+        path: &RepoPath,
+        pos: GlobalCommitPosition,
+    ) -> Result<bool, RevsetEvaluationError> {
+        let predicate_fn = self
+            .modifies_file_fns
+            .entry(path.to_owned())
+            .or_insert_with(|| {
+                let fileset = FilesetExpression::file_path(path.to_owned());
+                build_predicate_fn(self.store.clone(), &RevsetFilterPredicate::File(fileset))
+                    .to_predicate_fn()
+            });
+        predicate_fn(index, pos)
+    }
+
+    /// Path `path` of `pos` was renamed from in `parent_pos`, if any.
+    fn copy_source(
+        &self,
+        index: &CompositeIndex,
+        path: &RepoPath,
+        parent_pos: GlobalCommitPosition,
+        pos: GlobalCommitPosition,
+    ) -> Result<Option<RepoPathBuf>, RevsetEvaluationError> {
+        let records = self.copy_records(index, parent_pos, pos)?;
+        Ok(records.for_target(path).map(|record| record.source.clone()))
+    }
+
+    /// Path `path` of `parent_pos` was renamed to in `child_pos`, if any.
+    fn copy_target(
+        &self,
+        index: &CompositeIndex,
+        path: &RepoPath,
+        parent_pos: GlobalCommitPosition,
+        child_pos: GlobalCommitPosition,
+    ) -> Result<Option<RepoPathBuf>, RevsetEvaluationError> {
+        let records = self.copy_records(index, parent_pos, child_pos)?;
+        Ok(records.for_source(path).map(|record| record.target.clone()))
+    }
+
+    fn copy_records(
+        &self,
+        index: &CompositeIndex,
+        parent_pos: GlobalCommitPosition,
+        pos: GlobalCommitPosition,
+    ) -> Result<CopyRecords, RevsetEvaluationError> {
+        let commit_id = |pos| index.commits().entry_by_pos(pos).commit_id();
+        let stream = self
+            .store
+            .get_copy_records(None, &commit_id(parent_pos), &commit_id(pos))?;
+        let mut records = CopyRecords::default();
+        records.add_records(stream.try_collect::<Vec<_>>().block_on()?);
+        Ok(records)
+    }
+}
+
+/// Translates `ranges` of the file `from` to the file `to`, adding them to
+/// `to_ranges`. Returns whether the diff between the two touches the ranges.
+fn translate_ranges(
+    store: &Store,
+    ranges: &[Range<usize>],
+    from: &mut FollowLinesSource,
+    to: &mut FollowLinesSource,
+    to_ranges: &mut Vec<Range<usize>>,
+) -> Result<bool, RevsetEvaluationError> {
+    if from.value == to.value {
+        // Same file (e.g. a merge or a pure rename): the ranges apply as is,
+        // no diff needed.
+        for range in ranges {
+            insert_coalesced(to_ranges, range.clone());
+        }
+        return Ok(false);
+    }
+    // Diff once, translate every range over it.
+    let blocks = annotate::line_diff_blocks(from.contents(store)?, to.contents(store)?);
+    let mut touched = false;
+    for range in ranges {
+        let (touched_here, to_range) = annotate::translate_line_range(&blocks, range);
+        touched |= touched_here;
+        if !to_range.is_empty() {
+            insert_coalesced(to_ranges, to_range);
+        }
+    }
+    Ok(touched)
+}
+
+/// File at a commit, for `FollowLinesRevWalk`.
+///
+/// Contents are read lazily, since a parent with the same tree value as its
+/// child needs no diff.
+#[derive(Clone)]
+struct FollowLinesSource {
+    path: RepoPathBuf,
+    value: MergedTreeValue,
+    labels: ConflictLabels,
+    contents: Option<BString>,
+}
+
+impl FollowLinesSource {
+    fn load(
+        store: &Arc<Store>,
+        index: &CompositeIndex,
+        path: &RepoPath,
+        pos: GlobalCommitPosition,
+    ) -> Result<Self, RevsetEvaluationError> {
+        let commit = store.get_commit(&index.commits().entry_by_pos(pos).commit_id())?;
+        let tree = commit.tree();
+        Ok(Self {
+            path: path.to_owned(),
+            value: tree.path_value(path).block_on()?,
+            labels: tree.labels().clone(),
+            contents: None,
+        })
+    }
+
+    fn contents(&mut self, store: &Store) -> Result<&BString, RevsetEvaluationError> {
+        if self.contents.is_none() {
+            let contents = annotate::materialize_file_contents(
+                store,
+                &self.path,
+                self.value.clone(),
+                &self.labels,
+            )
+            .block_on()?;
+            self.contents = Some(contents);
+        }
+        Ok(self.contents.as_ref().unwrap())
+    }
+}
+
+/// A position to visit in `FollowLinesRevWalk`.
+#[derive(Clone)]
+struct FollowLinesNode {
+    /// Path of the file at this commit.
+    path: RepoPathBuf,
+    /// Sorted, disjoint line ranges to follow at this commit.
+    ranges: Vec<Range<usize>>,
+    /// File at this commit, if already loaded.
+    source: Option<FollowLinesSource>,
+}
+
+impl FollowLinesNode {
+    fn new(path: RepoPathBuf) -> Self {
+        Self {
+            path,
+            ranges: Vec::new(),
+            source: None,
+        }
+    }
+}
+
+/// Inserts `range` into `ranges`, which is kept sorted by start and free of
+/// overlapping or adjacent ranges.
+fn insert_coalesced(ranges: &mut Vec<Range<usize>>, range: Range<usize>) {
+    // Replace every range that overlaps or touches the new one, starting at
+    // the first range that ends at or after the new one starts, with their
+    // union.
+    let start = ranges.partition_point(|r| r.end < range.start);
+    let mut end = start;
+    let mut merged = range;
+    while let Some(r) = ranges.get(end).filter(|r| r.start <= merged.end) {
+        merged.start = merged.start.min(r.start);
+        merged.end = merged.end.max(r.end);
+        end += 1;
+    }
+    ranges.splice(start..end, [merged]);
 }
 
 fn build_predicate_fn(
@@ -1562,6 +2099,29 @@ async fn to_file_content(
 )]
 mod tests {
     use indoc::indoc;
+
+    #[test]
+    fn test_insert_coalesced() {
+        let mut ranges = vec![];
+        insert_coalesced(&mut ranges, 5..7);
+        assert_eq!(ranges, vec![5..7]);
+        // Disjoint, before and after.
+        insert_coalesced(&mut ranges, 0..2);
+        insert_coalesced(&mut ranges, 10..12);
+        assert_eq!(ranges, vec![0..2, 5..7, 10..12]);
+        // Adjacent: merged.
+        insert_coalesced(&mut ranges, 2..3);
+        assert_eq!(ranges, vec![0..3, 5..7, 10..12]);
+        // Overlapping: merged.
+        insert_coalesced(&mut ranges, 6..8);
+        assert_eq!(ranges, vec![0..3, 5..8, 10..12]);
+        // Spanning several: all merged.
+        insert_coalesced(&mut ranges, 1..11);
+        assert_eq!(ranges, vec![0..12]);
+        // Contained: no change.
+        insert_coalesced(&mut ranges, 3..4);
+        assert_eq!(ranges, vec![0..12]);
+    }
 
     use super::*;
     use crate::default_index::DefaultMutableIndex;

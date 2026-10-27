@@ -70,6 +70,10 @@ and this project adheres to
   different than `self.target().current_working_copy()` because multiple
   workspaces can point to the same commit.
 
+* New `followlines(file, lines, [start], [descend])` revset function that
+  yields the commits that modified a range of lines of a file, following the
+  block of lines through history like Mercurial's `followlines()`.
+
 ### Fixed bugs
 
 * The operations created by `jj workspace add` are now attributed to the

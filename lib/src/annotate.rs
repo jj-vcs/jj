@@ -32,7 +32,9 @@ use itertools::Itertools as _;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
+use crate::backend::MergedTreeValue;
 use crate::commit::Commit;
+use crate::conflict_labels::ConflictLabels;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::ConflictMaterializeOptions;
 use crate::conflicts::MaterializedTreeValue;
@@ -438,23 +440,154 @@ fn copy_same_lines_with(
     }
 }
 
+/// Parses a line number or an inclusive, 1-based line range `"from-to"`.
+///
+/// Returns a 0-based, half-open range.
+pub fn parse_line_range(text: &str) -> Result<Range<usize>, LineRangeParseError> {
+    let (from, to) = match text.split_once('-') {
+        Some((from, to)) => (from, to),
+        None => (text, text),
+    };
+    let from: usize = from
+        .trim()
+        .parse()
+        .map_err(|_| LineRangeParseError::Invalid)?;
+    let to: usize = to
+        .trim()
+        .parse()
+        .map_err(|_| LineRangeParseError::Invalid)?;
+    if from == 0 {
+        return Err(LineRangeParseError::ZeroBased);
+    }
+    if to < from {
+        return Err(LineRangeParseError::Empty);
+    }
+    Ok((from - 1)..to)
+}
+
+/// Error from [`parse_line_range()`].
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
+pub enum LineRangeParseError {
+    /// Not a number nor a `"from-to"` range.
+    #[error("Expected line number or range \"from-to\"")]
+    Invalid,
+    /// A line number is 0.
+    #[error("Line numbers are 1-based")]
+    ZeroBased,
+    /// `to` is before `from`.
+    #[error("Line range must not be empty")]
+    Empty,
+}
+
+/// Hunk of a line-based diff between two versions of a file.
+///
+/// Each side is expressed as a range of line numbers.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct LineBlock {
+    /// Line range in the "current" (newer) version.
+    pub current: Range<usize>,
+    /// Line range in the "parent" (older) version.
+    pub parent: Range<usize>,
+    /// Whether both sides are identical.
+    pub matching: bool,
+}
+
+/// Computes the line-based diff between two versions of a file.
+///
+/// The returned blocks cover both files entirely.
+pub(crate) fn line_diff_blocks(current_contents: &[u8], parent_contents: &[u8]) -> Vec<LineBlock> {
+    let diff = ContentDiff::by_line([current_contents, parent_contents]);
+    let mut current_start = 0;
+    let mut parent_start = 0;
+    diff.hunks()
+        .map(|hunk| {
+            let current_end = current_start + count_lines(hunk.contents[0]);
+            let parent_end = parent_start + count_lines(hunk.contents[1]);
+            let block = LineBlock {
+                current: current_start..current_end,
+                parent: parent_start..parent_end,
+                matching: hunk.kind == DiffHunkKind::Matching,
+            };
+            current_start = current_end;
+            parent_start = parent_end;
+            block
+        })
+        .collect()
+}
+
+/// Translates a line `range` of the current version to the parent version.
+///
+/// `blocks` is the diff between the two versions (see [`line_diff_blocks()`]).
+/// Returns whether the diff touches the range, and the corresponding range in
+/// the parent version.
+///
+/// Each block overlapping the range contributes a parent range: a matching
+/// block maps the overlapping lines one to one, a modified block contributes
+/// its whole parent side (and marks the range as touched). The result is the
+/// hull of these contributions. Extending over whole modified blocks is what
+/// makes following a block of lines never lose lines. The returned parent
+/// range is empty if the whole block was introduced by the current version.
+///
+/// `range` is 0-based and half-open, and must be within the current version.
+pub(crate) fn translate_line_range(
+    blocks: &[LineBlock],
+    range: &Range<usize>,
+) -> (bool, Range<usize>) {
+    let mut touched = false;
+    let mut parent_range: Option<Range<usize>> = None;
+    for block in blocks {
+        // A block overlaps the range if they share a line. A pure deletion
+        // (empty on the current side) counts only if strictly inside.
+        if !(range.start < block.current.end && block.current.start < range.end) {
+            continue;
+        }
+        let mapped = if block.matching {
+            // Same lines on both sides: shift the overlapping part.
+            let shift = |line: usize| block.parent.start + (line - block.current.start);
+            shift(range.start.max(block.current.start))..shift(range.end.min(block.current.end))
+        } else {
+            touched = true;
+            block.parent.clone()
+        };
+        parent_range = Some(match parent_range {
+            None => mapped,
+            Some(acc) => acc.start.min(mapped.start)..acc.end.max(mapped.end),
+        });
+    }
+    // No block overlaps only if the range is outside the file, which the
+    // caller rules out; stop following in that case.
+    (touched, parent_range.unwrap_or(0..0))
+}
+
 /// Counts the number of lines in `text`, where the last line may not end with
 /// a newline character. Equivalent to `text.split_inclusive(|b| *b ==
 /// b'\n').count()`, but faster.
-fn count_lines(text: &[u8]) -> usize {
+pub(crate) fn count_lines(text: &[u8]) -> usize {
     let newlines = memchr::memchr_iter(b'\n', text).count();
     let end_is_not_newline = text.last().is_some_and(|b| *b != b'\n');
     newlines + usize::from(end_is_not_newline)
 }
 
-async fn get_file_contents(
+pub(crate) async fn get_file_contents(
     store: &Store,
     path: &RepoPath,
     tree: &MergedTree,
 ) -> Result<BString, BackendError> {
     let file_value = tree.path_value(path).await?;
-    let effective_file_value =
-        materialize_tree_value(store, path, file_value, tree.labels()).await?;
+    materialize_file_contents(store, path, file_value, tree.labels()).await
+}
+
+/// Reads the file contents of `file_value`.
+///
+/// Conflicts are materialized with markers. Returns empty contents for
+/// non-files.
+pub(crate) async fn materialize_file_contents(
+    store: &Store,
+    path: &RepoPath,
+    file_value: MergedTreeValue,
+    labels: &ConflictLabels,
+) -> Result<BString, BackendError> {
+    let effective_file_value = materialize_tree_value(store, path, file_value, labels).await?;
     match effective_file_value {
         MaterializedTreeValue::File(mut file) => Ok(file.read_all(path).await?.into()),
         MaterializedTreeValue::FileConflict(file) => {
@@ -573,6 +706,75 @@ mod tests {
                 (Ok(&commit_id3), 4..7),
             ]
         );
+    }
+
+    #[test]
+    fn test_parse_line_range() {
+        assert_eq!(parse_line_range("1"), Ok(0..1));
+        assert_eq!(parse_line_range("10-20"), Ok(9..20));
+        assert_eq!(parse_line_range(" 3 - 3 "), Ok(2..3));
+        assert_eq!(parse_line_range("0"), Err(LineRangeParseError::ZeroBased));
+        assert_eq!(parse_line_range("5-2"), Err(LineRangeParseError::Empty));
+        assert_eq!(parse_line_range("x"), Err(LineRangeParseError::Invalid));
+        assert_eq!(parse_line_range("1-2-3"), Err(LineRangeParseError::Invalid));
+        assert_eq!(parse_line_range(""), Err(LineRangeParseError::Invalid));
+    }
+
+    #[test]
+    fn test_line_diff_blocks() {
+        let blocks = line_diff_blocks(b"a\nX\nc\n", b"a\nb\nc\n");
+        assert_eq!(
+            blocks,
+            vec![
+                LineBlock {
+                    current: 0..1,
+                    parent: 0..1,
+                    matching: true
+                },
+                LineBlock {
+                    current: 1..2,
+                    parent: 1..2,
+                    matching: false
+                },
+                LineBlock {
+                    current: 2..3,
+                    parent: 2..3,
+                    matching: true
+                },
+            ]
+        );
+        assert_eq!(
+            line_diff_blocks(b"a\n", b""),
+            vec![LineBlock {
+                current: 0..1,
+                parent: 0..0,
+                matching: false
+            }]
+        );
+    }
+
+    #[test]
+    fn test_translate_line_range() {
+        let t = |cur: &str, par: &str, r: Range<usize>| {
+            translate_line_range(&line_diff_blocks(cur.as_bytes(), par.as_bytes()), &r)
+        };
+
+        // identical files
+        assert_eq!(t("a\nb\nc\n", "a\nb\nc\n", 1..2), (false, 1..2));
+        // line inserted before the range: shifted
+        assert_eq!(t("x\na\nb\nc\n", "a\nb\nc\n", 2..3), (false, 1..2));
+        // line inserted inside the range: touched, parent range shrinks
+        assert_eq!(t("a\nx\nb\nc\n", "a\nb\nc\n", 0..3), (true, 0..2));
+        // range entirely new: touched, empty parent range
+        assert_eq!(t("a\nx\ny\nb\n", "a\nb\n", 1..3), (true, 1..1));
+        // line deleted inside the range: touched, parent range grows
+        assert_eq!(t("a\nc\nd\n", "a\nb\nc\nd\n", 0..3), (true, 0..4));
+        // modified hunk partially overlapping the range: extended to the hunk
+        assert_eq!(t("a\nX\nY\nd\n", "a\nb\nc\nd\n", 2..4), (true, 1..4));
+        // parent is empty: block was created here
+        assert_eq!(t("a\nb\n", "", 0..2), (true, 0..0));
+        // last line without newline still counts
+        assert_eq!(t("a\nb", "a\nb", 1..2), (false, 1..2));
     }
 
     #[test]
