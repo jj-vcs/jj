@@ -485,6 +485,28 @@ fn test_resolve_symbol_hidden_change_id() -> TestResult {
         vec![commit2.id().clone()]
     );
 
+    assert_eq!(
+        resolve_symbol(
+            repo.as_ref(),
+            &format!("change_id({change_id}, include=all)")
+        )?,
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(
+            repo.as_ref(),
+            &format!("change_id({change_id}, include=hidden)")
+        )?,
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(
+            repo.as_ref(),
+            &format!("change_id({change_id}, include=visible)")
+        )?,
+        vec![commit2.id().clone()]
+    );
+
     // Abandon the new commit as well so that there are only hidden commits.
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit2);
@@ -512,6 +534,29 @@ fn test_resolve_symbol_hidden_change_id() -> TestResult {
         resolve_symbol(repo.as_ref(), &format!("change_id({change_id})"))?,
         vec![]
     );
+
+    assert_eq!(
+        resolve_symbol(
+            repo.as_ref(),
+            &format!("change_id({change_id}, include=all)")
+        )?,
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(
+            repo.as_ref(),
+            &format!("change_id({change_id}, include=hidden)")
+        )?,
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(
+            repo.as_ref(),
+            &format!("change_id({change_id}, include=visible)")
+        )?,
+        vec![]
+    );
+
     Ok(())
 }
 
