@@ -341,9 +341,10 @@ The following methods are defined.
   conflicted](bookmarks.md#conflicts).
 * `.normal_target() -> Option<Commit>`: Target commit if the ref is not
   conflicted and points to a commit.
-* `.removed_targets() -> List<Commit>`: Old target commits if conflicted.
-* `.added_targets() -> List<Commit>`: New target commits. The list usually
-  contains one "normal" target.
+* `.removed_targets() -> List<Option<Commit>>`: Old target commits if
+  conflicted.
+* `.added_targets() -> List<Option<Commit>>`: New target commits. The list
+  usually contains one "normal" target.
 * `.tracked() -> Boolean`: True if the ref is tracked by a local ref. The local
   ref might have been deleted (but not pushed yet.)
 * `.tracking_present() -> Boolean`: True if the ref is tracked by a local ref,

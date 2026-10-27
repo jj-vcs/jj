@@ -409,10 +409,10 @@ if(ref.conflict(),
   separate("\n",
     " " ++ label("conflict", "(conflicted)") ++ ":",
     ref.removed_targets().map(|c|
-      "  - " ++ format_commit_summary_with_refs(c, "")
+      "  - " ++ if(c, format_commit_summary_with_refs(c, ""), "(absent)")
     ).join("\n"),
     ref.added_targets().map(|c|
-      "  + " ++ format_commit_summary_with_refs(c, "")
+      "  + " ++ if(c, format_commit_summary_with_refs(c, ""), "(absent)")
     ).join("\n"),
   ),
   ": " ++ format_commit_summary_with_refs(ref.normal_target(), ""),

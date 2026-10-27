@@ -2208,6 +2208,7 @@ fn test_git_push_conflicting_bookmarks() -> TestResult {
       @git: qpvuntsm 9b2e76de (empty) description 1
       @origin: qpvuntsm 9b2e76de (empty) description 1
     bookmark2 (conflicted):
+      - (absent)
       + znkkpsqq 7b393945 (empty) description 3
       + zsuskuln 38a20473 (empty) description 2
       @git (behind by 1 commits): zsuskuln 38a20473 (empty) description 2
