@@ -24,13 +24,17 @@ use jj_cli::command_error::CommandError;
 use jj_cli::ui::Ui;
 use jj_lib::backend::Backend;
 use jj_lib::commit::Commit;
+use jj_lib::default_backend_factories::default_index_store_initializer;
+use jj_lib::default_backend_factories::default_op_heads_store_initializer;
+use jj_lib::default_backend_factories::default_op_store_initializer;
+use jj_lib::default_backend_factories::default_submodule_store_initializer;
+use jj_lib::default_backend_factories::default_workspace_store_initializer;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
-use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
@@ -79,11 +83,11 @@ async fn run_custom_command(
                 WorkspaceName::DEFAULT,
                 &backend_initializer,
                 signer_from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
-                &ReadonlyRepo::default_workspace_store_initializer(),
-                &ReadonlyRepo::default_op_store_initializer(),
-                &ReadonlyRepo::default_op_heads_store_initializer(),
-                &ReadonlyRepo::default_index_store_initializer(),
-                &ReadonlyRepo::default_submodule_store_initializer(),
+                &default_workspace_store_initializer(),
+                &default_op_store_initializer(),
+                &default_op_heads_store_initializer(),
+                &default_index_store_initializer(),
+                &default_submodule_store_initializer(),
                 &ConflictsWorkingCopyFactory {},
             )
             .await?;

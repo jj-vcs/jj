@@ -25,8 +25,13 @@ use thiserror::Error;
 
 use crate::backend::BackendInitError;
 use crate::commit::Commit;
+use crate::default_backend_factories::default_index_store_initializer;
+use crate::default_backend_factories::default_op_heads_store_initializer;
+use crate::default_backend_factories::default_op_store_initializer;
+use crate::default_backend_factories::default_submodule_store_initializer;
 use crate::default_backend_factories::default_working_copy_factory;
 use crate::default_backend_factories::default_workspace_loader_factory;
+use crate::default_backend_factories::default_workspace_store_initializer;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
@@ -403,11 +408,11 @@ impl Workspace {
             workspace_name,
             backend_initializer,
             signer,
-            ReadonlyRepo::default_workspace_store_initializer(),
-            ReadonlyRepo::default_op_store_initializer(),
-            ReadonlyRepo::default_op_heads_store_initializer(),
-            ReadonlyRepo::default_index_store_initializer(),
-            ReadonlyRepo::default_submodule_store_initializer(),
+            default_workspace_store_initializer(),
+            default_op_store_initializer(),
+            default_op_heads_store_initializer(),
+            default_index_store_initializer(),
+            default_submodule_store_initializer(),
             &*default_working_copy_factory(),
         )
         .await
