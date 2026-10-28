@@ -150,8 +150,7 @@ pub(crate) async fn cmd_evolog(
     let repo = workspace_command.repo();
     let evolution_entries = walk_predecessors(repo, &start_commit_ids).boxed_local();
     if !args.no_graph {
-        let mut raw_output = formatter.raw()?;
-        let mut graph = get_graphlog(graph_style, raw_output.as_mut());
+        let mut graph = get_graphlog(graph_style, formatter);
 
         let evolution_nodes = evolution_entries.map_ok(|entry| {
             let ids = entry.predecessor_ids();

@@ -242,8 +242,7 @@ pub(crate) async fn cmd_log(
         let formatter = formatter.as_mut();
 
         if !args.no_graph {
-            let mut raw_output = formatter.raw()?;
-            let mut graph = get_graphlog(graph_style, raw_output.as_mut());
+            let mut graph = get_graphlog(graph_style, formatter);
             let stream: LocalBoxStream<_> = {
                 let mut topo_order = TopoGroupedGraph::new(revset.stream_graph(), |id| id);
 
