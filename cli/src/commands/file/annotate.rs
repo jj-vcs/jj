@@ -17,6 +17,7 @@ use clap_complete::ArgValueCompleter;
 use jj_lib::annotate::FileAnnotation;
 use jj_lib::annotate::FileAnnotator;
 use jj_lib::backend::MergedTreeValueExt as _;
+use jj_lib::commit::Commit;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use tracing::instrument;
@@ -28,6 +29,10 @@ use crate::command_error::user_error;
 use crate::commit_templater::AnnotationLine;
 use crate::complete;
 use crate::templater::TemplateRenderer;
+use crate::tui;
+use crate::tui::TuiTerminal;
+use crate::tui::annotate::AnnotatedFile;
+use crate::tui::annotate::AnnotatedRevision;
 use crate::ui::Ui;
 
 /// Show the source change for each line of the target file.
@@ -62,6 +67,15 @@ pub(crate) struct FileAnnotateArgs {
     #[arg(long, short = 'T')]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
+
+    /// Browse the annotation interactively in a terminal UI
+    ///
+    /// The UI lets you select a line and annotate the file at the parent of
+    /// the commit that introduced the line. That's useful when that commit
+    /// only made an uninteresting change to the line, such as reformatting
+    /// it.
+    #[arg(long)]
+    tui: bool,
 }
 
 #[instrument(skip_all)]
@@ -107,7 +121,36 @@ pub(crate) async fn cmd_file_annotate(
         .await?;
     let annotation = annotator.to_annotation();
 
-    render_file_annotation(repo.as_ref(), ui, &template, &annotation).await?;
+    if args.tui {
+        let lines = AnnotationLine::from_annotation(repo.as_ref(), &annotation).await?;
+        let file = AnnotatedFile::new(AnnotatedRevision::Commit(starting_commit), file_path, lines);
+        let state = tui::annotate::State::new(file, workspace_command.path_converter().clone());
+        let commit_template = workspace_command.commit_summary_template();
+        let render_line = |line: &AnnotationLine| {
+            let mut output = vec![];
+            template
+                .format(line, ui.new_formatter(&mut output).as_mut())
+                .unwrap();
+            output
+        };
+        let render_commit = |commit: &Commit| {
+            let mut output = vec![];
+            commit_template
+                .format(commit, ui.new_formatter(&mut output).as_mut())
+                .unwrap();
+            output
+        };
+        tui::annotate::run(
+            &mut TuiTerminal::new()?,
+            repo.as_ref(),
+            state,
+            render_line,
+            render_commit,
+        )
+        .await?;
+    } else {
+        render_file_annotation(repo.as_ref(), ui, &template, &annotation).await?;
+    }
     Ok(())
 }
 

@@ -16,6 +16,7 @@
 
 use std::io;
 use std::io::Stdout;
+use std::iter;
 
 use crossterm::ExecutableCommand as _;
 use crossterm::event::Event;
@@ -25,6 +26,7 @@ use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
+use itertools::Itertools as _;
 use ratatui::Frame;
 use ratatui::Terminal;
 use ratatui::prelude::CrosstermBackend;
@@ -33,9 +35,12 @@ use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::text::Text;
+use unicode_width::UnicodeWidthChar as _;
 
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
+
+pub(crate) mod annotate;
 
 /// Terminal in raw mode on the alternate screen. The terminal is restored when
 /// this is dropped, including when unwinding from a panic.
@@ -110,6 +115,38 @@ pub(crate) fn ansi_to_text(bytes: &[u8]) -> Text<'static> {
     ansi_to_tui::IntoText::into_text(&bytes).unwrap()
 }
 
+/// Replaces tabs in the `line` by spaces up to the next tab stop. Tab stops
+/// are every 8 columns.
+pub(crate) fn expand_tabs(line: Line<'static>) -> Line<'static> {
+    const TAB_WIDTH: usize = 8;
+    let mut column = 0;
+    let spans = line
+        .spans
+        .into_iter()
+        .map(|span| {
+            if !span.content.contains('\t') {
+                column += span.width();
+                return span;
+            }
+            let mut content = String::new();
+            for c in span.content.chars() {
+                if c == '\t' {
+                    let num_spaces = TAB_WIDTH - column % TAB_WIDTH;
+                    content.extend(iter::repeat_n(' ', num_spaces));
+                    column += num_spaces;
+                } else {
+                    content.push(c);
+                    column += c.width().unwrap_or(0);
+                }
+            }
+            Span::styled(content, span.style)
+        })
+        .collect_vec();
+    let mut expanded = Line::from(spans).style(line.style);
+    expanded.alignment = line.alignment;
+    expanded
+}
+
 /// Returns the index of the first visible item such that `selected` is visible
 /// in a viewport of `visible_count` items. Scrolls as little as possible from
 /// `scroll_top`.
@@ -149,6 +186,26 @@ pub(crate) fn buffer_to_string(buf: &ratatui::buffer::Buffer) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_expand_tabs() {
+        let expand = |spans: Vec<Span<'static>>| {
+            expand_tabs(Line::from(spans))
+                .spans
+                .iter()
+                .map(|span| span.content.to_string())
+                .collect_vec()
+        };
+        assert_eq!(expand(vec![Span::raw("\tx")]), ["        x"]);
+        assert_eq!(expand(vec![Span::raw("ab\tx\ty")]), ["ab      x       y"]);
+        // Columns are counted across spans
+        assert_eq!(
+            expand(vec![Span::raw("abc"), Span::raw("\tx")]),
+            ["abc", "     x"]
+        );
+        // Wide characters take two columns
+        assert_eq!(expand(vec![Span::raw("日本\tx")]), ["日本    x"]);
+    }
 
     #[test]
     fn test_scroll_to_selection() {

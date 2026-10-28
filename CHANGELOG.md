@@ -70,6 +70,10 @@ and this project adheres to
   different than `self.target().current_working_copy()` because multiple
   workspaces can point to the same commit.
 
+* `jj file annotate --tui` opens the annotation in a terminal UI where you can
+  select a line and annotate the file at the parent of the commit that
+  introduced the line.
+
 ### Fixed bugs
 
 * The operations created by `jj workspace add` are now attributed to the
