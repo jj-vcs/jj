@@ -7844,6 +7844,16 @@ and this project adheres to
   different than <code>self.target().current_working_copy()</code> because multiple
   workspaces can point to the same commit.</p>
 </li>
+<li>
+<p><code>jj next</code>/<code>jj prev</code> now accept a change ID prefix when prompting for the
+  target commit. The special <code>q</code> quit choice was removed; cancel with EOF.
+  <a href="https://github.com/jj-vcs/jj/issues/9790">#9790</a></p>
+</li>
+<li>
+<p><code>jj converge</code> now accepts a change ID prefix when prompting for the change
+  to converge. The special <code>q</code> abort choice was removed; canceling with EOF now
+  exits with an error (previously <code>q</code> aborted successfully).</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
