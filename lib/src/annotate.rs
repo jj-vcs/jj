@@ -447,7 +447,11 @@ fn count_lines(text: &[u8]) -> usize {
     newlines + usize::from(end_is_not_newline)
 }
 
-async fn get_file_contents(
+/// Reads the contents of the file at `path` in the `tree` as it's annotated.
+///
+/// Conflicts are materialized with conflict markers. Returns empty content if
+/// the path isn't a file.
+pub async fn get_file_contents(
     store: &Store,
     path: &RepoPath,
     tree: &MergedTree,
