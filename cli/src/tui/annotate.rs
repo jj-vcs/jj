@@ -19,6 +19,7 @@
 //! commit that introduced the selected line, which pushes a new entry onto the
 //! stack.
 
+use bstr::ByteSlice as _;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
@@ -26,6 +27,8 @@ use jj_lib::annotate::FileAnnotator;
 use jj_lib::annotate::get_file_contents;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::commit::Commit;
+use jj_lib::diff::ContentDiff;
+use jj_lib::diff::DiffHunkKind;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;
@@ -247,11 +250,14 @@ impl State {
             return Ok(());
         }
         let parent_text = get_file_contents(repo.store(), &path, &parent_tree).await?;
+        let text = get_file_contents(repo.store(), &path, &commit.tree()).await?;
+        let parent_line = map_line_to_left(&parent_text, &text, line.original_line_number - 1);
 
         // Annotating the parent content as if it were in `commit` attributes
         // every line to the parents. That also works when the commit has
         // multiple parents.
-        let mut annotator = FileAnnotator::with_file_content(commit.id(), &path, parent_text);
+        let mut annotator =
+            FileAnnotator::with_file_content(commit.id(), &path, parent_text.clone());
         annotator.compute(repo, &RevsetExpression::all()).await?;
         let lines = AnnotationLine::from_annotation(repo, &annotator.to_annotation()).await?;
         let revision = if let [parent_id] = commit.parent_ids() {
@@ -260,10 +266,38 @@ impl State {
             AnnotatedRevision::MergedParents(commit)
         };
         let mut file = AnnotatedFile::new(revision, path, lines);
-        file.select(line.original_line_number - 1);
+        file.select(parent_line);
         self.history.push(file);
         Ok(())
     }
+}
+
+/// Returns the 0-based line number in `left` that best corresponds to
+/// `right_line` in `right`.
+///
+/// For a line in a changed hunk, that's the line at the same offset in the
+/// corresponding hunk in `left`, or the last line of that hunk if it's shorter.
+/// If the hunk in `left` is empty, it's the next line after the hunk.
+fn map_line_to_left(left: &[u8], right: &[u8], right_line: usize) -> usize {
+    let diff = ContentDiff::by_line([left, right]);
+    let mut left_start = 0;
+    let mut right_start = 0;
+    for hunk in diff.hunk_ranges() {
+        let left_count = left[hunk.ranges[0].clone()].lines_with_terminator().count();
+        let right_count = right[hunk.ranges[1].clone()]
+            .lines_with_terminator()
+            .count();
+        if right_line < right_start + right_count {
+            let offset = right_line - right_start;
+            return match hunk.kind {
+                DiffHunkKind::Matching => left_start + offset,
+                DiffHunkKind::Different => left_start + offset.min(left_count.saturating_sub(1)),
+            };
+        }
+        left_start += left_count;
+        right_start += right_count;
+    }
+    left_start
 }
 
 /// Runs the event loop until the user quits.
@@ -380,6 +414,7 @@ fn first_line(bytes: &[u8]) -> Line<'static> {
 mod tests {
     use std::path::PathBuf;
 
+    use itertools::Itertools as _;
     use jj_lib::backend::CommitId;
     use jj_lib::repo::MutableRepo;
     use pollster::FutureExt as _;
@@ -601,6 +636,41 @@ mod tests {
     }
 
     #[test]
+    fn test_annotate_parent_maps_selected_line() -> TestResult {
+        let test_repo = TestRepo::init();
+        let mut tx = test_repo.repo.start_transaction();
+        let mut_repo = tx.repo_mut();
+        let commit1 = create_commit(&test_repo, mut_repo, &[], "commit1", Some("a\nb\nc\n"));
+        let commit2 = create_commit(
+            &test_repo,
+            mut_repo,
+            &[&commit1],
+            "commit2",
+            Some("x\ny\na\nB\nc\n"),
+        );
+        let repo: &dyn Repo = mut_repo;
+
+        // The parent's line corresponding to "B" is selected, not the line with
+        // the same number
+        let mut state = new_state(repo, &commit2)?;
+        apply(
+            &mut state,
+            repo,
+            &[Action::Down, Action::Down, Action::Down],
+        );
+        apply(&mut state, repo, &[Action::AnnotateParent]);
+        insta::assert_snapshot!(render_to_string(&mut state, 40, 6), @"
+        file at commit1 [depth 1]
+          commit1: a
+        ▶ commit1: b
+          commit1: c
+        commit1
+        ↓/j down • ↑/k up • ]/[ next/prev hunk •
+        ");
+        Ok(())
+    }
+
+    #[test]
     fn test_annotate_parent_of_root() -> TestResult {
         let test_repo = TestRepo::init();
         let mut tx = test_repo.repo.start_transaction();
@@ -652,6 +722,23 @@ mod tests {
         ↓/j down • ↑/k up • ]/[ next/prev hunk •
         ");
         Ok(())
+    }
+
+    #[test]
+    fn test_map_line_to_left() {
+        let left = "a\nb\nc\nd\ne\n";
+        let right = "a\nB1\nB2\nB3\nc\nD\ne\nf";
+        let mapped = (0..9)
+            .map(|line| map_line_to_left(left.as_bytes(), right.as_bytes(), line))
+            .collect_vec();
+        // B1-B3 replace b, D replaces d, f is added
+        assert_eq!(mapped, [0, 1, 1, 1, 2, 3, 4, 5, 5]);
+
+        // Lines in a hunk of the same size map to the same offset
+        assert_eq!(map_line_to_left(b"a\nb\nc\n", b"A\nB\nC\n", 1), 1);
+        // Added lines map to the next line
+        assert_eq!(map_line_to_left(b"a\nc\n", b"a\nb\nc\n", 1), 1);
+        assert_eq!(map_line_to_left(b"", b"a\n", 0), 0);
     }
 
     #[test]
