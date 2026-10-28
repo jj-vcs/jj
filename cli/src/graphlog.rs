@@ -15,7 +15,7 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::io;
-use std::io::Write;
+use std::io::Write as _;
 
 use jj_lib::config::ConfigGetError;
 use jj_lib::graph::GraphEdge;
@@ -31,6 +31,16 @@ use renderdag::pipeline::PrefixLinesToText;
 use renderdag::pipeline::row_shape_to_prefix_lines::box_drawing::Curved;
 use renderdag::pipeline::row_shape_to_prefix_lines::box_drawing::Square;
 use renderdag::pipeline::types::LinePiece;
+
+use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
+
+/// Color labels for graph columns, under the `graph` label. Columns reuse the
+/// labels in turn.
+const LANE_LABELS: [&str; 12] = [
+    "lane0", "lane1", "lane2", "lane3", "lane4", "lane5", "lane6", "lane7", "lane8", "lane9",
+    "lane10", "lane11",
+];
 
 pub trait GraphLog<K: Clone + Eq + Hash> {
     fn add_node(
@@ -50,7 +60,7 @@ pub struct SaplingGraphLog<'writer, K> {
     text: PrefixLinesToText,
     /// Converts a width in columns to a width in characters.
     columns_to_chars: fn(u64) -> u64,
-    writer: &'writer mut dyn Write,
+    formatter: &'writer mut dyn Formatter,
 }
 
 fn convert_graph_edge_into_ancestor<K: Clone>(e: &GraphEdge<K>) -> Ancestor<K> {
@@ -81,7 +91,7 @@ where
         self.text.write_next_lines(
             |line| {
                 if result.is_ok() {
-                    result = write_line(self.writer, line);
+                    result = write_line(self.formatter, line);
                 }
             },
             prefix_lines,
@@ -100,12 +110,19 @@ where
     }
 }
 
-/// Writes one graph line.
-fn write_line(writer: &mut dyn Write, line: &[LinePiece<'_>]) -> io::Result<()> {
+/// Writes one graph line, with a color label for each column.
+fn write_line(formatter: &mut dyn Formatter, line: &[LinePiece<'_>]) -> io::Result<()> {
     for piece in line {
-        writer.write_all(piece.text.as_bytes())?;
+        match piece.column {
+            Some(column) => {
+                let lane = LANE_LABELS[column % LANE_LABELS.len()];
+                write!(formatter.labeled("graph").labeled(lane), "{}", piece.text)?;
+            }
+            // The node symbol and the message text are already formatted.
+            None => formatter.raw()?.write_all(piece.text.as_bytes())?,
+        }
     }
-    writeln!(writer)
+    writeln!(formatter.raw()?)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
@@ -125,7 +142,7 @@ impl GraphStyle {
 
 pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
     style: GraphStyle,
-    formatter: &'a mut dyn Write,
+    formatter: &'a mut dyn Formatter,
 ) -> Box<dyn GraphLog<K> + 'a> {
     let prefix_lines: Box<dyn PrefixLineRenderer<K>> = match style {
         GraphStyle::Ascii => Box::new(Ascii::new()),
@@ -150,6 +167,6 @@ pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
         prefix_lines,
         text: PrefixLinesToText::new(),
         columns_to_chars,
-        writer: formatter,
+        formatter,
     })
 }

@@ -110,6 +110,21 @@
 "node immutable" = { fg = "bright cyan", bold = true }
 "node conflicted" = { fg = "red", bold = true }
 
+# Graph columns reuse these labels in turn. They have no color by default.
+# See "Graph colors" in docs/config.md for an example that turns them on.
+"graph lane0" = {}
+"graph lane1" = {}
+"graph lane2" = {}
+"graph lane3" = {}
+"graph lane4" = {}
+"graph lane5" = {}
+"graph lane6" = {}
+"graph lane7" = {}
+"graph lane8" = {}
+"graph lane9" = {}
+"graph lane10" = {}
+"graph lane11" = {}
+
 "signature display" = "yellow"
 "signature key" = "cyan"
 "signature status good" = "green"

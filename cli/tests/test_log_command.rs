@@ -1350,8 +1350,8 @@ fn test_graph_template_color() {
     insta::assert_snapshot!(output, @"
     [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  [1m[38;5;2m<<log commit working_copy description::single line>>[0m
     <<log commit node mutable::○>>  [38;5;1m<<log commit description::first line>>[39m
-    │  [38;5;1m<<log commit description::second line>>[39m
-    │  [38;5;1m<<log commit description::third line>>[39m
+    <<graph lane0::│ >> [38;5;1m<<log commit description::second line>>[39m
+    <<graph lane0::│ >> [38;5;1m<<log commit description::third line>>[39m
     [1m[38;5;14m<<log commit node immutable::◆>>[0m
     [EOF]
     ");
@@ -1999,6 +1999,97 @@ fn test_log_count() {
     let output = work_dir.run_jj(["log", "--count"]);
     insta::assert_snapshot!(output, @"
     14
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_graph_lane_colors() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "base"]).success();
+    work_dir.run_jj(["new", "-m", "a"]).success();
+    work_dir
+        .run_jj(["new", "description(substring:base)", "-m", "b"])
+        .success();
+    work_dir
+        .run_jj(["new", "description(substring:base)", "-m", "c"])
+        .success();
+    work_dir
+        .run_jj([
+            "new",
+            "description(substring:a)",
+            "description(substring:b)",
+            "-m",
+            "merge",
+        ])
+        .success();
+
+    let output = work_dir.run_jj([
+        "log",
+        "-r",
+        "::@ ~ root()",
+        "-T",
+        "description.first_line()",
+    ]);
+    insta::assert_snapshot!(output, @"
+    @      merge
+    ├─┬─╮
+    │ │ ○  b
+    │ ├─╯
+    ○ │  a
+    ├─╯
+    ○  base
+    │
+    ~
+    [EOF]
+    ");
+
+    // Each column has its own label
+    let output = work_dir.run_jj([
+        "--color=debug",
+        "log",
+        "-r",
+        "::@ ~ root()",
+        "-T",
+        "description.first_line()",
+    ]);
+    insta::assert_snapshot!(output, @"
+    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m      <<log commit description first_line::merge>>
+    <<graph lane0::├>><<graph lane1::─┬>><<graph lane2::─╮>>
+    <<graph lane0::│ >><<graph lane1::│ >><<log commit node mutable::○>>  <<log commit description first_line::b>>
+    <<graph lane0::│>> <<graph lane1::├>><<graph lane2::─╯>>
+    <<log commit node mutable::○>> <<graph lane1::│ >> <<log commit description first_line::a>>
+    <<graph lane0::├>><<graph lane1::─╯>>
+    <<log commit node mutable::○>>  <<log commit description first_line::base>>
+    <<graph lane0::│>>
+    <<graph lane0::~>>
+    [EOF]
+    ");
+
+    // The label colors the graph
+    let output = work_dir.run_jj([
+        "--color=always",
+        "log",
+        "-r",
+        "::@ ~ root()",
+        "-T",
+        "description.first_line()",
+        "--config=colors.'graph lane0'='bright black'",
+        "--config=colors.'graph lane1'='white'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    [1m[38;5;2m@[0m      merge
+    [38;5;8m├[38;5;7m─┬[39m─╮
+    [38;5;8m│ [38;5;7m│ [39m○  b
+    [38;5;8m│[39m [38;5;7m├[39m─╯
+    ○ [38;5;7m│ [39m a
+    [38;5;8m├[38;5;7m─╯[39m
+    ○  base
+    [38;5;8m│[39m
+    [38;5;8m~[39m
     [EOF]
     ");
 }

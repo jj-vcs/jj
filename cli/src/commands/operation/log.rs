@@ -238,8 +238,7 @@ async fn do_op_log(
         op_walk::walk_ancestors(slice::from_ref(current_op)).take(args.limit.unwrap_or(usize::MAX));
 
     if !args.no_graph {
-        let mut raw_output = formatter.raw()?;
-        let mut graph = get_graphlog(graph_style, raw_output.as_mut());
+        let mut graph = get_graphlog(graph_style, formatter);
         let stream = stream.map_ok(|op| {
             let ids = op.parent_ids();
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect();
