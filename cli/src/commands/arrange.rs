@@ -14,19 +14,11 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::io;
 
 use bstr::ByteSlice as _;
-use crossterm::ExecutableCommand as _;
-use crossterm::event::Event;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
-use crossterm::event::{self};
-use crossterm::terminal::EnterAlternateScreen;
-use crossterm::terminal::LeaveAlternateScreen;
-use crossterm::terminal::disable_raw_mode;
-use crossterm::terminal::enable_raw_mode;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
@@ -40,18 +32,12 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::rewrite::CommitRewriter;
-use ratatui::Terminal;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Constraint;
 use ratatui::layout::Direction;
 use ratatui::layout::Layout;
 use ratatui::layout::Offset;
 use ratatui::layout::Rect;
-use ratatui::prelude::CrosstermBackend;
-use ratatui::style::Color;
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::text::Span;
 use ratatui::text::Text;
 use ratatui::widgets::Widget as _;
 use renderdag::Ancestor;
@@ -63,11 +49,12 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
-use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::complete;
 use crate::formatter::FormatterExt as _;
 use crate::templater::TemplateRenderer;
+use crate::tui;
+use crate::tui::TuiTerminal;
 use crate::ui::Ui;
 
 /// Interactively arrange the commit graph.
@@ -136,12 +123,6 @@ pub(crate) async fn cmd_arrange(
         return Ok(());
     }
 
-    // Set up the terminal
-    io::stdout().execute(EnterAlternateScreen)?;
-    enable_raw_mode()?;
-    let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
-    terminal.clear()?;
-
     let mut state = State::new(commits, external_children).await?;
     state.update_commit_order();
 
@@ -152,13 +133,9 @@ pub(crate) async fn cmd_arrange(
         .parse_commit_template(ui, &template_string)?
         .labeled(["commit"]);
 
-    let result = run_tui(ui, &mut terminal, template, state);
+    let result = run_tui(ui, &mut TuiTerminal::new()?, template, state)?;
 
-    // Restore the terminal
-    disable_raw_mode()?;
-    io::stdout().execute(LeaveAlternateScreen)?;
-
-    if let Some(new_state) = result? {
+    if let Some(new_state) = result {
         let mut tx = workspace_command.start_transaction();
         let rewrites = new_state.to_rewrite_plan();
         rewrites.execute(tx.repo_mut()).await?;
@@ -381,15 +358,8 @@ impl State {
         let total_commits =
             self.external_children.len() + self.current_order.len() + self.external_parents.len();
         let selection_pos = self.external_children.len() + self.current_selection;
-
-        if selection_pos < self.scroll_top {
-            self.scroll_top = selection_pos;
-        } else if selection_pos >= self.scroll_top.saturating_add(max_visible) {
-            self.scroll_top = selection_pos.saturating_sub(max_visible - 1);
-        }
-
-        let max_scroll = total_commits.saturating_sub(max_visible);
-        self.scroll_top = self.scroll_top.min(max_scroll);
+        self.scroll_top =
+            tui::scroll_to_selection(self.scroll_top, selection_pos, max_visible, total_commits);
     }
 
     /// Swap the selected commit with one of its children. Does nothing if there
@@ -470,13 +440,13 @@ impl RewritePlan {
     }
 }
 
-fn run_tui<B: ratatui::backend::Backend>(
+fn run_tui(
     ui: &mut Ui,
-    terminal: &mut Terminal<B>,
+    terminal: &mut TuiTerminal,
     template: TemplateRenderer<Commit>,
     mut state: State,
 ) -> Result<Option<State>, CommandError> {
-    let help_items = [
+    let help_line = tui::help_line(&[
         ("↓/j", "down"),
         ("↑/k", "up"),
         ("⇧+↓/J", "swap down"),
@@ -485,16 +455,7 @@ fn run_tui<B: ratatui::backend::Backend>(
         ("p", "keep"),
         ("c", "confirm"),
         ("q", "quit"),
-    ];
-    let mut help_spans = Vec::new();
-    for (i, (key, desc)) in help_items.iter().enumerate() {
-        if i > 0 {
-            help_spans.push(Span::raw(" • "));
-        }
-        help_spans.push(Span::styled(*key, Style::default().fg(Color::Magenta)));
-        help_spans.push(Span::raw(format!(" {desc}")));
-    }
-    let help_line = Line::from(help_spans);
+    ]);
 
     let render_commit = |commit: &Commit, is_context_node: bool| {
         let mut text_lines = vec![];
@@ -511,28 +472,19 @@ fn run_tui<B: ratatui::backend::Backend>(
     };
 
     loop {
-        terminal
-            .draw(|frame| {
-                let layout = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([Constraint::Fill(1), Constraint::Length(1)])
-                    .split(frame.area());
-                let main_area = layout[0];
-                let help_area = layout[1];
-                state.clamp_scroll(main_area.height);
-                render(&state, render_commit, frame.buffer_mut(), main_area);
-                frame.render_widget(&help_line, help_area);
-            })
-            .map_err(|e| internal_error(format!("Failed to draw TUI: {e}")))?;
+        terminal.draw(|frame| {
+            let layout = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Fill(1), Constraint::Length(1)])
+                .split(frame.area());
+            let main_area = layout[0];
+            let help_area = layout[1];
+            state.clamp_scroll(main_area.height);
+            render(&state, render_commit, frame.buffer_mut(), main_area);
+            frame.render_widget(&help_line, help_area);
+        })?;
 
-        if let Event::Key(event) =
-            event::read().map_err(|e| internal_error(format!("Failed to read TUI events: {e}")))?
-        {
-            // On Windows, we get Press and Release (and maybe Repeat) events, but on Linux
-            // we only get Press.
-            if event.is_release() {
-                continue;
-            }
+        if let Some(event) = tui::read_key_press()? {
             match (event.code, event.modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::NONE)
                 | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
@@ -651,8 +603,7 @@ fn render(
         }
 
         let text_lines = render_commit(&commit_state.commit, is_context_node);
-        let text = ansi_to_tui::IntoText::into_text(&text_lines).unwrap();
-        text.render(text_area, buf);
+        tui::ansi_to_text(&text_lines).render(text_area, buf);
 
         // Make graph as tall as the text
         let graph_message = "\n".repeat(text_lines.lines().count());
@@ -1305,20 +1256,6 @@ mod tests {
         text.into_bytes()
     }
 
-    fn buffer_to_string(buf: &Buffer) -> String {
-        let mut res = String::new();
-        for y in 0..buf.area.height {
-            let mut line = String::new();
-            for x in 0..buf.area.width {
-                let cell = &buf[(x, y)];
-                line.push_str(cell.symbol());
-            }
-            res.push_str(line.trim_end());
-            res.push('\n');
-        }
-        res
-    }
-
     fn render_to_string(state: &State, width: u16, height: u16) -> String {
         let mut buf = Buffer::empty(Rect::new(0, 0, width, height));
         let mut state = state.clone();
@@ -1329,7 +1266,7 @@ mod tests {
             &mut buf,
             Rect::new(0, 0, width, height),
         );
-        buffer_to_string(&buf)
+        tui::buffer_to_string(&buf)
     }
 
     #[test]

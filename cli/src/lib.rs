@@ -40,4 +40,5 @@ pub mod template_builder;
 pub mod templater;
 pub mod text_util;
 pub mod time_util;
+mod tui;
 pub mod ui;
