@@ -114,6 +114,7 @@ pub async fn cmd_workspace_add(
     command: &CommandHelper,
     args: &WorkspaceAddArgs,
 ) -> Result<(), CommandError> {
+    check_new_working_copy_writable(command)?;
     let old_workspace_command = command.workspace_helper(ui).await?;
     let destination_path = command.cwd().join(&args.destination);
     let workspace_name = if let Some(name) = &args.name {
@@ -280,4 +281,16 @@ pub async fn cmd_workspace_add(
     )
     .await?;
     Ok(())
+}
+
+// Like check_working_copy_writable(), but --at-op is respected.
+fn check_new_working_copy_writable(command: &CommandHelper) -> Result<(), CommandError> {
+    let hint = if command.global_args().ignore_working_copy {
+        "Don't use --ignore-working-copy."
+    } else if command.global_args().no_integrate_operation {
+        "Don't use --no-integrate-operation."
+    } else {
+        return Ok(());
+    };
+    Err(user_error("This command must be able to update the working copy.").hinted(hint))
 }

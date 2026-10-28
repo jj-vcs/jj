@@ -292,16 +292,15 @@ fn test_workspaces_add_ignore_working_copy() {
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_dir = test_env.work_dir("main");
 
-    // TODO: maybe better to error out early?
     let output = main_dir.run_jj(["workspace", "add", "--ignore-working-copy", "../secondary"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     ------- stderr -------
-    Created workspace in "../secondary"
     Error: This command must be able to update the working copy.
     Hint: Don't use --ignore-working-copy.
     [EOF]
     [exit status: 1]
-    "#);
+    ");
+    assert!(!test_env.env_root().join("secondary").exists());
 }
 
 /// Test that --no-integrate-operation is respected
@@ -311,21 +310,20 @@ fn test_workspaces_add_no_integrate_operation() {
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_dir = test_env.work_dir("main");
 
-    // TODO: maybe better to error out early?
     let output = main_dir.run_jj([
         "workspace",
         "add",
         "--no-integrate-operation",
         "../secondary",
     ]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     ------- stderr -------
-    Created workspace in "../secondary"
     Error: This command must be able to update the working copy.
     Hint: Don't use --no-integrate-operation.
     [EOF]
     [exit status: 1]
-    "#);
+    ");
+    assert!(!test_env.env_root().join("secondary").exists());
 }
 
 /// Test that --at-op is respected
