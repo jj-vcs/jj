@@ -18,6 +18,7 @@ use jj_lib::annotate::FileAnnotation;
 use jj_lib::annotate::FileAnnotator;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::commit::Commit;
+use jj_lib::matchers::EverythingMatcher;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use tracing::instrument;
@@ -28,6 +29,7 @@ use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::commit_templater::AnnotationLine;
 use crate::complete;
+use crate::diff_util::DiffFormatArgs;
 use crate::templater::TemplateRenderer;
 use crate::tui;
 use crate::tui::TuiTerminal;
@@ -70,10 +72,10 @@ pub(crate) struct FileAnnotateArgs {
 
     /// Browse the annotation interactively in a terminal UI
     ///
-    /// The UI lets you select a line and annotate the file at the parent of
-    /// the commit that introduced the line. That's useful when that commit
-    /// only made an uninteresting change to the line, such as reformatting
-    /// it.
+    /// The UI lets you select a line and show the commit that introduced the
+    /// line, or annotate the file at the parent of that commit. The latter is
+    /// useful when that commit only made an uninteresting change to the
+    /// line, such as reformatting it.
     #[arg(long)]
     tui: bool,
 }
@@ -126,6 +128,11 @@ pub(crate) async fn cmd_file_annotate(
         let file = AnnotatedFile::new(AnnotatedRevision::Commit(starting_commit), file_path, lines);
         let state = tui::annotate::State::new(file, workspace_command.path_converter().clone());
         let commit_template = workspace_command.commit_summary_template();
+        let show_template_text = workspace_command.settings().get_string("templates.show")?;
+        let show_template = workspace_command
+            .parse_commit_template(ui, &show_template_text)?
+            .labeled(["show", "commit"]);
+        let diff_renderer = workspace_command.diff_renderer_for(&DiffFormatArgs::default())?;
         let render_line = |line: &AnnotationLine| {
             let mut output = vec![];
             template
@@ -140,12 +147,23 @@ pub(crate) async fn cmd_file_annotate(
                 .unwrap();
             output
         };
+        let show_commit = async |commit: &Commit, width: usize| {
+            let mut output = vec![];
+            let mut formatter = ui.new_formatter(&mut output);
+            show_template.format(commit, formatter.as_mut())?;
+            diff_renderer
+                .show_patch(ui, formatter.as_mut(), commit, &EverythingMatcher, width)
+                .await?;
+            drop(formatter);
+            Ok(output)
+        };
         tui::annotate::run(
             &mut TuiTerminal::new()?,
             repo.as_ref(),
             state,
             render_line,
             render_commit,
+            show_commit,
         )
         .await?;
     } else {

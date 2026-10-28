@@ -121,7 +121,10 @@ enum Action {
     NextHunk,
     PreviousHunk,
     AnnotateParent,
+    ShowCommit,
     Back,
+    /// Closes the commit view, or quits if it's not open
+    Close,
     Quit,
 }
 
@@ -141,9 +144,10 @@ fn action_for_key(event: KeyEvent) -> Option<Action> {
         (KeyCode::Char(']'), KeyModifiers::NONE) => Action::NextHunk,
         (KeyCode::Char('['), KeyModifiers::NONE) => Action::PreviousHunk,
         (KeyCode::Char('p'), KeyModifiers::NONE) => Action::AnnotateParent,
+        (KeyCode::Enter, KeyModifiers::NONE) => Action::ShowCommit,
         (KeyCode::Backspace | KeyCode::Char('b'), KeyModifiers::NONE) => Action::Back,
-        (KeyCode::Esc | KeyCode::Char('q'), KeyModifiers::NONE)
-        | (KeyCode::Char('c'), KeyModifiers::CONTROL) => Action::Quit,
+        (KeyCode::Esc | KeyCode::Char('q'), KeyModifiers::NONE) => Action::Close,
+        (KeyCode::Char('c'), KeyModifiers::CONTROL) => Action::Quit,
         _ => return None,
     };
     Some(action)
@@ -153,10 +157,53 @@ const HELP_ITEMS: &[(&str, &str)] = &[
     ("↓/j", "down"),
     ("↑/k", "up"),
     ("]/[", "next/prev hunk"),
+    ("enter", "show commit"),
     ("p", "annotate parent"),
     ("b", "back"),
     ("q", "quit"),
 ];
+
+const COMMIT_VIEW_HELP_ITEMS: &[(&str, &str)] = &[
+    ("↓/j", "down"),
+    ("↑/k", "up"),
+    ("space", "page down"),
+    ("p", "annotate parent"),
+    ("q", "close"),
+];
+
+/// The commit that introduced the selected line, shown on top of the
+/// annotation.
+#[derive(Clone, Debug)]
+struct CommitView {
+    lines: Vec<Line<'static>>,
+    /// Index of the first line shown in the viewport
+    scroll_top: usize,
+}
+
+impl CommitView {
+    fn new(output: &[u8]) -> Self {
+        let lines = tui::ansi_to_text(output)
+            .lines
+            .into_iter()
+            .map(tui::expand_tabs)
+            .collect();
+        Self {
+            lines,
+            scroll_top: 0,
+        }
+    }
+
+    fn max_scroll(&self, page_size: usize) -> usize {
+        self.lines.len().saturating_sub(page_size)
+    }
+
+    fn scroll_by(&mut self, delta: isize, page_size: usize) {
+        self.scroll_top = self
+            .scroll_top
+            .saturating_add_signed(delta)
+            .min(self.max_scroll(page_size));
+    }
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct State {
@@ -166,9 +213,12 @@ pub(crate) struct State {
     /// Message to show instead of the selected line's commit until the next
     /// key press
     message: Option<String>,
+    commit_view: Option<CommitView>,
     path_converter: RepoPathUiConverter,
     /// Number of lines that fit in the viewport the last time it was rendered
     page_size: usize,
+    /// Width of the viewport the last time it was rendered
+    page_width: usize,
 }
 
 impl State {
@@ -176,8 +226,10 @@ impl State {
         Self {
             history: vec![file],
             message: None,
+            commit_view: None,
             path_converter,
             page_size: 1,
+            page_width: 80,
         }
     }
 
@@ -189,17 +241,47 @@ impl State {
         self.history.last_mut().unwrap()
     }
 
-    fn clamp_scroll(&mut self, viewport_rows: u16) {
-        self.page_size = usize::from(viewport_rows).max(1);
+    fn clamp_scroll(&mut self, viewport: Rect) {
+        self.page_size = usize::from(viewport.height).max(1);
+        self.page_width = usize::from(viewport.width);
         let page_size = self.page_size;
+        if let Some(view) = &mut self.commit_view {
+            view.scroll_top = view.scroll_top.min(view.max_scroll(page_size));
+        }
         let file = self.current_mut();
         file.scroll_top =
             tui::scroll_to_selection(file.scroll_top, file.selected, page_size, file.lines.len());
     }
 
-    async fn apply(&mut self, repo: &dyn Repo, action: Action) -> Result<(), CommandError> {
+    /// Applies the `action`. The `show_commit` function renders a commit and
+    /// its diff for the given width.
+    async fn apply(
+        &mut self,
+        repo: &dyn Repo,
+        action: Action,
+        show_commit: &impl AsyncFn(&Commit, usize) -> Result<Vec<u8>, CommandError>,
+    ) -> Result<(), CommandError> {
         self.message = None;
         let page_size = isize::try_from(self.page_size).unwrap_or(isize::MAX);
+        if let Some(view) = &mut self.commit_view {
+            match action {
+                Action::Down => view.scroll_by(1, self.page_size),
+                Action::Up => view.scroll_by(-1, self.page_size),
+                Action::PageDown => view.scroll_by(page_size, self.page_size),
+                Action::PageUp => view.scroll_by(-page_size, self.page_size),
+                Action::First => view.scroll_top = 0,
+                Action::Last => view.scroll_top = view.max_scroll(self.page_size),
+                Action::NextHunk | Action::PreviousHunk => {}
+                Action::AnnotateParent => {
+                    self.commit_view = None;
+                    self.annotate_parent(repo).await?;
+                }
+                Action::ShowCommit | Action::Back | Action::Close | Action::Quit => {
+                    self.commit_view = None;
+                }
+            }
+            return Ok(());
+        }
         match action {
             Action::Down => self.current_mut().move_selection(1),
             Action::Up => self.current_mut().move_selection(-1),
@@ -210,6 +292,12 @@ impl State {
             Action::NextHunk => self.current_mut().select_next_hunk(),
             Action::PreviousHunk => self.current_mut().select_previous_hunk(),
             Action::AnnotateParent => self.annotate_parent(repo).await?,
+            Action::ShowCommit => {
+                if let Some(line) = self.current().selected_line() {
+                    let output = show_commit(&line.commit, self.page_width).await?;
+                    self.commit_view = Some(CommitView::new(&output));
+                }
+            }
             Action::Back => {
                 if self.history.len() > 1 {
                     self.history.pop();
@@ -217,7 +305,7 @@ impl State {
                     self.message = Some("Already at the first annotation".to_owned());
                 }
             }
-            Action::Quit => {}
+            Action::Close | Action::Quit => {}
         }
         Ok(())
     }
@@ -307,6 +395,7 @@ pub(crate) async fn run(
     mut state: State,
     render_line: impl Fn(&AnnotationLine) -> Vec<u8>,
     render_commit: impl Fn(&Commit) -> Vec<u8>,
+    show_commit: impl AsyncFn(&Commit, usize) -> Result<Vec<u8>, CommandError>,
 ) -> Result<(), CommandError> {
     loop {
         terminal.draw(|frame| {
@@ -324,7 +413,8 @@ pub(crate) async fn run(
         };
         match action_for_key(event) {
             Some(Action::Quit) => return Ok(()),
-            Some(action) => state.apply(repo, action).await?,
+            Some(Action::Close) if state.commit_view.is_none() => return Ok(()),
+            Some(action) => state.apply(repo, action, &show_commit).await?,
             None => {}
         }
     }
@@ -344,7 +434,7 @@ fn render(
         Constraint::Length(1),
     ])
     .areas(area);
-    state.clamp_scroll(main_area.height);
+    state.clamp_scroll(main_area);
     let file = state.current();
 
     // Header with the path and revision
@@ -364,6 +454,31 @@ fn render(
         header.push(Span::raw(format!(" [depth {}]", state.history.len() - 1)));
     }
     Line::from(header).render(header_area, buf);
+
+    if let Some(view) = &state.commit_view {
+        let visible_lines = view
+            .lines
+            .iter()
+            .skip(view.scroll_top)
+            .take(usize::from(main_area.height));
+        for (row, line) in visible_lines.enumerate() {
+            let line_area = Rect {
+                y: main_area.y + row as u16,
+                height: 1,
+                ..main_area
+            };
+            line.render(line_area, buf);
+        }
+        let last_visible = (view.scroll_top + state.page_size).min(view.lines.len());
+        Span::raw(format!(
+            "Lines {}-{last_visible} of {}",
+            view.scroll_top + 1,
+            view.lines.len()
+        ))
+        .render(status_area, buf);
+        tui::help_line(COMMIT_VIEW_HELP_ITEMS).render(help_area, buf);
+        return;
+    }
 
     // Annotated lines
     let [marker_area, lines_area] =
@@ -469,8 +584,16 @@ mod tests {
     }
 
     fn apply(state: &mut State, repo: &dyn Repo, actions: &[Action]) {
+        // Renders the commit as its description followed by numbered lines,
+        // as many as the width
+        let show_commit = async |commit: &Commit, width: usize| {
+            let diff_lines = (1..=width).map(|i| format!("diff line {i}\n"));
+            let output = itertools::chain([format!("{}\n", commit.description())], diff_lines)
+                .collect::<String>();
+            Ok(output.into_bytes())
+        };
         for &action in actions {
-            state.apply(repo, action).block_on().unwrap();
+            state.apply(repo, action, &show_commit).block_on().unwrap();
         }
     }
 
@@ -667,6 +790,66 @@ mod tests {
         commit1
         ↓/j down • ↑/k up • ]/[ next/prev hunk •
         ");
+        Ok(())
+    }
+
+    #[test]
+    fn test_show_commit() -> TestResult {
+        let test_repo = TestRepo::init();
+        let mut tx = test_repo.repo.start_transaction();
+        let mut_repo = tx.repo_mut();
+        let commit1 = create_commit(&test_repo, mut_repo, &[], "commit1", Some("a\nb\n"));
+        let commit2 = create_commit(&test_repo, mut_repo, &[&commit1], "commit2", Some("a\nB\n"));
+        let repo: &dyn Repo = mut_repo;
+
+        // The commit is rendered for the width of the viewport
+        let mut state = new_state(repo, &commit2)?;
+        render_to_string(&mut state, 6, 7);
+        apply(&mut state, repo, &[Action::Down, Action::ShowCommit]);
+        insta::assert_snapshot!(render_to_string(&mut state, 40, 7), @"
+        file at commit2
+        commit2
+        diff line 1
+        diff line 2
+        diff line 3
+        Lines 1-4 of 7
+        ↓/j down • ↑/k up • space page down • p
+        ");
+
+        // Scrolling stops at the last page
+        apply(&mut state, repo, &[Action::PageDown]);
+        insta::assert_snapshot!(render_to_string(&mut state, 40, 7), @"
+        file at commit2
+        diff line 3
+        diff line 4
+        diff line 5
+        diff line 6
+        Lines 4-7 of 7
+        ↓/j down • ↑/k up • space page down • p
+        ");
+        apply(&mut state, repo, &[Action::PageDown]);
+        assert_eq!(state.commit_view.as_ref().unwrap().scroll_top, 3);
+        apply(&mut state, repo, &[Action::Up, Action::First]);
+        assert_eq!(state.commit_view.as_ref().unwrap().scroll_top, 0);
+        // Growing the viewport doesn't leave empty lines at the end
+        apply(&mut state, repo, &[Action::Last]);
+        render_to_string(&mut state, 40, 12);
+        assert_eq!(state.commit_view.as_ref().unwrap().scroll_top, 0);
+
+        // Closing returns to the annotation with the selection preserved
+        apply(&mut state, repo, &[Action::Close]);
+        assert!(state.commit_view.is_none());
+        assert_eq!(state.current().selected, 1);
+
+        // The parent can be annotated directly from the commit view
+        apply(
+            &mut state,
+            repo,
+            &[Action::ShowCommit, Action::AnnotateParent],
+        );
+        assert!(state.commit_view.is_none());
+        assert_eq!(state.history.len(), 2);
+        assert_eq!(selected_commit_id(&state), commit1.id());
         Ok(())
     }
 

@@ -71,8 +71,8 @@ and this project adheres to
   workspaces can point to the same commit.
 
 * `jj file annotate --tui` opens the annotation in a terminal UI where you can
-  select a line and annotate the file at the parent of the commit that
-  introduced the line.
+  select a line and show the commit that introduced the line, or annotate the
+  file at the parent of that commit.
 
 ### Fixed bugs
 

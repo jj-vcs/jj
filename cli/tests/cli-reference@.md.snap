@@ -1245,7 +1245,7 @@ Annotates a revision line by line. Each line includes the source change that int
    [templates]: https://docs.jj-vcs.dev/latest/templates/
 * `--tui` — Browse the annotation interactively in a terminal UI
 
-   The UI lets you select a line and annotate the file at the parent of the commit that introduced the line. That's useful when that commit only made an uninteresting change to the line, such as reformatting it.
+   The UI lets you select a line and show the commit that introduced the line, or annotate the file at the parent of that commit. The latter is useful when that commit only made an uninteresting change to the line, such as reformatting it.
 
 
 
