@@ -16,7 +16,6 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::annotate::FileAnnotation;
 use jj_lib::annotate::FileAnnotator;
-use jj_lib::annotate::LineOrigin;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
@@ -118,34 +117,11 @@ async fn render_file_annotation(
     template_render: &TemplateRenderer<'_, AnnotationLine>,
     annotation: &FileAnnotation,
 ) -> Result<(), CommandError> {
+    let lines = AnnotationLine::from_annotation(repo, annotation).await?;
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
-    let mut last_id = None;
-    // At least in cases where the repository was jj-initialized shallowly,
-    // then unshallow'd with git, some changes will not have a commit id
-    // because jj does not import the unshallow'd commits. So we default
-    // to the root commit id for now.
-    let default_line_origin = LineOrigin {
-        commit_id: repo.store().root_commit_id().clone(),
-        line_number: 0,
-    };
-    for (line_number, (line_origin, content)) in annotation.line_origins().enumerate() {
-        let line_origin = line_origin.unwrap_or(&default_line_origin);
-        let commit = repo
-            .store()
-            .get_commit_async(&line_origin.commit_id)
-            .await?;
-        let first_line_in_hunk = last_id != Some(&line_origin.commit_id);
-        let annotation_line = AnnotationLine {
-            commit,
-            content: content.to_owned(),
-            line_number: line_number + 1,
-            original_line_number: line_origin.line_number + 1,
-            first_line_in_hunk,
-        };
-        template_render.format(&annotation_line, formatter.as_mut())?;
-        last_id = Some(&line_origin.commit_id);
+    for line in &lines {
+        template_render.format(line, formatter.as_mut())?;
     }
-
     Ok(())
 }

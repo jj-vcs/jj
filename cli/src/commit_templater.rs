@@ -30,6 +30,8 @@ use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
+use jj_lib::annotate::FileAnnotation;
+use jj_lib::annotate::LineOrigin;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -3229,6 +3231,42 @@ pub struct AnnotationLine {
     pub line_number: usize,
     pub original_line_number: usize,
     pub first_line_in_hunk: bool,
+}
+
+impl AnnotationLine {
+    /// Builds a template object for each line in the `annotation`.
+    pub async fn from_annotation(
+        repo: &dyn Repo,
+        annotation: &FileAnnotation,
+    ) -> BackendResult<Vec<Self>> {
+        // At least in cases where the repository was jj-initialized shallowly,
+        // then unshallow'd with git, some changes will not have a commit id
+        // because jj does not import the unshallow'd commits. So we default
+        // to the root commit id for now.
+        let default_line_origin = LineOrigin {
+            commit_id: repo.store().root_commit_id().clone(),
+            line_number: 0,
+        };
+        let mut lines: Vec<Self> = vec![];
+        for (line_number, (line_origin, content)) in annotation.line_origins().enumerate() {
+            let line_origin = line_origin.unwrap_or(&default_line_origin);
+            let commit = repo
+                .store()
+                .get_commit_async(&line_origin.commit_id)
+                .await?;
+            let first_line_in_hunk = lines
+                .last()
+                .is_none_or(|last| last.commit.id() != commit.id());
+            lines.push(Self {
+                commit,
+                content: content.to_owned(),
+                line_number: line_number + 1,
+                original_line_number: line_origin.line_number + 1,
+                first_line_in_hunk,
+            });
+        }
+        Ok(lines)
+    }
 }
 
 fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>
