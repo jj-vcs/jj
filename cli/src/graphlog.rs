@@ -22,8 +22,15 @@ use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
 use jj_lib::settings::UserSettings;
 use renderdag::Ancestor;
-use renderdag::GraphRowRenderer;
-use renderdag::Renderer;
+use renderdag::pipeline::Ascii;
+use renderdag::pipeline::AsciiLarge;
+use renderdag::pipeline::BoxDrawing;
+use renderdag::pipeline::GraphRowShaper;
+use renderdag::pipeline::PrefixLineRenderer;
+use renderdag::pipeline::PrefixLinesToText;
+use renderdag::pipeline::row_shape_to_prefix_lines::box_drawing::Curved;
+use renderdag::pipeline::row_shape_to_prefix_lines::box_drawing::Square;
+use renderdag::pipeline::types::LinePiece;
 
 pub trait GraphLog<K: Clone + Eq + Hash> {
     fn add_node(
@@ -37,8 +44,12 @@ pub trait GraphLog<K: Clone + Eq + Hash> {
     fn width(&self, id: &K, edges: &[GraphEdge<K>]) -> usize;
 }
 
-pub struct SaplingGraphLog<'writer, R> {
-    renderer: R,
+pub struct SaplingGraphLog<'writer, K> {
+    shaper: GraphRowShaper<K>,
+    prefix_lines: Box<dyn PrefixLineRenderer<K>>,
+    text: PrefixLinesToText,
+    /// Converts a width in columns to a width in characters.
+    columns_to_chars: fn(u64) -> u64,
     writer: &'writer mut dyn Write,
 }
 
@@ -50,10 +61,9 @@ fn convert_graph_edge_into_ancestor<K: Clone>(e: &GraphEdge<K>) -> Ancestor<K> {
     }
 }
 
-impl<K, R> GraphLog<K> for SaplingGraphLog<'_, R>
+impl<K> GraphLog<K> for SaplingGraphLog<'_, K>
 where
-    K: Clone + Eq + Hash,
-    R: Renderer<K, Output = String>,
+    K: Clone + Debug + Eq + Hash,
 {
     fn add_node(
         &mut self,
@@ -62,37 +72,40 @@ where
         node_symbol: &str,
         text: &str,
     ) -> io::Result<()> {
-        let row = self.renderer.next_row(
+        let row_shape = self.shaper.next_row_shape(
             id.clone(),
             edges.iter().map(convert_graph_edge_into_ancestor).collect(),
-            node_symbol.into(),
-            text.into(),
         );
-
-        write!(self.writer, "{row}")
+        let prefix_lines = self.prefix_lines.next_prefix_lines(&row_shape);
+        let mut result = Ok(());
+        self.text.write_next_lines(
+            |line| {
+                if result.is_ok() {
+                    result = write_line(self.writer, line);
+                }
+            },
+            prefix_lines,
+            row_shape.separator_line,
+            node_symbol,
+            text,
+            self.shaper.options().min_row_height,
+        );
+        result
     }
 
     fn width(&self, id: &K, edges: &[GraphEdge<K>]) -> usize {
         let parents = edges.iter().map(convert_graph_edge_into_ancestor).collect();
-        let w: u64 = self.renderer.width(Some(id), Some(&parents));
-        w.try_into().unwrap()
+        let columns = self.shaper.width(Some(id), Some(&parents));
+        (self.columns_to_chars)(columns).try_into().unwrap()
     }
 }
 
-impl<'writer, R> SaplingGraphLog<'writer, R> {
-    pub fn create<K>(
-        renderer: R,
-        formatter: &'writer mut dyn Write,
-    ) -> Box<dyn GraphLog<K> + 'writer>
-    where
-        K: Clone + Eq + Hash + 'writer,
-        R: Renderer<K, Output = String> + 'writer,
-    {
-        Box::new(SaplingGraphLog {
-            renderer,
-            writer: formatter,
-        })
+/// Writes one graph line.
+fn write_line(writer: &mut dyn Write, line: &[LinePiece<'_>]) -> io::Result<()> {
+    for piece in line {
+        writer.write_all(piece.text.as_bytes())?;
     }
+    writeln!(writer)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
@@ -114,13 +127,29 @@ pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
     style: GraphStyle,
     formatter: &'a mut dyn Write,
 ) -> Box<dyn GraphLog<K> + 'a> {
-    let builder = GraphRowRenderer::new().output().with_min_row_height(0);
-    match style {
-        GraphStyle::Ascii => SaplingGraphLog::create(builder.build_ascii(), formatter),
-        GraphStyle::AsciiLarge => SaplingGraphLog::create(builder.build_ascii_large(), formatter),
-        GraphStyle::Curved => SaplingGraphLog::create(builder.build_box_drawing(), formatter),
-        GraphStyle::Square => {
-            SaplingGraphLog::create(builder.build_box_drawing().with_square_glyphs(), formatter)
-        }
-    }
+    let prefix_lines: Box<dyn PrefixLineRenderer<K>> = match style {
+        GraphStyle::Ascii => Box::new(Ascii::new()),
+        GraphStyle::AsciiLarge => Box::new(AsciiLarge),
+        GraphStyle::Curved => Box::new(BoxDrawing::<Curved>::new()),
+        GraphStyle::Square => Box::new(BoxDrawing::<Square>::new()),
+    };
+    let columns_to_chars: fn(u64) -> u64 = match style {
+        // The first column is only 2 characters wide.
+        GraphStyle::AsciiLarge => |columns| {
+            columns
+                .saturating_mul(3)
+                .saturating_sub(1)
+                .saturating_add(1)
+        },
+        _ => |columns| columns.saturating_mul(2).saturating_add(1),
+    };
+    let mut shaper = GraphRowShaper::new();
+    shaper.options_mut().min_row_height = 0;
+    Box::new(SaplingGraphLog {
+        shaper,
+        prefix_lines,
+        text: PrefixLinesToText::new(),
+        columns_to_chars,
+        writer: formatter,
+    })
 }
