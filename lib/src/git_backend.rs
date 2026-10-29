@@ -15,7 +15,6 @@
 #![expect(missing_docs)]
 
 use std::collections::HashSet;
-use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -24,12 +23,11 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::process::Command;
-use std::process::ExitStatus;
 use std::str::Utf8Error;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+use std::sync::atomic::AtomicBool;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -167,14 +165,6 @@ pub enum GitRepoAtWorkdirError {
     Other(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
-#[derive(Debug, Error)]
-pub enum GitGcError {
-    #[error("Failed to run git gc command")]
-    GcCommand(#[source] std::io::Error),
-    #[error("git gc command exited with an error: {0}")]
-    GcCommandErrorStatus(ExitStatus),
-}
-
 pub struct GitBackend {
     // While gix::Repository can be created from gix::ThreadSafeRepository, it's
     // cheaper to cache the thread-local instance behind a mutex than creating
@@ -188,7 +178,6 @@ pub struct GitBackend {
     shallow_root_ids: OnceLock<Vec<CommitId>>,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
-    git_executable: PathBuf,
     write_change_id_header: bool,
 }
 
@@ -214,7 +203,6 @@ impl GitBackend {
             shallow_root_ids: OnceLock::new(),
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
-            git_executable: git_settings.executable_path,
             write_change_id_header: git_settings.write_change_id_header,
         }
     }
@@ -972,27 +960,6 @@ fn recreate_no_gc_refs(
     Ok(())
 }
 
-fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result<(), GitGcError> {
-    let keep_newer = keep_newer
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default(); // underflow
-    let mut git = Command::new(program);
-    git.arg("--git-dir=.") // turn off discovery
-        .arg("gc")
-        .arg(format!("--prune=@{} +0000", keep_newer.as_secs()));
-    // Don't specify it by GIT_DIR/--git-dir. On Windows, the path could be
-    // canonicalized as UNC path, which wouldn't be supported by git.
-    git.current_dir(git_dir);
-    // TODO: pass output to UI layer instead of printing directly here
-    tracing::info!(?git, "running git gc");
-    let status = git.status().map_err(GitGcError::GcCommand)?;
-    tracing::info!(?status, "git gc exited");
-    if !status.success() {
-        return Err(GitGcError::GcCommandErrorStatus(status));
-    }
-    Ok(())
-}
-
 fn validate_git_object_id(
     repo: &gix::Repository,
     id: &impl ObjectId,
@@ -1578,15 +1545,16 @@ impl Backend for GitBackend {
             .gc(&table, keep_newer)
             .map_err(|err| BackendError::Other(err.into()))?;
 
-        run_git_gc(
-            self.git_executable.as_ref(),
-            self.git_repo_path(),
-            keep_newer,
-        )
-        .map_err(|err| BackendError::Other(err.into()))?;
-        // Since "git gc" will move loose refs into packed refs, in-memory
-        // packed-refs cache should be invalidated without relying on mtime.
-        git_repo.refs.force_refresh_packed_buffer().ok();
+        let outcome = git_repo
+            .gc(
+                gix::repository::gc::Options {
+                    expire: keep_newer,
+                    dry_run: false,
+                },
+                &AtomicBool::default(),
+            )
+            .map_err(|err| BackendError::Other(err.into()))?;
+        tracing::debug!(?outcome, "collected Git objects");
         Ok(())
     }
 }
@@ -1666,6 +1634,7 @@ recover.
 #[cfg(test)]
 mod tests {
     use std::assert_matches;
+    use std::process::Command;
 
     use gix::date::parse::TimeBuf;
     use gix::objs::CommitRef;

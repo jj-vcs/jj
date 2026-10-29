@@ -52,7 +52,6 @@ use testutils::commit_with_tree;
 use testutils::create_random_commit;
 use testutils::create_single_tree;
 use testutils::create_tree;
-use testutils::is_external_tool_installed;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::write_random_commit;
@@ -110,12 +109,6 @@ fn list_dir(dir: &Path) -> Vec<String> {
 
 #[test]
 fn test_gc() -> TestResult {
-    // TODO: Better way to disable the test if git command couldn't be executed
-    if !is_external_tool_installed("git") {
-        eprintln!("Skipping because git command might fail to run");
-        return Ok(());
-    }
-
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = test_repo.repo;
     let git_repo_path = get_git_backend(&repo).git_repo_path();
@@ -171,7 +164,7 @@ fn test_gc() -> TestResult {
     );
 
     // Empty list of heads, but all kept by file modification time
-    // (Beware that this invokes "git gc" and refs will be packed.)
+    // Garbage collection also packs the references.
     get_git_backend(&repo)
         .gc(&[], SystemTime::UNIX_EPOCH)
         .block_on()?;
@@ -263,11 +256,6 @@ fn test_gc() -> TestResult {
 
 #[test]
 fn test_gc_extra_table() -> TestResult {
-    if !is_external_tool_installed("git") {
-        eprintln!("Skipping because git command might fail to run");
-        return Ok(());
-    }
-
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let extra_path = test_repo.repo_path().join("store").join("extra");
     let extra_key_size = test_repo.repo.store().root_commit_id().as_bytes().len();
