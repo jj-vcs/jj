@@ -49,6 +49,7 @@ use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_frontend::runner::GitImportExportLock;
+use jj_frontend::runner::ReadonlyUserRepo;
 use jj_frontend::runner::RebaseReason;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::RunnerEvent;
@@ -907,30 +908,6 @@ pub async fn merge_operations(
         )?;
     }
     Ok(merged_repo.operation().clone())
-}
-
-/// A ReadonlyRepo along with user-config-dependent derived data. The short
-/// commit/change ID prefixes are indexed lazily, the first time they're needed.
-struct ReadonlyUserRepo {
-    repo: Arc<ReadonlyRepo>,
-    id_prefix_context: Arc<IdPrefixContext>,
-}
-
-impl ReadonlyUserRepo {
-    fn new(repo: Arc<ReadonlyRepo>, id_prefix_context: IdPrefixContext) -> Self {
-        Self {
-            repo,
-            id_prefix_context: Arc::new(id_prefix_context),
-        }
-    }
-
-    fn repo(&self) -> &Arc<ReadonlyRepo> {
-        &self.repo
-    }
-
-    fn id_prefix_context(&self) -> &Arc<IdPrefixContext> {
-        &self.id_prefix_context
-    }
 }
 
 /// A advanceable bookmark to satisfy the "advance-bookmarks" feature.
