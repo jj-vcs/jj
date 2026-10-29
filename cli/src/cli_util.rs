@@ -85,6 +85,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_heads_store;
+use jj_lib::op_heads_store::get_op_heads_key_for_opcontext;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::RefTarget;
@@ -99,6 +100,7 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::EditCommitError;
 use jj_lib::repo::MutableRepo;
+use jj_lib::repo::OpContext;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo::RepoLoader;
@@ -427,11 +429,15 @@ impl CommandHelper {
     async fn maybe_commit_transaction(
         &self,
         tx: Transaction,
+        op_context: &OpContext,
         description: impl Into<String>,
     ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
+        let base_repo = tx.base_repo().clone();
         let unpublished_op = tx.write(description).await?;
         if self.should_commit_transaction() {
-            unpublished_op.publish().await
+            let op_heads_key =
+                get_op_heads_key_for_opcontext(base_repo.loader().workspace_store(), op_context)?;
+            unpublished_op.publish(&op_heads_key).await
         } else {
             Ok(unpublished_op.leave_unpublished())
         }
@@ -533,8 +539,8 @@ impl CommandHelper {
         workspace: Workspace,
         mut env: WorkspaceCommandEnvironment,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
-        let op_head =
-            self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
+        let op_context = workspace.op_context();
+        let op_head = self.resolve_operation(ui, workspace.repo_loader(), &op_context)?;
         let repo = workspace.load_at(&op_head).await?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
@@ -656,6 +662,7 @@ impl CommandHelper {
                 let stale_wc_commit = workspace_command.get_wc_commit().await?.unwrap();
 
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
+                let op_context = workspace.op_context();
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
                 let repo = &workspace_command.user_repo.repo;
                 let desired_wc_commit = workspace_command.prepare_working_copy_mutation().await?;
@@ -698,8 +705,9 @@ impl CommandHelper {
                             )
                             .await?;
                             if tx.repo().has_changes() {
-                                let repo =
-                                    self.maybe_commit_transaction(tx, "reset git head").await?;
+                                let repo = self
+                                    .maybe_commit_transaction(tx, &op_context, "reset git head")
+                                    .await?;
                                 workspace_command.user_repo = ReadonlyUserRepo::new(repo);
                             }
                         }
@@ -800,14 +808,24 @@ impl CommandHelper {
         &self,
         ui: &Ui,
         repo_loader: &RepoLoader,
-        workspace_name: &WorkspaceName,
+        op_context: &OpContext,
     ) -> Result<Operation, CommandError> {
+        let workspace_name = match op_context {
+            OpContext::Repo => None,
+            OpContext::Workspace {
+                name,
+                workspace_type: _,
+            } => Some(name.as_ref()),
+        };
+        let op_heads_key =
+            get_op_heads_key_for_opcontext(repo_loader.workspace_store(), op_context)?;
         if let Some(op_str) = &self.data.global_args.at_operation {
-            Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
+            Ok(op_walk::resolve_op_for_load(repo_loader, &op_heads_key, op_str).block_on()?)
         } else {
             op_heads_store::resolve_op_heads(
                 repo_loader.op_heads_store().as_ref(),
                 repo_loader.op_store(),
+                &op_heads_key,
                 async |op_heads| {
                     writeln!(
                         ui.status(),
@@ -819,7 +837,7 @@ impl CommandHelper {
                         Some(ui),
                         repo_loader,
                         op_heads,
-                        Some(workspace_name),
+                        workspace_name,
                         Some(transaction_description),
                         &self.data.string_args,
                     )
@@ -1467,6 +1485,7 @@ impl WorkspaceCommandHelper {
         assert!(self.may_snapshot_working_copy);
         let workspace_name = self.workspace_name().to_owned();
         let workspace_root = self.workspace_root().to_owned();
+        let op_context = self.workspace.op_context();
         let mut tx = self.start_transaction();
         jj_lib::git::import_head(tx.repo_mut(), &workspace_name, &workspace_root).await?;
         if !tx.repo().has_changes() {
@@ -1480,7 +1499,7 @@ impl WorkspaceCommandHelper {
             let new_git_head_commit = tx.repo().store().get_commit_async(new_git_head_id).await?;
             let wc_commit = tx
                 .repo_mut()
-                .check_out(workspace_name, &new_git_head_commit)
+                .check_out(workspace_name.clone(), &new_git_head_commit)
                 .await?;
             let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
             // The working copy was presumably updated by the git command that updated
@@ -1491,7 +1510,7 @@ impl WorkspaceCommandHelper {
             self.user_repo = ReadonlyUserRepo::new(
                 self.env
                     .command
-                    .maybe_commit_transaction(tx, "import git head")
+                    .maybe_commit_transaction(tx, &op_context, "import git head")
                     .await?,
             );
             if self.env.command.should_commit_transaction() {
@@ -2111,6 +2130,7 @@ to the current parents may contain changes from multiple commits.
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         let workspace_name = self.workspace_name().to_owned();
+        let op_context = self.workspace.op_context();
         let repo = self.repo().clone();
         let auto_tracking_matcher = self
             .env
@@ -2243,7 +2263,7 @@ to the current parents may contain changes from multiple commits.
             let repo = self
                 .env
                 .command
-                .maybe_commit_transaction(tx, "snapshot working copy")
+                .maybe_commit_transaction(tx, &op_context, "snapshot working copy")
                 .await
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
@@ -2433,7 +2453,7 @@ to the current parents may contain changes from multiple commits.
         self.user_repo = ReadonlyUserRepo::new(
             self.env
                 .command
-                .maybe_commit_transaction(tx, description)
+                .maybe_commit_transaction(tx, &self.workspace.op_context(), description)
                 .await?,
         );
 
@@ -2961,8 +2981,12 @@ jj git init",
             err @ (StoreLoadError::ReadError { .. } | StoreLoadError::Backend(_)),
         ) => internal_error_with_message("The repository appears broken or inaccessible", err),
         WorkspaceLoadError::StoreLoadError(StoreLoadError::Signing(err)) => user_error(err),
+        WorkspaceLoadError::WorkspaceStoreError(err) => {
+            internal_error_with_message("The repository appears broken or inaccessible", err)
+        }
         WorkspaceLoadError::WorkingCopyState(err) => internal_error(err),
-        WorkspaceLoadError::DecodeRepoPath(_) | WorkspaceLoadError::Path(_) => user_error(err),
+        WorkspaceLoadError::DecodeRepoPath(_) => user_error(err),
+        WorkspaceLoadError::Path(_) => user_error(err),
     }
 }
 

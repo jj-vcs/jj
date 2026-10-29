@@ -54,6 +54,7 @@ use jj_lib::default_backend_factories::default_submodule_store_initializer;
 use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::default_backend_factories::default_workspace_store_initializer;
+use jj_lib::file_util::IoResultExt as _;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::EverythingMatcher;
@@ -64,6 +65,7 @@ use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::MutableRepo;
+use jj_lib::repo::OpContext;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo::RepoLoader;
@@ -88,6 +90,7 @@ use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
+use jj_lib::workspace_store::WorkspaceType;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
 
@@ -252,9 +255,27 @@ impl TestEnvironment {
     ) -> Arc<ReadonlyRepo> {
         RepoLoader::init_from_file_system(settings, repo_path, &self.default_backend_factories())
             .unwrap()
-            .load_at_head(Some(WorkspaceName::DEFAULT))
+            .load_at_head(&OpContext::Repo)
             .block_on()
             .unwrap()
+    }
+
+    pub fn load_workspace_at_head(
+        &self,
+        settings: &UserSettings,
+        workspace_root: &Path,
+    ) -> Arc<ReadonlyRepo> {
+        let workspace_loader = default_workspace_loader_factory()
+            .create(workspace_root)
+            .unwrap();
+        let workspace = workspace_loader
+            .load(
+                settings,
+                &self.default_backend_factories(),
+                &default_working_copy_factories(),
+            )
+            .unwrap();
+        workspace.load_at_head().block_on().unwrap()
     }
 }
 
@@ -296,15 +317,40 @@ impl TestRepo {
     }
 
     pub fn init_with_backend(backend: TestRepoBackend) -> Self {
-        Self::init_with_backend_and_settings(backend, &user_settings())
+        Self::init_with_backend_and_settings(
+            backend,
+            WorkspaceName::DEFAULT,
+            WorkspaceType::Regular,
+            &user_settings(),
+        )
+    }
+
+    pub fn init_with_backend_and_custom_workspace(
+        backend: TestRepoBackend,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> Self {
+        Self::init_with_backend_and_settings(
+            backend,
+            workspace_name,
+            workspace_type,
+            &user_settings(),
+        )
     }
 
     pub fn init_with_settings(settings: &UserSettings) -> Self {
-        Self::init_with_backend_and_settings(TestRepoBackend::Test, settings)
+        Self::init_with_backend_and_settings(
+            TestRepoBackend::Test,
+            WorkspaceName::DEFAULT,
+            WorkspaceType::Regular,
+            settings,
+        )
     }
 
     pub fn init_with_backend_and_settings(
         backend: TestRepoBackend,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
         settings: &UserSettings,
     ) -> Self {
         let env = TestEnvironment::init();
@@ -326,10 +372,15 @@ impl TestRepo {
         .block_on()
         .unwrap();
 
+        let workspace_store = repo.loader().workspace_store().clone();
+        workspace_store
+            .add(workspace_name, env.root(), workspace_type)
+            .unwrap();
+        let repo_path = dunce::canonicalize(&repo_dir).context(repo_dir).unwrap();
         Self {
             env,
             repo,
-            repo_path: repo_dir,
+            repo_path,
         }
     }
 
@@ -379,6 +430,7 @@ impl TestWorkspace {
             settings,
             &workspace_root,
             WorkspaceName::DEFAULT,
+            WorkspaceType::Regular,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             signer,
         )
@@ -400,6 +452,7 @@ impl TestWorkspace {
             &user_settings(),
             &workspace_root,
             WorkspaceName::DEFAULT,
+            WorkspaceType::Regular,
             gix::hash::Kind::default(),
         )
         .block_on()
@@ -458,8 +511,10 @@ pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
         op_ids.push(tx.commit("test").block_on().unwrap().op_id().clone());
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
-    let workspace_name = None;
-    let repo = repo_loader.load_at_head(workspace_name).block_on().unwrap();
+    let repo = repo_loader
+        .load_at_head(&OpContext::Repo)
+        .block_on()
+        .unwrap();
     // Test the setup. The assumption here is that the parent order matches the
     // order in which they were merged (which currently matches the transaction
     // commit order), so we want to know make sure they appear in a certain

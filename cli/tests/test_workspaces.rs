@@ -1462,6 +1462,8 @@ fn test_workspaces_forget() {
     main_dir
         .run_jj(["workspace", "add", "../secondary"])
         .success();
+    let secondary_dir = test_env.work_dir("secondary");
+
     let output = main_dir.run_jj(["workspace", "forget"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1479,12 +1481,12 @@ fn test_workspaces_forget() {
 
     // After forgetting the default, secondary root is still recorded, default no
     // longer exists
-    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    let output = secondary_dir.run_jj(["workspace", "root", "--name", "secondary"]);
     insta::assert_snapshot!(output, @"
     $TEST_ENV/secondary
     [EOF]
     ");
-    let output = main_dir.run_jj(["workspace", "root", "--name", "default"]);
+    let output = secondary_dir.run_jj(["workspace", "root", "--name", "default"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No such workspace: default
@@ -1496,8 +1498,8 @@ fn test_workspaces_forget() {
     // TODO: It seems useful to still have the "secondary@" marker here even though
     // there's only one workspace. We should show it when the command is not run
     // from that workspace.
-    insta::assert_snapshot!(get_log_output(&main_dir), @"
-    ○  31da14559558
+    insta::assert_snapshot!(get_log_output(&secondary_dir), @"
+    @  31da14559558
     ○  006bd1130b84
     ◆  000000000000
     [EOF]
@@ -1521,16 +1523,28 @@ fn test_workspaces_forget() {
     [EOF]
     [exit status: 1]
     ");
+    let output = secondary_dir.run_jj(["workspace", "add", "../main"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Destination path exists and is not an empty directory
+    [EOF]
+    [exit status: 1]
+    ");
 
     // Add a third workspace...
-    main_dir.run_jj(["workspace", "add", "../third"]).success();
+    secondary_dir
+        .run_jj(["workspace", "add", "../third"])
+        .success();
     // ... and then forget it, a non-existent one, and the secondary workspace too
-    let output = main_dir.run_jj(["workspace", "forget", "secondary", "nonexistent", "third"]);
+    let output = secondary_dir.run_jj(["workspace", "forget", "secondary", "nonexistent", "third"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No such workspace: nonexistent
+    Warning: The current workspace 'secondary' no longer exists after this operation. The working copy was left untouched.
+    Hint: Restore to an operation that contains the workspace (e.g. `jj undo` or `jj redo`).
     [EOF]
     ");
+
     assert!(test_env.env_root().join("secondary").is_dir());
     assert!(test_env.env_root().join("third").is_dir());
     // No workspaces left
@@ -1640,6 +1654,7 @@ fn test_workspaces_forget_abandon_commits() {
     main_dir.run_jj(["workspace", "add", "../second"]).success();
     main_dir.run_jj(["workspace", "add", "../third"]).success();
     main_dir.run_jj(["workspace", "add", "../fourth"]).success();
+    let second_dir = test_env.work_dir("second");
     let third_dir = test_env.work_dir("third");
     third_dir.run_jj(["edit", "second@"]).success();
     let fourth_dir = test_env.work_dir("fourth");
@@ -1676,25 +1691,21 @@ fn test_workspaces_forget_abandon_commits() {
 
     // delete the second workspace (should not abandon commit since other workspaces
     // still have commit checked out)
-    main_dir.run_jj(["workspace", "forget", "second"]).success();
-    insta::assert_snapshot!(get_log_output(&main_dir), @"
-    ○  94f41578a9e1 fourth@ third@
+    second_dir
+        .run_jj(["workspace", "forget", "second"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&third_dir), @"
+    @  94f41578a9e1 fourth@ third@
     │ ○  006bd1130b84
     ├─╯
     ◆  000000000000
     [EOF]
     ");
 
-    // delete the last 2 workspaces (commit should be abandoned now even though
-    // forgotten in same tx)
-    main_dir
+    // delete the last 2 workspaces
+    third_dir
         .run_jj(["workspace", "forget", "third", "fourth"])
         .success();
-    insta::assert_snapshot!(get_log_output(&main_dir), @"
-    ○  006bd1130b84
-    ◆  000000000000
-    [EOF]
-    ");
 }
 
 #[test]

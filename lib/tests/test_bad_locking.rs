@@ -106,6 +106,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
     // lost due to lack of locking)
     let settings = testutils::user_settings();
     let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
+    let test_env = &test_workspace.env;
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root();
 
@@ -114,33 +115,26 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
     tx.commit("test").block_on()?;
 
     // Simulate a write of a commit that happens on one machine
-    let machine1_root = test_workspace.root_dir().join("machine1");
+    let machine1_root = test_workspace.env.root().join("machine1");
     copy_directory(workspace_root, &machine1_root);
-    let machine1_workspace = test_workspace
-        .env
-        .load_workspace(&settings, &machine1_root)?;
-    let machine1_repo = machine1_workspace.load_at_head().block_on()?;
+    let machine1_repo = test_env.load_workspace_at_head(&settings, &machine1_root);
     let mut machine1_tx = machine1_repo.start_transaction();
     let child1 = write_random_commit_with_parents(machine1_tx.repo_mut(), &[&initial]);
     machine1_tx.commit("test").block_on()?;
 
     // Simulate a write of a commit that happens on another machine
-    let machine2_root = test_workspace.root_dir().join("machine2");
+    let machine2_root = test_workspace.env.root().join("machine2");
     copy_directory(workspace_root, &machine2_root);
-    let machine2_workspace = test_workspace
-        .env
-        .load_workspace(&settings, &machine2_root)?;
-    let machine2_repo = machine2_workspace.load_at_head().block_on()?;
+    let machine2_repo = test_env.load_workspace_at_head(&settings, &machine2_root);
     let mut machine2_tx = machine2_repo.start_transaction();
     let child2 = write_random_commit_with_parents(machine2_tx.repo_mut(), &[&initial]);
     machine2_tx.commit("test").block_on()?;
 
     // Simulate that the distributed file system now has received the changes from
     // both machines
-    let merged_path = test_workspace.root_dir().join("merged");
+    let merged_path = test_workspace.env.root().join("merged");
     merge_directories(&machine1_root, workspace_root, &machine2_root, &merged_path);
-    let merged_workspace = test_workspace.env.load_workspace(&settings, &merged_path)?;
-    let merged_repo = merged_workspace.load_at_head().block_on()?;
+    let merged_repo = test_env.load_workspace_at_head(&settings, &merged_path);
     assert!(merged_repo.view().heads().contains(child1.id()));
     assert!(merged_repo.view().heads().contains(child2.id()));
     let op_id = merged_repo.op_id().clone();
@@ -157,6 +151,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) -> TestResult {
     // operation.
     let settings = testutils::user_settings();
     let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
+    let workspace_root = test_workspace.workspace.workspace_root();
     let test_env = &test_workspace.env;
     let repo = &test_workspace.repo;
 
@@ -169,7 +164,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) -> TestResult {
     // operation and then copying that back afterwards, leaving the existing
     // op-head(s) in place.
     let op_heads_dir = test_workspace.repo_path().join("op_heads");
-    let backup_path = test_workspace.root_dir().join("backup");
+    let backup_path = test_workspace.env.root().join("backup");
     copy_directory(&op_heads_dir, &backup_path);
     let mut tx = repo.start_transaction();
     write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
@@ -177,11 +172,11 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) -> TestResult {
 
     copy_directory(&backup_path, &op_heads_dir);
     // Reload the repo and check that only the new head is present.
-    let reloaded_repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
+    let reloaded_repo = test_env.load_workspace_at_head(&settings, workspace_root);
     assert_eq!(reloaded_repo.op_id(), &op_id);
     // Reload once more to make sure that the .jj/op_heads/ directory was updated
     // correctly.
-    let reloaded_repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
+    let reloaded_repo = test_env.load_workspace_at_head(&settings, workspace_root);
     assert_eq!(reloaded_repo.op_id(), &op_id);
     Ok(())
 }

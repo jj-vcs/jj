@@ -32,6 +32,8 @@ use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceStoreError;
+use jj_core::workspace_store::WorkspaceType;
 use once_cell::sync::OnceCell;
 use thiserror::Error;
 use tracing::instrument;
@@ -70,6 +72,7 @@ use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
+use crate::op_heads_store::get_op_heads_key_for_opcontext;
 use crate::op_store;
 use crate::op_store::OpStore;
 use crate::op_store::OpStoreError;
@@ -154,6 +157,17 @@ pub trait Repo {
         &self,
         target_id_bytes: &ChangeId,
     ) -> IndexResult<usize>;
+}
+
+#[derive(Debug, Clone)]
+pub enum OpContext {
+    /// The operation is running outside of any workspace
+    Repo,
+    /// The operation is running  in a workspace
+    Workspace {
+        name: WorkspaceNameBuf,
+        workspace_type: WorkspaceType,
+    },
 }
 
 pub struct ReadonlyRepo {
@@ -329,9 +343,9 @@ impl ReadonlyRepo {
 
     pub async fn reload_at_head(
         &self,
-        workspace_name: Option<&WorkspaceName>,
+        op_context: &OpContext,
     ) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at_head(workspace_name).await
+        self.loader().load_at_head(op_context).await
     }
 
     #[instrument]
@@ -666,6 +680,8 @@ pub enum RepoLoaderError {
     OpStore(#[from] OpStoreError),
     #[error(transparent)]
     TransactionCommit(#[from] TransactionCommitError),
+    #[error(transparent)]
+    WorkspaceStore(#[from] WorkspaceStoreError),
 }
 
 /// Helps create `ReadonlyRepo` instances of a repo at the head operation or at
@@ -777,11 +793,20 @@ impl RepoLoader {
 
     pub async fn load_at_head(
         &self,
-        workspace_name: Option<&WorkspaceName>,
+        op_context: &OpContext,
     ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        let workspace_name = match op_context {
+            OpContext::Repo => None,
+            OpContext::Workspace {
+                name,
+                workspace_type: _,
+            } => Some(name.as_ref()),
+        };
+        let op_heads_key = get_op_heads_key_for_opcontext(self.workspace_store(), op_context)?;
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
+            &op_heads_key,
             async |op_heads| -> Result<Operation, RepoLoaderError> {
                 assert!(op_heads.len() > 1);
                 let transaction_description = Some("reconcile divergent operations");
@@ -953,13 +978,46 @@ impl RepoLoader {
             stack.push((index, operations, tx));
             // Then we push the ancestor ops to the stack so that we can merge them first.
             // We need to start a separate transaction for this.
-            let new_tx = self.load_at(&ancestor_ops[0]).await?.start_transaction();
+            let mut new_tx = self.load_at(&ancestor_ops[0]).await?.start_transaction();
+            if let Some(workspace_name) = workspace_name {
+                new_tx.set_workspace_name(workspace_name);
+            }
             stack.push((1, ancestor_ops.clone(), new_tx));
         }
 
         // We are all done! The result should be in the cache.
         let merged_operation = merged_operations.get(&operation_ids).cloned().unwrap();
         Ok((self.load_at(&merged_operation).await?, num_rebased))
+    }
+
+    /// Takes the union of the given operations. If `operations` is empty returns the root repo. If `operations` has a single entry, returns that entry's repo. Otherwise an actual union happens. The new operation is not published.
+    pub async fn union_operations(
+        &self,
+        workspace_name: &WorkspaceName,
+        operations: Vec<Operation>,
+        transaction_description: Option<&str>,
+    ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        match &operations[..] {
+            [] => {
+                let root_operation = self.root_operation().await;
+                return self.load_at(&root_operation).await;
+            }
+            [op] => {
+                let repo = self.load_at(op).await?;
+                return Ok(repo);
+            }
+            _ => {}
+        }
+        let repo = self.load_at(&operations[0]).await?;
+        let mut tx = repo.start_transaction();
+        tx.set_workspace_name(workspace_name);
+        for op in operations.iter().skip(1) {
+            tx.union_operation(op).await?;
+        }
+        Ok(tx
+            .write(transaction_description.unwrap_or("union"))
+            .await?
+            .leave_unpublished())
     }
 
     async fn finish_load(
@@ -2016,6 +2074,29 @@ impl MutableRepo {
         self.view.set_view(data, head_normalized);
     }
 
+    pub async fn set_view_for_new_independent_workspace(
+        &mut self,
+        workspace_name: &WorkspaceName,
+        new_wc_commit: &Commit,
+    ) -> BackendResult<()> {
+        let other_wc_commits = self.view.wc_commit_ids().keys().cloned().collect_vec();
+        let previous_heads = self.view.heads().clone();
+        for workspace in other_wc_commits {
+            if workspace != workspace_name {
+                self.view.remove_workspace(&workspace);
+            }
+        }
+        self.add_head(new_wc_commit).await?;
+        for head in previous_heads {
+            if head != *new_wc_commit.id() {
+                self.remove_head(&head);
+            }
+        }
+        self.view
+            .set_wc_commit(workspace_name.to_owned(), new_wc_commit.id().clone());
+        Ok(())
+    }
+
     pub async fn merge(
         &mut self,
         base_repo: &ReadonlyRepo,
@@ -2107,6 +2188,16 @@ impl MutableRepo {
             self.set_git_head_target(workspace, new_target);
         }
 
+        Ok(())
+    }
+
+    pub async fn union(&mut self, other_repo: &ReadonlyRepo) -> Result<(), RepoLoaderError> {
+        self.index.merge_in(other_repo.readonly_index())?;
+        // TODO: XXX:W What about bookmarks/tags/refs etc?
+        for head in other_repo.view().heads() {
+            self.view.add_head(head);
+        }
+        self.normalize_heads().await?;
         Ok(())
     }
 
