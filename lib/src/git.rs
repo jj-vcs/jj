@@ -2062,20 +2062,26 @@ impl GitResetHeadError {
     }
 }
 
-/// Sets Git HEAD to the parent of the given working-copy commit and resets
-/// the Git index.
+/// Sets Git HEAD to the first parent of `new_wc_commit`.
+///
+/// Resets the Git index to the merged parent tree and clears any in-progress
+/// Git operation when switching working-copy changes or changing their parents
+/// or tree.
+///
+/// Pass `None` for `old_wc_commit` to force a reset when the previous commit is
+/// unknown.
 pub async fn reset_head(
     mut_repo: &mut MutableRepo,
     workspace_name: &WorkspaceName,
     workspace_root: &Path,
-    wc_commit: &Commit,
+    (old_wc_commit, new_wc_commit): (Option<&Commit>, &Commit),
 ) -> Result<(), GitResetHeadError> {
     let git_backend = get_git_backend(mut_repo.store())?;
     let git_repo = git_backend
         .open_git_repo_at_workdir(workspace_root)
         .map_err(GitResetHeadError::from_git)?;
 
-    let first_parent_id = &wc_commit.parent_ids()[0];
+    let first_parent_id = &new_wc_commit.parent_ids()[0];
     let new_head_target = if first_parent_id != mut_repo.store().root_commit_id() {
         RefTarget::normal(first_parent_id.clone())
     } else {
@@ -2084,7 +2090,8 @@ pub async fn reset_head(
 
     // If the first parent of the working copy has changed, reset the Git HEAD.
     let old_head_target = mut_repo.git_head(workspace_name);
-    if *old_head_target != new_head_target {
+    let head_changed = *old_head_target != new_head_target;
+    if head_changed {
         let expected_ref = if let Some(id) = old_head_target.as_normal() {
             // We have to check the actual HEAD state because we don't record a
             // symbolic ref as such.
@@ -2107,13 +2114,19 @@ pub async fn reset_head(
         mut_repo.set_git_head_target(workspace_name, new_head_target);
     }
 
-    // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
-    // up.
-    if git_repo.state().is_some() {
-        clear_operation_state(&git_repo)?;
+    let wc_changed = old_wc_commit.is_none_or(|old| {
+        let content_changed = old.tree_ids() != new_wc_commit.tree_ids();
+        let parents_changed = old.parent_ids() != new_wc_commit.parent_ids();
+        let wc_switched = old.change_id() != new_wc_commit.change_id();
+        content_changed || parents_changed || wc_switched
+    });
+    if head_changed || wc_changed {
+        if git_repo.state().is_some() {
+            clear_operation_state(&git_repo)?;
+        }
+        reset_index(mut_repo, &git_repo, new_wc_commit).await?;
     }
-
-    reset_index(mut_repo, &git_repo, wc_commit).await
+    Ok(())
 }
 
 // TODO: Polish and upstream this to `gix`.

@@ -298,6 +298,40 @@ fn test_git_colocated_update_stale_resets_git_head() {
 }
 
 #[test]
+fn test_git_colocated_preserve_git_index() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
+
+    work_dir.write_file("file", "working copy\n");
+    let mut index_manager = git::IndexManager::new(&git_repo);
+    index_manager.add_file("file", b"staged\n");
+    index_manager.sync_index();
+    let original_index = get_index_state(work_dir.root());
+    insta::assert_snapshot!(
+        original_index,
+        @"Unconflicted Mode(FILE) 19d9cc8584ac ctime=0:0 mtime=0:0 size=0 flags=0 file");
+
+    work_dir.run_jj(["status"]).success();
+    let index_after_snapshot = get_index_state(work_dir.root());
+    insta::assert_snapshot!(
+        index_after_snapshot,
+        @"Unconflicted Mode(FILE) 19d9cc8584ac ctime=0:0 mtime=0:0 size=0 flags=0 file");
+
+    work_dir.run_jj(["describe", "-mnew"]).success();
+    let index_after_describe = get_index_state(work_dir.root());
+    insta::assert_snapshot!(
+        index_after_describe,
+        @"Unconflicted Mode(FILE) 19d9cc8584ac ctime=0:0 mtime=0:0 size=0 flags=0 file");
+
+    assert_eq!(index_after_snapshot, original_index);
+    assert_eq!(index_after_describe, original_index);
+}
+
+#[test]
 fn test_git_colocated_unborn_bookmark() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");

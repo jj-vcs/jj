@@ -123,6 +123,9 @@ and this project adheres to
   external changes. Those changes are now re-exported on the next `jj`
   invocation. [#10478](https://github.com/jj-vcs/jj/issues/10478)
 
+* In colocated workspaces, `jj describe -r@` no longer resets the staging area.
+  `jj new @-` still resets it.
+
 * `jj run` now materializes conflicts using `ui.conflict-marker-style` instead
   of always using the `snapshot` style.
   [#10390](https://github.com/jj-vcs/jj/issues/10390)
