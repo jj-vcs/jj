@@ -14,6 +14,7 @@
 
 use itertools::Itertools as _;
 use testutils::TestResult;
+use testutils::git;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -226,6 +227,41 @@ fn test_concurrent_snapshot_wc_reloadable() -> TestResult {
     ◆
     [EOF]
     ");
+    Ok(())
+}
+
+#[test]
+fn test_git_export_after_reconcile() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
+
+    work_dir.run_jj(["commit", "-mold"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "-r@-", "book"])
+        .success();
+    work_dir
+        .run_jj(["describe", "--at-op=@-", "-r@-", "-mnew"])
+        .success();
+
+    insta::assert_snapshot!(
+        git_repo.find_reference("refs/heads/book")?.peel_to_id()?,
+        @"1ea04b9f537799e42deb2f9d4ce4f773cb1c8b9e");
+    let output = work_dir.run_jj(["bookmark", "list", "-a"]);
+    insta::assert_snapshot!(output, @"
+    book: qpvuntsm e2824131 (empty) new
+      @git: qpvuntsm e2824131 (empty) new
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        git_repo.find_reference("refs/heads/book")?.peel_to_id()?,
+        @"e28241316d6d6409c94cec3574bb0fa39f78f486");
     Ok(())
 }
 

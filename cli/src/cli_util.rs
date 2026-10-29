@@ -1450,13 +1450,13 @@ impl WorkspaceCommandHelper {
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
         if let Some(import_options) = &config.git_import_options {
-            self.import_git_refs(ui, import_options, git_import_export_lock)
+            self.import_export_git_refs(ui, import_options, git_import_export_lock)
                 .await?;
         }
         Ok(stats)
     }
 
-    /// Snapshots the working copy if allowed, and imports Git refs if the
+    /// Snapshots the working copy if allowed, and synchronizes Git refs if the
     /// working copy is colocated with Git.
     #[instrument(skip_all)]
     pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<(), CommandError> {
@@ -1555,8 +1555,8 @@ impl WorkspaceCommandHelper {
         Ok(())
     }
 
-    /// Imports branches and tags from the underlying Git repo, abandons old
-    /// bookmarks.
+    /// Imports bookmarks and tags from the underlying Git repo, abandons old
+    /// branches, and exports previously modified refs if any.
     ///
     /// If the working-copy branch is rebased, and if update is allowed, the
     /// new working-copy commit will be checked out.
@@ -1565,21 +1565,30 @@ impl WorkspaceCommandHelper {
     /// the working copy parent if the repository is colocated.
     #[cfg(feature = "git")]
     #[instrument(skip_all)]
-    async fn import_git_refs(
+    async fn import_export_git_refs(
         &mut self,
         ui: &Ui,
         import_options: &jj_lib::git::GitImportOptions,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), RunnerError> {
-        let mut tx = self.start_transaction();
+        let mut tx = self.start_transaction().into_inner();
         let stats = jj_lib::git::import_refs(tx.repo_mut(), import_options).await?;
         print_runner_event(ui, &RunnerEvent::GitRefsImported(stats))
             .map_err(RunnerError::event_sink)?;
+
         if !tx.repo().has_changes() {
+            if self.options.integrate_operation {
+                let stats = jj_lib::git::export_refs(tx.repo_mut())?;
+                print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
+                    .map_err(RunnerError::event_sink)?;
+                if tx.repo().has_changes() {
+                    let new_repo = tx.commit("export git refs").await?;
+                    self.user_repo = ReadonlyUserRepo::new(new_repo);
+                }
+            }
             return Ok(());
         }
 
-        let mut tx = tx.into_inner();
         let num_rebased = rebase_mutable_descendants(&self.env, &self.options, &mut tx).await?;
         if num_rebased > 0 {
             print_runner_event(
@@ -1591,6 +1600,7 @@ impl WorkspaceCommandHelper {
             )
             .map_err(RunnerError::event_sink)?;
         }
+        // This also exports previously modified refs if any.
         self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)
             .await?;
         print_runner_event(ui, &RunnerEvent::GitRefsImportFinished)

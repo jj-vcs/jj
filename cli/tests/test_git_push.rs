@@ -3206,8 +3206,9 @@ fn test_git_push_unmapped_refs() {
     [EOF]
     "#);
 
-    // The export failure isn't "imported" as an external change
-    insta::assert_snapshot!(get_bookmark_output(&local_dir), @"
+    // The export failure isn't "imported" as an external change, and is
+    // reported again
+    insta::assert_snapshot!(get_bookmark_output(&local_dir), @r#"
     bookmark1: rlvkpnrz 5792bfac (empty) commit1
       @git: rlvkpnrz 5792bfac (empty) commit1
       @origin: rlvkpnrz 5792bfac (empty) commit1
@@ -3215,11 +3216,6 @@ fn test_git_push_unmapped_refs() {
       @git: zsuskuln aa5df56a (empty) commit2
       @origin: zsuskuln aa5df56a (empty) commit2
     [EOF]
-    ");
-
-    // The export failure is reported again
-    let output = local_dir.run_jj(["new", "--quiet"]);
-    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Failed to export some bookmarks:
       bookmark2@origin: Failed to set: Could not commit reference, reference="refs/remotes/origin/bookmark2": Directory not empty: Directory not empty: Directory not empty

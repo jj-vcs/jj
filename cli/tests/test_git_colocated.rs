@@ -754,6 +754,8 @@ fn test_git_colocated_bookmark_at_root() -> TestResult {
     let output = work_dir.run_jj(["bookmark", "move", "foo", "--to=@"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Failed to export some bookmarks:
+      foo@git: Ref cannot point to the root commit in Git
     Warning: Target revision is empty.
     Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
     [EOF]
@@ -840,6 +842,8 @@ fn test_git_colocated_explicit_import_export() -> TestResult {
       refs/remotes/git/bar
     Hint: Git remote named 'git' is reserved for local Git repository.
     Use `jj git remote rename` to give a different name.
+    Warning: Failed to export some bookmarks:
+      foo@git: Ref cannot point to the root commit in Git
     No import needed in colocated workspaces.
     [EOF]
     ");
@@ -864,6 +868,8 @@ fn test_git_colocated_explicit_import_export() -> TestResult {
       refs/remotes/git/bar
     Hint: Git remote named 'git' is reserved for local Git repository.
     Use `jj git remote rename` to give a different name.
+    Warning: Failed to export some bookmarks:
+      foo@git: Ref cannot point to the root commit in Git
     No export needed in colocated workspaces.
     [EOF]
     ");
