@@ -78,15 +78,6 @@ fn get_git_hash_from_jj() -> Option<String> {
 }
 
 fn get_git_hash_from_git() -> Option<String> {
-    Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .map(|output| {
-            str::from_utf8(&output.stdout)
-                .unwrap()
-                .trim_end()
-                .to_owned()
-        })
+    let repo = gix::discover(".").ok()?;
+    Some(repo.head_id().ok()?.to_string())
 }

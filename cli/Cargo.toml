@@ -135,6 +135,9 @@ testutils = { workspace = true }
 # https://github.com/rust-lang/cargo/issues/2911#issuecomment-1483256987
 jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
 
+[build-dependencies]
+gix = { workspace = true }
+
 [features]
 default = ["watchman", "git"]
 bench = ["dep:criterion"]
