@@ -281,19 +281,11 @@ fn test_git_head_after_reconcile() -> TestResult {
     let output = work_dir.run_jj(["new", "--at-op", &op_id, "subject(A)"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["new", "--at-op", &op_id, "subject(B)"]);
-    insta::assert_snapshot!(output, @r#"
-    ------- stderr -------
-    Warning: Failed to update Git HEAD ref
-    Caused by:
-    1: Could not prepare reference edit, reference="HEAD"
-    2: Expected reference content 451b9ab0d2e158f25b758346375ad0b4ef213553
-    3: The reference "HEAD" changed to 8777db25171cace71ad014598663d5ffc4fae6b1
-    [EOF]
-    "#);
+    insta::assert_snapshot!(output, @"");
 
     insta::assert_compact_debug_snapshot!(
         git_repo.head()?.try_into_peeled_id()?,
-        @"Some(Sha1(8777db25171cace71ad014598663d5ffc4fae6b1))");
+        @"Some(Sha1(451b9ab0d2e158f25b758346375ad0b4ef213553))");
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 33bf3d91
