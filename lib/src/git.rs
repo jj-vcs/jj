@@ -56,8 +56,6 @@ use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::config::ConfigGetError;
-use crate::file_util::IoResultExt as _;
-use crate::file_util::PathError;
 use crate::git_backend::GitBackend;
 use crate::git_subprocess::GitFetchStatus;
 pub use crate::git_subprocess::GitProgress;
@@ -2037,43 +2035,12 @@ pub async fn reset_head(
     // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
     // up.
     if git_repo.state().is_some() {
-        clear_operation_state(&git_repo)?;
+        git_repo
+            .clear_operation_state()
+            .map_err(GitResetHeadError::from_git)?;
     }
 
     reset_index(mut_repo, &git_repo, wc_commit).await
-}
-
-// TODO: Polish and upstream this to `gix`.
-fn clear_operation_state(git_repo: &gix::Repository) -> Result<(), GitResetHeadError> {
-    // Based on the files `git2::Repository::cleanup_state` deletes; when
-    // upstreaming this logic should probably become more elaborate to match
-    // `git(1)` behavior.
-    const STATE_FILE_NAMES: &[&str] = &[
-        "MERGE_HEAD",
-        "MERGE_MODE",
-        "MERGE_MSG",
-        "REVERT_HEAD",
-        "CHERRY_PICK_HEAD",
-        "BISECT_LOG",
-    ];
-    const STATE_DIR_NAMES: &[&str] = &["rebase-merge", "rebase-apply", "sequencer"];
-    let handle_err = |err: PathError| match err.source.kind() {
-        std::io::ErrorKind::NotFound => Ok(()),
-        _ => Err(GitResetHeadError::from_git(err)),
-    };
-    for file_name in STATE_FILE_NAMES {
-        let path = git_repo.path().join(file_name);
-        std::fs::remove_file(&path)
-            .context(&path)
-            .or_else(handle_err)?;
-    }
-    for dir_name in STATE_DIR_NAMES {
-        let path = git_repo.path().join(dir_name);
-        std::fs::remove_dir_all(&path)
-            .context(&path)
-            .or_else(handle_err)?;
-    }
-    Ok(())
 }
 
 async fn reset_index(

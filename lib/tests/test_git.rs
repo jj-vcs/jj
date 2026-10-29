@@ -3816,6 +3816,51 @@ fn test_reset_head_to_root() -> TestResult {
 }
 
 #[test]
+fn test_reset_head_preserves_operation_autostashes() -> TestResult {
+    for operation in ["merge", "rebase-merge", "rebase-apply"] {
+        let test_workspace = TestWorkspace::init_colocated_git();
+        let repo = &test_workspace.repo;
+        let git_repo = get_git_repo(repo);
+        let mut tx = repo.start_transaction();
+        let base = write_random_commit(tx.repo_mut());
+        let index = write_random_commit_with_parents(tx.repo_mut(), &[&base]);
+        reset_head(tx.repo_mut(), &test_workspace.workspace, &index)?;
+
+        let stash_commit_id = testutils::git::write_commit(
+            &git_repo,
+            "MERGE_AUTOSTASH",
+            git_repo.find_commit(git_id(&index))?.tree_id()?.detach(),
+            "autostash",
+            &[git_id(&base), git_id(&index)],
+        );
+        if operation == "merge" {
+            fs::write(
+                git_repo.path().join("MERGE_HEAD"),
+                format!("{}\n", git_id(&index)),
+            )?;
+        } else {
+            let state_dir = git_repo.path().join(operation);
+            fs::create_dir(&state_dir)?;
+            fs::write(state_dir.join("autostash"), format!("{stash_commit_id}\n"))?;
+            git_repo.find_reference("MERGE_AUTOSTASH")?.delete()?;
+        }
+
+        reset_head(tx.repo_mut(), &test_workspace.workspace, &base)?;
+        assert_eq!(git_repo.state(), None, "{operation} has ended");
+        assert_eq!(
+            git_repo.find_reference("refs/stash")?.id(),
+            stash_commit_id,
+            "{operation} autostash stays recoverable after JJ changes HEAD"
+        );
+        assert!(git_repo.try_find_reference("MERGE_AUTOSTASH")?.is_none());
+        if operation != "merge" {
+            assert!(!git_repo.path().join(operation).exists());
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn test_reset_head_detached_out_of_sync() -> TestResult {
     let test_workspace = TestWorkspace::init_colocated_git();
     let repo = &test_workspace.repo;
