@@ -48,6 +48,6 @@ check-hidden = true
 # if you have less common ignored files or globally ignored files present.
 # Alternatively, try `uv run codespell $(jj file list)`.
 skip = "./target,./.jj,*.lock,./.git,./.venv,./.direnv,**/*.svg,**/package-lock.json,node_modules,.astro"
-ignore-words-list = "crate,ser,NotIn,Wirth,abd,ratatui,grey"
+ignore-words-list = "crate,ser,NotIn,Wirth,abd,ratatui,grey,uptodate"
 dictionary = ".config/codespell-additional-dict,-"
 builtin = "clear,rare,en-GB_to_en-US"
