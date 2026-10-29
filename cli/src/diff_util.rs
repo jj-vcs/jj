@@ -99,9 +99,8 @@ use crate::merge_tools::DiffToolMode;
 use crate::merge_tools::ExternalMergeTool;
 use crate::merge_tools::generate_diff;
 use crate::merge_tools::invoke_external_diff;
-use crate::source_symbol::SourceLanguage;
+use crate::source_symbol::SourceSymbolMatcher;
 use crate::source_symbol::SourceSymbolScanner;
-use crate::source_symbol::source_symbol_from_line;
 use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
@@ -701,12 +700,14 @@ pub fn show_diff_bytes<T: AsRef<[u8]> + Eq>(
     if !contents.is_changed() {
         return Ok(());
     }
-    let language = paths
-        .after
-        .rsplit(path::is_separator)
-        .next()
-        .and_then(SourceLanguage::from_file_name)
-        .or(Some(SourceLanguage::Generic));
+    let source_symbols = SourceSymbolMatcher::for_file_name(
+        paths
+            .after
+            .rsplit(path::is_separator)
+            .next()
+            .unwrap_or_default(),
+    )?;
+    let language = Some(&source_symbols);
     for format in formats {
         match format {
             // Omit diff from "short" formats. Printing dummy file path wouldn't
@@ -821,7 +822,7 @@ impl ColorWordsDiffOptions {
 
 fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     formatter: &mut dyn Formatter,
-    language: Option<SourceLanguage>,
+    language: Option<&SourceSymbolMatcher>,
     contents: Diff<&Merge<T>>,
     conflict_labels: Diff<&ConflictLabels>,
     options: &ColorWordsDiffOptions,
@@ -874,7 +875,7 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
 
 fn show_color_words_conflict_hunks(
     formatter: &mut dyn Formatter,
-    language: Option<SourceLanguage>,
+    language: Option<&SourceSymbolMatcher>,
     contents: Diff<&Merge<BString>>,
     conflict_labels: Diff<&ConflictLabels>,
     mut line_number: DiffLineNumber,
@@ -953,7 +954,7 @@ fn show_color_words_conflict_hunks(
 
 fn show_color_words_unresolved_hunk(
     formatter: &mut dyn Formatter,
-    language: Option<SourceLanguage>,
+    language: Option<&SourceSymbolMatcher>,
     hunk: &ConflictDiffHunk,
     conflict_labels: Diff<&ConflictLabels>,
     line_number: DiffLineNumber,
@@ -1043,7 +1044,7 @@ fn describe_conflict_term(
 
 fn show_color_words_resolved_hunks(
     formatter: &mut dyn Formatter,
-    language: Option<SourceLanguage>,
+    language: Option<&SourceSymbolMatcher>,
     contents: Diff<&BStr>,
     mut line_number: DiffLineNumber,
     labels: Diff<&str>,
@@ -1104,7 +1105,7 @@ fn show_color_words_resolved_hunks(
 /// Prints `num_leading` lines, ellipsis, and `num_trailing` lines.
 fn show_color_words_context_lines(
     formatter: &mut dyn Formatter,
-    language: Option<SourceLanguage>,
+    language: Option<&SourceSymbolMatcher>,
     contexts: &[Diff<&BStr>],
     mut line_number: DiffLineNumber,
     labels: Diff<&str>,
@@ -1169,19 +1170,28 @@ fn show_color_words_context_lines(
     if num_left_skipped > 0 || num_right_skipped > 0 {
         // Show the last symbol line as context for the skipped range, but omit
         // it if a new symbol line immediately follows.
-        let symbol_line = language.and_then(|lang| {
+        let mut symbol_line = None;
+        if let Some(matcher) = language {
             let mut lines = contexts
                 .iter()
                 .flat_map(|contents| contents.after.split_inclusive(|b| *b == b'\n'))
                 .fuse();
             lines.by_ref().take(num_leading).for_each(drop);
             let next_line = lines.by_ref().rev().take(num_trailing).last();
-            next_line
-                .and_then(|line| source_symbol_from_line(lang, line))
-                .is_none()
-                .then(|| lines.rfind(|line| source_symbol_from_line(lang, line).is_some()))
+            if next_line
+                .map(|line| matcher.find(line))
+                .transpose()?
                 .flatten()
-        });
+                .is_none()
+            {
+                for line in lines.rev() {
+                    if matcher.find(line)?.is_some() {
+                        symbol_line = Some(line);
+                        break;
+                    }
+                }
+            }
+        }
         if let Some(line) = symbol_line {
             write!(formatter, "    ...    ")?;
             formatter.labeled("context").write_all(line)?;
@@ -1505,11 +1515,13 @@ pub async fn show_color_words_diff(
         let right_path = path.target();
         let left_ui_path = path_converter.format_file_path(left_path);
         let right_ui_path = path_converter.format_file_path(right_path);
-        let language = right_path
-            .components()
-            .next_back()
-            .and_then(|name| SourceLanguage::from_file_name(name.as_internal_str()))
-            .or(Some(SourceLanguage::Generic));
+        let source_symbols = SourceSymbolMatcher::for_file_name(
+            right_path
+                .components()
+                .next_back()
+                .map_or("", |name| name.as_internal_str()),
+        )?;
+        let language = Some(&source_symbols);
         let Diff {
             before: left_value,
             after: right_value,
@@ -1768,7 +1780,7 @@ impl UnifiedDiffOptions {
 
 fn show_unified_diff_hunks(
     formatter: &mut dyn Formatter,
-    language: Option<SourceLanguage>,
+    language: Option<&SourceSymbolMatcher>,
     contents: Diff<&BStr>,
     options: &UnifiedDiffOptions,
 ) -> io::Result<()> {
@@ -1787,9 +1799,12 @@ fn show_unified_diff_hunks(
         }
     }
 
-    let before_symbols =
-        language.map(|language| SourceSymbolScanner::new(language, contents.before));
-    let after_symbols = language.map(|language| SourceSymbolScanner::new(language, contents.after));
+    let before_symbols = language
+        .map(|language| SourceSymbolScanner::new(language, contents.before))
+        .transpose()?;
+    let after_symbols = language
+        .map(|language| SourceSymbolScanner::new(language, contents.after))
+        .transpose()?;
     for hunk in unified_diff_hunks(contents, options.context, options.line_diff.compare_mode) {
         write!(
             formatter.labeled("hunk_header"),
@@ -1891,11 +1906,13 @@ pub async fn show_git_diff(
         let right_prefix = if options.show_path_prefix { "b/" } else { "" };
         let left_path_string = left_path.as_internal_file_string();
         let right_path_string = right_path.as_internal_file_string();
-        let language = right_path
-            .components()
-            .next_back()
-            .and_then(|name| SourceLanguage::from_file_name(name.as_internal_str()))
-            .or(Some(SourceLanguage::Generic));
+        let source_symbols = SourceSymbolMatcher::for_file_name(
+            right_path
+                .components()
+                .next_back()
+                .map_or("", |name| name.as_internal_str()),
+        )?;
+        let language = Some(&source_symbols);
         let values = values?;
 
         let left_part = git_diff_part(left_path, values.before, materialize_options).await?;
