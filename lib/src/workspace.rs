@@ -36,6 +36,7 @@ use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::merged_tree::MergedTree;
+use crate::op_heads_store::OpHeadsKey;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OperationId;
 use crate::operation::Operation;
@@ -369,6 +370,7 @@ impl Workspace {
         working_copy_factory: &dyn WorkingCopyFactory,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
+        let mut workspace_store = None;
         async {
             let repo_dir = jj_dir.join("repo");
             std::fs::create_dir(&repo_dir).context(&repo_dir)?;
@@ -389,9 +391,24 @@ impl Workspace {
                 RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
                 RepoInitError::Path(err) => WorkspaceInitError::Path(err),
             })?;
+            let workspace_root = dunce::canonicalize(workspace_root).context(workspace_root)?;
+            let workspace_id = repo.loader().workspace_store().add(
+                workspace_name,
+                &workspace_root,
+                workspace_type,
+            )?;
+            workspace_store = Some(repo.loader().workspace_store().clone());
+            let op_heads_key = match workspace_id {
+                Some(workspace_id) => OpHeadsKey::Workspace(workspace_id),
+                None => OpHeadsKey::Repo,
+            };
+            repo.op_heads_store()
+                .init_op_heads(&op_heads_key, repo.op_store().root_operation_id())
+                .await
+                .map_err(WorkspaceInitError::OpHeadsStore)?;
             let (working_copy, repo) = init_working_copy(
                 &repo,
-                workspace_root,
+                &workspace_root,
                 &jj_dir,
                 working_copy_factory,
                 workspace_name.to_owned(),
@@ -400,22 +417,18 @@ impl Workspace {
             .await?;
             let repo_loader = repo.loader().clone();
             let repo_dir = dunce::canonicalize(&repo_dir).context(&repo_dir)?;
-            let workspace = Self::new(
+            let workspace = Self::new_no_canonicalize(
                 workspace_root,
                 repo_dir,
                 workspace_type,
                 working_copy,
                 repo_loader,
-            )?;
-            let _unused = repo.loader().workspace_store().add(
-                workspace.workspace_name(),
-                workspace.workspace_root(),
-                WorkspaceType::Regular,
-            )?;
+            );
             Ok((workspace, repo))
         }
         .await
         .inspect_err(|_err| {
+            workspace_store.map(|ws| ws.forget(&[workspace_name]));
             std::fs::remove_dir_all(jj_dir).ok();
         })
     }
@@ -470,27 +483,36 @@ impl Workspace {
         fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
 
         let workspace_store = repo.loader().workspace_store();
+        // TODO: XXX:W we need to call workspace_store.add() here in order to get the workspace_id. What
+        // happens if some later call in this method fails? Do we need compensating logic to remove the
+        // workspace from workspace_store?
+        let workspace_root = dunce::canonicalize(workspace_root).context(workspace_root)?;
+        let workspace_id = workspace_store.add(&workspace_name, &workspace_root, workspace_type)?;
+        let op_heads_key = match workspace_id {
+            Some(workspace_id) => OpHeadsKey::Workspace(workspace_id),
+            None => OpHeadsKey::Repo,
+        };
+        repo.op_heads_store()
+            .init_op_heads(&op_heads_key, repo.op_store().root_operation_id())
+            .await
+            .map_err(WorkspaceInitError::OpHeadsStore)?;
         let (working_copy, repo) = init_working_copy(
             repo,
-            workspace_root,
+            &workspace_root,
             &jj_dir,
             working_copy_factory,
             workspace_name,
             operation_workspace_name,
         )
         .await?;
-        let workspace = Self::new(
+        let repo_loader = repo.loader().clone();
+        let workspace = Self::new_no_canonicalize(
             workspace_root,
             repo_dir,
             workspace_type,
             working_copy,
-            repo.loader().clone(),
-        )?;
-        let _unused = workspace_store.add(
-            workspace.workspace_name(),
-            workspace.workspace_root(),
-            WorkspaceType::Regular,
-        )?;
+            repo_loader,
+        );
         Ok((workspace, repo))
     }
 
