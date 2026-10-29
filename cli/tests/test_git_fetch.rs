@@ -1429,13 +1429,13 @@ fn test_git_fetch_bookmarks_some_missing() {
 }
 
 #[test]
-fn test_git_fetch_bookmarks_missing_with_subprocess_localized_message() {
+fn test_git_fetch_bookmarks_missing_ignores_locale() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     add_git_remote(&test_env, &work_dir, "origin");
 
-    // "fatal: couldn't find remote ref %s" shouldn't be localized.
+    // Missing refs are reported independently of the process locale.
     let output = work_dir.run_jj_with(|cmd| {
         cmd.args(["git", "fetch", "--branch=unknown"])
             // Initialize locale as "en_US" which is the most common.

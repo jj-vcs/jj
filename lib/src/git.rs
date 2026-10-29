@@ -45,6 +45,7 @@ use bstr::BString;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream;
+use gix::error::ResultExt as _;
 use gix::refs::transaction::RefEdit;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
@@ -57,7 +58,6 @@ use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::config::ConfigGetError;
 use crate::git_backend::GitBackend;
-use crate::git_subprocess::GitFetchStatus;
 pub use crate::git_subprocess::GitProgress;
 pub use crate::git_subprocess::GitSidebandLineTerminator;
 pub use crate::git_subprocess::GitSubprocessCallback;
@@ -141,6 +141,28 @@ impl GitSettings {
         GitSubprocessOptions {
             executable_path: self.executable_path.clone(),
             environment: HashMap::new(),
+        }
+    }
+}
+
+/// Configuration for native Git remote operations.
+#[derive(Clone, Debug, Default)]
+pub struct GitRemoteOptions {
+    /// Environment for authentication helpers, SSH, and other configured commands.
+    /// These overrides apply to this operation without changing process state.
+    pub environment: HashMap<OsString, OsString>,
+}
+
+impl GitRemoteOptions {
+    pub fn from_settings(_settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self::default())
+    }
+}
+
+impl From<GitSubprocessOptions> for GitRemoteOptions {
+    fn from(options: GitSubprocessOptions) -> Self {
+        Self {
+            environment: options.environment,
         }
     }
 }
@@ -2844,10 +2866,8 @@ pub enum GitFetchError {
     RefExpansion(#[from] GitRefExpansionError),
     #[error("Failed to update refs: {}", .0.iter().map(|n| n.as_symbol()).join(", "))]
     RejectedUpdates(Vec<GitRefNameBuf>),
-    #[error("Failed to prune stale refs")]
-    FailedToPrune(#[source] gix::Error),
-    #[error(transparent)]
-    Subprocess(#[from] GitSubprocessError),
+    #[error("Git fetch failed")]
+    Git(#[from] gix::Error),
 }
 
 #[derive(Error, Debug)]
@@ -3173,11 +3193,11 @@ fn parse_fetch_refspec(
     }
 }
 
-/// Helper struct to execute multiple `git fetch` operations
+/// Helper struct to fetch repeatedly from Git remotes.
 pub struct GitFetch<'a> {
     mut_repo: &'a mut MutableRepo,
     git_repo: Box<gix::Repository>,
-    git_ctx: GitSubprocessContext,
+    remote_options: GitRemoteOptions,
     import_options: &'a GitImportOptions,
     fetched: Vec<FetchedRefs>,
 }
@@ -3185,23 +3205,21 @@ pub struct GitFetch<'a> {
 impl<'a> GitFetch<'a> {
     pub fn new(
         mut_repo: &'a mut MutableRepo,
-        subprocess_options: GitSubprocessOptions,
+        remote_options: impl Into<GitRemoteOptions>,
         import_options: &'a GitImportOptions,
     ) -> Result<Self, UnexpectedGitBackendError> {
         let git_backend = get_git_backend(mut_repo.store())?;
         let git_repo = Box::new(git_backend.git_repo());
-        let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
         Ok(GitFetch {
             mut_repo,
             git_repo,
-            git_ctx,
+            remote_options: remote_options.into(),
             import_options,
             fetched: vec![],
         })
     }
 
-    /// Perform a `git fetch` on the local git repo, updating the
-    /// remote-tracking branches in the git repo.
+    /// Fetch into the backing Git repository, updating its remote-tracking refs.
     ///
     /// Keeps track of the {branch_names, remote_name} pair the refs can be
     /// subsequently imported into the `jj` repo by calling `import_refs()`.
@@ -3215,56 +3233,69 @@ impl<'a> GitFetch<'a> {
     ) -> Result<(), GitFetchError> {
         validate_remote_name(remote_name)?;
 
-        // check the remote exists
-        if try_find_active_remote_inner(&self.git_repo, remote_name).is_none() {
-            return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
-        }
-
-        let (mut remaining_refspecs, negative_refspecs) = expand_fetch_refspecs(remote_name, expr)?;
-        if remaining_refspecs.is_empty() {
-            // Don't fall back to the base refspecs.
+        try_find_active_remote_inner(&self.git_repo, remote_name)
+            .ok_or_else(|| GitFetchError::NoSuchRemote(remote_name.to_owned()))??;
+        let (positive, negative) = expand_fetch_refspecs(remote_name, expr)?;
+        if positive.is_empty() {
             return Ok(());
         }
-
-        // git unfortunately errors out if one of the many refspecs is not found
-        //
-        // our approach is to filter out failures and retry,
-        // until either all have failed or an attempt has succeeded
-        //
-        // even more unfortunately, git errors out one refspec at a time,
-        // meaning that the below cycle runs in O(#failed refspecs)
-        let updates = loop {
-            let status = self.git_ctx.spawn_fetch(
-                remote_name,
-                &remaining_refspecs,
-                &negative_refspecs,
-                callback,
-                depth,
-            )?;
-            let failing_refspec = match status {
-                GitFetchStatus::Updates(updates) => break updates,
-                GitFetchStatus::NoRemoteRef(failing_refspec) => failing_refspec,
-            };
-            tracing::debug!(failing_refspec, "failed to fetch ref");
-            for refspec in
-                remaining_refspecs.extract_if(.., |r| r.source.as_ref() == Some(&failing_refspec))
-            {
-                // Even with --prune, an explicit ref won't be deleted during fetch.
-                if let Some(git_ref) = self
-                    .git_repo
-                    .try_find_reference(&refspec.destination)
-                    .map_err(GitFetchError::FailedToPrune)?
-                {
-                    git_ref.delete().map_err(GitFetchError::FailedToPrune)?;
-                }
-            }
+        let refspecs = positive
+            .iter()
+            .map(RefSpec::to_git_format)
+            .chain(negative.iter().map(NegativeRefSpec::to_git_format))
+            .collect_vec();
+        let repository = self.git_repo.as_ref().clone().into_sync();
+        let environment = self.remote_options.environment.clone();
+        let outcome = crate::git_remote::run_with_progress(
+            callback,
+            move |progress, sideband, interrupt| {
+                let repository = repository.to_thread_local();
+                let mut remote = repository
+                    .find_remote(remote_name.as_str())?
+                    .with_fetch_tags(gix::remote::fetch::Tags::None)
+                    .with_command_environment(environment);
+                remote.replace_refspecs(
+                    refspecs.iter().map(String::as_str),
+                    gix::remote::Direction::Fetch,
+                )?;
+                remote.fetch_with_remote_progress(
+                    gix::remote::fetch::Options {
+                        prune: true,
+                        missing_refs_allowed: true,
+                        shallow: depth
+                            .map(gix::remote::fetch::Shallow::DepthAtRemote)
+                            .unwrap_or_default(),
+                        ..Default::default()
+                    },
+                    progress,
+                    |is_error, bytes| sideband.send(is_error, bytes),
+                    interrupt,
+                )
+            },
+        )?;
+        let updates = match outcome.status {
+            gix::remote::fetch::Status::Change { update_refs, .. }
+            | gix::remote::fetch::Status::NoPackReceived { update_refs, .. } => update_refs,
         };
-
-        // Since remote refs are "force" updated, there should usually be no
-        // rejected refs. One exception is implicit tag updates.
-        if !updates.rejected.is_empty() {
-            let names = updates.rejected.into_iter().map(|(name, _)| name).collect();
-            return Err(GitFetchError::RejectedUpdates(names));
+        let rejected = updates
+            .updates
+            .iter()
+            .zip(&outcome.ref_map.mappings)
+            .filter(|(update, _)| {
+                matches!(
+                    update.mode,
+                    gix::remote::fetch::refs::update::Mode::RejectedSourceObjectNotFound { .. }
+                        | gix::remote::fetch::refs::update::Mode::RejectedTagUpdate
+                        | gix::remote::fetch::refs::update::Mode::RejectedNonFastForward
+                        | gix::remote::fetch::refs::update::Mode::RejectedToReplaceWithUnborn
+                        | gix::remote::fetch::refs::update::Mode::RejectedCurrentlyCheckedOut { .. }
+                )
+            })
+            .filter_map(|(_, mapping)| mapping.local.as_ref())
+            .map(|name| GitRefNameBuf::from(String::from_utf8_lossy(name).into_owned()))
+            .collect_vec();
+        if !rejected.is_empty() {
+            return Err(GitFetchError::RejectedUpdates(rejected));
         }
 
         self.fetched.push(FetchedRefs {
@@ -3281,10 +3312,21 @@ impl<'a> GitFetch<'a> {
         &self,
         remote_name: &RemoteName,
     ) -> Result<Option<RefNameBuf>, GitFetchError> {
-        if try_find_active_remote_inner(&self.git_repo, remote_name).is_none() {
-            return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
-        }
-        let default_branch = self.git_ctx.spawn_remote_show(remote_name)?;
+        let mut remote = try_find_active_remote_inner(&self.git_repo, remote_name)
+            .ok_or_else(|| GitFetchError::NoSuchRemote(remote_name.to_owned()))??
+            .with_fetch_tags(gix::remote::fetch::Tags::None)
+            .with_command_environment(self.remote_options.environment.clone());
+        remote.replace_refspecs(
+            ["HEAD", "refs/heads/*:refs/heads/*"],
+            gix::remote::Direction::Fetch,
+        )?;
+        let (map, _) = remote.ref_map(gix::progress::Discard, Default::default())?;
+        let mut candidates = map.remote_head_candidates();
+        let candidate = candidates.next().filter(|_| candidates.next().is_none());
+        let default_branch = candidate
+            .and_then(|reference| reference.unpack().0.strip_prefix(b"refs/heads/"))
+            .map(|name| std::str::from_utf8(name).or_error().map(RefNameBuf::from))
+            .transpose()?;
         tracing::debug!(?default_branch);
         Ok(default_branch)
     }

@@ -60,6 +60,7 @@ use jj_lib::git::GitPushRefTargets;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
+use jj_lib::git::GitRemoteOptions;
 use jj_lib::git::GitResetHeadError;
 use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
@@ -4608,22 +4609,25 @@ fn test_fetch_empty_refspecs() -> TestResult {
 }
 
 #[test]
-fn test_fetch_environment_options() -> TestResult {
+fn test_fetch_and_default_branch_without_git_in_path() -> TestResult {
     let temp_dir = testutils::new_temp_dir();
     let test_data = GitRepoData::create();
-
+    let commit_id = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    testutils::git::set_symbolic_reference(&test_data.origin_repo, "HEAD", "refs/heads/main");
     let import_options = default_import_options();
-    let mut subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
-    let trace_path = temp_dir.path().join("git-trace.log");
-    subprocess_options
+    let mut options = GitRemoteOptions::from_settings(test_data.repo.settings())?;
+    options
         .environment
-        .insert("GIT_TRACE".into(), trace_path.clone().into());
-
+        .insert("PATH".into(), temp_dir.path().into());
     let mut tx = test_data.repo.start_transaction();
-    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    let mut fetcher = GitFetch::new(tx.repo_mut(), options, &import_options)?;
     fetch_all_with(&mut fetcher, "origin".as_ref())?;
-
-    assert!(trace_path.exists());
+    assert_eq!(
+        fetcher.get_default_branch("origin".as_ref())?,
+        Some("main".into())
+    );
+    fetcher.import_refs().block_on()?;
+    assert!(tx.repo().view().heads().contains(&jj_id(commit_id)));
     Ok(())
 }
 

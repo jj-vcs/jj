@@ -94,10 +94,13 @@ fn test_git_clone() {
     // Failed clone should clean up the destination directory
     root_dir.create_dir("bad");
     let output = root_dir.run_jj(["git", "clone", "bad", "failed"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/failed"
-    Error: Could not find repository at '$TEST_ENV/bad'
+    Error: Git fetch failed
+    Caused by:
+    1: Could not verify that "$TEST_ENV/bad" is a valid git directory before attempting to use it
+    2: Could not retrieve metadata of "$TEST_ENV/bad/.git"
     [EOF]
     [exit status: 1]
     "#);
@@ -127,10 +130,13 @@ fn test_git_clone() {
     // Failed clone shouldn't remove the existing destination directory
     let failed_dir = root_dir.create_dir("failed");
     let output = root_dir.run_jj(["git", "clone", "bad", "failed"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/failed"
-    Error: Could not find repository at '$TEST_ENV/bad'
+    Error: Git fetch failed
+    Caused by:
+    1: Could not verify that "$TEST_ENV/bad" is a valid git directory before attempting to use it
+    2: Could not retrieve metadata of "$TEST_ENV/bad/.git"
     [EOF]
     [exit status: 1]
     "#);
@@ -353,10 +359,13 @@ fn test_git_clone_colocate() -> TestResult {
     // Failed clone should clean up the destination directory
     root_dir.create_dir("bad");
     let output = root_dir.run_jj(["git", "clone", "--colocate", "bad", "failed"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/failed"
-    Error: Could not find repository at '$TEST_ENV/bad'
+    Error: Git fetch failed
+    Caused by:
+    1: Could not verify that "$TEST_ENV/bad" is a valid git directory before attempting to use it
+    2: Could not retrieve metadata of "$TEST_ENV/bad/.git"
     [EOF]
     [exit status: 1]
     "#);
@@ -365,10 +374,13 @@ fn test_git_clone_colocate() -> TestResult {
     // Failed clone shouldn't remove the existing destination directory
     let failed_dir = root_dir.create_dir("failed");
     let output = root_dir.run_jj(["git", "clone", "--colocate", "bad", "failed"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/failed"
-    Error: Could not find repository at '$TEST_ENV/bad'
+    Error: Git fetch failed
+    Caused by:
+    1: Could not verify that "$TEST_ENV/bad" is a valid git directory before attempting to use it
+    2: Could not retrieve metadata of "$TEST_ENV/bad/.git"
     [EOF]
     [exit status: 1]
     "#);
@@ -1169,45 +1181,23 @@ fn test_git_clone_with_global_git_remote_config() {
 }
 
 #[test]
-fn test_git_clone_no_git_executable() {
+fn test_git_clone_without_git_in_path() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("git.executable-path = 'jj-test-missing-program'");
-    let git_repo_path = test_env.env_root().join("source");
-    let git_repo = git::init(git_repo_path);
+    let git_repo = git::init(test_env.env_root().join("source"));
     set_up_non_empty_git_repo(&git_repo);
+    let empty_path = test_env.env_root().join("empty-path");
+    std::fs::create_dir(&empty_path).unwrap();
 
-    let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
-    ------- stderr -------
-    Fetching into new repo in "$TEST_ENV/clone"
-    Error: Could not execute the git process, found in the OS path 'jj-test-missing-program'
-    [EOF]
-    [exit status: 1]
-    "#);
-}
-
-#[test]
-fn test_git_clone_no_git_executable_with_path() {
-    let test_env = TestEnvironment::default();
-    let root_dir = test_env.work_dir("");
-    let invalid_git_executable_path = test_env.env_root().join("invalid").join("path");
-    test_env.add_config(format!(
-        "git.executable-path = {}",
-        to_toml_value(invalid_git_executable_path.to_str().unwrap())
-    ));
-    let git_repo_path = test_env.env_root().join("source");
-    let git_repo = git::init(git_repo_path);
-    set_up_non_empty_git_repo(&git_repo);
-
-    let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
-    ------- stderr -------
-    Fetching into new repo in "$TEST_ENV/clone"
-    Error: Could not execute git process at specified path '$TEST_ENV/invalid/path'
-    [EOF]
-    [exit status: 1]
-    "#);
+    let output = root_dir.run_jj_with(|cmd| {
+        cmd.args(["git", "clone", "source", "clone"])
+            .env("PATH", &empty_path)
+    });
+    output.success();
+    assert_eq!(
+        std::fs::read(test_env.env_root().join("clone/file")).unwrap(),
+        b"content"
+    );
 }
 
 #[test]
