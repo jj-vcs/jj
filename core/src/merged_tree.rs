@@ -136,7 +136,7 @@ impl MergedTree {
     }
 
     /// Reads the merge of tree objects represented by this `MergedTree`.
-    pub async fn trees(&self) -> BackendResult<Merge<Tree>> {
+    async fn trees(&self) -> BackendResult<Merge<Tree>> {
         self.tree_ids
             .try_map_async(|id| self.store.get_tree(RepoPathBuf::root(), id))
             .await
@@ -453,7 +453,7 @@ fn all_tree_entries(
 /// Suppose the given `trees` aren't resolved, iterates `(name, values)` pairs
 /// non-recursively. This also works if `trees` are resolved, but is more costly
 /// than `tree.entries_non_recursive()`.
-pub fn all_merged_tree_entries(
+pub(crate) fn all_merged_tree_entries(
     trees: &Merge<Tree>,
 ) -> impl Iterator<Item = (&RepoPathComponent, MergedTreeVal<'_>)> {
     let mut entries_iters = trees

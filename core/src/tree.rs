@@ -235,10 +235,7 @@ impl<'matcher> TreeWalkVisitor<'matcher> for TreeEntriesVisitor<'matcher> {
 }
 
 /// Extension method for converting a tree-value merge to a `Merge<Tree>`.
-// The auto trait bounds of the returned futures leak through the concrete
-// impls below, so callers are unaffected by the `async fn` here.
-#[expect(async_fn_in_trait)]
-pub trait ToTreeMergeExt {
+pub(crate) trait ToTreeMergeExt {
     /// If a `MergedTreeValue` is a tree merge as defined by
     /// `jj_lib::backend::MergedTreeValueExt::is_tree()`, this converts it to
     /// a `Merge<Tree>`, with empty trees instead of any `None` terms and of any
@@ -279,10 +276,7 @@ where
 }
 
 /// Extension methods for `Merge<Tree>`.
-// The auto trait bounds of the returned futures leak through the concrete
-// impls below, so callers are unaffected by the `async fn` here.
-#[expect(async_fn_in_trait)]
-pub trait TreeMergeExt: Sized {
+pub(crate) trait TreeMergeExt: Sized {
     /// The directory that is shared by all trees in the merge.
     fn dir(&self) -> &RepoPath;
 
