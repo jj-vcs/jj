@@ -951,11 +951,15 @@ async fn sign_commits_before_push<'a>(
     commits_to_push: Arc<UserRevsetExpression>,
     by_remote: Vec<(&'a RemoteName, GitPushRefTargets)>,
 ) -> Result<(Vec<(&'a RemoteName, GitPushRefTargets)>, usize), CommandError> {
-    let mut sign_settings = tx.settings().sign_settings();
-    sign_settings.behavior = SignBehavior::Own;
+    // Sign commits authored or last rewritten by the user. The latter includes
+    // commits of other users that the user rebased or otherwise rewrote.
     // TODO: make filter condition configurable by revset?
+    let user_email = tx.settings().user_email().to_owned();
     let needs_signing = |commit: &Commit| {
-        future::ready(!commit.is_signed() && sign_settings.should_sign(commit.store_commit()))
+        future::ready(
+            !commit.is_signed()
+                && (commit.author().email == user_email || commit.committer().email == user_email),
+        )
     };
 
     let workspace_helper = tx.base_workspace_helper();
@@ -1015,7 +1019,7 @@ async fn sign_commits_before_push<'a>(
                     if commit_ids.contains(&old_commit_id) {
                         let commit = rewriter
                             .reparent()
-                            .set_sign_behavior(sign_settings.behavior)
+                            .set_sign_behavior(SignBehavior::Force)
                             .write()
                             .await?;
                         old_to_new_commits_map.insert(old_commit_id, commit.id().clone());

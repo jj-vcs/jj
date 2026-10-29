@@ -1803,9 +1803,10 @@ sign-on-push = true
 ```
 
 With this setup, commits are not signed when they are created or rewritten. At
-push time, `git.sign-on-push` only signs commits that are not yet signed (that
-are mutable and authored by you, behaving like `own` even though write-time
-signing uses `drop`).
+push time, `git.sign-on-push` only signs commits that are not yet signed, are
+mutable, and are authored or committed by you. The latter includes commits of
+other authors that you rebased or otherwise rewrote, but not the ones you left
+untouched.
 
 This is useful when the signing backend requires user interaction or is slow,
 because the signing work is deferred to push time. If `signing.behavior` is set

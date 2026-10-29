@@ -84,6 +84,10 @@ and this project adheres to
 
 ### Fixed bugs
 
+* `jj git push` with `git.sign-on-push` enabled now also signs commits of other
+  authors that you rewrote (e.g. rebased), not only the ones you authored.
+  [#9976](https://github.com/jj-vcs/jj/issues/9976)
+
 * The operations created by `jj workspace add` are now attributed to the
   workspace the command was run in, so `jj undo` there undoes them instead of
   refusing to undo an operation from another workspace.
