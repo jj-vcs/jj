@@ -16,6 +16,7 @@
 use testutils::TestResult;
 
 use crate::common::TestEnvironment;
+use crate::common::create_commit_with_files;
 
 #[test]
 fn test_show() {
@@ -129,6 +130,50 @@ fn test_show() {
     +++++++ kmkuslsw f74f80c5 (rebased revision)
     c
     >>>>>>> conflict 1 of 1 ends
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_show_treeset() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "base", &[], &[("f", "base\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("f", "a\n"), ("g", "a\n")]);
+    create_commit_with_files(&work_dir, "b", &["base"], &[("f", "b\n")]);
+
+    let output = work_dir.run_jj(["file", "show", "-r", "tree_merge(a | b)", "f", "g"]);
+    insta::assert_snapshot!(output, @r#"
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: rlvkpnrz 6d39a326 "base"
+    \\\\\\\        to: royxmykx ae420c18 "b"
+    -base
+    +b
+    +++++++ zsuskuln 8533f9de "a"
+    a
+    >>>>>>> conflict 1 of 1 ends
+    a
+    [EOF]
+    "#);
+    let output = work_dir.run_jj([
+        "file",
+        "show",
+        "-r",
+        "conflict_side(tree_merge(a | b), 1)",
+        "f",
+        "g",
+    ]);
+    insta::assert_snapshot!(output, @"
+    b
+    a
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "list", "-r", "tree_merge(a | b)"]);
+    insta::assert_snapshot!(output, @"
+    f
+    g
     [EOF]
     ");
 }

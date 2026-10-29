@@ -129,7 +129,7 @@ fn test_help_keyword() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value 'rev' for '--keyword <KEYWORD>'
-      [possible values: bookmarks, config, filesets, glossary, revsets, templates, tutorial]
+      [possible values: bookmarks, config, filesets, glossary, revsets, templates, treesets, tutorial]
 
       tip: a similar value exists: 'revsets'
 
@@ -143,7 +143,7 @@ fn test_help_keyword() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value '<no-similar-keyword>' for '--keyword <KEYWORD>'
-      [possible values: bookmarks, config, filesets, glossary, revsets, templates, tutorial]
+      [possible values: bookmarks, config, filesets, glossary, revsets, templates, treesets, tutorial]
 
     For more information, try '--help'.
     [EOF]
@@ -155,7 +155,7 @@ fn test_help_keyword() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: a value is required for '--keyword <KEYWORD>' but none was supplied
-      [possible values: bookmarks, config, filesets, glossary, revsets, templates, tutorial]
+      [possible values: bookmarks, config, filesets, glossary, revsets, templates, treesets, tutorial]
 
     For more information, try '--help'.
     [EOF]

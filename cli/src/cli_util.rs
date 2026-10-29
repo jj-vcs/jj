@@ -121,6 +121,7 @@ use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::RebaseOptions;
+use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::restore_tree;
 use jj_lib::settings::HumanByteSize;
 use jj_lib::settings::UserSettings;
@@ -131,6 +132,8 @@ use jj_lib::template_parser::TemplateAliasesMap;
 use jj_lib::template_parser::TemplateDiagnostics;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
+use jj_lib::treeset;
+use jj_lib::treeset::TreesetExpression;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::ui_path::UiPathParseError;
 use jj_lib::working_copy;
@@ -1854,6 +1857,71 @@ to the current parents may contain changes from multiple commits.
             .map_err(|err| {
                 err.to_command_error(revision_arg.as_ref(), &self.commit_summary_template())
             })
+    }
+
+    /// Resolves a treeset expression to a tree.
+    pub async fn resolve_tree(
+        &self,
+        ui: &Ui,
+        tree_arg: &RevisionArg,
+    ) -> Result<ResolvedTree, CommandError> {
+        let mut diagnostics = RevsetDiagnostics::new();
+        let context = self.env.revset_parse_context();
+        let expression =
+            treeset::parse(&mut diagnostics, tree_arg.as_ref(), &context).map_err(|err| {
+                let hint = treeset::is_misplaced_tree_function(&err).then(|| {
+                    "Tree functions can only be used at the top level of the expression. See \
+                     https://docs.jj-vcs.dev/latest/treesets/ or use `jj help -k treesets`."
+                        .to_owned()
+                });
+                let mut cmd_err = CommandError::from(err);
+                cmd_err.extend_hints(hint);
+                cmd_err
+            })?;
+        print_parse_diagnostics(ui, "In treeset expression", &diagnostics)?;
+
+        let mut side_indexes = vec![];
+        let mut expression = &expression;
+        while let TreesetExpression::ConflictSide { tree, index } = expression {
+            side_indexes.push(*index);
+            expression = tree;
+        }
+        let (mut tree, commits) = match expression {
+            TreesetExpression::Revision { expression, source } => {
+                let evaluator = self.attach_revset_evaluator(expression.clone());
+                let commit = revset_util::evaluate_revset_to_single_commit(&evaluator)
+                    .await
+                    .map_err(|err| err.to_command_error(source, &self.commit_summary_template()))?;
+                (commit.tree(), vec![commit])
+            }
+            TreesetExpression::TreeMerge { expression, source } => {
+                let commits: Vec<_> = self
+                    .attach_revset_evaluator(expression.clone())
+                    .evaluate_to_commits()?
+                    .try_collect()
+                    .await?;
+                if commits.is_empty() {
+                    return Err(user_error(format!(
+                        "Revset `{source}` didn't resolve to any revisions"
+                    )));
+                }
+                (
+                    merge_commit_trees(self.repo().as_ref(), &commits).await?,
+                    commits,
+                )
+            }
+            TreesetExpression::ConflictSide { .. } => unreachable!(),
+        };
+        for index in side_indexes.into_iter().rev() {
+            let num_sides = tree.tree_ids().num_sides();
+            tree = treeset::conflict_side(&tree, index).await?.ok_or_else(|| {
+                user_error(format!(
+                    "Cannot select conflict side {side} of a tree with {num_sides} side(s)",
+                    side = index + 1,
+                ))
+            })?;
+        }
+        Ok(ResolvedTree { tree, commits })
     }
 
     /// Evaluates revset expressions to set of commit IDs. The
@@ -3862,6 +3930,14 @@ impl ValueParserFactory for RevisionArg {
     fn value_parser() -> Self::Parser {
         NonEmptyStringValueParser::new().map(Self::from)
     }
+}
+
+/// Tree resolved from a treeset expression.
+#[derive(Clone, Debug)]
+pub struct ResolvedTree {
+    pub tree: MergedTree,
+    /// Commits the tree was computed from.
+    pub commits: Vec<Commit>,
 }
 
 fn handle_shell_completion(

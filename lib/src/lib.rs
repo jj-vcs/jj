@@ -94,6 +94,7 @@ pub mod settings;
 pub use jj_core::signing;
 pub mod signing_factory;
 pub use jj_core::tree_merge;
+pub mod treeset;
 // TODO: This file is mostly used for testing, whenever we no longer require it
 // in the lib it should be moved to the examples (e.g
 // "examples/simple-backend/").

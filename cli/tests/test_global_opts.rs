@@ -1371,7 +1371,7 @@ fn test_help() {
 
     Options:
       -r, --revision <REVSET>    The revision to touch up
-      -f, --from <REVSET>        Show changes from this revision
+      -f, --from <TREESET>       Show changes from this revision or tree
       -t, --to <REVSET>          Edit changes in this revision
           --tool <NAME>          Specify diff editor to be used
           --restore-descendants  Preserve the content (not the diff) when rebasing descendants

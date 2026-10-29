@@ -3398,7 +3398,7 @@ pub struct RevsetParseContext<'a> {
 }
 
 impl<'a> RevsetParseContext<'a> {
-    fn to_lowering_context(&self) -> LoweringContext<'a> {
+    pub(crate) fn to_lowering_context(&self) -> LoweringContext<'a> {
         let RevsetParseContext {
             aliases_map: _,
             local_variables: _,

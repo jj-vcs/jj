@@ -29,8 +29,11 @@ use crate::ui::Ui;
 /// List files in a revision
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct FileListArgs {
-    /// The revision to list files in
-    #[arg(long, short, default_value = "@", value_name = "REVSET")]
+    /// The revision or tree to list files in
+    ///
+    /// See `jj help -k treesets` for how to select trees that don't belong to
+    /// a single revision.
+    #[arg(long, short, default_value = "@", value_name = "TREESET")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revision: RevisionArg,
 
@@ -63,10 +66,10 @@ pub(crate) async fn cmd_file_list(
     args: &FileListArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
-    let commit = workspace_command
-        .resolve_single_rev(ui, &args.revision)
-        .await?;
-    let tree = commit.tree();
+    let tree = workspace_command
+        .resolve_tree(ui, &args.revision)
+        .await?
+        .tree;
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
     let template: TemplateRenderer<TreeEntry> = {

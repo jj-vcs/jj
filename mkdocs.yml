@@ -147,6 +147,7 @@ nav: # This lists all the files that become part of the documentation
       - Fileset language: 'filesets.md'
       - Revset language: 'revsets.md'
       - Templating language: 'templates.md'
+      - Treeset language: 'treesets.md'
 
   - Comparisons:
       - Git comparison: 'git-comparison.md'

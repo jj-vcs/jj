@@ -45,7 +45,12 @@ use crate::ui::Ui;
 /// With the `--from` and/or `--to` options, shows the difference from/to the
 /// given revisions. If either is left out, it defaults to the working-copy
 /// commit. For example, `jj diff --from main` shows the changes from "main"
-/// (perhaps a bookmark name) to the working-copy commit.
+/// (perhaps a bookmark name) to the working-copy commit. These options also
+/// accept trees that don't belong to a single revision, such as the merge of
+/// several revisions. See `jj help -k treesets` or the [treeset docs] for
+/// details.
+///
+/// [treeset docs]: https://docs.jj-vcs.dev/latest/treesets/
 ///
 /// If no option is specified, it defaults to `-r @`.
 #[derive(clap::Args, Clone, Debug)]
@@ -69,17 +74,17 @@ pub(crate) struct DiffArgs {
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions: Option<Vec<RevisionArg>>,
 
-    /// Show changes from this revision
+    /// Show changes from this revision or tree
     ///
     /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
-    #[arg(long, short, conflicts_with = "revisions", value_name = "REVSET")]
+    #[arg(long, short, conflicts_with = "revisions", value_name = "TREESET")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     from: Option<RevisionArg>,
 
-    /// Show changes to this revision
+    /// Show changes to this revision or tree
     ///
     /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
-    #[arg(long, short, conflicts_with = "revisions", value_name = "REVSET")]
+    #[arg(long, short, conflicts_with = "revisions", value_name = "TREESET")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     to: Option<RevisionArg>,
 
@@ -126,18 +131,24 @@ pub(crate) async fn cmd_diff(
     let to_tree;
     let mut copy_records = CopyRecords::default();
     if args.from.is_some() || args.to.is_some() {
-        let resolve_revision = async |r: &Option<RevisionArg>| {
+        let resolve_tree = async |r: &Option<RevisionArg>| {
             workspace_command
-                .resolve_single_rev(ui, r.as_ref().unwrap_or(&RevisionArg::AT))
+                .resolve_tree(ui, r.as_ref().unwrap_or(&RevisionArg::AT))
                 .await
         };
-        let from = resolve_revision(&args.from).await?;
-        let to = resolve_revision(&args.to).await?;
-        from_tree = from.tree();
-        to_tree = to.tree();
+        let from = resolve_tree(&args.from).await?;
+        let to = resolve_tree(&args.to).await?;
+        from_tree = from.tree;
+        to_tree = to.tree;
 
-        let records = get_copy_records(repo.store(), from.id(), to.id(), &matcher).await?;
-        copy_records.add_records(records);
+        for from_commit in &from.commits {
+            for to_commit in &to.commits {
+                let records =
+                    get_copy_records(repo.store(), from_commit.id(), to_commit.id(), &matcher)
+                        .await?;
+                copy_records.add_records(records);
+            }
+        }
     } else {
         let revision_args = args
             .revisions

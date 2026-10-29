@@ -145,6 +145,11 @@ const KEYWORDS: &[Keyword] = &[
         content: include_str!(concat!("../../", env!("JJ_DOCS_DIR"), "templates.md")),
     },
     Keyword {
+        name: "treesets",
+        description: "A language for selecting a tree",
+        content: include_str!(concat!("../../", env!("JJ_DOCS_DIR"), "treesets.md")),
+    },
+    Keyword {
         name: "tutorial",
         description: "Show a tutorial to get started with jj",
         content: include_str!(concat!("../../", env!("JJ_DOCS_DIR"), "tutorial.md")),
