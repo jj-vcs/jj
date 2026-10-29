@@ -107,6 +107,13 @@ confidence-threshold = 0.8
 # Allow 1 or more licenses on a per-crate basis, so that particular licenses
 # aren't accepted for every possible crate as with the normal allow list
 exceptions = [
+    # Rustls cryptographic providers used by native Git HTTPS transport.
+    { allow = ["ISC"], crate = "aws-lc-rs" },
+    { allow = ["ISC"], crate = "aws-lc-sys" },
+    { allow = ["ISC"], crate = "ring" },
+    { allow = ["ISC"], crate = "rustls-webpki" },
+    { allow = ["ISC"], crate = "untrusted" },
+    { allow = ["CDLA-Permissive-2.0"], crate = "webpki-root-certs" },
     # Each entry is the crate and version constraint, and its specific allow
     # list
     #{ allow = ["Zlib"], crate = "adler32" },
@@ -230,7 +237,7 @@ unknown-git = "warn"
 # if not specified. If it is specified but empty, no registries are allowed.
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 # List of URLs for allowed Git repositories
-allow-git = []
+allow-git = ["https://github.com/GitoxideLabs/gitoxide"]
 
 [sources.allow-org]
 # 1 or more github.com organizations to allow git sources for
