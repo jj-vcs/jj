@@ -17,6 +17,8 @@ mod chmod;
 mod delete;
 mod edit;
 mod list;
+mod list_ignored;
+mod remove_ignored;
 mod search;
 mod show;
 mod track;
@@ -34,6 +36,8 @@ pub enum FileCommand {
     Delete(delete::FileDeleteArgs),
     Edit(edit::FileEditArgs),
     List(list::FileListArgs),
+    ListIgnored(list_ignored::FileListIgnoredArgs),
+    RemoveIgnored(remove_ignored::FileRemoveIgnoredArgs),
     Search(search::FileSearchArgs),
     Show(show::FileShowArgs),
     Track(track::FileTrackArgs),
@@ -51,6 +55,11 @@ pub async fn cmd_file(
         FileCommand::Delete(args) => delete::cmd_file_delete(ui, command, args).await,
         FileCommand::Edit(args) => edit::cmd_file_edit(ui, command, args).await,
         FileCommand::List(args) => list::cmd_file_list(ui, command, args).await,
+        FileCommand::ListIgnored(args) => list_ignored::cmd_file_list_ignored(ui, command, args)
+            .await,
+        FileCommand::RemoveIgnored(args) => {
+            remove_ignored::cmd_file_remove_ignored(ui, command, args).await
+        }
         FileCommand::Search(args) => search::cmd_file_search(ui, command, args).await,
         FileCommand::Show(args) => show::cmd_file_show(ui, command, args).await,
         FileCommand::Track(args) => track::cmd_file_track(ui, command, args).await,

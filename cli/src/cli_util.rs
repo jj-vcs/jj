@@ -131,6 +131,7 @@ use jj_lib::template_parser::TemplateAliasesMap;
 use jj_lib::template_parser::TemplateDiagnostics;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
+use jj_lib::tree::TreeMergeExt as _;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::ui_path::UiPathParseError;
 use jj_lib::working_copy;
@@ -739,12 +740,15 @@ impl CommandHelper {
                     let SnapshotStats {
                         mut untracked_paths,
                         mut invalid_utf8_paths,
+                        mut ignored_paths,
                     } = stale_stats;
                     untracked_paths.extend(fresh_stats.untracked_paths);
                     invalid_utf8_paths.extend(fresh_stats.invalid_utf8_paths);
+                    ignored_paths.extend(fresh_stats.ignored_paths);
                     SnapshotStats {
                         untracked_paths,
                         invalid_utf8_paths,
+                        ignored_paths,
                     }
                 };
                 Ok((workspace_command, merged_stats))
@@ -3334,6 +3338,66 @@ pub fn print_snapshot_stats(
     Ok(())
 }
 
+/// Visits paths (e.g. untracked or ignored paths) and calls `on_path` for each
+/// path that should be printed, collapsing consecutive paths under a directory
+/// that is not part of the (tracked) tree into a single directory entry.
+pub(crate) async fn visit_collapsed_untracked_files(
+    untracked_paths: impl IntoIterator<Item = impl AsRef<RepoPath>>,
+    tree: MergedTree,
+    mut on_path: impl FnMut(&RepoPath, bool) -> Result<(), CommandError>,
+) -> Result<(), CommandError> {
+    let trees = tree.trees().await?;
+    let mut stack = vec![trees];
+
+    let mut skip_prefixed_by_dir: Option<RepoPathBuf> = None;
+    'untracked: for path in untracked_paths {
+        let path = path.as_ref();
+        if skip_prefixed_by_dir
+            .as_ref()
+            .is_some_and(|p| path.starts_with(p))
+        {
+            continue;
+        } else {
+            skip_prefixed_by_dir = None;
+        }
+
+        let mut it = path.components().dropping_back(1);
+        let first_mismatch = it.by_ref().enumerate().find(|(i, component)| {
+            stack.get(i + 1).is_none_or(|tree| {
+                tree.dir()
+                    .components()
+                    .next_back()
+                    .expect("should always have at least one element (the root)")
+                    != *component
+            })
+        });
+
+        if let Some((i, component)) = first_mismatch {
+            stack.truncate(i + 1);
+            for component in std::iter::once(component).chain(it) {
+                let parent = stack
+                    .last()
+                    .expect("should always have at least one element (the root)");
+
+                if let Some(subtree) = parent.sub_tree(component).await? {
+                    stack.push(subtree);
+                } else {
+                    let dir = parent.dir().join(component);
+
+                    on_path(&dir, true)?;
+                    skip_prefixed_by_dir = Some(dir);
+
+                    continue 'untracked;
+                }
+            }
+        }
+
+        on_path(path, false)?;
+    }
+
+    Ok(())
+}
+
 /// Prints a hint about how to handle large files that were refused during
 /// snapshot.
 ///
@@ -4569,5 +4633,78 @@ mod tests {
         );
         assert_eq!(parse("1", &candidates), Ok(0));
         assert_eq!(parse("2", &candidates), Ok(1));
+    }
+}
+
+#[cfg(test)]
+mod visit_collapsed_tests {
+    use testutils::TestRepo;
+    use testutils::TestTreeBuilder;
+    use testutils::repo_path;
+
+    use super::*;
+
+    fn collect_collapsed_untracked_files_string(
+        untracked_paths: &[&RepoPath],
+        tree: MergedTree,
+    ) -> String {
+        let mut result = String::new();
+        visit_collapsed_untracked_files(untracked_paths, tree, |path, is_dir| {
+            result.push_str("? ");
+            if is_dir {
+                result.push_str(&path.to_internal_dir_string());
+            } else {
+                result.push_str(path.as_internal_file_string());
+            }
+            result.push('\n');
+            Ok(())
+        })
+        .block_on()
+        .unwrap();
+        result
+    }
+
+    #[test]
+    fn test_collapsed_untracked_files() {
+        let repo = TestRepo::init();
+
+        let tracked = {
+            let mut builder = TestTreeBuilder::new(repo.repo.store().clone());
+
+            builder.file(repo_path("top_level_file"), "");
+            // ? "untracked_top_level_file"
+            // ? "dir"
+            // ? "dir2/c"
+            builder.file(repo_path("dir2/d"), "");
+            // ? "dir3/partially_tracked/e"
+            builder.file(repo_path("dir3/partially_tracked/f"), "");
+            // ? "dir3/fully_untracked/"
+            builder.file(repo_path("dir3/j"), "");
+            // ? "dir3/k"
+
+            builder.write_merged_tree()
+        };
+        let untracked = &[
+            repo_path("untracked_top_level_file"),
+            repo_path("dir/a"),
+            repo_path("dir/b"),
+            repo_path("dir2/c"),
+            repo_path("dir3/partially_tracked/e"),
+            repo_path("dir3/fully_untracked/g"),
+            repo_path("dir3/fully_untracked/h"),
+            repo_path("dir3/k"),
+        ];
+
+        insta::assert_snapshot!(
+            collect_collapsed_untracked_files_string(untracked, tracked),
+            @"
+        ? untracked_top_level_file
+        ? dir/
+        ? dir2/c
+        ? dir3/partially_tracked/e
+        ? dir3/fully_untracked/
+        ? dir3/k
+        "
+        );
     }
 }
