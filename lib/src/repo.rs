@@ -978,7 +978,10 @@ impl RepoLoader {
             stack.push((index, operations, tx));
             // Then we push the ancestor ops to the stack so that we can merge them first.
             // We need to start a separate transaction for this.
-            let new_tx = self.load_at(&ancestor_ops[0]).await?.start_transaction();
+            let mut new_tx = self.load_at(&ancestor_ops[0]).await?.start_transaction();
+            if let Some(workspace_name) = workspace_name {
+                new_tx.set_workspace_name(workspace_name);
+            }
             stack.push((1, ancestor_ops.clone(), new_tx));
         }
 
