@@ -29,6 +29,7 @@ use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
@@ -44,14 +45,18 @@ use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git_backend::GitRepoAtWorkdirError;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::ref_name::RemoteName;
+use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::store::Store;
+use jj_lib::str_util::StringExpression;
 use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
@@ -61,8 +66,46 @@ use crate::command_error::user_error;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::revset_util::parse_remote_auto_track_bookmarks_map;
+use crate::revset_util::parse_union_name_patterns;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
+
+const DEFAULT_FETCH_REMOTE: &RemoteName = RemoteName::new("origin");
+
+pub fn get_default_fetch_remotes(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
+) -> Result<StringExpression, CommandError> {
+    const KEY: &str = "git.fetch";
+    let settings = workspace_command.settings();
+    if let Ok(remotes) = settings.get::<Vec<String>>(KEY) {
+        parse_union_name_patterns(ui, &remotes)
+    } else if let Some(remote) = settings.get_string(KEY).optional()? {
+        parse_union_name_patterns(ui, [&remote])
+    } else if let Some(remote) = get_single_remote(workspace_command.repo().store())? {
+        // if nothing was explicitly configured, try to guess
+        if remote != DEFAULT_FETCH_REMOTE {
+            writeln!(
+                ui.hint_default(),
+                "Fetching from the only existing remote: {remote}",
+                remote = remote.as_symbol()
+            )?;
+        }
+        Ok(StringExpression::exact(remote))
+    } else {
+        Ok(StringExpression::exact(DEFAULT_FETCH_REMOTE))
+    }
+}
+
+pub fn get_single_remote(
+    store: &Store,
+) -> Result<Option<RemoteNameBuf>, git::UnexpectedGitBackendError> {
+    let mut names = git::get_all_remote_names(store)?;
+    Ok(match names.len() {
+        1 => names.pop(),
+        _ => None,
+    })
+}
 
 pub fn is_colocated_git_workspace(workspace: &Workspace) -> Result<bool, CommandError> {
     let Ok(git_backend) = git::get_git_backend(workspace.repo_loader().store()) else {
