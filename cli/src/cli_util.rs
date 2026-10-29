@@ -1438,7 +1438,9 @@ pub struct WorkspaceOperationRunner {
     user_repo: ReadonlyUserRepo,
     env: Arc<WorkspaceEnvironment>,
     options: RunnerOptions,
+    /// Whether to snapshot changes from the working copy and Git refs.
     may_snapshot_working_copy: bool,
+    /// Whether to export changes back to the working copy and Git refs.
     may_update_working_copy: bool,
 }
 
@@ -1696,6 +1698,7 @@ impl WorkspaceOperationRunner {
         import_options: &jj_lib::git::GitImportOptions,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), RunnerError> {
+        assert!(self.env.working_copy_shared_with_git());
         let mut tx = self.start_transaction();
         let stats = jj_lib::git::import_refs(tx.repo_mut(), import_options).await?;
         event_handler
@@ -1704,7 +1707,24 @@ impl WorkspaceOperationRunner {
             .map_err(RunnerError::EventHandling)?;
 
         if !tx.repo().has_changes() {
-            if self.options.integrate_operation {
+            if self.may_update_working_copy {
+                let maybe_wc_commit = tx
+                    .repo()
+                    .view()
+                    .get_wc_commit_id(self.workspace_name())
+                    .map(|commit_id| tx.repo().store().get_commit(commit_id))
+                    .transpose()?;
+                if let Some(wc_commit) = &maybe_wc_commit {
+                    try_reset_git_head(
+                        event_handler,
+                        tx.repo_mut(),
+                        self.workspace_name(),
+                        self.workspace_root(),
+                        (Some(wc_commit), wc_commit),
+                        git_import_export_lock,
+                    )
+                    .await?;
+                }
                 let stats = jj_lib::git::export_refs(tx.repo_mut())?;
                 event_handler
                     .event(RunnerEvent::GitRefsExported(stats))
@@ -1967,7 +1987,7 @@ impl WorkspaceOperationRunner {
         };
 
         #[cfg(feature = "git")]
-        if self.env.working_copy_shared_with_git() && self.options.integrate_operation {
+        if self.env.working_copy_shared_with_git() && self.may_update_working_copy {
             if let Some(wc_commit) = &maybe_new_wc_commit {
                 try_reset_git_head(
                     event_handler,

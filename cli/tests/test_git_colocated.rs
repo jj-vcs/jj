@@ -1307,12 +1307,14 @@ fn test_git_colocated_ignore_working_copy() -> TestResult {
     [EOF]
     ");
 
+    // Git HEAD shouldn't be exported with --ignore-working-copy
     let output = work_dir.run_jj(["new", "--ignore-working-copy", "subject(A)"]);
     insta::assert_snapshot!(output, @"");
     insta::assert_compact_debug_snapshot!(
         git_repo.head()?.try_into_peeled_id()?,
-        @"Some(Sha1(c72b63c19bbecddada345832e9467f754ceaa138))");
+        @"Some(Sha1(e8849ae12c709f2321908879bc724fdb2ab8a781))");
 
+    // Git refs shouldn't be exported with --ignore-working-copy
     let output = work_dir.run_jj(["bookmark", "set", "--ignore-working-copy", "-r@-", "book"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1321,8 +1323,10 @@ fn test_git_colocated_ignore_working_copy() -> TestResult {
     ");
     insta::assert_compact_debug_snapshot!(
         git_repo.try_find_reference("refs/heads/book")?.map(|r| r.id()),
-        @"Some(Sha1(c72b63c19bbecddada345832e9467f754ceaa138))");
+        @"None");
 
+    // Pending Git HEAD and refs should be exported here (instead of resetting
+    // to the current Git HEAD)
     let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @"
     The working copy has no changes.
