@@ -949,6 +949,16 @@ fn test_path_value_and_entries() -> TestResult {
         Merge::absent(),
     );
 
+    // Test has_dir()
+    assert!(merged_tree.has_dir(RepoPath::root()).block_on()?);
+    assert!(merged_tree.has_dir(repo_path("dir1")).block_on()?);
+    assert!(merged_tree.has_dir(resolved_dir_path).block_on()?);
+    assert!(merged_tree.has_dir(repo_path("dir2")).block_on()?);
+    assert!(!merged_tree.has_dir(resolved_file_path).block_on()?);
+    assert!(!merged_tree.has_dir(missing_path).block_on()?);
+    assert!(!merged_tree.has_dir(repo_path("dir3")).block_on()?);
+    assert!(!merged_tree.has_dir(file_dir_conflict_path).block_on()?);
+
     // Test entries()
     let actual_entries: Vec<_> = merged_tree
         .entries()
