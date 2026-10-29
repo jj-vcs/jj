@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use bstr::BStr;
 use futures::TryStreamExt as _;
+use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::git;
@@ -27,6 +28,7 @@ use jj_lib::git::GitRefUpdate;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
@@ -38,6 +40,7 @@ use percent_encoding::utf8_percent_encode;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::short_change_hash;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
@@ -316,9 +319,13 @@ fn calculate_push_remote(
 ///
 /// 1. If the user specifies `--remote-branch branch`, use that
 /// 2. If the user has 'gerrit.default-remote-branch' configured, use that
-/// 3. Otherwise, bail out
-fn calculate_push_ref(
-    settings: &UserSettings,
+/// 3. If the revisions are connected to a single immutable head with a unique remote branch on the
+///    remote, use that
+/// 4. Otherwise, bail out
+async fn calculate_push_ref(
+    workspace_command: &WorkspaceCommandHelper,
+    remote: &str,
+    revisions: &[CommitId],
     remote_branch: Option<String>,
 ) -> Result<String, CommandError> {
     // case 1
@@ -327,15 +334,76 @@ fn calculate_push_ref(
     }
 
     // case 2
-    if let Ok(branch) = settings.get_string("gerrit.default-remote-branch") {
+    if let Ok(branch) = workspace_command
+        .settings()
+        .get_string("gerrit.default-remote-branch")
+    {
         return Ok(branch);
     }
 
     // case 3
-    Err(user_error(
-        "No target branch specified via --remote-branch, and no 'gerrit.default-remote-branch' \
-         was found",
-    ))
+    // If your commit to upload is based on main@origin, and you do a fetch
+    // without rebasing, it's likely you will have commits like the following.
+    //
+    // C (main@origin)   COMMIT TO UPLOAD
+    // |                 |
+    // B ----------------+
+    // |
+    // A (old@origin)
+    //
+    // This scenario is ambiguous, so we instead just find the base commit, and
+    // check if it has a branch.
+    let nearest_immutable: Vec<Commit> = workspace_command
+        .attach_revset_evaluator(
+            RevsetExpression::commits(revisions.to_vec())
+                .ancestors()
+                .intersection(&workspace_command.env().immutable_expression())
+                .heads(),
+        )
+        .evaluate_to_commits()?
+        .try_collect()
+        .await?;
+
+    let [base_commit] = nearest_immutable.as_slice() else {
+        // It's a merge commit, this is highly ambiguous.
+        return Err(user_error(
+            "No target branch specified via --remote-branch, and no \
+             'gerrit.default-remote-branch' was found",
+        ));
+    };
+
+    let remote_name = RemoteName::new(remote);
+    let mut branches = workspace_command
+        .repo()
+        .view()
+        .remote_bookmarks(remote_name)
+        .filter(|(_, remote_ref)| remote_ref.target.as_normal() == Some(base_commit.id()))
+        .map(|(name, _)| name.as_str().to_string())
+        .collect_vec();
+    branches.sort();
+
+    match branches.as_slice() {
+        [branch] => Ok(branch.clone()),
+        [] => Err(user_error(
+            "No target branch specified via --remote-branch, and no \
+             'gerrit.default-remote-branch' was found",
+        )),
+        branches => {
+            let formatted_branches = if branches.len() > 5 {
+                format!(
+                    "{}, and {} more",
+                    branches[..5].join(", "),
+                    branches.len() - 5
+                )
+            } else {
+                branches.join(", ")
+            };
+            Err(user_error(format!(
+                "Multiple candidate remote branches found: {formatted_branches}"
+            ))
+            .hinted("Specify the target branch with --remote-branch"))
+        }
+    }
 }
 
 fn encode_message(message: &str) -> String {
@@ -511,6 +579,20 @@ pub async fn cmd_gerrit_upload(
         .try_collect()
         .await?;
 
+    let subprocess_options = GitSubprocessOptions::from_settings(command.settings())?;
+    let remote = calculate_push_remote(
+        workspace_command.repo().store(),
+        command.settings(),
+        args.remote.as_deref(),
+    )?;
+    let remote_branch = calculate_push_ref(
+        &workspace_command,
+        &remote,
+        &revisions,
+        args.remote_branch.clone(),
+    )
+    .await?;
+
     // Note: This transaction is intentionally never finished. This way, the
     // `Change-Id` trailer is never part of the commit description in the user's
     // local repo. This avoids scenarios where you have many commits with the
@@ -525,10 +607,6 @@ pub async fn cmd_gerrit_upload(
         .heads(&mut revisions.iter())
         .await
         .map_err(internal_error)?;
-
-    let subprocess_options = GitSubprocessOptions::from_settings(command.settings())?;
-    let remote = calculate_push_remote(&store, command.settings(), args.remote.as_deref())?;
-    let remote_branch = calculate_push_ref(command.settings(), args.remote_branch.clone())?;
 
     // Immediately error and reject any commits that shouldn't be uploaded.
     for commit in &to_upload {
