@@ -235,6 +235,10 @@ and this project adheres to
 * The hunk headers of `diff.color-words.conflict = "pair"` now include the
   conflict labels of the compared terms.
 
+* Using the `json` template with `ui.log-word-wrap` set to `true` now emits a
+  warning that the output may be broken due to wrapping for top-level `json()`
+  templates. Users should set the config option to `false` to avoid receiving
+  invalid JSON objects on small terminals.
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
