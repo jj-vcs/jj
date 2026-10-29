@@ -789,13 +789,13 @@ pub fn dump_tree(merged_tree: &MergedTree) -> String {
     use std::fmt::Write as _;
     let store = merged_tree.store();
     let mut buf = String::new();
-    let trees = merged_tree.trees().block_on().unwrap();
-    writeln!(&mut buf, "merged tree (sides: {})", trees.num_sides()).unwrap();
-    for tree in &trees {
-        writeln!(&mut buf, "  tree {}", tree.id()).unwrap();
-        let entries: Vec<_> = tree
-            .entries_matching(&EverythingMatcher)
-            .map(|(path, entry)| (path, entry.unwrap()))
+    let tree_ids = merged_tree.tree_ids();
+    writeln!(&mut buf, "merged tree (sides: {})", tree_ids.num_sides()).unwrap();
+    for tree_id in tree_ids {
+        writeln!(&mut buf, "  tree {tree_id}").unwrap();
+        let entries: Vec<_> = MergedTree::resolved(store.clone(), tree_id.clone())
+            .entries()
+            .map(|(path, entry)| (path, entry.unwrap().into_resolved().unwrap().unwrap()))
             .collect()
             .block_on();
         for (path, entry) in entries {

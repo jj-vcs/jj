@@ -65,13 +65,12 @@ fn make_change_id(repo: &TestRepo, byte: u8) -> ChangeId {
 }
 
 fn get_merged_tree_value(tree: &MergedTree, path: &str) -> TestResult<Option<TreeValue>> {
+    assert!(!tree.has_conflict());
     Ok(tree
-        .trees()
+        .path_value(repo_path(path))
         .block_on()?
         .into_resolved()
-        .unwrap()
-        .path_value(repo_path(path))
-        .block_on()?)
+        .unwrap())
 }
 
 #[allow(dead_code)]
