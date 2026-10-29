@@ -20,8 +20,6 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
 #[cfg(feature = "git")]
-use jj_lib::git::GitSubprocessOptions;
-#[cfg(feature = "git")]
 use jj_lib::git::create_worktree;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
@@ -155,9 +153,7 @@ pub async fn cmd_workspace_add(
                 && old_workspace_command.settings().get_bool("git.colocate")?
         };
         if should_colocate {
-            let subprocess_options =
-                GitSubprocessOptions::from_settings(old_workspace_command.settings())?;
-            create_worktree(repo.store(), subprocess_options, &destination_path)?;
+            create_worktree(repo.store(), &destination_path)?;
             writeln!(ui.status(), "Created Git worktree for the new workspace.")?;
         }
     }

@@ -20,7 +20,6 @@ use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::git;
-use jj_lib::git::GitSubprocessOptions;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::repo::Repo as _;
@@ -170,12 +169,7 @@ async fn cmd_git_colocation_enable(
     let op_id = workspace_command.repo().op_id().clone();
 
     if is_child_workspace(&workspace_command) {
-        let subprocess_options = GitSubprocessOptions::from_settings(workspace_command.settings())?;
-        git::create_worktree(
-            workspace_command.repo().store(),
-            subprocess_options,
-            &workspace_root,
-        )?;
+        git::create_worktree(workspace_command.repo().store(), &workspace_root)?;
         drop(workspace_command);
     } else {
         let jj_repo_path = workspace_command.repo_path();
@@ -257,13 +251,7 @@ async fn cmd_git_colocation_disable(
     let op_id = workspace_command.repo().op_id().clone();
 
     if is_child_workspace(&workspace_command) {
-        let subprocess_options = GitSubprocessOptions::from_settings(workspace_command.settings())?;
-        unlink_git_worktree(
-            ui,
-            workspace_command.repo().store(),
-            subprocess_options,
-            &workspace_root,
-        )?;
+        unlink_git_worktree(ui, workspace_command.repo().store(), &workspace_root)?;
         drop(workspace_command);
     } else {
         let git_store_path = workspace_command.repo_path().join("store").join("git");

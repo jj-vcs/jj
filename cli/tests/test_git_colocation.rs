@@ -485,6 +485,7 @@ fn test_git_colocation_in_secondary_workspace() {
 fn test_git_colocation_enable_disable_child_workspace() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");
+    test_env.add_config("git.executable-path = 'jj-test-missing-program'");
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "main"])
         .success();

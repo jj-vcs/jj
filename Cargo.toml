@@ -63,6 +63,7 @@ gix = { git = "https://github.com/GitoxideLabs/gitoxide", branch = "grix", defau
     "max-performance",
     "sha1",
     "sha256",
+    "worktree-mutation",
 ] }
 gix-ignore = { git = "https://github.com/GitoxideLabs/gitoxide", branch = "grix" }
 globset = "0.4.18"

@@ -16,7 +16,6 @@ use std::io;
 use std::io::BufReader;
 use std::io::Read;
 use std::num::NonZeroU32;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::Child;
 use std::process::Command;
@@ -293,61 +292,6 @@ impl GitSubprocessContext {
 
         parse_git_push_output(output)
     }
-
-    /// Create a Git worktree at `destination` on the unborn branch
-    /// `branch_name`.
-    ///
-    /// `--orphan` is what lets the worktree be created without checking
-    /// anything out, and without requiring the repo to have any commits. It
-    /// insists on naming a branch (it rejects `--detach` and `--no-checkout`),
-    /// but leaves that branch unborn, so the caller can move HEAD off it
-    /// before anyone sees the worktree.
-    pub(crate) fn spawn_worktree_add(
-        &self,
-        destination: &Path,
-        branch_name: &str,
-    ) -> Result<(), GitSubprocessError> {
-        let mut command = self.create_command();
-        command.stdout(Stdio::null());
-        // Use relative paths to match jj's convention for portable
-        // repositories. Silently ignored by git versions that don't support
-        // it.
-        command.args(["-c", "worktree.useRelativePaths=true"]);
-        command.args(["worktree", "add", "--orphan", "-b", branch_name, "--"]);
-        command.arg(destination);
-
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
-
-        parse_git_worktree_output(output)
-    }
-
-    /// Fix up the paths Git recorded for the worktree at `worktree_path`,
-    /// after the worktree or the repository has been moved.
-    pub(crate) fn spawn_worktree_repair(
-        &self,
-        worktree_path: &Path,
-    ) -> Result<(), GitSubprocessError> {
-        let mut command = self.create_command();
-        command.stdout(Stdio::null());
-        command.args(["-c", "worktree.useRelativePaths=true"]);
-        command.args(["worktree", "repair", "--"]);
-        command.arg(worktree_path);
-
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
-
-        parse_git_worktree_output(output)
-    }
-
-    /// Remove the bookkeeping of worktrees whose directories are gone.
-    pub(crate) fn spawn_worktree_prune(&self) -> Result<(), GitSubprocessError> {
-        let mut command = self.create_command();
-        command.stdout(Stdio::null());
-        command.args(["worktree", "prune"]);
-
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
-
-        parse_git_worktree_output(output)
-    }
 }
 
 /// Generate a GitSubprocessError::ExternalGitError if the stderr output was not
@@ -546,18 +490,6 @@ fn parse_ref_updates(stdout: &[u8]) -> Result<GitRefUpdates, GitSubprocessError>
         }
     }
     Ok(GitRefUpdates { updated, rejected })
-}
-
-fn parse_git_worktree_output(output: Output) -> Result<(), GitSubprocessError> {
-    if output.status.success() {
-        return Ok(());
-    }
-
-    if let Some(option) = parse_unknown_option(&output.stderr) {
-        return Err(GitSubprocessError::UnsupportedGitOption(option));
-    }
-
-    Err(external_git_error(&output.stderr))
 }
 
 fn parse_git_remote_show_output(output: Output) -> Result<Output, GitSubprocessError> {

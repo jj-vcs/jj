@@ -2504,6 +2504,7 @@ fn test_workspaces_rename_workspace_from_before_workspace_store() {
 fn test_workspaces_add_forget_colocated() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");
+    test_env.add_config("git.executable-path = 'jj-test-missing-program'");
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "main"])
         .success();
@@ -2628,8 +2629,7 @@ fn test_workspaces_add_forget_colocated() {
     assert!(test_env.env_root().join("secondary/file").is_file());
 
     // Git no longer knows about the worktree, but the others are untouched,
-    // and no worktree left behind the branch `git worktree add --orphan`
-    // insisted on naming.
+    // and creating the worktrees did not introduce any local branches.
     let main_repo = git::open(test_env.env_root().join("main"));
     assert_eq!(git_worktree_ids(&main_repo), ["flag-on"]);
     assert_eq!(local_branches(&main_repo), [] as [String; 0]);

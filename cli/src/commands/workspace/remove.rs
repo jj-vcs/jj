@@ -15,8 +15,6 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
-#[cfg(feature = "git")]
-use jj_lib::git::GitSubprocessOptions;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::Workspace;
@@ -162,10 +160,9 @@ pub async fn cmd_workspace_remove(
 
     #[cfg(feature = "git")]
     {
-        let subprocess_options = GitSubprocessOptions::from_settings(workspace_command.settings())?;
         let store = workspace_command.repo().store();
         for path in &paths_to_remove {
-            unlink_git_worktree(ui, store, subprocess_options.clone(), path)?;
+            unlink_git_worktree(ui, store, path)?;
         }
     }
 

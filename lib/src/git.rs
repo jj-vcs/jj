@@ -38,6 +38,7 @@ use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use bstr::BStr;
 use bstr::BString;
@@ -47,7 +48,6 @@ use futures::stream;
 use gix::refs::transaction::RefEdit;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
-use tempfile::TempDir;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -58,7 +58,6 @@ use crate::commit::Commit;
 use crate::config::ConfigGetError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::file_util::is_empty_dir;
 use crate::git_backend::GitBackend;
 use crate::git_subprocess::GitFetchStatus;
 pub use crate::git_subprocess::GitProgress;
@@ -1893,26 +1892,12 @@ fn update_git_head(
 
 #[derive(Debug, Error)]
 pub enum GitCreateWorktreeError {
-    #[error(transparent)]
-    Subprocess(#[from] GitSubprocessError),
-    #[error("Failed to inspect the Git worktree destination")]
-    Destination(#[source] PathError),
-    #[error("Failed to create temporary directory for Git worktree")]
-    TempDir(#[source] std::io::Error),
     #[error("A .git file or directory already exists in the Git worktree destination")]
     ExistingGitLink,
-    #[error("Failed to move .git gitlink file into place")]
-    MoveGitLink(#[source] PathError),
-    #[error(transparent)]
-    Git(Box<dyn std::error::Error + Send + Sync>),
+    #[error("Failed to create Git worktree")]
+    Git(#[from] gix::Error),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
-}
-
-impl GitCreateWorktreeError {
-    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        Self::Git(source.into())
-    }
 }
 
 /// Creates a Git worktree at `destination` to back a jj workspace.
@@ -1923,124 +1908,64 @@ impl GitCreateWorktreeError {
 /// enabled after the fact.
 ///
 /// For a new workspace, the subsequent HEAD export (see [`reset_head()`])
-/// points HEAD at the parent of the new working-copy commit. Git is only
-/// responsible for the `.git` gitlink and the worktree bookkeeping under
-/// `.git/worktrees/`.
-pub fn create_worktree(
-    store: &Store,
-    subprocess_options: GitSubprocessOptions,
-    destination: &Path,
-) -> Result<(), GitCreateWorktreeError> {
-    let git_backend = get_git_backend(store)?;
-
-    // The unborn branch `git worktree add --orphan` insists on naming gets a
-    // random name: any name we could derive from the destination may already
-    // be taken by an exported bookmark.
-    let branch_name = format!("jj-worktree-{:016x}", rand::random::<u64>());
-    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
-
-    let destination_is_populated = destination.exists()
-        && !is_empty_dir(destination).map_err(GitCreateWorktreeError::Destination)?;
-    if destination_is_populated {
-        add_worktree_to_populated_dir(&git_ctx, destination, &branch_name)?;
-    } else {
-        git_ctx.spawn_worktree_add(destination, &branch_name)?;
-    }
-
-    // Must run after the gitlink at `destination` resolves, i.e. after any
-    // `git worktree repair` above.
-    //
-    // Nullifying HEAD puts the worktree in the same "HEAD has no commit yet"
-    // state jj uses everywhere else, so that a `git commit` in the new
-    // worktree can't materialize the branch nobody asked for. If the
-    // working-copy commit turns out to have a real parent, the HEAD export
-    // replaces this with a detached HEAD.
-    let git_repo = git_backend
-        .open_git_repo_at_workdir(destination)
-        .map_err(GitCreateWorktreeError::from_git)?;
-    let unborn_branch = gix::refs::Target::Symbolic(
-        format!("refs/heads/{branch_name}")
-            .try_into()
-            .expect("valid ref name"),
-    );
-    update_git_head(
-        &git_repo,
-        gix::refs::transaction::PreviousValue::MustExistAndMatch(unborn_branch),
-        None,
-    )
-    .map_err(GitCreateWorktreeError::from_git)
-}
-
-/// Adds a worktree for a directory that already has contents.
-///
-/// `git worktree add` refuses to use a non-empty directory, so the worktree is
-/// created in a temporary directory inside `destination`, its gitlink moved
-/// into place, and the recorded paths repaired.
-fn add_worktree_to_populated_dir(
-    git_ctx: &GitSubprocessContext,
-    destination: &Path,
-    branch_name: &str,
-) -> Result<(), GitCreateWorktreeError> {
-    let dot_git = destination.join(".git");
-    if dot_git.exists() {
+/// points HEAD at the parent of the new working-copy commit. Only the `.git`
+/// gitlink and worktree bookkeeping under `.git/worktrees/` are created here.
+pub fn create_worktree(store: &Store, destination: &Path) -> Result<(), GitCreateWorktreeError> {
+    if std::fs::symlink_metadata(destination.join(".git")).is_ok() {
         return Err(GitCreateWorktreeError::ExistingGitLink);
     }
-    let tmp_dir = TempDir::new_in(destination).map_err(GitCreateWorktreeError::TempDir)?;
-    let tmp_path = tmp_dir.path();
-    git_ctx.spawn_worktree_add(tmp_path, branch_name)?;
-
-    std::fs::rename(tmp_path.join(".git"), &dot_git)
-        .context(&dot_git)
-        .map_err(GitCreateWorktreeError::MoveGitLink)?;
-    if let Err(err) = git_ctx.spawn_worktree_repair(destination) {
-        std::fs::remove_file(&dot_git).ok();
-        return Err(err.into());
-    }
+    let mut git_repo = get_git_repo(store)?;
+    // Keep the repository and its workspaces portable when moved together.
+    git_repo
+        .config_snapshot_mut()
+        .set_raw_value("worktree.useRelativePaths", "true")?;
+    git_repo.register_worktree(
+        destination,
+        gix::worktree::add::Head::Unborn(UNBORN_ROOT_REF_NAME.try_into().expect("valid ref name")),
+        &AtomicBool::default(),
+    )?;
     Ok(())
 }
 
 #[derive(Debug, Error)]
 pub enum GitUnlinkWorktreeError {
-    #[error("Failed to remove .git gitlink file")]
-    RemoveGitLink(#[source] PathError),
-    #[error(transparent)]
-    Subprocess(#[from] GitSubprocessError),
+    #[error("Failed to unlink Git worktree")]
+    Git(#[from] gix::Error),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
-/// Disconnects the Git worktree at `worktree_path` from the repository.
+/// Disconnects the linked Git worktree at `worktree_path` from the repository.
 ///
-/// Returns `false` if there was no Git worktree to disconnect.
+/// Returns `false` if there was no linked Git worktree to disconnect.
 ///
 /// The worktree directory and its contents are left in place: only the `.git`
-/// gitlink and Git's bookkeeping under `.git/worktrees/` are removed. This is
-/// the inverse of [`create_worktree()`], which likewise only sets those up.
+/// gitlink and the selected worktree's bookkeeping under `.git/worktrees/` are
+/// removed. Other worktree registrations are retained even if their checkout
+/// directories are missing. This is the inverse of [`create_worktree()`].
 ///
-/// The gitlink is removed before the bookkeeping is pruned, so an error means
-/// either that nothing was done, or that the worktree is already disconnected
-/// and only stale metadata remains. Neither is worth failing a command over,
-/// so callers may treat all errors as non-fatal.
+/// The gitlink is removed before the bookkeeping, so an error means either
+/// that nothing was done, or that the worktree is already disconnected and
+/// only stale metadata remains. Callers may treat these errors as non-fatal.
 pub fn unlink_worktree(
     store: &Store,
-    subprocess_options: GitSubprocessOptions,
     worktree_path: &Path,
 ) -> Result<bool, GitUnlinkWorktreeError> {
-    let dot_git = worktree_path.join(".git");
-    if !dot_git.is_file() {
-        return Ok(false);
-    }
-    let git_backend = get_git_backend(store)?;
-    // `git worktree remove` isn't used because it deletes the directory
-    // contents, and forgetting a workspace should preserve its files.
-    std::fs::remove_file(&dot_git)
-        .context(&dot_git)
-        .map_err(GitUnlinkWorktreeError::RemoveGitLink)?;
-    // TODO: `git worktree prune` removes metadata for all worktrees whose
-    // working directories are missing, not just the one we removed. Ideally
-    // we'd target only the specific worktree.
-    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
-    git_ctx.spawn_worktree_prune()?;
+    let git_repo = get_git_repo(store)?;
+    let target = match git_repo.prepare_remove_worktree(worktree_path) {
+        Ok(target) => target,
+        Err(err)
+            if matches!(
+                err.downcast_any_ref::<gix::worktree::remove::Error>(),
+                Some(gix::worktree::remove::Error::NotFound { .. })
+                    | Some(gix::worktree::remove::Error::MainWorktree { .. })
+            ) =>
+        {
+            return Ok(false);
+        }
+        Err(err) => return Err(err.into()),
+    };
+    target.unlink(gix::worktree::remove::Force::Never)?;
     Ok(true)
 }
 
