@@ -2818,18 +2818,19 @@ fn test_git_push_sign_on_push() {
     [EOF]
     ");
 
-    // Do not sign commits from other authors or re-sign unnecessarily
-    work_dir
-        .run_jj([
-            "metaedit",
-            "--author",
-            "Test User <someone.else@example.com>",
-        ])
-        .success();
+    // Do not sign untouched commits from other users or re-sign unnecessarily
     work_dir
         .run_jj(["new", "-B@", "--no-edit", "-m", "pre-signed commit"])
         .success();
     work_dir.run_jj(["sign", "-r", "@-"]).success();
+    work_dir
+        .run_jj([
+            "metaedit",
+            "--config=user.email=someone.else@example.com",
+            "--author",
+            "Test User <someone.else@example.com>",
+        ])
+        .success();
     work_dir
         .run_jj(["new", "-m", "commit to be signed 3"])
         .success();
@@ -2853,10 +2854,10 @@ fn test_git_push_sign_on_push() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated signatures of 1 commits.
-    Working copy  (@) now at: pzsxstzt 0617b681 bookmark1* | (empty) commit to be signed 3
-    Parent commit (@-)      : kmkuslsw 5114df95 (empty) commit which should not be signed 2
+    Working copy  (@) now at: pzsxstzt 8d66cbb3 bookmark1* | (empty) commit to be signed 3
+    Parent commit (@-)      : kmkuslsw 9cb6544e (empty) commit which should not be signed 2
     Changes to push to origin:
-      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 0617b6813c01]
+      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 8d66cbb334aa]
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", template]);
@@ -2871,6 +2872,68 @@ fn test_git_push_sign_on_push() {
     │ ○  description 1
     ├─╯
     ◆
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_push_sign_on_push_rewritten_commits_of_other_users() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    let template = r#"
+    separate("\n",
+      description.first_line()
+        ++ " (author: " ++ author.email() ++ ", committer: " ++ committer.email() ++ ")",
+      if(signature, "Signature: " ++ signature.display()),
+    )
+    "#;
+    let other_user = "--config=user.email=someone.else@example.com";
+    work_dir
+        .run_jj(["new", "bookmark1", "-m", "rebased commit", other_user])
+        .success();
+    work_dir
+        .run_jj(["new", "bookmark2", "-m", "untouched commit", other_user])
+        .success();
+    work_dir
+        .run_jj(["rebase", "-r", "subject('rebased commit')", "--onto", "@"])
+        .success();
+    work_dir
+        .run_jj([
+            "bookmark",
+            "set",
+            "bookmark2",
+            "-r",
+            "subject('rebased commit')",
+        ])
+        .success();
+    test_env.add_config(
+        r#"
+    signing.backend = "test"
+    signing.key = "impeccable"
+    git.sign-on-push = true
+    "#,
+    );
+
+    // Commits of other users are signed only if they were rewritten by the
+    // current user
+    let output = work_dir.run_jj(["git", "push", "--bookmark", "bookmark2"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Updated signatures of 1 commits.
+    Changes to push to origin:
+      bookmark: bookmark2 [move forward from 38a204733702 to d3d0cd649340]
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    ○  rebased commit (author: someone.else@example.com, committer: test.user@example.com)
+    │  Signature: test-display
+    @  untouched commit (author: someone.else@example.com, committer: someone.else@example.com)
+    ○  description 2 (author: test.user@example.com, committer: test.user@example.com)
+    │ ○  description 1 (author: test.user@example.com, committer: test.user@example.com)
+    ├─╯
+    ◆   (author: , committer: )
     [EOF]
     ");
 }
