@@ -245,6 +245,16 @@ impl MergedTree {
         }
     }
 
+    /// Whether `dir` is a directory in this tree. The root directory is always
+    /// considered to exist. A path that's a directory in some terms of a
+    /// conflict and a file in others is not considered a directory.
+    pub async fn has_dir(&self, dir: &RepoPath) -> BackendResult<bool> {
+        if dir.is_root() {
+            return Ok(true);
+        }
+        Ok(self.path_value(dir).await?.is_tree())
+    }
+
     /// Returns the `TreeValue` associated with `id` if it exists at the
     /// expected path and is resolved.
     pub async fn copy_value(&self, id: &CopyId) -> BackendResult<Option<TreeValue>> {
