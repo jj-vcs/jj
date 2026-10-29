@@ -27,7 +27,6 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
-use jj_lib::tree::TreeMergeExt as _;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
 use tracing::instrument;
@@ -294,12 +293,10 @@ async fn visit_collapsed_untracked_files(
     tree: MergedTree,
     mut on_path: impl FnMut(&RepoPath, bool) -> Result<(), CommandError>,
 ) -> Result<(), CommandError> {
-    let trees = tree.trees().await?;
-    let mut stack = vec![trees];
+    // Directories known to exist in the tree, starting from the top. Each
+    // directory is the parent of the next one.
+    let mut existing_dirs: Vec<RepoPathBuf> = vec![];
 
-    // TODO: This loop can be improved with BTreeMap cursors once that's stable,
-    // would remove the need for the whole `skip_prefixed_by` thing and turn it
-    // into a B-tree lookup.
     let mut skip_prefixed_by_dir: Option<RepoPathBuf> = None;
     'untracked: for path in untracked_paths {
         let path = path.as_ref();
@@ -312,34 +309,28 @@ async fn visit_collapsed_untracked_files(
             skip_prefixed_by_dir = None;
         }
 
-        let mut it = path.components().dropping_back(1);
-        let first_mismatch = it.by_ref().enumerate().find(|(i, component)| {
-            stack.get(i + 1).is_none_or(|tree| {
-                tree.dir()
-                    .components()
-                    .next_back()
-                    .expect("should always have at least one element (the root)")
-                    != *component
-            })
-        });
-
-        if let Some((i, component)) = first_mismatch {
-            stack.truncate(i + 1);
-            for component in std::iter::once(component).chain(it) {
-                let parent = stack
-                    .last()
-                    .expect("should always have at least one element (the root)");
-
-                if let Some(subtree) = parent.sub_tree(component).await? {
-                    stack.push(subtree);
-                } else {
-                    let dir = parent.dir().join(component);
-
-                    on_path(&dir, true)?;
-                    skip_prefixed_by_dir = Some(dir);
-
-                    continue 'untracked;
-                }
+        let parent = path
+            .parent()
+            .expect("untracked path should not be the root");
+        while existing_dirs
+            .last()
+            .is_some_and(|dir| !parent.starts_with(dir))
+        {
+            existing_dirs.pop();
+        }
+        let unknown_dirs = parent
+            .ancestors()
+            .collect_vec()
+            .into_iter()
+            .rev()
+            .skip(1 + existing_dirs.len());
+        for dir in unknown_dirs {
+            if tree.has_dir(dir).await? {
+                existing_dirs.push(dir.to_owned());
+            } else {
+                on_path(dir, true)?;
+                skip_prefixed_by_dir = Some(dir.to_owned());
+                continue 'untracked;
             }
         }
 
