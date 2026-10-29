@@ -80,6 +80,7 @@ erased-serde = { workspace = true }
 etcetera = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
+gix-diff = { workspace = true }
 globset = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
