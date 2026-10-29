@@ -3713,9 +3713,10 @@ labels are stripped.</p>
   conflicted</a>.</li>
 <li><code>.normal_target() -&gt; Option&lt;Commit&gt;</code>: Target commit if the ref is not
   conflicted and points to a commit.</li>
-<li><code>.removed_targets() -&gt; List&lt;Commit&gt;</code>: Old target commits if conflicted.</li>
-<li><code>.added_targets() -&gt; List&lt;Commit&gt;</code>: New target commits. The list usually
-  contains one "normal" target.</li>
+<li><code>.removed_targets() -&gt; List&lt;Option&lt;Commit&gt;&gt;</code>: Old target commits if
+  conflicted.</li>
+<li><code>.added_targets() -&gt; List&lt;Option&lt;Commit&gt;&gt;</code>: New target commits. The list
+  usually contains one "normal" target.</li>
 <li><code>.tracked() -&gt; Boolean</code>: True if the ref is tracked by a local ref. The local
   ref might have been deleted (but not pushed yet.)</li>
 <li><code>.tracking_present() -&gt; Boolean</code>: True if the ref is tracked by a local ref,
