@@ -2659,6 +2659,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     )
                 })
                 .transpose()?;
+            let path_converter = language.path_converter;
             let options = diff_util::UnifiedDiffOptions::from_settings(language.settings())
                 .map_err(|err| {
                     let message = "Failed to load diff settings";
@@ -2678,6 +2679,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                             store,
                             trees,
                             tree_diff,
+                            path_converter,
                             &options,
                             &materialize_options,
                         )

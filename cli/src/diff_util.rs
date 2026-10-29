@@ -101,6 +101,8 @@ use crate::merge_tools::generate_diff;
 use crate::merge_tools::invoke_external_diff;
 use crate::source_symbol::SourceSymbolMatcher;
 use crate::source_symbol::SourceSymbolScanner;
+#[cfg(feature = "git")]
+use crate::source_symbol::git as source_symbol_git;
 use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
@@ -524,6 +526,7 @@ impl<'a> DiffRenderer<'a> {
                         store,
                         tree_diff,
                         conflict_labels,
+                        path_converter,
                         options,
                         &self.materialize_options,
                     )
@@ -1508,6 +1511,13 @@ pub async fn show_color_words_diff(
     options: &ColorWordsDiffOptions,
     materialize_options: &ConflictMaterializeOptions,
 ) -> Result<(), DiffRenderError> {
+    #[cfg(feature = "git")]
+    let git_repo = source_symbol_git::repository(store, path_converter)?;
+    #[cfg(feature = "git")]
+    let mut attributes = git_repo
+        .as_ref()
+        .map(|repo| source_symbol_git::attributes(repo, path_converter))
+        .transpose()?;
     let empty_content = || Merge::resolved(BString::default());
     let mut diff_stream = materialized_diff_stream(store, tree_diff, conflict_labels);
     while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
@@ -1515,13 +1525,12 @@ pub async fn show_color_words_diff(
         let right_path = path.target();
         let left_ui_path = path_converter.format_file_path(left_path);
         let right_ui_path = path_converter.format_file_path(right_path);
-        let source_symbols = SourceSymbolMatcher::for_file_name(
-            right_path
-                .components()
-                .next_back()
-                .map_or("", |name| name.as_internal_str()),
+        let source_symbols = SourceSymbolMatcher::for_path(
+            right_path,
+            #[cfg(feature = "git")]
+            attributes.as_mut(),
         )?;
-        let language = Some(&source_symbols);
+        let language = source_symbols.as_ref();
         let Diff {
             before: left_value,
             after: right_value,
@@ -1895,9 +1904,18 @@ pub async fn show_git_diff(
     store: &Store,
     tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
     conflict_labels: Diff<&ConflictLabels>,
+    #[cfg_attr(not(feature = "git"), expect(unused_variables))]
+    path_converter: &RepoPathUiConverter,
     options: &UnifiedDiffOptions,
     materialize_options: &ConflictMaterializeOptions,
 ) -> Result<(), DiffRenderError> {
+    #[cfg(feature = "git")]
+    let git_repo = source_symbol_git::repository(store, path_converter)?;
+    #[cfg(feature = "git")]
+    let mut attributes = git_repo
+        .as_ref()
+        .map(|repo| source_symbol_git::attributes(repo, path_converter))
+        .transpose()?;
     let mut diff_stream = materialized_diff_stream(store, tree_diff, conflict_labels);
     while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
         let left_path = path.source();
@@ -1906,13 +1924,12 @@ pub async fn show_git_diff(
         let right_prefix = if options.show_path_prefix { "b/" } else { "" };
         let left_path_string = left_path.as_internal_file_string();
         let right_path_string = right_path.as_internal_file_string();
-        let source_symbols = SourceSymbolMatcher::for_file_name(
-            right_path
-                .components()
-                .next_back()
-                .map_or("", |name| name.as_internal_str()),
+        let source_symbols = SourceSymbolMatcher::for_path(
+            right_path,
+            #[cfg(feature = "git")]
+            attributes.as_mut(),
         )?;
-        let language = Some(&source_symbols);
+        let language = source_symbols.as_ref();
         let values = values?;
 
         let left_part = git_diff_part(left_path, values.before, materialize_options).await?;

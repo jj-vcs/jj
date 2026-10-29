@@ -4391,3 +4391,168 @@ fn test_diff_stat_max_bar_width() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_diff_hunk_header_attributes_override_filename_rules() {
+    for colocated in [false, true] {
+        let test_env = TestEnvironment::default();
+        test_env
+            .run_jj_in(
+                ".",
+                [
+                    "git",
+                    "init",
+                    "repo",
+                    if colocated {
+                        "--colocate"
+                    } else {
+                        "--no-colocate"
+                    },
+                ],
+            )
+            .success();
+        let work_dir = test_env.work_dir("repo");
+        let config_path = if colocated {
+            ".git/config"
+        } else {
+            ".jj/repo/store/git/config"
+        };
+        let mut config = work_dir.read_file(config_path);
+        config.extend_from_slice(
+            br#"
+[diff "section"]
+    xfuncname = "^section (.*)$"
+[diff "nested"]
+    xfuncname = "^heading (.*)$"
+[diff "broken"]
+    xfuncname = "("
+[diff "binary"]
+    binary = true
+"#,
+        );
+        work_dir.write_file(config_path, config);
+        work_dir.write_file(".gitattributes", "*.rs diff=section\n");
+        work_dir.write_file("nested/.gitattributes", "*.rs diff=nested\n");
+        work_dir.write_file("main.rs", "section selected\n    before\n");
+        work_dir.write_file("nested/main.rs", "heading nested\n    before\n");
+        work_dir.run_jj(["new"]).success();
+        work_dir.write_file("main.rs", "section selected\n    after\n");
+        work_dir.write_file("nested/main.rs", "heading nested\n    after\n");
+
+        for (path, header) in [("main.rs", "selected"), ("nested/main.rs", "nested")] {
+            let output = work_dir
+                .run_jj(["diff", "--git", "--context=0", path])
+                .success();
+            assert!(
+                output
+                    .stdout
+                    .raw()
+                    .contains(&format!("@@ -2,1 +2,1 @@ {header}\n")),
+                "custom attribute driver (colocated={colocated}): {output}"
+            );
+        }
+        let output = work_dir
+            .run_jj(["diff", "--color-words", "--context=0", "main.rs"])
+            .success();
+        assert!(
+            output
+                .stdout
+                .raw()
+                .contains("   1    1: section selected\n"),
+            "{output}"
+        );
+
+        for (attribute, header) in [
+            ("diff", " section selected"),
+            ("diff=unknown", " section selected"),
+            ("!diff", ""),
+            ("-diff", ""),
+            ("diff=binary", ""),
+        ] {
+            work_dir.write_file(".gitattributes", format!("main.rs {attribute}\n"));
+            let output = work_dir
+                .run_jj(["diff", "--git", "--context=0", "main.rs"])
+                .success();
+            let hunk = output
+                .stdout
+                .raw()
+                .lines()
+                .find(|line| line.starts_with("@@"));
+            assert_eq!(
+                hunk,
+                Some(format!("@@ -2,1 +2,1 @@{header}").as_str()),
+                "{attribute}: {output}"
+            );
+        }
+        // The malformed driver above stayed dormant until this path selected it.
+        work_dir.write_file(".gitattributes", "main.rs diff=broken\n");
+        let output = work_dir.run_jj(["diff", "--git", "main.rs"]);
+        assert!(!output.status.success(), "{output}");
+        assert!(
+            output
+                .stderr
+                .raw()
+                .contains("Invalid POSIX hunk-header expression"),
+            "{output}"
+        );
+    }
+}
+
+#[test]
+fn test_diff_hunk_headers_use_the_active_external_workspace() {
+    let test_env = TestEnvironment::default();
+    let git_path = test_env.env_root().join("git-repo");
+    let git_repo = testutils::git::init(&git_path);
+    let mut index = testutils::git::IndexManager::new(&git_repo);
+    index.add_file(".gitattributes", b"*.rs diff=external\n");
+    index.sync_index();
+    let config_path = git_repo.git_dir().join("config");
+    let mut config = std::fs::read(&config_path).unwrap();
+    config.extend_from_slice(
+        br#"
+[diff "external"]
+    xfuncname = "^external (.*)$"
+[diff "local"]
+    xfuncname = "^fn (.*)$"
+"#,
+    );
+    std::fs::write(config_path, config).unwrap();
+    test_env
+        .run_jj_in(
+            ".",
+            [
+                "git",
+                "init",
+                "repo",
+                "--git-repo",
+                git_path.to_str().unwrap(),
+            ],
+        )
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("main.rs", "fn selected() {\n    before\n}\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("main.rs", "fn selected() {\n    after\n}\n");
+    let output = work_dir
+        .run_jj(["diff", "--git", "--context=0", "main.rs"])
+        .success();
+    assert!(
+        output
+            .stdout
+            .raw()
+            .contains("@@ -2,1 +2,1 @@ fn selected() {\n"),
+        "the backing worktree and index cannot override filename fallback: {output}"
+    );
+
+    work_dir.write_file(".gitattributes", "*.rs diff=local\n");
+    let output = work_dir
+        .run_jj(["diff", "--git", "--context=0", "main.rs"])
+        .success();
+    assert!(
+        output
+            .stdout
+            .raw()
+            .contains("@@ -2,1 +2,1 @@ selected() {\n"),
+        "the active workspace can select a driver from the shared repository config: {output}"
+    );
+}

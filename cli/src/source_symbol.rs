@@ -18,6 +18,10 @@ use std::ops::Range;
 use bstr::BStr;
 use gix_diff::blob::hunk_header::Definition;
 use gix_diff::blob::hunk_header::Matcher;
+use jj_lib::repo_path::RepoPath;
+
+#[cfg(feature = "git")]
+pub(crate) mod git;
 
 /// Gitoxide matchers selected for a file, including ambiguous filename extensions.
 pub(crate) struct SourceSymbolMatcher {
@@ -77,6 +81,31 @@ impl SourceSymbolMatcher {
             })
             .collect::<io::Result<_>>()?;
         Ok(Self { matchers })
+    }
+
+    /// Explicit attributes take precedence over filename convenience rules.
+    pub(crate) fn for_path(
+        path: &RepoPath,
+        #[cfg(feature = "git")] attributes: Option<&mut gix::AttributeStack<'_>>,
+    ) -> io::Result<Option<Self>> {
+        #[cfg(feature = "git")]
+        if let Some(attributes) = attributes {
+            let selected = attributes
+                .diff_driver(path.as_internal_file_string(), None)
+                .map_err(io::Error::other)?;
+            if selected.attribute != gix::attrs::State::Unspecified {
+                return selected
+                    .hunk_header()
+                    .map(|matcher| matcher.map(Self::from))
+                    .map_err(io::Error::other);
+            }
+        }
+        Self::for_file_name(
+            path.components()
+                .next_back()
+                .map_or("", |name| name.as_internal_str()),
+        )
+        .map(Some)
     }
 
     pub(crate) fn find<'a>(&self, line: &'a [u8]) -> io::Result<Option<&'a [u8]>> {
