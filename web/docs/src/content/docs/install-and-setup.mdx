@@ -189,6 +189,13 @@ via scoop:
 scoop install main/jj
 ```
 
+## Runtime requirements
+
+Jujutsu uses [gitoxide](https://github.com/GitoxideLabs/gitoxide) for Git
+repository operations and does not require the `git` executable. SSH remotes
+require an SSH client. Configured credential helpers, hooks, signing programs,
+and external tools must also be installed when used.
+
 ## Initial configuration
 
 You may want to configure your name and email so commits are made in your name.

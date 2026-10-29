@@ -16,14 +16,16 @@ The following list describes which Git features Jujutsu is compatible with. For
 a comparison with Git, including how workflows are different, see the
 [Git-comparison doc](git-comparison.md).
 
-* **Configuration: Partial.** The only configuration from Git (e.g. in
-  `~/.gitconfig`) that's respected is the following. Feel free to file a bug if
+* **Configuration: Partial.** Git repository operations use Git configuration
+  (e.g. in `~/.gitconfig`), including the following. Feel free to file a bug if
   you miss any particular configuration options.
   * The configuration of remotes (`[remote "<name>"]`). Simple fetch refspecs
     are respected when branches are not explicitly specified on the CLI.
-    (`git` is used for remote operations)
+  * Transport and authentication settings, including credential helpers.
   * `core.excludesFile`
-* **Authentication: Yes.** `git` is used for remote operations under the hood.
+  * Diff drivers and their source hunk-header patterns.
+* **Authentication: Yes.** gitoxide handles remote authentication, including
+  configured credential and askpass helpers. SSH remotes use an SSH client.
 * **Branches: Yes.** You can read more about
   [how branches work in Jujutsu](bookmarks.md)
   and [how they interoperate with Git](#branches).
@@ -37,10 +39,17 @@ a comparison with Git, including how workflows are different, see the
   working-copy commit. It's recommended to set up the ignore patterns earlier.
   The `.gitignore` support uses a native implementation, so please report a bug
   if you notice any difference compared to `git`.
-* **.gitattributes: No.** There's [#53](https://github.com/jj-vcs/jj/issues/53)
-  about adding support for at least the `eol` attribute.
-* **Hooks: No.** There's [#405](https://github.com/jj-vcs/jj/issues/405)
-  specifically for providing the checks from <https://pre-commit.com>.
+* **.gitattributes: Partial.** Diff driver attributes select source hunk-header
+  patterns. There's [#53](https://github.com/jj-vcs/jj/issues/53) about broader
+  support, including the `eol` attribute.
+* **Hooks: Partial.** Push receivers run their configured hooks, including when
+  pushing to a local repository. Jujutsu's own commit workflow does not run Git
+  hooks. There's [#405](https://github.com/jj-vcs/jj/issues/405) specifically for
+  providing the checks from <https://pre-commit.com>.
+* **Local push receivers: Partial.** Standard receive hooks, object checks,
+  namespaces, and shallow updates are supported. `receive.procReceiveRefs` and
+  `receive.denyCurrentBranch=updateInstead` without a `push-to-checkout` hook
+  are not yet supported.
 * **Merge commits: Yes.** Octopus merges (i.e. with more than 2 parents) are
   also supported.
 * **Detached HEAD: Yes.** Jujutsu supports anonymous branches, so this is a
@@ -51,11 +60,9 @@ a comparison with Git, including how workflows are different, see the
   `jj diff` will show a diff from the Git HEAD to the working copy. There are
   [ways of fulfilling your use cases without a staging
   area](git-comparison.md#the-index).
-* **Garbage collection: Yes.** It should be safe to run `git gc` in the Git
-  repo, but it's not tested, so it's probably a good idea to make a backup of
-  the whole workspace first. There's [no garbage collection and repacking of
-  Jujutsu's own data structures yet](https://github.com/jj-vcs/jj/issues/12),
-  however.
+* **Garbage collection: Yes.** `jj util gc` collects unreachable data and
+  repacks Git objects through gitoxide. Git can also maintain the backing
+  repository.
 * **Bare repositories: Yes.** You can use `jj git init --git-repo=<path>` to
   create a repo backed by a bare Git repo.
 * **Submodules: No.** They will not show up in the working copy, but they will
@@ -64,8 +71,8 @@ a comparison with Git, including how workflows are different, see the
 * **Shallow clones: Kind of.** Shallow commits all have the virtual root commit
   as their parent. However, deepening or fully unshallowing a repository is
   currently not yet supported and will cause issues.
-* **git-worktree: No.** However, there's native support for multiple working
-  copies backed by a single repo. See the `jj workspace` family of commands.
+* **Git worktrees: Yes.** Colocated Jujutsu workspaces use Git linked worktrees.
+  See the `jj workspace` family of commands.
 * **Sparse checkouts: No.** However, there's native support for sparse
   checkouts. See the `jj sparse` command.
 * **Signed commits: Yes.**

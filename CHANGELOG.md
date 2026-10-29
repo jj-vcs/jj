@@ -10,7 +10,13 @@ and this project adheres to
 
 ### Release highlights
 
+* Git repository operations now use gitoxide throughout, including fetching,
+  pushing, garbage collection, and colocated workspace management. The `git`
+  executable is no longer a runtime requirement.
+
 ### Breaking changes
+
+* The unused `git.executable-path` setting has been removed.
 
 * In non-colocated workspaces, `jj git fetch` and `push` no longer update
   remote-tracking Git refs. Use `jj git export` to export remote bookmarks to

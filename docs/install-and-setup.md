@@ -215,8 +215,10 @@ cd /usr/ports/devel/jujutsu/ && make install clean
 
 ## Runtime Requirements
 
-You will need git 2.42.0 or above. On older systems (e.g. Debian 11, Ubuntu
-22.04) you will need to [upgrade Git](https://git-scm.com/install/).
+Jujutsu uses [gitoxide](https://github.com/GitoxideLabs/gitoxide) for Git
+repository operations and does not require the `git` executable. SSH remotes
+require an SSH client. Configured credential helpers, hooks, signing programs,
+and external tools must also be installed when used.
 
 ## Initial configuration
 
