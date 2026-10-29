@@ -1653,9 +1653,9 @@ mod tests {
 
     fn git_config() -> Vec<bstr::BString> {
         vec![
-            format!("user.name = {GIT_USER}").into(),
-            format!("user.email = {GIT_EMAIL}").into(),
-            "init.defaultBranch = master".into(),
+            format!("user.name={GIT_USER}").into(),
+            format!("user.email={GIT_EMAIL}").into(),
+            "init.defaultBranch=master".into(),
         ]
     }
 
