@@ -16,7 +16,6 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
-use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
 use jj_lib::merge::Diff;
@@ -174,12 +173,12 @@ pub(crate) async fn cmd_diff(
             .await?;
 
         // Collect parents outside of revset to preserve parent order
-        let parents: IndexSet<_> = try_join_all(roots.iter().map(|c| c.parents()))
+        let parents = try_join_all(roots.iter().map(|c| c.parents()))
             .await?
             .into_iter()
             .flatten()
-            .collect();
-        let parents = parents.into_iter().collect_vec();
+            .unique()
+            .collect_vec();
         from_tree = merge_commit_trees(repo.as_ref(), &parents).await?;
         to_tree = merge_commit_trees(repo.as_ref(), &heads).await?;
 
