@@ -104,6 +104,7 @@ use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::base_user_config;
 use testutils::commit_transactions;
+use testutils::commit_with_tree;
 use testutils::create_random_commit;
 use testutils::create_tree;
 use testutils::repo_path;
@@ -239,9 +240,17 @@ fn reset_head(
     workspace: &Workspace,
     wc_commit: &Commit,
 ) -> Result<(), GitResetHeadError> {
+    reset_head_from(mut_repo, workspace, (None, wc_commit))
+}
+
+fn reset_head_from(
+    mut_repo: &mut MutableRepo,
+    workspace: &Workspace,
+    diff_wc_commit: (Option<&Commit>, &Commit),
+) -> Result<(), GitResetHeadError> {
     let workspace_name = workspace.workspace_name();
     let workspace_root = workspace.workspace_root();
-    git::reset_head(mut_repo, workspace_name, workspace_root, wc_commit).block_on()
+    git::reset_head(mut_repo, workspace_name, workspace_root, diff_wc_commit).block_on()
 }
 
 /// Fetches and imports all refs with the default configuration.
@@ -3936,9 +3945,70 @@ fn test_reset_head_with_index() -> TestResult {
     }
     insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted file.txt Mode(FILE)");
 
-    // Reset head and the Git index
-    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
+    // A rewrite of the same working-copy change preserves the Git index.
+    let rewritten = rewrite_commit(tx.repo_mut(), &commit2, "rewritten");
+    reset_head_from(
+        tx.repo_mut(),
+        &test_workspace.workspace,
+        (Some(&commit2), &rewritten),
+    )?;
+    insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted file.txt Mode(FILE)");
+
+    // Switching working-copy changes resets the index even with the same parent.
+    let other_wc = tx
+        .repo_mut()
+        .new_commit(vec![commit1.id().clone()], tree)
+        .write_unwrap();
+    reset_head_from(
+        tx.repo_mut(),
+        &test_workspace.workspace,
+        (Some(&rewritten), &other_wc),
+    )?;
     insta::assert_snapshot!(get_index_state(workspace_root), @"");
+
+    // Workaround for windows-x86_64 CI failure. windows-aarch64 passes without
+    // it. TODO: Remove this hack.
+    if cfg!(windows) {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+
+    // Rewriting the working-copy tree resets the index and adds new files.
+    {
+        let mut index_manager = testutils::git::IndexManager::new(&git_repo);
+        index_manager.add_file("file.txt", b"staged\n");
+        index_manager.sync_index();
+    }
+    let changed_tree = create_tree(repo, &[(repo_path("new.txt"), "new\n")]);
+    let changed_wc = tx
+        .repo_mut()
+        .rewrite_commit(&other_wc)
+        .set_tree(changed_tree)
+        .write_unwrap();
+    reset_head_from(
+        tx.repo_mut(),
+        &test_workspace.workspace,
+        (Some(&other_wc), &changed_wc),
+    )?;
+    insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted new.txt Mode(FILE)");
+
+    // A changed secondary parent also resets the index, even if HEAD is unchanged.
+    {
+        let mut index_manager = testutils::git::IndexManager::new(&git_repo);
+        index_manager.add_file("file.txt", b"staged\n");
+        index_manager.sync_index();
+    }
+    let second_parent = commit_with_tree(repo.store(), repo.store().empty_merged_tree());
+    let merge_wc = tx
+        .repo_mut()
+        .rewrite_commit(&changed_wc)
+        .set_parents(vec![commit1.id().clone(), second_parent.id().clone()])
+        .write_unwrap();
+    reset_head_from(
+        tx.repo_mut(),
+        &test_workspace.workspace,
+        (Some(&changed_wc), &merge_wc),
+    )?;
+    insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted new.txt Mode(FILE)");
     Ok(())
 }
 

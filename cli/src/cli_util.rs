@@ -710,7 +710,7 @@ impl CommandHelper {
                                 tx.repo_mut(),
                                 workspace_name,
                                 workspace_root,
-                                &desired_wc_commit,
+                                (Some(&stale_wc_commit), &desired_wc_commit),
                                 git_import_export_lock,
                             )
                             .await?;
@@ -2273,7 +2273,7 @@ to the current parents may contain changes from multiple commits.
                         mut_repo,
                         &workspace_name,
                         workspace_root,
-                        &new_wc_commit,
+                        (Some(&wc_commit), &new_wc_commit),
                         git_import_export_lock,
                     )
                     .await?;
@@ -2446,7 +2446,7 @@ to the current parents may contain changes from multiple commits.
                     tx.repo_mut(),
                     self.workspace_name(),
                     self.workspace_root(),
-                    wc_commit,
+                    (maybe_old_wc_commit.as_ref(), wc_commit),
                     git_import_export_lock,
                 )
                 .await?;
@@ -2591,7 +2591,7 @@ async fn try_reset_git_head(
     mut_repo: &mut MutableRepo,
     workspace_name: &WorkspaceName,
     workspace_root: &Path,
-    wc_commit: &Commit,
+    diff_wc_commit: (Option<&Commit>, &Commit),
     _git_import_export_lock: &GitImportExportLock,
 ) -> Result<(), RunnerError> {
     // Export Git HEAD while holding the git-head lock to prevent races:
@@ -2600,7 +2600,7 @@ async fn try_reset_git_head(
     // This can still fail if HEAD was updated concurrently by another JJ process
     // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
     // case, the actual state will be imported on the next snapshot.
-    match jj_lib::git::reset_head(mut_repo, workspace_name, workspace_root, wc_commit).await {
+    match jj_lib::git::reset_head(mut_repo, workspace_name, workspace_root, diff_wc_commit).await {
         Ok(()) => Ok(()),
         Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
             print_runner_event(ui, &RunnerEvent::GitHeadResetFailed(err))
