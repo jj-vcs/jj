@@ -266,6 +266,59 @@ fn test_git_export_after_reconcile() -> TestResult {
 }
 
 #[test]
+fn test_git_head_after_reconcile() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
+
+    work_dir.run_jj(["commit", "-mA"]).success();
+    work_dir.run_jj(["commit", "-mB"]).success();
+    work_dir.run_jj(["commit", "-mC"]).success();
+    let op_id = work_dir.current_operation_id();
+    let output = work_dir.run_jj(["new", "--at-op", &op_id, "subject(A)"]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["new", "--at-op", &op_id, "subject(B)"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Failed to update Git HEAD ref
+    Caused by:
+    1: Could not prepare reference edit, reference="HEAD"
+    2: Expected reference content 451b9ab0d2e158f25b758346375ad0b4ef213553
+    3: The reference "HEAD" changed to 8777db25171cace71ad014598663d5ffc4fae6b1
+    [EOF]
+    "#);
+
+    insta::assert_compact_debug_snapshot!(
+        git_repo.head()?.try_into_peeled_id()?,
+        @"Some(Sha1(8777db25171cace71ad014598663d5ffc4fae6b1))");
+    let output = work_dir.run_jj(["log"]);
+    insta::assert_snapshot!(output, @"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 33bf3d91
+    │  (empty) (no description set)
+    │ ○  royxmykx test.user@example.com 2001-02-03 08:05:12 70546365
+    │ │  (empty) (no description set)
+    │ │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 451b9ab0
+    │ ├─╯  (empty) C
+    │ ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 6a5c6978
+    ├─╯  (empty) B
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8777db25
+    │  (empty) A
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    [EOF]
+    ");
+    insta::assert_compact_debug_snapshot!(
+        git_repo.head()?.try_into_peeled_id()?,
+        @"Some(Sha1(8777db25171cace71ad014598663d5ffc4fae6b1))");
+    Ok(())
+}
+
+#[test]
 fn test_git_head_race_condition() -> TestResult {
     // Test for race condition where concurrent jj processes create divergent
     // operations when importing/exporting Git HEAD. This test spawns two
