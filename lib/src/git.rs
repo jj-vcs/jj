@@ -2512,13 +2512,6 @@ fn save_remote(
     remote_name: &RemoteName,
     remote: &mut gix::Remote,
 ) -> Result<(), GitRemoteManagementError> {
-    // Work around the gitoxide remote management bug
-    // <https://github.com/GitoxideLabs/gitoxide/issues/1951> by adding
-    // an empty section.
-    //
-    // Note that this will produce useless empty sections if we ever
-    // support remote configuration keys other than `fetch` and `url`.
-    config.new_section("remote", remote_name.as_str())?;
     remote.save_as_to(remote_name.as_str(), config)?;
     Ok(())
 }
