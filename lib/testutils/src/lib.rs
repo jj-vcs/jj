@@ -259,6 +259,24 @@ impl TestEnvironment {
             .block_on()
             .unwrap()
     }
+
+    pub fn load_workspace_at_head(
+        &self,
+        settings: &UserSettings,
+        workspace_root: &Path,
+    ) -> Arc<ReadonlyRepo> {
+        let workspace_loader = default_workspace_loader_factory()
+            .create(workspace_root)
+            .unwrap();
+        let workspace = workspace_loader
+            .load(
+                settings,
+                &self.default_backend_factories(),
+                &default_working_copy_factories(),
+            )
+            .unwrap();
+        workspace.load_at_head().block_on().unwrap()
+    }
 }
 
 pub struct TestRepo {
