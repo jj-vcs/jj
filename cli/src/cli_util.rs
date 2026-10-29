@@ -1911,10 +1911,12 @@ impl WorkspaceOperationRunner {
 
         #[cfg(feature = "git")]
         if self.env.working_copy_shared_with_git()
-            && let Ok(resolved_tree) = new_tree.trees().await?.into_resolved()
-            && resolved_tree
-                .entries_non_recursive()
-                .any(|entry| entry.name().as_internal_str().starts_with(".jjconflict"))
+            && !new_tree.has_conflict()
+            // Conflicts written by the Git backend always have a
+            // `.jjconflict-side-0` directory.
+            && new_tree
+                .has_dir(RepoPath::from_internal_string(".jjconflict-side-0").unwrap())
+                .await?
         {
             event_handler
                 .event(RunnerEvent::JjConflictFilesInWorkingCopy)
