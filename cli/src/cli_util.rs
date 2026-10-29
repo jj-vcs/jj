@@ -167,6 +167,7 @@ use crate::command_error::config_error_with_message;
 use crate::command_error::handle_command_result;
 use crate::command_error::internal_error;
 use crate::command_error::internal_error_with_message;
+#[cfg(feature = "git")]
 use crate::command_error::print_error_sources;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
