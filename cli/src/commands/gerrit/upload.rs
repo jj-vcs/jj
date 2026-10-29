@@ -24,7 +24,7 @@ use jj_lib::commit::Commit;
 use jj_lib::git;
 use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitRefUpdate;
-use jj_lib::git::GitSubprocessOptions;
+use jj_lib::git::GitRemoteOptions;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
@@ -43,7 +43,7 @@ use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
-use crate::git_util::GitSubprocessUi;
+use crate::git_util::GitRemoteUi;
 use crate::git_util::print_push_stats;
 use crate::ui::Ui;
 
@@ -526,7 +526,7 @@ pub async fn cmd_gerrit_upload(
         .await
         .map_err(internal_error)?;
 
-    let subprocess_options = GitSubprocessOptions::from_settings(command.settings())?;
+    let remote_options = GitRemoteOptions::default();
     let remote = calculate_push_remote(&store, command.settings(), args.remote.as_deref())?;
     let remote_branch = calculate_push_ref(command.settings(), args.remote_branch.clone())?;
 
@@ -690,7 +690,7 @@ pub async fn cmd_gerrit_upload(
         // changes to push, but we don't get that here.
         let push_stats = git::push_updates(
             tx.repo_mut(),
-            subprocess_options.clone(),
+            remote_options.clone(),
             remote.as_ref(),
             &[GitRefUpdate {
                 qualified_name: remote_ref.clone().into(),
@@ -701,7 +701,7 @@ pub async fn cmd_gerrit_upload(
                     )),
                 ),
             }],
-            &mut GitSubprocessUi::new(ui),
+            &mut GitRemoteUi::new(ui),
             &push_options,
         )
         // Despite the fact that a manual git push will error out with 'no new

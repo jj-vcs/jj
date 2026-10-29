@@ -36,7 +36,6 @@ use std::fs::File;
 use std::iter;
 use std::num::NonZeroU32;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
@@ -58,9 +57,9 @@ use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::config::ConfigGetError;
 use crate::git_backend::GitBackend;
-pub use crate::git_subprocess::GitProgress;
-pub use crate::git_subprocess::GitSidebandLineTerminator;
-pub use crate::git_subprocess::GitSubprocessCallback;
+pub use crate::git_remote::GitProgress;
+pub use crate::git_remote::GitRemoteCallback;
+pub use crate::git_remote::GitSidebandLineTerminator;
 use crate::index::IndexError;
 use crate::matchers::EverythingMatcher;
 use crate::merge::Diff;
@@ -119,7 +118,6 @@ const INDEX_DUMMY_CONFLICT_FILE: &str = ".jj-do-not-resolve-this-conflict";
 #[derive(Clone, Debug)]
 pub struct GitSettings {
     pub abandon_unreachable_commits: bool,
-    pub executable_path: PathBuf,
     pub record_synthetic_predecessors: bool,
     pub write_change_id_header: bool,
 }
@@ -128,18 +126,10 @@ impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(Self {
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
-            executable_path: settings.get("git.executable-path")?,
             record_synthetic_predecessors: settings
                 .get_bool("git.record-synthetic-predecessors")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
         })
-    }
-
-    pub fn to_subprocess_options(&self) -> GitSubprocessOptions {
-        GitSubprocessOptions {
-            executable_path: self.executable_path.clone(),
-            environment: HashMap::new(),
-        }
     }
 }
 
@@ -149,40 +139,6 @@ pub struct GitRemoteOptions {
     /// Environment for authentication helpers, SSH, and other configured commands.
     /// These overrides apply to this operation without changing process state.
     pub environment: HashMap<OsString, OsString>,
-}
-
-impl GitRemoteOptions {
-    pub fn from_settings(_settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(Self::default())
-    }
-}
-
-impl From<GitSubprocessOptions> for GitRemoteOptions {
-    fn from(options: GitSubprocessOptions) -> Self {
-        Self {
-            environment: options.environment,
-        }
-    }
-}
-
-/// Configuration for a Git subprocess
-#[derive(Clone, Debug)]
-pub struct GitSubprocessOptions {
-    pub executable_path: PathBuf,
-    /// Used by consumers of jj-lib to set environment variables like
-    /// GIT_ASKPASS (for authentication callbacks) or GIT_TRACE (for debugging).
-    /// Setting per-subcommand environment variables avoids the need for unsafe
-    /// code and process-wide state.
-    pub environment: HashMap<OsString, OsString>,
-}
-
-impl GitSubprocessOptions {
-    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(Self {
-            executable_path: settings.get("git.executable-path")?,
-            environment: HashMap::new(),
-        })
-    }
 }
 
 #[derive(Debug, Error)]
@@ -3157,7 +3113,7 @@ pub struct GitFetch<'a> {
 impl<'a> GitFetch<'a> {
     pub fn new(
         mut_repo: &'a mut MutableRepo,
-        remote_options: impl Into<GitRemoteOptions>,
+        remote_options: GitRemoteOptions,
         import_options: &'a GitImportOptions,
     ) -> Result<Self, UnexpectedGitBackendError> {
         let git_backend = get_git_backend(mut_repo.store())?;
@@ -3165,7 +3121,7 @@ impl<'a> GitFetch<'a> {
         Ok(GitFetch {
             mut_repo,
             git_repo,
-            remote_options: remote_options.into(),
+            remote_options,
             import_options,
             fetched: vec![],
         })
@@ -3180,7 +3136,7 @@ impl<'a> GitFetch<'a> {
         &mut self,
         remote_name: &RemoteName,
         expr: &GitFetchRefExpression,
-        callback: &mut dyn GitSubprocessCallback,
+        callback: &mut dyn GitRemoteCallback,
         depth: Option<NonZeroU32>,
     ) -> Result<(), GitFetchError> {
         validate_remote_name(remote_name)?;
@@ -3355,10 +3311,10 @@ pub struct GitPushOptions {
 /// Pushes the specified refs and updates the repo view accordingly.
 pub fn push_refs(
     mut_repo: &mut MutableRepo,
-    subprocess_options: GitSubprocessOptions,
+    remote_options: GitRemoteOptions,
     remote: &RemoteName,
     targets: &GitPushRefTargets,
-    callback: &mut dyn GitSubprocessCallback,
+    callback: &mut dyn GitRemoteCallback,
     options: &GitPushOptions,
 ) -> Result<GitPushStats, GitPushError> {
     validate_remote_name(remote)?;
@@ -3395,7 +3351,7 @@ pub fn push_refs(
 
     let push_stats = push_updates(
         mut_repo,
-        subprocess_options,
+        remote_options,
         remote,
         &ref_updates,
         callback,
@@ -3455,10 +3411,10 @@ pub fn push_refs(
 /// Pushes the specified Git refs without updating the repo view.
 pub fn push_updates(
     repo: &dyn Repo,
-    subprocess_options: GitSubprocessOptions,
+    remote_options: GitRemoteOptions,
     remote_name: &RemoteName,
     updates: &[GitRefUpdate],
-    callback: &mut dyn GitSubprocessCallback,
+    callback: &mut dyn GitRemoteCallback,
     options: &GitPushOptions,
 ) -> Result<GitPushStats, GitPushError> {
     use gix::push::Rejection;
@@ -3494,7 +3450,7 @@ pub fn push_updates(
             let git_repo = git_repo.to_thread_local();
             let remote = git_repo
                 .find_remote(remote_name.as_str())?
-                .with_command_environment(subprocess_options.environment);
+                .with_command_environment(remote_options.environment);
             let urls = remote
                 .urls(gix::remote::Direction::Push)
                 .cloned()

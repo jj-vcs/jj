@@ -555,11 +555,6 @@
                     "description": "Whether the change id should be stored in the Git commit object",
                     "default": true
                 },
-                "executable-path": {
-                    "type": "string",
-                    "description": "Path to the git executable",
-                    "default": "git"
-                },
                 "colocate": {
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",

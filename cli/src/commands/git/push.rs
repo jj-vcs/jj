@@ -34,7 +34,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitPushRefTargets;
-use jj_lib::git::GitSettings;
+use jj_lib::git::GitRemoteOptions;
 use jj_lib::index::IndexResult;
 use jj_lib::merge::Diff;
 use jj_lib::op_store::RefTarget;
@@ -78,7 +78,7 @@ use crate::command_error::user_error_with_message;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
-use crate::git_util::GitSubprocessUi;
+use crate::git_util::GitRemoteUi;
 use crate::git_util::print_push_stats;
 use crate::progress::ProgressWriter;
 use crate::revset_util::parse_bookmark_name;
@@ -608,7 +608,6 @@ pub async fn cmd_git_push(
         }
     }
 
-    let git_settings = GitSettings::from_settings(tx.settings())?;
     let options = GitPushOptions {
         remote_push_options: args.option.clone(),
     };
@@ -631,10 +630,10 @@ pub async fn cmd_git_push(
 
         let push_stats = git::push_refs(
             tx.repo_mut(),
-            git_settings.to_subprocess_options(),
+            GitRemoteOptions::default(),
             remote,
             ref_updates,
-            &mut GitSubprocessUi::new(ui),
+            &mut GitRemoteUi::new(ui),
             &options,
         )?;
 

@@ -20,6 +20,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchRefExpression;
+use jj_lib::git::GitRemoteOptions;
 use jj_lib::git::GitSettings;
 use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
@@ -37,7 +38,7 @@ use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::commands::git::get_single_remote;
 use crate::complete;
-use crate::git_util::GitSubprocessUi;
+use crate::git_util::GitRemoteUi;
 use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_import_stats;
 use crate::revset_util::parse_remote_fetch_bookmarks;
@@ -225,11 +226,7 @@ pub async fn cmd_git_fetch(
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
-    let mut git_fetch = GitFetch::new(
-        tx.repo_mut(),
-        git_settings.to_subprocess_options(),
-        &import_options,
-    )?;
+    let mut git_fetch = GitFetch::new(tx.repo_mut(), GitRemoteOptions::default(), &import_options)?;
 
     let remote_names = matching_remotes
         .iter()
@@ -238,7 +235,7 @@ pub async fn cmd_git_fetch(
     writeln!(ui.status(), "Fetching from Git remotes: {remote_names}")?;
 
     for (remote, ref_expr) in &remote_ref_exprs {
-        let mut callback = GitSubprocessUi::new(ui);
+        let mut callback = GitRemoteUi::new(ui);
         git_fetch.fetch(remote, ref_expr, &mut callback, None)?;
     }
 

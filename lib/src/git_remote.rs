@@ -32,9 +32,71 @@ use gix::progress::Progress;
 use gix::progress::StepShared;
 use gix::progress::Unit;
 
-use crate::git_subprocess::GitProgress;
-use crate::git_subprocess::GitSidebandLineTerminator;
-use crate::git_subprocess::GitSubprocessCallback;
+/// Handles progress and sideband messages from Git remote operations.
+pub trait GitRemoteCallback {
+    /// Whether to request progress information.
+    fn needs_progress(&self) -> bool;
+
+    /// Progress of local and remote operations.
+    fn progress(&mut self, progress: &GitProgress) -> io::Result<()>;
+
+    /// Single-line sideband message received from remote.
+    fn remote_sideband(
+        &mut self,
+        message: &[u8],
+        term: Option<GitSidebandLineTerminator>,
+    ) -> io::Result<()>;
+}
+
+/// Newline character that terminates sideband message line.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[repr(u8)]
+pub enum GitSidebandLineTerminator {
+    /// CR to remain on the same line.
+    Cr = b'\r',
+    /// LF to move to the next line.
+    Lf = b'\n',
+}
+
+impl GitSidebandLineTerminator {
+    /// Returns byte representation.
+    pub fn as_byte(self) -> u8 {
+        self as u8
+    }
+}
+
+/// Progress of a Git remote operation.
+#[derive(Clone, Debug, Default)]
+pub struct GitProgress {
+    /// `(frac, total)` of "Resolving deltas".
+    pub deltas: (u64, u64),
+    /// `(frac, total)` of "Receiving objects".
+    pub objects: (u64, u64),
+    /// `(frac, total)` of remote "Counting objects".
+    pub counted_objects: (u64, u64),
+    /// `(frac, total)` of remote "Compressing objects".
+    pub compressed_objects: (u64, u64),
+}
+
+// TODO: maybe let callers print each field separately and remove overall()?
+impl GitProgress {
+    /// Overall progress normalized to 0 to 1 range.
+    pub fn overall(&self) -> f32 {
+        if self.total() != 0 {
+            self.fraction() as f32 / self.total() as f32
+        } else {
+            0.0
+        }
+    }
+
+    fn fraction(&self) -> u64 {
+        self.objects.0 + self.deltas.0 + self.counted_objects.0 + self.compressed_objects.0
+    }
+
+    fn total(&self) -> u64 {
+        self.objects.1 + self.deltas.1 + self.counted_objects.1 + self.compressed_objects.1
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum CounterKind {
@@ -51,7 +113,7 @@ enum Event {
 /// thread. Counts are shared atomically; only messages and counter setup use the
 /// bounded channel, so transfers and verbose servers cannot queue unlimited UI work.
 pub(crate) fn run_with_progress<T: Send>(
-    callback: &mut dyn GitSubprocessCallback,
+    callback: &mut dyn GitRemoteCallback,
     operation: impl FnOnce(RemoteProgress, RemoteSideband, &AtomicBool) -> gix::Result<T> + Send,
 ) -> gix::Result<T> {
     let needs_progress = callback.needs_progress();
@@ -244,7 +306,7 @@ impl SidebandLines {
         &mut self,
         is_error: bool,
         bytes: &[u8],
-        callback: &mut dyn GitSubprocessCallback,
+        callback: &mut dyn GitRemoteCallback,
     ) -> io::Result<()> {
         let buffer = if is_error {
             &mut self.errors
@@ -260,7 +322,7 @@ impl SidebandLines {
         is_error: bool,
         finished: bool,
         progress: &mut GitProgress,
-        callback: &mut dyn GitSubprocessCallback,
+        callback: &mut dyn GitRemoteCallback,
     ) -> io::Result<()> {
         while let Some(end) = buffer.iter().position(|byte| matches!(byte, b'\n' | b'\r')) {
             // A CR at a packet boundary may be the first half of CRLF.
@@ -286,7 +348,7 @@ impl SidebandLines {
         Ok(())
     }
 
-    fn finish(&mut self, callback: &mut dyn GitSubprocessCallback) -> io::Result<()> {
+    fn finish(&mut self, callback: &mut dyn GitRemoteCallback) -> io::Result<()> {
         Self::emit(
             &mut self.messages,
             false,
@@ -329,20 +391,13 @@ mod tests {
         fail: bool,
     }
 
-    impl GitSubprocessCallback for Callback {
+    impl GitRemoteCallback for Callback {
         fn needs_progress(&self) -> bool {
             true
         }
         fn progress(&mut self, progress: &GitProgress) -> io::Result<()> {
             assert_eq!(thread::current().id(), self.thread);
             self.progress.push(progress.clone());
-            Ok(())
-        }
-        fn local_sideband(
-            &mut self,
-            _: &[u8],
-            _: Option<GitSidebandLineTerminator>,
-        ) -> io::Result<()> {
             Ok(())
         }
         fn remote_sideband(

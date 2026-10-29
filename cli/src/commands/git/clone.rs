@@ -24,6 +24,7 @@ use jj_lib::git;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitImportOptions;
+use jj_lib::git::GitRemoteOptions;
 use jj_lib::git::GitSettings;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
@@ -45,7 +46,7 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
 use crate::config::ConfigEnv;
-use crate::git_util::GitSubprocessUi;
+use crate::git_util::GitRemoteUi;
 use crate::git_util::absolute_git_url;
 use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_import_stats;
@@ -382,7 +383,7 @@ async fn fetch_new_remote(
     let settings = workspace_command.settings();
     let git_settings = GitSettings::from_settings(settings)?;
     let remote_settings = settings.remote_settings()?;
-    let subprocess_options = git_settings.to_subprocess_options();
+    let remote_options = GitRemoteOptions::default();
     let import_options = GitImportOptions {
         // There may be a large number of new commits. Don't record synthetic
         // predecessors.
@@ -392,8 +393,8 @@ async fn fetch_new_remote(
     let should_track_default = settings.get_bool("git.track-default-bookmark-on-clone")?;
     let mut tx = workspace_command.start_transaction();
     let (default_branch, import_stats) = {
-        let mut git_fetch = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
-        git_fetch.fetch(remote_name, ref_expr, &mut GitSubprocessUi::new(ui), depth)?;
+        let mut git_fetch = GitFetch::new(tx.repo_mut(), remote_options, &import_options)?;
+        git_fetch.fetch(remote_name, ref_expr, &mut GitRemoteUi::new(ui), depth)?;
         let import_stats = git_fetch.import_refs().await?;
 
         let default_branch = git_fetch.get_default_branch(remote_name)?;

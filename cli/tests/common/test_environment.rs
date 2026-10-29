@@ -146,7 +146,7 @@ impl TestEnvironment {
             // has to be stable.
             cmd.env("TEMP", std::env::temp_dir());
         }
-        // Prevent git.subprocess from reading outside git config
+        // Keep Git configuration isolated from the host environment.
         cmd.env("GIT_CONFIG_SYSTEM", "/dev/null");
         cmd.env("GIT_CONFIG_GLOBAL", "/dev/null");
         for (i, (key, value)) in testutils::HERMETIC_GIT_CONFIGS.iter().enumerate() {

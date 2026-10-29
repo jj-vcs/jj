@@ -38,9 +38,9 @@ use jj_lib::git::GitImportStats;
 use jj_lib::git::GitProgress;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
+use jj_lib::git::GitRemoteCallback;
 use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
-use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git_backend::GitRepoAtWorkdirError;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::repo::ReadonlyRepo;
@@ -121,8 +121,8 @@ pub fn get_remote_web_url(repo: &ReadonlyRepo, remote_name: &str) -> Option<Stri
     git_remote_url_to_web(url)
 }
 
-/// [`Ui`] adapter to forward Git command outputs.
-pub struct GitSubprocessUi<'a> {
+/// [`Ui`] adapter for Git remote progress and sideband messages.
+pub struct GitRemoteUi<'a> {
     // Don't hold locked ui.status() which could block tracing output in
     // different threads.
     ui: &'a Ui,
@@ -132,7 +132,7 @@ pub struct GitSubprocessUi<'a> {
     erase_end: &'static [u8],
 }
 
-impl<'a> GitSubprocessUi<'a> {
+impl<'a> GitRemoteUi<'a> {
     pub fn new(ui: &'a Ui) -> Self {
         let progress_output = ui.progress_output();
         let is_terminal = progress_output.is_some();
@@ -170,7 +170,7 @@ impl<'a> GitSubprocessUi<'a> {
     }
 }
 
-impl GitSubprocessCallback for GitSubprocessUi<'_> {
+impl GitRemoteCallback for GitRemoteUi<'_> {
     fn needs_progress(&self) -> bool {
         self.progress_output.is_some()
     }
@@ -181,14 +181,6 @@ impl GitSubprocessCallback for GitSubprocessUi<'_> {
         } else {
             Ok(())
         }
-    }
-
-    fn local_sideband(
-        &mut self,
-        message: &[u8],
-        term: Option<GitSidebandLineTerminator>,
-    ) -> io::Result<()> {
-        self.write_sideband(b"git: ", message, term)
     }
 
     fn remote_sideband(
