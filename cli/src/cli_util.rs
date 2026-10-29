@@ -648,7 +648,7 @@ impl CommandHelper {
                 // operation, then merge the divergent operations. The wc_commit_id of the
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
-                let stale_stats = workspace_command
+                let (stale_stats, _) = workspace_command
                     .snapshot_working_copy(ui, git_import_export_lock)
                     .await
                     .map_err(|err| err.into_command_error())?;
@@ -1421,14 +1421,15 @@ impl WorkspaceCommandHelper {
         // pointing to the new working-copy commit might not be exported.
         // In that situation, the ref would be conflicted anyway, so export
         // failure is okay.
-        let stats = self
+        #[cfg_attr(not(feature = "git"), expect(unused_variables))]
+        let (stats, wc_commit_rewrite) = self
             .snapshot_working_copy(ui, git_import_export_lock)
             .await?;
 
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
         if self.env.working_copy_shared_with_git {
-            self.import_git_refs(ui, git_import_export_lock)
+            self.import_git_refs(ui, git_import_export_lock, wc_commit_rewrite)
                 .await
                 .map_err(snapshot_command_error)?;
         }
@@ -1532,6 +1533,12 @@ impl WorkspaceCommandHelper {
     /// If the working-copy branch is rebased, and if update is allowed, the
     /// new working-copy commit will be checked out.
     ///
+    /// If the working-copy commit was rewritten by the preceding snapshot,
+    /// `wc_commit_rewrite` should be its `(old, new)` commit IDs. Branches
+    /// that Git moved to the pre-snapshot working-copy commit are then moved
+    /// to the new working-copy commit instead of keeping the pre-snapshot
+    /// commit visible as a divergent change.
+    ///
     /// This function does not import the Git HEAD, but the HEAD may be reset to
     /// the working copy parent if the repository is colocated.
     #[cfg(feature = "git")]
@@ -1540,6 +1547,7 @@ impl WorkspaceCommandHelper {
         &mut self,
         ui: &Ui,
         git_import_export_lock: &GitImportExportLock,
+        wc_commit_rewrite: Option<(CommitId, CommitId)>,
     ) -> Result<(), CommandError> {
         use jj_lib::git;
         let git_settings = git::GitSettings::from_settings(self.settings())?;
@@ -1554,6 +1562,12 @@ impl WorkspaceCommandHelper {
         }
 
         let mut tx = tx.into_inner();
+        // A Git branch may point to the working-copy commit that the snapshot
+        // just rewrote. Record the rewrite so that the branch is moved to the
+        // new working-copy commit, just like a bookmark set by jj would be.
+        if let Some((old_id, new_id)) = wc_commit_rewrite {
+            tx.repo_mut().set_rewritten_commit(old_id, new_id);
+        }
         let num_rebased = rebase_mutable_descendants(&self.env, &mut tx).await?;
         if num_rebased > 0 {
             writeln!(
@@ -2104,12 +2118,18 @@ to the current parents may contain changes from multiple commits.
         Err(error)
     }
 
+    /// Snapshots the working copy into the working-copy commit.
+    ///
+    /// Returns the snapshot stats, and the `(old, new)` commit IDs if the
+    /// working-copy commit was rewritten. No rewrite is reported if the
+    /// working-copy commit is immutable, since a new commit is then created on
+    /// top of it instead.
     #[instrument(skip_all)]
     async fn snapshot_working_copy(
         &mut self,
         ui: &Ui,
         git_import_export_lock: &GitImportExportLock,
-    ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
+    ) -> Result<(SnapshotStats, Option<(CommitId, CommitId)>), SnapshotWorkingCopyError> {
         let workspace_name = self.workspace_name().to_owned();
         let repo = self.repo().clone();
         let auto_tracking_matcher = self
@@ -2132,7 +2152,7 @@ to the current parents may contain changes from multiple commits.
         else {
             // If the workspace has been deleted, it's unclear what to do, so we just skip
             // committing the working copy.
-            return Ok(SnapshotStats::default());
+            return Ok((SnapshotStats::default(), None));
         };
 
         self.user_repo = ReadonlyUserRepo::new(repo);
@@ -2146,6 +2166,7 @@ to the current parents may contain changes from multiple commits.
                 .await
                 .map_err(snapshot_command_error)?
         };
+        let mut rewritten_wc_commit = None;
         if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
             let mut tx = start_repo_transaction(
                 &self.user_repo.repo,
@@ -2185,6 +2206,7 @@ to the current parents may contain changes from multiple commits.
                     .write()
                     .await
                     .map_err(snapshot_command_error)?;
+                rewritten_wc_commit = Some((wc_commit.id().clone(), new_wc_commit.id().clone()));
             }
             mut_repo
                 .set_wc_commit(workspace_name.clone(), new_wc_commit.id().clone())
@@ -2293,7 +2315,7 @@ to the current parents may contain changes from multiple commits.
                 .await
                 .map_err(snapshot_command_error)?;
         }
-        Ok(stats)
+        Ok((stats, rewritten_wc_commit))
     }
 
     async fn update_working_copy(

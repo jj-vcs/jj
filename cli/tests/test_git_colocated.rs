@@ -1062,6 +1062,141 @@ fn test_git_colocated_rebase_dirty_working_copy() -> TestResult {
 }
 
 #[test]
+fn test_git_colocated_branch_moved_to_dirty_working_copy() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
+
+    work_dir.write_file("file", "base");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    // Move a branch in Git to the commit currently backing @, while @ has
+    // unsnapshotted edits. The working-copy commit is exported to the Git
+    // store, so Git can point a branch at it.
+    work_dir.write_file("file", "unsnapshotted");
+    let target_id = work_dir
+        .run_jj([
+            "log",
+            "--ignore-working-copy",
+            "--no-graph",
+            "-T=commit_id",
+            "-r=@",
+        ])
+        .success()
+        .stdout
+        .into_raw();
+    git_repo.reference(
+        "refs/heads/feature",
+        gix::ObjectId::from_hex(target_id.as_bytes()).unwrap(),
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
+
+    // The snapshot rewrites @, so the imported branch should be moved to the
+    // new working-copy commit instead of keeping the pre-snapshot commit
+    // visible as a divergent change.
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    M file
+    Working copy  (@) : rlvkpnrz 06f6b655 feature | (no description set)
+    Parent commit (@-): qpvuntsm 639167ef base
+    [EOF]
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  06f6b65583a3ddcd81daae7f1ed42ee8612f5f2c feature
+    ○  639167ef6cb7ea27315913b7a8121e5e31afec70 base
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+    // The branch should also have been updated in Git to point to the new
+    // working-copy commit.
+    insta::assert_snapshot!(
+        git_repo
+            .find_reference("refs/heads/feature")?
+            .id()
+            .to_string(),
+        @"06f6b65583a3ddcd81daae7f1ed42ee8612f5f2c"
+    );
+
+    // The working-copy content shouldn't be lost.
+    insta::assert_snapshot!(work_dir.read_file("file"), @"unsnapshotted");
+
+    Ok(())
+}
+
+#[test]
+fn test_git_colocated_branch_on_child_of_dirty_working_copy() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root());
+
+    work_dir.write_file("file", "base");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    // Create a commit in Git on top of the commit currently backing @, while
+    // @ has unsnapshotted edits.
+    work_dir.write_file("file", "unsnapshotted");
+    let wc_commit_id = work_dir
+        .run_jj([
+            "log",
+            "--ignore-working-copy",
+            "--no-graph",
+            "-T=commit_id",
+            "-r=@",
+        ])
+        .success()
+        .stdout
+        .into_raw();
+    git::add_commit(
+        &git_repo,
+        "refs/heads/feature",
+        "other-file",
+        b"other",
+        "child",
+        &[gix::ObjectId::from_hex(wc_commit_id.as_bytes()).unwrap()],
+    );
+
+    // The snapshot rewrites @, so the imported commit should be rebased onto
+    // the new working-copy commit instead of keeping the pre-snapshot commit
+    // visible as a divergent change.
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    M file
+    Working copy  (@) : rlvkpnrz 06f6b655 (no description set)
+    Parent commit (@-): qpvuntsm 639167ef base
+    [EOF]
+    ------- stderr -------
+    Rebased 1 descendant commits off of commits rewritten from Git.
+    Done importing changes from the underlying Git repo.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output_divergence(&work_dir), @"
+    ○  ovysqylvlvkq 67f8203ea55d child feature
+    @  rlvkpnrzqnoo 06f6b65583a3
+    ○  qpvuntsmwlqt 639167ef6cb7 base
+    ◆  zzzzzzzzzzzz 000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["file", "show", "-r=feature", "file"]),
+        @"unsnapshotted[EOF]"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_git_colocated_external_checkout() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
