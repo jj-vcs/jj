@@ -54,6 +54,7 @@ use jj_lib::default_backend_factories::default_submodule_store_initializer;
 use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::default_backend_factories::default_workspace_store_initializer;
+use jj_lib::file_util::IoResultExt as _;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::EverythingMatcher;
@@ -357,10 +358,11 @@ impl TestRepo {
         workspace_store
             .add(workspace_name, env.root(), workspace_type)
             .unwrap();
+        let repo_path = dunce::canonicalize(&repo_dir).context(repo_dir).unwrap();
         Self {
             env,
             repo,
-            repo_path: repo_dir,
+            repo_path,
         }
     }
 
