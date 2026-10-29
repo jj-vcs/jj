@@ -37,7 +37,6 @@ use futures::StreamExt as _;
 use futures::io::Cursor;
 use futures::stream::BoxStream;
 use gix::bstr::BString;
-use gix::objs::CommitRefIter;
 use gix::objs::Exists as _;
 use gix::objs::Write as _;
 use gix::objs::WriteTo as _;
@@ -671,8 +670,8 @@ fn commit_from_git_without_root_parent(
     is_shallow: bool,
 ) -> BackendResult<Commit> {
     let decode_err = |err: gix::Error| to_read_object_err(err, id);
-    let commit = git_object
-        .try_to_commit_ref()
+    let (commit, signed_data) = git_object
+        .try_to_commit_ref_with_signed_data()
         .map_err(|err| to_read_object_err(err, id))?;
 
     // If the git header has a change-id field, we attempt to convert that to a
@@ -707,23 +706,11 @@ fn commit_from_git_without_root_parent(
     let author = signature_from_git(commit.author().map_err(decode_err)?);
     let committer = signature_from_git(commit.committer().map_err(decode_err)?);
 
-    // If the commit is signed, extract both the signature and the signed data
-    // (which is the commit buffer with the gpgsig header omitted).
-    // We have to re-parse the raw commit data because gix CommitRef does not give
-    // us the sogned data, only the signature.
-    // Ideally, we could use try_to_commit_ref_iter at the beginning of this
-    // function and extract everything from that. For now, this works
-    let secure_sig = commit
-        .extra_headers
-        .iter()
-        .any(|(k, _)| *k == signature_field_name(git_object.id.kind()))
-        .then(|| CommitRefIter::signature(&git_object.data, git_object.id.kind()))
-        .transpose()
-        .map_err(decode_err)?
-        .flatten()
-        .map(|(sig, data)| SecureSig {
+    let secure_sig = signed_data
+        .zip(commit.extra_headers().pgp_signature())
+        .map(|(data, sig)| SecureSig {
             data: data.to_bstring().into(),
-            sig: sig.into_owned().into(),
+            sig: sig.to_owned().into(),
         });
 
     Ok(Commit {
