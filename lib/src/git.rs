@@ -61,8 +61,6 @@ use crate::git_backend::GitBackend;
 pub use crate::git_subprocess::GitProgress;
 pub use crate::git_subprocess::GitSidebandLineTerminator;
 pub use crate::git_subprocess::GitSubprocessCallback;
-use crate::git_subprocess::GitSubprocessContext;
-use crate::git_subprocess::GitSubprocessError;
 use crate::index::IndexError;
 use crate::matchers::EverythingMatcher;
 use crate::merge::Diff;
@@ -280,15 +278,6 @@ impl RefSpec {
         }
     }
 
-    fn delete(destination: impl Into<String>) -> Self {
-        // We don't force push on branch deletion
-        Self {
-            forced: false,
-            source: None,
-            destination: destination.into(),
-        }
-    }
-
     pub(crate) fn to_git_format(&self) -> String {
         format!(
             "{}{}",
@@ -327,43 +316,6 @@ impl NegativeRefSpec {
 
     pub(crate) fn to_git_format(&self) -> String {
         format!("^{}", self.source)
-    }
-}
-
-/// Helper struct that matches a refspec with its expected location in the
-/// remote it's being pushed to
-pub(crate) struct RefToPush<'a> {
-    pub(crate) refspec: &'a RefSpec,
-    pub(crate) expected_location: Option<&'a gix::oid>,
-}
-
-impl<'a> RefToPush<'a> {
-    fn new(
-        refspec: &'a RefSpec,
-        expected_locations: &'a HashMap<&GitRefName, Option<&gix::oid>>,
-    ) -> Self {
-        let expected_location = *expected_locations
-            .get(GitRefName::new(&refspec.destination))
-            .expect(
-                "The refspecs and the expected locations were both constructed from the same \
-                 source of truth. This means the lookup should always work.",
-            );
-
-        Self {
-            refspec,
-            expected_location,
-        }
-    }
-
-    pub(crate) fn to_git_lease(&self) -> String {
-        format!(
-            "{}:{}",
-            self.refspec.destination,
-            self.expected_location
-                .map(|x| x.to_string())
-                .as_deref()
-                .unwrap_or("")
-        )
     }
 }
 
@@ -3370,8 +3322,8 @@ pub enum GitPushError {
     NoSuchRemote(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    #[error(transparent)]
-    Subprocess(#[from] GitSubprocessError),
+    #[error("Git push failed")]
+    Git(#[from] gix::Error),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
@@ -3509,48 +3461,102 @@ pub fn push_updates(
     callback: &mut dyn GitSubprocessCallback,
     options: &GitPushOptions,
 ) -> Result<GitPushStats, GitPushError> {
-    let mut qualified_remote_refs_expected_locations = HashMap::new();
-    let mut refspecs = vec![];
-    for update in updates {
-        qualified_remote_refs_expected_locations.insert(
-            update.qualified_name.as_ref(),
-            update.targets.before.as_deref(),
-        );
-        if let Some(new_target) = &update.targets.after {
-            // We always force-push. We use the push_negotiation callback in
-            // `push_refs` to check that the refs did not unexpectedly move on
-            // the remote.
-            refspecs.push(RefSpec::forced(
-                new_target.to_string(),
-                &update.qualified_name,
-            ));
-        } else {
-            // Prefixing this with `+` to force-push or not should make no
-            // difference. The push negotiation happens regardless, and wouldn't
-            // allow creating a branch if it's not a fast-forward.
-            refspecs.push(RefSpec::delete(&update.qualified_name));
-        }
-    }
+    use gix::push::Rejection;
+    use gix::push::Status;
 
-    let git_backend = get_git_backend(repo.store())?;
-    let git_repo = git_backend.git_repo();
-    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
-
-    // check the remote exists
-    if try_find_active_remote_inner(&git_repo, remote_name).is_none() {
-        return Err(GitPushError::NoSuchRemote(remote_name.to_owned()));
-    }
-
-    let refs_to_push: Vec<RefToPush> = refspecs
+    let git_repo = get_git_repo(repo.store())?;
+    try_find_active_remote_inner(&git_repo, remote_name)
+        .ok_or_else(|| GitPushError::NoSuchRemote(remote_name.to_owned()))??;
+    let git_repo = git_repo.into_sync();
+    let remote_name = remote_name.to_owned();
+    let updates = updates
         .iter()
-        .map(|full_refspec| RefToPush::new(full_refspec, &qualified_remote_refs_expected_locations))
-        .collect();
+        .map(|update| {
+            Ok(gix::push::Update {
+                destination: gix::refs::FullName::try_from(update.qualified_name.as_str())
+                    .or_error()?,
+                new_id: update.targets.after,
+                lease: gix::push::Lease::MustMatch(update.targets.before),
+                force: false,
+            })
+        })
+        .collect::<gix::Result<Vec<_>>>()?;
+    let push_options = options
+        .remote_push_options
+        .iter()
+        .map(|option| BString::from(option.as_str()))
+        .collect_vec();
+    let outcomes = crate::git_remote::run_with_progress(
+        callback,
+        move |mut progress, sideband, interrupt| {
+            use gix::progress::NestedProgress as _;
 
-    let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, callback, options)?;
-    push_stats.pushed.sort();
-    push_stats.rejected.sort();
-    push_stats.remote_rejected.sort();
-    Ok(push_stats)
+            let git_repo = git_repo.to_thread_local();
+            let remote = git_repo
+                .find_remote(remote_name.as_str())?
+                .with_command_environment(subprocess_options.environment);
+            let urls = remote
+                .urls(gix::remote::Direction::Push)
+                .cloned()
+                .collect_vec();
+            let mut outcomes = Vec::with_capacity(urls.len());
+            for url in urls {
+                let remote = remote.clone().with_push_url_without_url_rewrite(url)?;
+                outcomes.push(remote.push(
+                    updates.clone(),
+                    gix::push::Options {
+                        push_options: &push_options,
+                        ..Default::default()
+                    },
+                    progress.add_child("push"),
+                    |is_error, bytes| sideband.send(is_error, bytes),
+                    interrupt,
+                )?);
+            }
+            Ok(outcomes)
+        },
+    )?;
+    let mut stats = GitPushStats::default();
+    for update in outcomes.into_iter().flat_map(|outcome| outcome.updates) {
+        let name = GitRefNameBuf::from(
+            String::from_utf8(update.update.destination.as_bstr().to_vec()).or_error()?,
+        );
+        let reason = match update.status {
+            Status::UpToDate | Status::Updated { .. } | Status::WouldUpdate { .. } => {
+                stats.pushed.push(name);
+                continue;
+            }
+            Status::Rejected(Rejection::Server(reason)) => {
+                stats
+                    .remote_rejected
+                    .push((name, Some(String::from_utf8_lossy(&reason).into_owned())));
+                continue;
+            }
+            Status::Rejected(Rejection::StaleLease) => "stale info",
+            Status::Rejected(Rejection::AlreadyExists) => "already exists",
+            Status::Rejected(Rejection::FetchFirst) => "fetch first",
+            Status::Rejected(Rejection::NeedsForce) => "needs force",
+            Status::Rejected(Rejection::NonFastForward) => "non-fast-forward",
+            Status::Rejected(Rejection::NonCommitBranch) => "new tip is not a commit",
+            Status::Rejected(Rejection::Atomic) => "atomic push failed",
+        };
+        stats.rejected.push((name, Some(reason.to_owned())));
+    }
+    // A ref is fully pushed only when every configured push destination accepted it.
+    stats.pushed.retain(|name| {
+        !stats
+            .rejected
+            .iter()
+            .chain(&stats.remote_rejected)
+            .any(|(rejected, _)| rejected == name)
+    });
+    stats.pushed.sort();
+    stats.pushed.dedup();
+    stats.rejected.sort();
+    stats.rejected.dedup();
+    stats.remote_rejected.sort();
+    stats.remote_rejected.dedup();
+    Ok(stats)
 }
 
 /// Constructs `RefEdit` to update pushed ref in the fetch namespace.

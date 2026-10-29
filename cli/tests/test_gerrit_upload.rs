@@ -292,15 +292,18 @@ fn test_gerrit_upload_failure() {
         .run_jj(["git", "remote", "set-url", "origin", "nonexistent"])
         .success();
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "d", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing znkkpsqq 47f1f88c d | d
     Error: Internal git error while pushing to gerrit
-    Caused by: Could not find repository at '$TEST_ENV/local/nonexistent'
+    Caused by:
+    1: Git push failed
+    2: Could not verify that "$TEST_ENV/local/nonexistent" is a valid git directory before attempting to use it
+    3: Could not retrieve metadata of "$TEST_ENV/local/nonexistent/.git"
     [EOF]
     [exit status: 1]
-    ");
+    "#);
 }
 
 #[test]

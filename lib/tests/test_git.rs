@@ -6766,18 +6766,26 @@ fn test_push_updates_invalid_remote() -> TestResult {
 }
 
 #[test]
-fn test_push_environment_options() -> TestResult {
+#[cfg(unix)]
+fn test_push_environment_options_without_git() -> TestResult {
+    use std::os::unix::fs::PermissionsExt as _;
+
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let mut tx = setup.jj_repo.start_transaction();
-    let mut subprocess_options = GitSubprocessOptions::from_settings(&settings)?;
-
-    let trace_path = temp_dir.path().join("git-trace.log");
-    subprocess_options
-        .environment
-        .insert("GIT_TRACE".into(), trace_path.clone().into());
-
+    let hook = setup.source_repo_dir.join("hooks/pre-receive");
+    fs::write(
+        &hook,
+        "#!/bin/sh\nprintf '%s' \"$JJ_PUSH_TEST\" >environment-marker\n",
+    )?;
+    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755))?;
+    let mut options = GitSubprocessOptions::from_settings(&settings)?;
+    options.environment.extend([
+        ("PATH".into(), "".into()),
+        ("GIT_EXEC_PATH".into(), "".into()),
+        ("JJ_PUSH_TEST".into(), "per-operation environment".into()),
+    ]);
     let targets = GitPushRefTargets {
         bookmarks: vec![(
             "main".into(),
@@ -6788,17 +6796,89 @@ fn test_push_environment_options() -> TestResult {
         )],
         tags: vec![],
     };
-
-    git::push_refs(
+    let stats = git::push_refs(
         tx.repo_mut(),
-        subprocess_options,
+        options,
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
         &GitPushOptions::default(),
     )?;
+    assert!(stats.all_ok());
+    assert_eq!(
+        fs::read_to_string(setup.source_repo_dir.join("environment-marker"))?,
+        "per-operation environment"
+    );
+    Ok(())
+}
 
-    assert!(trace_path.exists());
+#[test]
+fn test_push_updates_uses_every_push_url_and_reports_partial_rejections() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let first = testutils::git::init_bare(test_repo.env.root().join("first"));
+    let second = testutils::git::init_bare(test_repo.env.root().join("second"));
+    let local = get_git_repo(&test_repo.repo);
+    let mut remote = local.remote_at(first.path().to_str().unwrap())?;
+    let mut config = local.config_snapshot().clone();
+    remote.save_as_to("origin", &mut config)?;
+    let mut section = config.section_mut("remote", "origin")?;
+    section.push("pushurl", gix::path::into_bstr(first.path())?.as_ref())?;
+    section.push("pushurl", gix::path::into_bstr(second.path())?.as_ref())?;
+    drop(section);
+    git::save_git_config(&config)?;
+    let repo = test_repo
+        .env
+        .load_repo_at_head(test_repo.repo.settings(), test_repo.repo_path());
+    let mut tx = repo.start_transaction();
+    let initial = write_random_commit(tx.repo_mut());
+    let next = write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
+    let unrelated = empty_git_commit(&second, "refs/heads/other", &[]);
+    let mut options = GitSubprocessOptions::from_settings(repo.settings())?;
+    options.environment.insert("PATH".into(), "".into());
+    let push = |before, after| {
+        git::push_updates(
+            tx.repo(),
+            options.clone(),
+            "origin".as_ref(),
+            &[GitRefUpdate {
+                qualified_name: "refs/heads/main".into(),
+                targets: Diff::new(before, Some(after)),
+            }],
+            &mut NullCallback,
+            &GitPushOptions::default(),
+        )
+    };
+    let stats = push(None, git_id(&initial))?;
+    assert!(stats.all_ok());
+    assert_eq!(stats.pushed, [GitRefNameBuf::from("refs/heads/main")]);
+    assert_eq!(
+        first.find_reference("refs/heads/main")?.id(),
+        git_id(&initial)
+    );
+    assert_eq!(
+        second.find_reference("refs/heads/main")?.id(),
+        git_id(&initial)
+    );
+    second.reference(
+        "refs/heads/main",
+        unrelated,
+        gix::refs::transaction::PreviousValue::Any,
+        "concurrent update",
+    )?;
+    let stats = push(Some(git_id(&initial)), git_id(&next))?;
+    assert!(
+        stats.pushed.is_empty(),
+        "all destinations must accept a ref before marking it pushed"
+    );
+    assert_eq!(
+        stats.rejected,
+        [(
+            GitRefNameBuf::from("refs/heads/main"),
+            Some("stale info".into())
+        )]
+    );
+    assert_eq!(first.find_reference("refs/heads/main")?.id(), git_id(&next));
+    assert_eq!(second.find_reference("refs/heads/main")?.id(), unrelated);
     Ok(())
 }
 
