@@ -15,12 +15,14 @@
 //! Running operations on a workspace: snapshotting, importing from and
 //! exporting to Git, finishing transactions, and updating the working copy.
 
+use std::fmt;
 use std::sync::Arc;
 
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::gitignore::GitIgnoreFile;
+use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::lock::FileLock;
 use jj_lib::lock::FileLockError;
 use jj_lib::matchers::Matcher;
@@ -51,6 +53,50 @@ use crate::workspace_env::WorkspaceEnvironmentError;
 /// lock held). The lock is automatically released when this token is dropped.
 pub struct GitImportExportLock {
     pub(crate) _lock: Option<FileLock>,
+}
+
+/// A [`ReadonlyRepo`] along with data derived from it and the user's config.
+///
+/// The short commit/change ID prefixes in the [`IdPrefixContext`] are indexed
+/// lazily, the first time they're needed.
+#[derive(Clone)]
+pub struct ReadonlyUserRepo {
+    repo: Arc<ReadonlyRepo>,
+    id_prefix_context: Arc<IdPrefixContext>,
+}
+
+impl ReadonlyUserRepo {
+    /// Wraps `repo` with `id_prefix_context`, which is usually created by
+    /// [`WorkspaceEnvironment::new_id_prefix_context()`]. The
+    /// `id_prefix_context` must not have been used with any other repo.
+    ///
+    /// [`WorkspaceEnvironment::new_id_prefix_context()`]:
+    ///     crate::workspace_env::WorkspaceEnvironment::new_id_prefix_context
+    pub fn new(repo: Arc<ReadonlyRepo>, id_prefix_context: IdPrefixContext) -> Self {
+        Self {
+            repo,
+            id_prefix_context: Arc::new(id_prefix_context),
+        }
+    }
+
+    /// The repo.
+    pub fn repo(&self) -> &Arc<ReadonlyRepo> {
+        &self.repo
+    }
+
+    /// Context for resolving and shortening commit and change ID prefixes in
+    /// [`Self::repo()`].
+    pub fn id_prefix_context(&self) -> &Arc<IdPrefixContext> {
+        &self.id_prefix_context
+    }
+}
+
+impl fmt::Debug for ReadonlyUserRepo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ReadonlyUserRepo")
+            .field("op_id", self.repo.op_id())
+            .finish_non_exhaustive()
+    }
 }
 
 /// Options controlling how operations on a workspace interact with the
