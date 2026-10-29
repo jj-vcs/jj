@@ -37,7 +37,11 @@ in
       "^target/"
     ];
 
-    cargoLock.lockFile = ./Cargo.lock;
+    cargoLock = {
+      lockFile = ./Cargo.lock;
+      # Gitoxide is pinned to a Git revision by Cargo.lock.
+      allowBuiltinFetchGit = true;
+    };
     nativeBuildInputs =
       [
         installShellFiles
@@ -51,7 +55,7 @@ in
       gnupg
       openssh
 
-      # for git subprocess test
+      # for Git interoperability tests
       git
     ];
 
