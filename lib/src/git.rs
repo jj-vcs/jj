@@ -1957,8 +1957,10 @@ pub fn unlink_worktree(
         Err(err)
             if matches!(
                 err.downcast_any_ref::<gix::worktree::remove::Error>(),
-                Some(gix::worktree::remove::Error::NotFound { .. })
-                    | Some(gix::worktree::remove::Error::MainWorktree { .. })
+                Some(
+                    gix::worktree::remove::Error::NotFound { .. }
+                        | gix::worktree::remove::Error::MainWorktree { .. }
+                )
             ) =>
         {
             return Ok(false);
