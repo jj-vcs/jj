@@ -25,6 +25,7 @@ use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::repo::OpContext;
 use jj_lib::repo::Repo as _;
 use maplit::btreemap;
 use maplit::hashset;
@@ -737,7 +738,6 @@ fn test_merge_three_operations() -> TestResult {
     // A      wc: K
 
     let test_repo = TestRepo::init();
-
     let mut tx_a = test_repo.repo.start_transaction();
     let commit_k = write_random_commit(tx_a.repo_mut());
     tx_a.repo_mut()
@@ -859,7 +859,7 @@ fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
     tx_f.repo_mut().rebase_descendants().block_on()?;
     let repo_f = tx_f.commit("F").block_on()?;
 
-    let repo = repo_f.reload_at_head(None).block_on()?;
+    let repo = repo_f.reload_at_head(&OpContext::Repo).block_on()?;
     let heads = repo.view().heads();
     assert_eq!(*heads, hashset![commit_m.id().clone()]);
     assert_eq!(
@@ -885,7 +885,6 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
     // A   K(@)
 
     let test_repo = TestRepo::init();
-
     let mut tx_a = test_repo.repo.start_transaction();
     let commit_k = write_random_commit(tx_a.repo_mut());
     tx_a.repo_mut()

@@ -65,7 +65,9 @@ pub fn default_backend_factories() -> StoreFactories {
     // WorkspaceStores
     factories.add_workspace_store(
         SimpleWorkspaceStore::NAME,
-        Box::new(|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::load(store_path)?))),
+        Box::new(|settings, store_path| {
+            Ok(Box::new(SimpleWorkspaceStore::load(settings, store_path)?))
+        }),
     );
 
     // OpStores
@@ -99,7 +101,7 @@ pub fn default_backend_factories() -> StoreFactories {
 
 /// Returns the initializer for the default workspace store.
 pub fn default_workspace_store_initializer() -> &'static WorkspaceStoreInitializer<'static> {
-    &|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::init(store_path)?))
+    &|settings, store_path| Ok(Box::new(SimpleWorkspaceStore::init(settings, store_path)?))
 }
 
 /// Returns the initializer for the default operation store.
@@ -110,7 +112,9 @@ pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
 /// Returns the initializer for the default operation heads store.
 pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
     &|_settings, store_path, root_op_id| {
-        Ok(Box::new(SimpleOpHeadsStore::init(store_path, root_op_id)?))
+        Ok(Box::new(SimpleOpHeadsStore::init_op_heads_store(
+            store_path, root_op_id,
+        )?))
     }
 }
 

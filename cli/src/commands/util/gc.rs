@@ -64,6 +64,8 @@ pub async fn cmd_util_gc(
         .gc(slice::from_ref(repo.op_id()), keep_newer)
         .await?;
 
+    // TODO: XXX:W The index we pass here should be a union of the indices of the
+    // global opheads + the opheads of all independent workspaces.
     let new_heads = repo.index().all_heads_for_gc()?.collect_vec();
     repo.store().backend().gc(&new_heads, keep_newer).await?;
     Ok(())

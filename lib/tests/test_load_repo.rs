@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_lib::ref_name::WorkspaceName;
+use jj_lib::repo::OpContext;
 use jj_lib::repo::RepoLoader;
 use pollster::FutureExt as _;
 use testutils::TestRepo;
@@ -40,9 +40,7 @@ fn test_load_at_operation() -> TestResult {
         test_repo.repo_path(),
         &test_repo.env.default_backend_factories(),
     )?;
-    let head_repo = loader
-        .load_at_head(Some(WorkspaceName::DEFAULT))
-        .block_on()?;
+    let head_repo = loader.load_at_head(&OpContext::Repo).block_on()?;
     assert!(!head_repo.view().heads().contains(commit.id()));
 
     // If we load the repo at the previous operation, we should see the commit since

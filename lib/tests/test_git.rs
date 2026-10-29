@@ -30,6 +30,7 @@ use std::thread;
 
 use gix::remote::Direction;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -84,6 +85,7 @@ use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::MutableRepo;
+use jj_lib::repo::OpContext;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
@@ -2592,12 +2594,14 @@ fn test_import_export_head_bare_and_worktree() -> TestResult {
         &workspace_root,
         Some(&commit1_oid.to_string()),
     );
+
     let (workspace, repo) = Workspace::init_workspace_with_existing_repo(
         &workspace_root,
         test_repo.repo_path(),
         repo,
         &*default_working_copy_factory(),
         "wt".into(),
+        WorkspaceType::Regular,
         None,
     )
     .block_on()?;
@@ -4168,6 +4172,7 @@ fn test_update_intent_to_add_drops_stale_cache_tree() -> TestResult {
         &settings,
         &workspace_root,
         WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         &workspace_root.join(".git"),
     )
     .block_on()?;
@@ -6805,6 +6810,8 @@ fn test_bulk_update_extra_on_import_refs() -> TestResult {
 fn test_rewrite_imported_commit() -> TestResult {
     let test_repo = TestRepo::init_with_backend_and_settings(
         TestRepoBackend::Git,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         &user_settings_without_change_id(),
     );
     let repo = &test_repo.repo;
@@ -6901,9 +6908,7 @@ fn test_concurrent_write_commit() -> TestResult {
     assert_eq!(commit_change_ids.len(), num_thread);
 
     // All unique commits should be preserved.
-    let repo = repo
-        .reload_at_head(Some(WorkspaceName::DEFAULT))
-        .block_on()?;
+    let repo = repo.reload_at_head(&OpContext::Repo).block_on()?;
     for (commit_id, change_ids) in &commit_change_ids {
         let commit = repo.store().get_commit(commit_id)?;
         assert_eq!(commit.id(), commit_id);
@@ -6991,10 +6996,7 @@ fn test_concurrent_read_write_commit() -> TestResult {
                     if pending_commit_ids.is_empty() {
                         break;
                     }
-                    repo = repo
-                        .reload_at_head(Some(WorkspaceName::DEFAULT))
-                        .block_on()
-                        .unwrap();
+                    repo = repo.reload_at_head(&OpContext::Repo).block_on().unwrap();
                     let git_backend = get_git_backend(&repo);
                     let mut tx = repo.start_transaction();
                     pending_commit_ids = pending_commit_ids
@@ -7041,9 +7043,7 @@ fn test_concurrent_read_write_commit() -> TestResult {
     });
 
     // The index should be consistent with the store.
-    let repo = repo
-        .reload_at_head(Some(WorkspaceName::DEFAULT))
-        .block_on()?;
+    let repo = repo.reload_at_head(&OpContext::Repo).block_on()?;
     for commit_id in &commit_ids {
         assert!(repo.index().has_id(commit_id).block_on()?);
         let commit = repo.store().get_commit(commit_id)?;

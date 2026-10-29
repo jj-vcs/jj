@@ -22,13 +22,19 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
+use jj_core::ref_name::WorkspaceName;
+use jj_core::workspace_store::WorkspaceStore;
+use jj_core::workspace_store::WorkspaceStoreError;
+use jj_core::workspace_store::WorkspaceType;
 use thiserror::Error;
 
+use crate::backend::WorkspaceId;
 use crate::dag_walk_async;
 use crate::op_store::OpStore;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
 use crate::operation::Operation;
+use crate::repo::OpContext;
 
 #[derive(Debug, Error)]
 pub enum OpHeadsStoreError {
@@ -45,6 +51,14 @@ pub enum OpHeadsStoreError {
 
 pub trait OpHeadsStoreLock {}
 
+#[derive(Debug, Clone)]
+pub enum OpHeadsKey {
+    /// Refers to the repo-wide OpHeads.
+    Repo,
+    /// Refers to per-workspace OpHeads.
+    Workspace(WorkspaceId),
+}
+
 /// Manages the set of current heads of the operation log.
 #[async_trait]
 pub trait OpHeadsStore: Any + Send + Sync + Debug {
@@ -56,19 +70,33 @@ pub trait OpHeadsStore: Any + Send + Sync + Debug {
     /// removes all specified old operations except for the new one.
     async fn update_op_heads(
         &self,
+        op_heads_key: &OpHeadsKey,
         old_ids: &[OperationId],
         new_id: &OperationId,
     ) -> Result<(), OpHeadsStoreError>;
 
     /// Return the current op heads. The returned list must not be empty; it
     /// must contain the root operation if there are no later op heads.
-    async fn get_op_heads(&self) -> Result<Vec<OperationId>, OpHeadsStoreError>;
+    async fn get_op_heads(
+        &self,
+        op_heads_key: &OpHeadsKey,
+    ) -> Result<Vec<OperationId>, OpHeadsStoreError>;
+
+    /// Initializes the op heads.
+    async fn init_op_heads(
+        &self,
+        op_heads_key: &OpHeadsKey,
+        root_op_id: &OperationId,
+    ) -> Result<(), OpHeadsStoreError>;
 
     /// Optionally takes a lock on the op heads store. The purpose of the lock
     /// is to prevent concurrent processes from resolving the same divergent
     /// operations. It is not needed for correctness; implementations are free
     /// to return a type that doesn't hold a lock.
-    async fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError>;
+    async fn lock(
+        &self,
+        op_heads_key: &OpHeadsKey,
+    ) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError>;
 }
 
 impl dyn OpHeadsStore {
@@ -85,6 +113,7 @@ impl dyn OpHeadsStore {
 pub async fn resolve_op_heads<E>(
     op_heads_store: &dyn OpHeadsStore,
     op_store: &Arc<dyn OpStore>,
+    op_heads_key: &OpHeadsKey,
     resolver: impl AsyncFnOnce(Vec<Operation>) -> Result<Operation, E>,
 ) -> Result<Operation, E>
 where
@@ -93,7 +122,7 @@ where
     // This can be empty if the OpHeadsStore doesn't support atomic updates.
     // For example, all entries ahead of a readdir() pointer could be deleted by
     // another concurrent process.
-    let mut op_heads = op_heads_store.get_op_heads().await?;
+    let mut op_heads = op_heads_store.get_op_heads(op_heads_key).await?;
 
     if op_heads.len() == 1 {
         let operation_id = op_heads.pop().unwrap();
@@ -109,8 +138,8 @@ where
     // Note that the locking isn't necessary for correctness of merge; we take
     // the lock only to prevent other concurrent processes from doing the same
     // work (and producing another set of divergent heads).
-    let _lock = op_heads_store.lock().await?;
-    let op_head_ids = op_heads_store.get_op_heads().await?;
+    let _lock = op_heads_store.lock(op_heads_key).await?;
+    let op_head_ids = op_heads_store.get_op_heads(op_heads_key).await?;
     assert!(!op_head_ids.is_empty());
 
     if op_head_ids.len() == 1 {
@@ -146,7 +175,7 @@ where
     // Return without creating a merge operation
     if let [op_head] = &*op_heads {
         op_heads_store
-            .update_op_heads(&ancestor_op_heads, op_head.id())
+            .update_op_heads(op_heads_key, &ancestor_op_heads, op_head.id())
             .await?;
         return Ok(op_head.clone());
     }
@@ -156,7 +185,36 @@ where
     let mut old_op_heads = ancestor_op_heads;
     old_op_heads.extend_from_slice(new_op.parent_ids());
     op_heads_store
-        .update_op_heads(&old_op_heads, new_op.id())
+        .update_op_heads(op_heads_key, &old_op_heads, new_op.id())
         .await?;
     Ok(new_op)
+}
+
+pub fn get_op_heads_key(
+    workspace_store: &Arc<dyn WorkspaceStore>,
+    workspace_name: Option<&WorkspaceName>,
+) -> Result<OpHeadsKey, WorkspaceStoreError> {
+    if let Some(workspace_name) = workspace_name
+        && let Some(workspace_metadata) =
+            workspace_store.get_workspace_metadata_by_workspace_name(workspace_name)?
+        && workspace_metadata.workspace_type() == WorkspaceType::Independent
+        && let Some(workspace_id) = workspace_metadata.workspace_id()
+    {
+        Ok(OpHeadsKey::Workspace(workspace_id))
+    } else {
+        Ok(OpHeadsKey::Repo)
+    }
+}
+
+pub fn get_op_heads_key_for_opcontext(
+    workspace_store: &Arc<dyn WorkspaceStore>,
+    op_context: &OpContext,
+) -> Result<OpHeadsKey, WorkspaceStoreError> {
+    match op_context {
+        OpContext::Repo => Ok(OpHeadsKey::Repo),
+        OpContext::Workspace {
+            name,
+            workspace_type: _,
+        } => get_op_heads_key(workspace_store, Some(name)),
+    }
 }
