@@ -34,6 +34,7 @@ use renderdag::pipeline::types::LinePiece;
 
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
+use crate::ui::Ui;
 
 /// Color labels for graph columns, under the `graph` label. Columns reuse the
 /// labels in turn.
@@ -47,20 +48,21 @@ pub trait GraphLog<K: Clone + Eq + Hash> {
         &mut self,
         id: &K,
         edges: &[GraphEdge<K>],
-        node_symbol: &str,
+        render_node_symbol: &dyn Fn(&mut dyn Formatter) -> io::Result<()>,
         text: &str,
     ) -> io::Result<()>;
 
     fn width(&self, id: &K, edges: &[GraphEdge<K>]) -> usize;
 }
 
-pub struct SaplingGraphLog<'writer, K> {
+pub struct SaplingGraphLog<'a, K> {
     shaper: GraphRowShaper<K>,
     prefix_lines: Box<dyn PrefixLineRenderer<K>>,
     text: PrefixLinesToText,
     /// Converts a width in columns to a width in characters.
     columns_to_chars: fn(u64) -> u64,
-    formatter: &'writer mut dyn Formatter,
+    formatter: &'a mut dyn Formatter,
+    ui: &'a Ui,
 }
 
 fn convert_graph_edge_into_ancestor<K: Clone>(e: &GraphEdge<K>) -> Ancestor<K> {
@@ -79,7 +81,7 @@ where
         &mut self,
         id: &K,
         edges: &[GraphEdge<K>],
-        node_symbol: &str,
+        render_node_symbol: &dyn Fn(&mut dyn Formatter) -> io::Result<()>,
         text: &str,
     ) -> io::Result<()> {
         let row_shape = self.shaper.next_row_shape(
@@ -87,6 +89,17 @@ where
             edges.iter().map(convert_graph_edge_into_ancestor).collect(),
         );
         let prefix_lines = self.prefix_lines.next_prefix_lines(&row_shape);
+        // Render the node symbol in the color of its column, unless the node
+        // labels set their own color.
+        let node_column = row_shape.node_column;
+        let mut glyph = vec![];
+        let mut formatter = self.ui.new_formatter(&mut glyph);
+        formatter.push_label("graph");
+        formatter.push_label(lane_label(node_column));
+        render_node_symbol(formatter.as_mut())?;
+        formatter.pop_label();
+        formatter.pop_label();
+        drop(formatter);
         let mut result = Ok(());
         self.text.write_next_lines(
             |line| {
@@ -96,7 +109,7 @@ where
             },
             prefix_lines,
             row_shape.separator_line,
-            node_symbol,
+            &String::from_utf8_lossy(&glyph),
             text,
             self.shaper.options().min_row_height,
         );
@@ -110,12 +123,17 @@ where
     }
 }
 
+/// The color label for a graph column.
+fn lane_label(column: usize) -> &'static str {
+    LANE_LABELS[column % LANE_LABELS.len()]
+}
+
 /// Writes one graph line, with a color label for each column.
 fn write_line(formatter: &mut dyn Formatter, line: &[LinePiece<'_>]) -> io::Result<()> {
     for piece in line {
         match piece.column {
             Some(column) => {
-                let lane = LANE_LABELS[column % LANE_LABELS.len()];
+                let lane = lane_label(column);
                 write!(formatter.labeled("graph").labeled(lane), "{}", piece.text)?;
             }
             // The node symbol and the message text are already formatted.
@@ -141,6 +159,7 @@ impl GraphStyle {
 }
 
 pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
+    ui: &'a Ui,
     style: GraphStyle,
     formatter: &'a mut dyn Formatter,
 ) -> Box<dyn GraphLog<K> + 'a> {
@@ -168,5 +187,6 @@ pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
         text: PrefixLinesToText::new(),
         columns_to_chars,
         formatter,
+        ui,
     })
 }

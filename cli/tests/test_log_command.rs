@@ -1348,11 +1348,11 @@ fn test_graph_template_color() {
     ");
     let output = work_dir.run_jj(["--color=debug", "log", "-T", template]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  [1m[38;5;2m<<log commit working_copy description::single line>>[0m
-    <<log commit node mutable::○>>  [38;5;1m<<log commit description::first line>>[39m
+    [1m[38;5;2m<<graph lane0 log commit node working_copy mutable::@>>[0m  [1m[38;5;2m<<log commit working_copy description::single line>>[0m
+    <<graph lane0 log commit node mutable::○>>  [38;5;1m<<log commit description::first line>>[39m
     <<graph lane0::│ >> [38;5;1m<<log commit description::second line>>[39m
     <<graph lane0::│ >> [38;5;1m<<log commit description::third line>>[39m
-    [1m[38;5;14m<<log commit node immutable::◆>>[0m
+    [1m[38;5;14m<<graph lane0 log commit node immutable::◆>>[0m
     [EOF]
     ");
 }
@@ -2057,13 +2057,13 @@ fn test_graph_lane_colors() {
         "description.first_line()",
     ]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m      <<log commit description first_line::merge>>
+    [1m[38;5;2m<<graph lane0 log commit node working_copy mutable::@>>[0m      <<log commit description first_line::merge>>
     <<graph lane0::├>><<graph lane1::─┬>><<graph lane2::─╮>>
-    <<graph lane0::│ >><<graph lane1::│ >><<log commit node mutable::○>>  <<log commit description first_line::b>>
+    <<graph lane0::│ >><<graph lane1::│ >><<graph lane2 log commit node mutable::○>>  <<log commit description first_line::b>>
     <<graph lane0::│>> <<graph lane1::├>><<graph lane2::─╯>>
-    <<log commit node mutable::○>> <<graph lane1::│ >> <<log commit description first_line::a>>
+    <<graph lane0 log commit node mutable::○>> <<graph lane1::│ >> <<log commit description first_line::a>>
     <<graph lane0::├>><<graph lane1::─╯>>
-    <<log commit node mutable::○>>  <<log commit description first_line::base>>
+    <<graph lane0 log commit node mutable::○>>  <<log commit description first_line::base>>
     <<graph lane0::│>>
     <<graph lane0::~>>
     [EOF]
@@ -2085,9 +2085,9 @@ fn test_graph_lane_colors() {
     [38;5;8m├[38;5;7m─┬[39m─╮
     [38;5;8m│ [38;5;7m│ [39m○  b
     [38;5;8m│[39m [38;5;7m├[39m─╯
-    ○ [38;5;7m│ [39m a
+    [38;5;8m○[39m [38;5;7m│ [39m a
     [38;5;8m├[38;5;7m─╯[39m
-    ○  base
+    [38;5;8m○[39m  base
     [38;5;8m│[39m
     [38;5;8m~[39m
     [EOF]
