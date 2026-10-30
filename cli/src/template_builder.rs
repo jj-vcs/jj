@@ -2385,6 +2385,74 @@ fn build_lambda_expression<'i, P, T>(
     )
 }
 
+/// Builds a `let([name1, value1, ...], body)` expression.
+fn build_let_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    function: &FunctionCallNode,
+) -> TemplateParseResult<Expression<L::Property>> {
+    let ([_], rest_nodes) = function.expect_some_arguments()?;
+    if !rest_nodes.len().is_multiple_of(2) {
+        return Err(TemplateParseError::with_span(
+            TemplateParseErrorKind::InvalidArguments {
+                name: function.name.to_owned(),
+                message: "Expected odd number of arguments".to_owned(),
+            },
+            function.args_span,
+        ));
+    }
+    let (body_node, binding_nodes) = function.args.split_last().unwrap();
+    build_let_bindings(language, diagnostics, build_ctx, binding_nodes, body_node)
+}
+
+/// Recursively binds each `(name, value)` pair in `bindings` into `build_ctx.local_variables`, then
+/// builds `body_node` in the resulting scope.
+fn build_let_bindings<'a, 'i, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<'i, L::Property>,
+    bindings: &'i [ExpressionNode<'i>],
+    body_node: &'i ExpressionNode<'i>,
+) -> TemplateParseResult<Expression<L::Property>> {
+    let Some(([name_node, value_node], rest_bindings)) = bindings.split_first_chunk::<2>() else {
+        return build_expression(language, diagnostics, build_ctx, body_node);
+    };
+    let ExpressionKind::Identifier(name) = name_node.kind else {
+        return Err(TemplateParseError::expression(
+            "Expected identifier",
+            name_node.span,
+        ));
+    };
+    // Eagerly validate the bound expression once so errors/diagnostics are reported, even if the
+    // variable is unused later. Capture diagnostics only once so that multiple usages don't cause
+    // duplicate diagnostics.
+    drop(build_expression(
+        language,
+        diagnostics,
+        build_ctx,
+        value_node,
+    )?);
+    let make_expr = || {
+        build_expression(
+            language,
+            &mut TemplateDiagnostics::new(),
+            build_ctx,
+            value_node,
+        )
+        .unwrap()
+    };
+    let mut inner_build_ctx = build_ctx.clone();
+    inner_build_ctx.local_variables.insert(name, &make_expr);
+    build_let_bindings(
+        language,
+        diagnostics,
+        &inner_build_ctx,
+        rest_bindings,
+        body_node,
+    )
+}
+
 fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFunctionFnMap<'a, L> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
@@ -2569,6 +2637,9 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         let value = expect_serialize_expression(language, diagnostics, build_ctx, value_node)?;
         let out_property = value.and_then(|v| Ok(serde_json::to_string(&v)?));
         Ok(out_property.into_dyn_wrapped())
+    });
+    map.insert("let", |language, diagnostics, build_ctx, function| {
+        Ok(build_let_expression(language, diagnostics, build_ctx, function)?.property)
     });
     map.insert("if", |language, diagnostics, build_ctx, function| {
         let ([condition_node, true_node], [false_node]) = function.expect_arguments()?;
@@ -2870,8 +2941,14 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
                 Ok(Expression::unlabeled(property))
             }
             ExpressionKind::FunctionCall(function) => {
-                let property = language.build_function(diagnostics, build_ctx, function)?;
-                Ok(Expression::unlabeled(property))
+                if function.name == "let" {
+                    // `language.build_function()` returns a bare `L::Property` and discards
+                    // `Expression.labels`, so intercept `let()` here to preserve `body` labels.
+                    build_let_expression(language, diagnostics, build_ctx, function)
+                } else {
+                    let property = language.build_function(diagnostics, build_ctx, function)?;
+                    Ok(Expression::unlabeled(property))
+                }
             }
             ExpressionKind::MethodCall(method) => {
                 let mut expression =
@@ -6304,5 +6381,269 @@ mod tests {
           |
           = Expected expression of type `Serialize`, but actual type is `AnyList`
         "#);
+    }
+
+    #[test]
+    fn test_let_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("author", || {
+            literal(new_signature("Author Name", "author@example.com"))
+        });
+        env.add_keyword("committer", || {
+            literal(new_signature("Committer Name", "committer@example.com"))
+        });
+        env.add_keyword("words", || {
+            literal(vec!["foo".to_owned(), "bar".to_owned()])
+        });
+        env.add_color("author email", crossterm::style::Color::Green);
+        env.add_color("author email local", crossterm::style::Color::Cyan);
+
+        // Zero bindings (just body).
+        insta::assert_snapshot!(env.render_ok("let(1 + 2)"), @"3");
+
+        // Single binding.
+        insta::assert_snapshot!(env.render_ok("let(x, 1 + 2, x * 3)"), @"9");
+
+        // Multiple bindings and sequential binding (later bindings can reference earlier ones).
+        insta::assert_snapshot!(
+            env.render_ok(r#"let(a, "hello", b, a.upper(), a ++ " " ++ b)"#),
+            @"hello HELLO"
+        );
+
+        // Preserves static type and supports method chaining on `let()` result.
+        insta::assert_snapshot!(
+            env.render_ok("let(x, 10, x + 5) * 2"),
+            @"30"
+        );
+        insta::assert_snapshot!(
+            env.render_ok("let(a, author, a.email()).local()"),
+            @"[38;5;14mauthor[39m"
+        );
+
+        // Preserves color labels on bound variables.
+        insta::assert_snapshot!(
+            env.render_ok(
+                r#"let(
+                    author_email, author.email(),
+                    committer_email, committer.email(),
+                    if(author_email == committer_email,
+                        author_email.local(),
+                        author_email ++ " (" ++ committer_email ++ ")"
+                    )
+                )"#
+            ),
+            @"[38;5;14mauthor[38;5;10m@example.com[39m (committer@example.com)"
+        );
+
+        // Name shadowing.
+        insta::assert_snapshot!(
+            env.render_ok("let(x, 1, x, x + 1, let(x, x * 10, x))"),
+            @"20"
+        );
+        insta::assert_snapshot!(
+            env.render_ok("let(x, 1, let(x, 5, x) ++ x)"),
+            @"51"
+        );
+
+        // Variable names do not collide with function names (separate namespaces).
+        insta::assert_snapshot!(env.render_ok("let(let, 1, let)"), @"1");
+        insta::assert_snapshot!(
+            env.render_ok("let(let, 1, x, let(a, 5, a), let ++ x)"),
+            @"15"
+        );
+        insta::assert_snapshot!(
+            env.render_ok("let(json, 1, x, json(1), json ++ x)"),
+            @"11"
+        );
+
+        // Binding names shadow template aliases and are not replaced by aliases.
+        env.add_alias("aliased_name", "author");
+        insta::assert_snapshot!(
+            env.render_ok("let(aliased_name, 1, aliased_name)"),
+            @"1"
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"let(aliased_name, 1, aliased_name) ++ " " ++ aliased_name.name()"#),
+            @"1 Author Name"
+        );
+        // In the value expression, the outer alias is used since the binding doesn't exist in that
+        // scope yet.
+        insta::assert_snapshot!(
+            env.render_ok("let(aliased_name, aliased_name.name(), aliased_name)"),
+            @"Author Name"
+        );
+
+        // Bound variables can be passed to template function aliases, but do not leak into expanded
+        // template aliases.
+        env.add_alias("add_one(a)", "a + 1");
+        insta::assert_snapshot!(
+            env.render_ok("let(x, 2, y, add_one(x), y)"),
+            @"3"
+        );
+        env.add_alias("xyz()", "x + 1");
+        insta::assert_snapshot!(env.parse_err("let(x, 2, y, xyz(), y)"), @"
+         --> 1:14
+          |
+        1 | let(x, 2, y, xyz(), y)
+          |              ^---^
+          |
+          = In alias `xyz()`
+         --> 1:1
+          |
+        1 | x + 1
+          | ^
+          |
+          = Keyword `x` doesn't exist
+        ");
+
+        // Interaction with lambdas.
+        insta::assert_snapshot!(
+            env.render_ok(r#"let(sep, ":", words.map(|w| w ++ sep ++ w).join(", "))"#),
+            @"foo:foo, bar:bar"
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"words.map(|w| let(u, w.upper(), w ++ "=" ++ u)).join(", ")"#),
+            @"foo=FOO, bar=BAR"
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"words.map(|w| let(w, 1, w)).join(", ")"#),
+            @"1, 1"
+        );
+
+        // Works with `Template`, `Any`, `AnyList`, and `json()` serialization.
+        insta::assert_snapshot!(
+            env.render_ok(r#"let(t, "a" ++ "b", t ++ "-" ++ t)"#),
+            @"ab-ab"
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"let(x, if(true, "yes", "no"), x ++ "/" ++ x)"#),
+            @"yes/yes"
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"let(mapped, words.map(|w| w.upper()), mapped.join(",") ++ ";" ++ mapped.join(":"))"#),
+            @"FOO,BAR;FOO:BAR"
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"let(w, words, json({"count" => w.len(), "items" => w}))"#),
+            @r#"{"count":2,"items":["foo","bar"]}"#
+        );
+
+        // Unused bindings are still type-checked.
+        insta::assert_snapshot!(env.parse_err("let(unused, unknown_keyword, 1)"), @"
+         --> 1:13
+          |
+        1 | let(unused, unknown_keyword, 1)
+          |             ^-------------^
+          |
+          = Keyword `unknown_keyword` doesn't exist
+        ");
+
+        // Lambdas cannot be bound to variables (directly or via aliases), and variables cannot be
+        // called as functions.
+        insta::assert_snapshot!(env.parse_err("let(x, |y| y, words.map(x))"), @"
+         --> 1:8
+          |
+        1 | let(x, |y| y, words.map(x))
+          |        ^---^
+          |
+          = Lambda cannot be defined here
+        ");
+        env.add_alias("id_lambda", "|y| y");
+        insta::assert_snapshot!(env.parse_err("let(x, id_lambda, words.map(x))"), @"
+         --> 1:8
+          |
+        1 | let(x, id_lambda, words.map(x))
+          |        ^-------^
+          |
+          = In alias `id_lambda`
+         --> 1:1
+          |
+        1 | |y| y
+          | ^---^
+          |
+          = Lambda cannot be defined here
+        ");
+        insta::assert_snapshot!(env.parse_err("let(x, 1, x(2))"), @"
+         --> 1:11
+          |
+        1 | let(x, 1, x(2))
+          |           ^
+          |
+          = Function `x` doesn't exist
+        ");
+
+        // Parse and argument errors.
+        insta::assert_snapshot!(env.parse_err("let()"), @"
+         --> 1:5
+          |
+        1 | let()
+          |     ^
+          |
+          = Function `let`: Expected at least 1 arguments
+        ");
+        insta::assert_snapshot!(env.parse_err("let(x, 1)"), @"
+         --> 1:5
+          |
+        1 | let(x, 1)
+          |     ^--^
+          |
+          = Function `let`: Expected odd number of arguments
+        ");
+        insta::assert_snapshot!(env.parse_err("let(x, 1, y, 2)"), @"
+         --> 1:5
+          |
+        1 | let(x, 1, y, 2)
+          |     ^--------^
+          |
+          = Function `let`: Expected odd number of arguments
+        ");
+        insta::assert_snapshot!(env.parse_err("let(x, 1, body=x)"), @"
+         --> 1:11
+          |
+        1 | let(x, 1, body=x)
+          |           ^----^
+          |
+          = Function `let`: Unexpected keyword arguments
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"let("x", 1, x)"#), @r#"
+         --> 1:5
+          |
+        1 | let("x", 1, x)
+          |     ^-^
+          |
+          = Expected identifier
+        "#);
+        insta::assert_snapshot!(env.parse_err("let(true, 1, 2)"), @"
+         --> 1:5
+          |
+        1 | let(true, 1, 2)
+          |     ^--^
+          |
+          = Expected identifier
+        ");
+        insta::assert_snapshot!(env.parse_err("let(x, x, x)"), @"
+         --> 1:8
+          |
+        1 | let(x, x, x)
+          |        ^
+          |
+          = Keyword `x` doesn't exist
+        ");
+        insta::assert_snapshot!(env.parse_err("let(x, 1, y) ++ x"), @"
+         --> 1:11
+          |
+        1 | let(x, 1, y) ++ x
+          |           ^
+          |
+          = Keyword `y` doesn't exist
+        ");
+        insta::assert_snapshot!(env.parse_err("let(x, 1, x) ++ x"), @"
+         --> 1:17
+          |
+        1 | let(x, 1, x) ++ x
+          |                 ^
+          |
+          = Keyword `x` doesn't exist
+        ");
     }
 }

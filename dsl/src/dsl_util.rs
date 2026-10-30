@@ -339,6 +339,17 @@ pub trait FoldableExpression<'i>: Sized {
     fn fold<F>(self, folder: &mut F, span: pest::Span<'i>) -> Result<Self, F::Error>
     where
         F: ExpressionFolder<'i, Self> + ?Sized;
+
+    /// Transforms function call arguments by applying the `folder`.
+    fn fold_function_call_args<F>(
+        folder: &mut F,
+        function: FunctionCallNode<'i, Self>,
+    ) -> Result<FunctionCallNode<'i, Self>, F::Error>
+    where
+        F: ExpressionFolder<'i, Self> + ?Sized,
+    {
+        fold_function_call_args(folder, function)
+    }
 }
 
 /// Visitor-like interface to transform AST nodes recursively.
@@ -1019,7 +1030,7 @@ where
             let locals = params.iter().map(|s| s.as_str()).zip(args).collect();
             self.expand_defn(id, defn, locals, span)
         } else {
-            let function = Box::new(fold_function_call_args(self, *function)?);
+            let function = Box::new(T::fold_function_call_args(self, *function)?);
             Ok(T::function_call(function))
         }
     }

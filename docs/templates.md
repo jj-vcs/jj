@@ -119,6 +119,11 @@ The following functions are defined.
 * `json(value: Serialize) -> String`: Serialize `value` in JSON format. To
   serialize multiple values as a JSON object, use `json({key => value, ..})`.
   For example, `json({"commit_id" => commit_id, "tags" => tags})`.
+* `let([name1, value1: Any, [name2, value2: Any, ...]], body: Any) -> Any`:
+  Binds each `nameN` identifier to its `valueN` expression in order and
+  evaluates `body` as the final result. Previously defined names are available
+  in successive expressions. (Note that each `nameN` is currently expanded
+  inline and re-evaluated for each use.)
 * `if(condition: Boolean, then: Any, [else: Any]) -> Any`:
   Conditionally evaluates to `then` / `else` content.
 * `try(expr: Any, fallback: Any...) -> Any`: Evaluates each expression in order
