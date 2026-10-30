@@ -1689,8 +1689,7 @@ fn test_elided() {
     [EOF]
     ");
 
-    // Elide some commits from each side of the merge. It's unclear that a revision
-    // was skipped on the left side.
+    // Elide some commits from each side of the merge.
     test_env.add_config("ui.log-synthetic-elided-nodes = false");
     insta::assert_snapshot!(get_log("@ | @- | subject(initial)"), @"
     @    merge
@@ -1699,19 +1698,20 @@ fn test_elided() {
     │ ╷
     ○ ╷  main bookmark 2
     ├─╯
+    ╷
     ○  initial
     │
     ~
     [EOF]
     ");
 
-    // Elide shared commits. It's unclear that a revision was skipped on the right
-    // side (#1252).
+    // Elide shared commits.
     insta::assert_snapshot!(get_log("@-- | root()"), @"
     ○  side bookmark 1
     ╷
     ╷ ○  main bookmark 1
     ╭─╯
+    ╷
     ◆
     [EOF]
     ");
