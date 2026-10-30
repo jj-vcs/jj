@@ -151,6 +151,8 @@ and this project adheres to
   same commit when there's a merge between them whose parents both lead to
   that commit.
 
+* `jj gerrit upload` no longer rejects uploading empty merge commits.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
