@@ -391,6 +391,30 @@ impl<T> Merge<T> {
         Self { values }
     }
 
+    /// Replaces each term that cancels out against an equal term of the
+    /// opposite sign (i.e. each term [`Self::simplify()`] would drop) by
+    /// `replacement`. The result is equivalent to the input and has the same
+    /// arity.
+    #[must_use]
+    pub fn replace_canceled_terms(mut self, replacement: T) -> Self
+    where
+        T: PartialEq + Clone,
+    {
+        // Avoid allocating the mapping in the common case
+        if self.is_resolved() {
+            return self;
+        }
+        let mut kept_indices = self.get_simplified_mapping();
+        kept_indices.sort_unstable();
+        let mut kept_indices = kept_indices.into_iter().peekable();
+        for (index, value) in self.values.iter_mut().enumerate() {
+            if kept_indices.next_if_eq(&index).is_none() {
+                *value = replacement.clone();
+            }
+        }
+        self
+    }
+
     /// Simplify the merge by joining diffs like A->B and B->C into A->C.
     /// Also drops trivial diffs like A->A.
     #[must_use]
@@ -978,6 +1002,29 @@ mod tests {
             vec![0, 1, 2, 3, 4]
         );
         assert_eq!(c(&[2, 0, 3, 1, 1]).get_simplified_mapping(), vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_replace_canceled_terms() {
+        // 1-way merge
+        assert_eq!(c(&[0]).replace_canceled_terms(9), c(&[0]));
+        // 3-way merge
+        assert_eq!(c(&[0, 0, 0]).replace_canceled_terms(9), c(&[9, 9, 0]));
+        assert_eq!(c(&[1, 0, 0]).replace_canceled_terms(9), c(&[1, 9, 9]));
+        assert_eq!(c(&[1, 0, 2]).replace_canceled_terms(9), c(&[1, 0, 2]));
+        // 5-way merge
+        assert_eq!(
+            c(&[0, 1, 2, 3, 1]).replace_canceled_terms(9),
+            c(&[0, 9, 2, 3, 9])
+        );
+        assert_eq!(
+            c(&[0, 1, 1, 0, 2]).replace_canceled_terms(9),
+            c(&[9, 9, 9, 9, 2])
+        );
+        assert_eq!(
+            c(&[0, 1, 2, 3, 4]).replace_canceled_terms(9),
+            c(&[0, 1, 2, 3, 4])
+        );
     }
 
     #[test]
