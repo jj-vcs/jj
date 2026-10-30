@@ -168,27 +168,40 @@ impl MergedTree {
     /// Tries to resolve any conflicts, resolving any conflicts that can be
     /// automatically resolved and leaving the rest unresolved.
     pub async fn resolve(self) -> BackendResult<Self> {
-        let merged = merge_trees(&self.store, self.tree_ids).await?;
-        // If the result can be resolved, then `merge_trees()` above would have returned
-        // a resolved merge. However, that function will always preserve the arity of
-        // conflicts it cannot resolve. So we simplify the conflict again
-        // here to possibly reduce a complex conflict to a simpler one.
-        let (simplified_labels, simplified) = if merged.is_resolved() {
-            (ConflictLabels::unlabeled(), merged)
-        } else {
-            self.labels.simplify_with(&merged)
-        };
-        // If debug assertions are enabled, check that the merge was idempotent. In
-        // particular, that this last simplification doesn't enable further automatic
-        // resolutions
+        let mut tree_ids = self.tree_ids;
+        let mut labels = self.labels;
+        loop {
+            let merged = merge_trees(&self.store, tree_ids.clone()).await?;
+            // If the result can be resolved, then `merge_trees()` above would have
+            // returned a resolved merge. However, that function will always preserve
+            // the arity of conflicts it cannot resolve. So we simplify the conflict
+            // again here to possibly reduce a complex conflict to a simpler one.
+            let (simplified_labels, simplified) = if merged.is_resolved() {
+                (ConflictLabels::unlabeled(), merged)
+            } else {
+                labels.simplify_with(&merged)
+            };
+            // Simplifying can cancel terms that only became equal once other paths
+            // resolved, which can leave a path whose remaining terms are all trees, and
+            // that merges further. So merge again until simplifying cancels nothing,
+            // which happens within half as many rounds as there are terms.
+            let cancelled = simplified.num_sides() < tree_ids.num_sides();
+            tree_ids = simplified;
+            labels = simplified_labels;
+            if tree_ids.is_resolved() || !cancelled {
+                break;
+            }
+        }
+        // If debug assertions are enabled, check that the merge was idempotent: that
+        // merging again what no simplification can reduce changes nothing.
         if cfg!(debug_assertions) {
-            let re_merged = merge_trees(&self.store, simplified.clone()).await.unwrap();
-            debug_assert_eq!(re_merged, simplified);
+            let re_merged = merge_trees(&self.store, tree_ids.clone()).await.unwrap();
+            debug_assert_eq!(re_merged, tree_ids);
         }
         Ok(Self {
             store: self.store,
-            tree_ids: simplified,
-            labels: simplified_labels,
+            tree_ids,
+            labels,
         })
     }
 

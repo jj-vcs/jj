@@ -1179,6 +1179,61 @@ fn test_resolve_with_conflict_containing_empty_subtree() -> TestResult {
 }
 
 #[test]
+fn test_resolve_until_simplifying_cancels_no_more_terms() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // At "d", two terms hold the same file, and the others a directory or nothing. Those terms
+    // don't merge as directories, so "d" keeps all five, though "file" resolves at the root.
+    // That leaves the last two terms the same whole tree, which simplifying cancels, and then "d"
+    // merges as directories, resolving "d/same". Resolving must not stop before that merge, or
+    // resolving again would resolve more.
+    let file = repo_path("file");
+    let d = repo_path("d");
+    let same = repo_path("d/same");
+    let conflict = repo_path("d/conflict");
+    let tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(vec![
+            create_single_tree(repo, &[(file, "file")]).id().clone(),
+            create_single_tree(repo, &[(file, "file"), (same, "same"), (conflict, "a")])
+                .id()
+                .clone(),
+            create_single_tree(repo, &[(file, "file"), (same, "same"), (conflict, "b")])
+                .id()
+                .clone(),
+            create_single_tree(repo, &[(file, "file"), (d, "d")])
+                .id()
+                .clone(),
+            create_single_tree(repo, &[(d, "d")]).id().clone(),
+        ]),
+        ConflictLabels::from_vec(vec![
+            "side 1".into(),
+            "base 1".into(),
+            "side 2".into(),
+            "base 2".into(),
+            "side 3".into(),
+        ]),
+    );
+    let resolved = tree.resolve().block_on()?;
+    assert_tree_eq!(
+        resolved,
+        MergedTree::new(
+            repo.store().clone(),
+            Merge::from_vec(vec![
+                create_single_tree(repo, &[]).id().clone(),
+                create_single_tree(repo, &[(conflict, "a")]).id().clone(),
+                create_single_tree(repo, &[(conflict, "b")]).id().clone(),
+            ]),
+            ConflictLabels::from_vec(vec!["side 1".into(), "base 1".into(), "side 2".into()]),
+        )
+    );
+    let again = resolved.clone().resolve().block_on()?;
+    assert_tree_eq!(again, resolved);
+    Ok(())
+}
+
+#[test]
 fn test_conflict_iterator() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;

@@ -150,6 +150,10 @@ and this project adheres to
   same commit when there's a merge between them whose parents both lead to
   that commit.
 
+* Resolving a conflict now resolves as far as merging can. A conflict could
+  resolve further after a resolution cancelled some of its sides, so resolving
+  it again changed it, and failed a debug assertion.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
