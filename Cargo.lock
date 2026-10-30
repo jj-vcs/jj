@@ -4228,9 +4228,9 @@ dependencies = [
 
 [[package]]
 name = "sapling-renderdag"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edffb89cab87bd0901c5749d576f5d37a1f34e05160e936f463f4e94cc447b61"
+checksum = "32f8bbb5761950b84f34b4aadad6a4a7b38f2e752ee80ff606d4fb0a98812406"
 dependencies = [
  "bitflags 2.13.2",
 ]

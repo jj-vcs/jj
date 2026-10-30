@@ -477,6 +477,7 @@ mod tests {
         insta::assert_snapshot!(format_graph(graph), @"
         D    direct(C), indirect(B)
         ├─╮
+        │ ╷
         C ╷  direct(A)
         │ ╷
         │ B  missing(X)

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::io;
 use std::io::Write;
@@ -109,7 +110,7 @@ impl GraphStyle {
     }
 }
 
-pub fn get_graphlog<'a, K: Clone + Eq + Hash + 'a>(
+pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
     style: GraphStyle,
     formatter: &'a mut dyn Write,
 ) -> Box<dyn GraphLog<K> + 'a> {

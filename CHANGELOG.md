@@ -84,6 +84,11 @@ and this project adheres to
 
 ### Fixed bugs
 
+* In graph output, an elided edge that passes through a merge or fork line is
+  now drawn as elided (`╷`) before reaching the node, instead of looking like a
+  direct edge. Consecutive unconnected nodes, such as in the `jj op show`
+  graph, are now separated by a blank line so they don't look connected.
+
 * The operations created by `jj workspace add` are now attributed to the
   workspace the command was run in, so `jj undo` there undoes them instead of
   refusing to undo an operation from another workspace.
