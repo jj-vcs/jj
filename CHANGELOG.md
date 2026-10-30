@@ -147,6 +147,11 @@ and this project adheres to
   same commit when there's a merge between them whose parents both lead to
   that commit.
 
+* Lambda parameters in the templating language now shadow template aliases.
+  Previously, if you had `template-aliases.x = 'abc'`, then `|x| x` would have
+  silently expanded to `|x| abc`, which would then fail with a "keyword doesn't
+  exist" error.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights

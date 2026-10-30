@@ -357,6 +357,15 @@ pub trait ExpressionFolder<'i, T: FoldableExpression<'i>> {
         Ok(ExpressionNode { kind, span })
     }
 
+    /// Transforms the expression `node` with `params` shadowing outer aliases.
+    fn fold_scoped_expression(
+        &mut self,
+        node: ExpressionNode<'i, T>,
+        _params: &[&'i str],
+    ) -> Result<ExpressionNode<'i, T>, Self::Error> {
+        self.fold_expression(node)
+    }
+
     /// Transforms identifier.
     fn fold_identifier(&mut self, name: &'i str, span: pest::Span<'i>) -> Result<T, Self::Error>;
 
@@ -862,6 +871,8 @@ struct AliasExpander<'i, 'a, T, P> {
     aliases_map: &'i AliasesMap<P, String>,
     /// Local variables set in the outermost scope.
     locals: &'a HashMap<&'i str, ExpressionNode<'i, T>>,
+    /// Scoped variables (e.g., lambda parameters) in the outermost scope.
+    scoped_params: Vec<&'i str>,
     /// Stack of aliases and local parameters currently expanding.
     states: Vec<AliasExpandingState<'i, T>>,
 }
@@ -870,6 +881,7 @@ struct AliasExpander<'i, 'a, T, P> {
 struct AliasExpandingState<'i, T> {
     id: AliasId<'i>,
     locals: HashMap<&'i str, ExpressionNode<'i, T>>,
+    scoped_params: Vec<&'i str>,
 }
 
 impl<'i, T, P, E> AliasExpander<'i, '_, T, P>
@@ -883,6 +895,21 @@ where
         self.states.last().map_or(self.locals, |s| &s.locals)
     }
 
+    /// Scoped parameters (e.g. lambda parameters) that shadow aliases in the
+    /// current scope.
+    fn current_scoped_params(&self) -> &[&'i str] {
+        self.states
+            .last()
+            .map_or(&self.scoped_params, |s| &s.scoped_params)
+    }
+
+    /// Mutable reference to scoped parameters in the current scope.
+    fn current_scoped_params_mut(&mut self) -> &mut Vec<&'i str> {
+        self.states
+            .last_mut()
+            .map_or(&mut self.scoped_params, |s| &mut s.scoped_params)
+    }
+
     fn expand_defn(
         &mut self,
         id: AliasId<'i>,
@@ -894,7 +921,11 @@ where
         if self.states.iter().any(|s| s.id == id) {
             return Err(E::recursive_expansion(id, span));
         }
-        self.states.push(AliasExpandingState { id, locals });
+        self.states.push(AliasExpandingState {
+            id,
+            locals,
+            scoped_params: Vec::new(),
+        });
         // Parsed defn could be cached if needed.
         let result = self
             .aliases_map
@@ -916,8 +947,23 @@ where
 {
     type Error = E;
 
+    fn fold_scoped_expression(
+        &mut self,
+        node: ExpressionNode<'i, T>,
+        params: &[&'i str],
+    ) -> Result<ExpressionNode<'i, T>, Self::Error> {
+        let scoped_params = self.current_scoped_params_mut();
+        let prev_len = scoped_params.len();
+        scoped_params.extend_from_slice(params);
+        let result = self.fold_expression(node);
+        self.current_scoped_params_mut().truncate(prev_len);
+        result
+    }
+
     fn fold_identifier(&mut self, name: &'i str, span: pest::Span<'i>) -> Result<T, Self::Error> {
-        if let Some(subst) = self.current_locals().get(name) {
+        if self.current_scoped_params().contains(&name) {
+            Ok(T::identifier(name))
+        } else if let Some(subst) = self.current_locals().get(name) {
             let id = AliasId::Parameter(name);
             Ok(T::alias_expanded(id, Box::new(subst.clone())))
         } else if let Some((id, defn, _doc)) = self.aliases_map.get_symbol(name) {
@@ -1009,6 +1055,7 @@ where
     let mut expander = AliasExpander {
         aliases_map,
         locals,
+        scoped_params: Vec::new(),
         states: Vec::new(),
     };
     expander.fold_expression(node)

@@ -4197,6 +4197,12 @@ mod tests {
         env.add_alias("identity", "|x| x");
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().map(identity)"#), @"a b c");
 
+        // Lambda parameter shadows symbol alias and function alias parameter.
+        env.add_alias("sym", "'alias'");
+        env.add_alias("map_sym(sym)", r#""a\nb\nc".lines().map(|sym| sym) ++ sym"#);
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().map(|sym| sym) ++ sym"#), @"a b calias");
+        insta::assert_snapshot!(env.render_ok(r#"map_sym("arg")"#), @"a b carg");
+
         // Not a lambda expression
         insta::assert_snapshot!(env.parse_err(r#""a".lines().map(empty)"#), @r#"
          --> 1:17
