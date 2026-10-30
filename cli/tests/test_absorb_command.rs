@@ -954,6 +954,110 @@ fn test_absorb_immutable() {
 }
 
 #[test]
+fn test_absorb_hidden_descendant() {
+    for args in [vec!["absorb"], vec!["absorb", "--into=@-"]] {
+        let test_env = TestEnvironment::default();
+        test_env.add_config(
+            "revset-aliases.'immutable_heads()' = 'builtin_immutable_heads() ~ \
+             tags(glob:backup/*)'",
+        );
+        test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+        let work_dir = test_env.work_dir("repo");
+        work_dir.write_file("file", "foo\n");
+        work_dir.run_jj(["new"]).success();
+
+        work_dir
+            .run_jj(["new", "-o@-", "--no-edit", "-m", "hidden revision"])
+            .success();
+        work_dir
+            .run_jj(["tag", "set", "-r", "@-+~@", "backup/whatever"])
+            .success();
+        work_dir.run_jj(["abandon", "backup/whatever"]).success();
+        let hidden_id = work_dir
+            .run_jj([
+                "log",
+                "--no-graph",
+                "-r",
+                "backup/whatever",
+                "-T",
+                "commit_id",
+            ])
+            .success()
+            .stdout;
+
+        work_dir
+            .run_jj(["new", "@-", "--no-edit", "-m", "visible descendant"])
+            .success();
+        work_dir
+            .run_jj(["bookmark", "set", "-r", "@-+~@", "visible"])
+            .success();
+        work_dir.write_file("file", "bar\n");
+        work_dir.run_jj(args).success();
+
+        let hidden_revisions = work_dir
+            .run_jj([
+                "log",
+                "--no-graph",
+                "-r",
+                "description(substring:'hidden revision')",
+                "-T",
+                "commit_id",
+            ])
+            .success();
+        assert!(hidden_revisions.stdout.is_empty(), "{hidden_revisions}");
+        assert_eq!(
+            work_dir
+                .run_jj([
+                    "log",
+                    "--no-graph",
+                    "-r",
+                    "backup/whatever",
+                    "-T",
+                    "commit_id"
+                ])
+                .success()
+                .stdout,
+            hidden_id
+        );
+        assert_eq!(
+            work_dir
+                .run_jj(["file", "show", "-r", "backup/whatever", "file"])
+                .success()
+                .stdout
+                .raw(),
+            "foo\n"
+        );
+        for revision in ["@", "@-", "visible"] {
+            assert_eq!(
+                work_dir
+                    .run_jj(["file", "show", "-r", revision, "file"])
+                    .success()
+                    .stdout
+                    .raw(),
+                "bar\n"
+            );
+        }
+        assert_eq!(
+            work_dir
+                .run_jj(["log", "--no-graph", "-r", "visible-", "-T", "commit_id"])
+                .success()
+                .stdout,
+            work_dir
+                .run_jj(["log", "--no-graph", "-r", "@-", "-T", "commit_id"])
+                .success()
+                .stdout
+        );
+        assert!(
+            work_dir
+                .run_jj(["diff", "--summary"])
+                .success()
+                .stdout
+                .is_empty()
+        );
+    }
+}
+
+#[test]
 fn test_absorb_interactive() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
