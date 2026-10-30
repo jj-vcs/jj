@@ -362,7 +362,8 @@ and <code dir="auto">jj</code> commands could import partially fetched refs, cau
 </li>
 <li>
 <p>In colocated workspaces, Git export failures are no longer misidentified as
-external changes.</p>
+external changes. Those changes are now re-exported on the next <code dir="auto">jj</code>
+invocation. <a href="https://github.com/jj-vcs/jj/issues/10478">#10478</a></p>
 </li>
 <li>
 <p><code dir="auto">jj run</code> now materializes conflicts using <code dir="auto">ui.conflict-marker-style</code> instead
