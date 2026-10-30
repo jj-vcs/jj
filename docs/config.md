@@ -782,6 +782,10 @@ A vertical line takes the color of its column. A horizontal line takes the
 color of the branch that forks or merges there. So a line that moves to another
 column changes color where it moves.
 
+A node symbol takes the color of its column too, unless a node label sets its
+own color. For example, the working-copy `@` stays green, because the default
+colors set `"node working_copy"`.
+
 #### Node style
 
 The symbols used to represent commits or operations can be customized via
