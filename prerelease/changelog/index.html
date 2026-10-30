@@ -9374,6 +9374,12 @@ and this project adheres to
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p>In graph output, an elided edge that passes through a merge or fork line is
+  now drawn as elided (<code>╷</code>) before reaching the node, instead of looking like a
+  direct edge. Consecutive unconnected nodes, such as in the <code>jj op show</code>
+  graph, are now separated by a blank line so they don't look connected.</p>
+</li>
+<li>
 <p>The operations created by <code>jj workspace add</code> are now attributed to the
   workspace the command was run in, so <code>jj undo</code> there undoes them instead of
   refusing to undo an operation from another workspace.</p>
