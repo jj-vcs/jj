@@ -533,9 +533,9 @@ fn run_tui<B: ratatui::backend::Backend>(
             })
             .map_err(|e| internal_error(format!("Failed to draw TUI: {e}")))?;
 
-        // Wait for an event, then also handle any events that arrived while we
-        // were drawing, so we don't redraw once per key press when the user
-        // types faster than we can draw.
+        // Wait for an event. If multiple events arrived while we were drawing, then
+        // we will handle them all in this loop before redrawing, so we don't redraw
+        // once per key press when the user types faster than we can draw.
         let read_error = |e| internal_error(format!("Failed to read TUI events: {e}"));
         loop {
             let event = event::read().map_err(read_error)?;
