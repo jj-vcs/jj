@@ -446,8 +446,10 @@ pub trait MergedTreeValueExt {
     /// Whether this merge is present and not a tree
     fn is_file_like(&self) -> bool;
 
-    /// If this merge contains only trees or absent entries, returns a merge of
-    /// the `TreeId`s.
+    /// If this merge is a tree merge as defined by [`Self::is_tree()`], returns
+    /// a merge of the `TreeId`s, with `None` in place of absent terms. If the
+    /// merge contains non-tree terms that cancel out, all canceled terms are
+    /// replaced by `None`.
     fn to_tree_id_merge(&self) -> Option<Merge<Option<TreeId>>>;
 
     /// If this merge contains only files or absent entries, returns a merge of
@@ -599,12 +601,29 @@ where
 fn borrow_tree_id_merge<T: Borrow<TreeValue>>(
     merge: &Merge<Option<T>>,
 ) -> Option<Merge<Option<&TreeId>>> {
-    merge
-        .try_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Ok(None),
-            Some(TreeValue::Tree(id)) => Ok(Some(id)),
-            Some(_) => Err(()),
-        })
+    fn to_tree_id(value: Option<&TreeValue>) -> Option<Option<&TreeId>> {
+        match value {
+            None => Some(None),
+            Some(TreeValue::Tree(id)) => Some(Some(id)),
+            Some(_) => None,
+        }
+    }
+
+    let values = merge.map(|term| borrow_tree_value(term.as_ref()));
+    if let Ok(ids) = values.try_map(|&value| to_tree_id(value).ok_or(())) {
+        return Some(ids);
+    }
+    // Only a mix of trees and non-trees can become a tree merge by canceling
+    // out terms.
+    if !values
+        .iter()
+        .any(|value| matches!(value, Some(TreeValue::Tree(_))))
+    {
+        return None;
+    }
+    values
+        .replace_canceled_terms(None)
+        .try_map(|&value| to_tree_id(value).ok_or(()))
         .ok()
 }
 
@@ -961,6 +980,20 @@ mod tests {
         let merge = Merge::from_vec(vec![tree("01"), None, file("02")]);
         assert!(!merge.is_tree());
         assert_eq!(merge.to_tree_id_merge(), None);
+
+        // Files that cancel out are replaced by `None`
+        let merge = Merge::from_vec(vec![tree("01"), file("02"), file("02"), None, tree("03")]);
+        assert!(merge.is_tree());
+        assert_eq!(
+            merge.to_tree_id_merge(),
+            Some(Merge::from_vec(vec![
+                tree_id("01"),
+                None,
+                None,
+                None,
+                tree_id("03"),
+            ]))
+        );
 
         // Files that are equal but don't cancel out because they have the same
         // sign

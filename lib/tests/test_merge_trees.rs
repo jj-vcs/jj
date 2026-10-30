@@ -13,8 +13,10 @@
 // limitations under the License.
 
 use jj_core::backend::TreeValue;
+use jj_core::conflict_labels::ConflictLabels;
 use jj_core::merge::Merge;
 use jj_core::merge::SameChange;
+use jj_core::merged_tree::MergedTree;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::repo::Repo as _;
@@ -258,4 +260,94 @@ fn settings_with_same_change(same_change: SameChange) -> UserSettings {
         .unwrap();
     config.add_layer(layer);
     testutils::user_settings_from_config(config)
+}
+
+#[test]
+fn test_resolve_directory_after_canceling_file_terms() -> TestResult {
+    let settings = settings_with_same_change(SameChange::Keep);
+    let test_repo = TestRepo::init_with_settings(&settings);
+    let repo = &test_repo.repo;
+    let d = repo_path("d");
+    let a = repo_path("d/a");
+    let b = repo_path("d/b");
+    let q = repo_path("q");
+    let terms = [
+        create_tree(repo, &[(a, "1\n"), (q, "0\n")]),
+        create_tree(repo, &[(d, "9\n"), (q, "0\n")]),
+        create_tree(repo, &[(d, "9\n"), (q, "1\n")]),
+        create_tree(repo, &[(a, "0\n"), (q, "1\n")]),
+        create_tree(repo, &[(a, "0\n"), (b, "2\n"), (q, "0\n")]),
+    ];
+    let tree_ids = Merge::from_vec(terms.map(|tree| tree.tree_ids().first().clone()).to_vec());
+    // The two file terms at d cancel, but their containing trees differ at q.
+    // Resolving q used to expose the directory merge only on the second pass.
+    assert_eq!(tree_ids.simplify(), tree_ids);
+    let tree = MergedTree::new(
+        repo.store().clone(),
+        tree_ids,
+        ConflictLabels::from_vec(
+            ["a", "base1", "b", "base2", "c"]
+                .map(str::to_owned)
+                .to_vec(),
+        ),
+    );
+    let expected = create_tree(repo, &[(a, "1\n"), (b, "2\n"), (q, "0\n")]);
+    let resolved = tree.resolve().block_on()?;
+    assert_tree_eq!(resolved, expected);
+    let again = resolved.clone().resolve().block_on()?;
+    assert_tree_eq!(again, resolved);
+    Ok(())
+}
+
+#[test]
+fn test_resolve_directory_cancellation_with_unresolved_terms() -> TestResult {
+    let settings = settings_with_same_change(SameChange::Keep);
+    let test_repo = TestRepo::init_with_settings(&settings);
+    let repo = &test_repo.repo;
+    let d = repo_path("d");
+    let a = repo_path("d/a");
+    let q = repo_path("q");
+    let terms = [
+        create_tree(repo, &[(a, "1\n"), (q, "0\n")]),
+        create_tree(repo, &[(d, "9\n"), (q, "1\n")]),
+        create_tree(repo, &[(d, "9\n"), (q, "2\n")]),
+        create_tree(repo, &[(a, "0\n"), (q, "3\n")]),
+        create_tree(repo, &[(a, "2\n"), (q, "4\n")]),
+    ];
+    let tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(terms.map(|tree| tree.tree_ids().first().clone()).to_vec()),
+        ConflictLabels::from_vec(
+            ["a", "base1", "b", "base2", "c"]
+                .map(str::to_owned)
+                .to_vec(),
+        ),
+    );
+    // The file terms at d cancel, but d/a and q still conflict. The canceled
+    // file at d is removed from its terms, which doesn't change the meaning of
+    // the merge.
+    let expected = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(
+            [
+                create_tree(repo, &[(a, "1\n"), (q, "0\n")]),
+                create_tree(repo, &[(q, "1\n")]),
+                create_tree(repo, &[(q, "2\n")]),
+                create_tree(repo, &[(a, "0\n"), (q, "3\n")]),
+                create_tree(repo, &[(a, "2\n"), (q, "4\n")]),
+            ]
+            .map(|tree| tree.tree_ids().first().clone())
+            .to_vec(),
+        ),
+        ConflictLabels::from_vec(
+            ["a", "base1", "b", "base2", "c"]
+                .map(str::to_owned)
+                .to_vec(),
+        ),
+    );
+    let resolved = tree.resolve().block_on()?;
+    assert_tree_eq!(resolved, expected);
+    let again = resolved.clone().resolve().block_on()?;
+    assert_tree_eq!(again, resolved);
+    Ok(())
 }
