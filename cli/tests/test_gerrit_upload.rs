@@ -872,3 +872,36 @@ fn test_gerrit_upload_rejected_by_remote() -> TestResult {
     ");
     Ok(())
 }
+
+#[test]
+fn test_gerrit_upload_empty_merge_commit() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "base", &[]);
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+
+    create_commit(&local_dir, "side_a", &["base@origin"]);
+    create_commit(&local_dir, "side_b", &["base@origin"]);
+    create_commit_with_files(&local_dir, "merge_commit", &["side_a", "side_b"], &[]);
+
+    let output = local_dir.run_jj([
+        "gerrit",
+        "upload",
+        "-r",
+        "merge_commit",
+        "--remote-branch=main",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
+    Pushing yostqsxw f1ed0873 merge_commit | (empty) merge_commit
+    [EOF]
+    ");
+}
