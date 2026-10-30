@@ -1705,6 +1705,39 @@ fn test_elided() {
     [EOF]
     ");
 
+    // Elide a commit on the left side of the merge. It's unclear that a
+    // revision was skipped on the left side.
+    insta::assert_snapshot!(get_log("all() ~ subject('main bookmark 1')"), @"
+    @    merge
+    ├─╮
+    │ ○  side bookmark 2
+    │ │
+    │ ○  side bookmark 1
+    │ │
+    ○ │  main bookmark 2
+    ├─╯
+    ○  initial
+    │
+    ◆
+    [EOF]
+    ");
+
+    // Elide a commit on the right side of the merge.
+    insta::assert_snapshot!(get_log("all() ~ subject('side bookmark 1')"), @"
+    @    merge
+    ├─╮
+    │ ○  side bookmark 2
+    │ ╷
+    ○ ╷  main bookmark 2
+    │ ╷
+    ○ ╷  main bookmark 1
+    ├─╯
+    ○  initial
+    │
+    ◆
+    [EOF]
+    ");
+
     // Elide shared commits.
     insta::assert_snapshot!(get_log("@-- | root()"), @"
     ○  side bookmark 1
@@ -1733,6 +1766,41 @@ fn test_elided() {
     ○  initial
     │
     ~
+    [EOF]
+    ");
+
+    // Elide a commit on the left side of the merge.
+    insta::assert_snapshot!(get_log("all() ~ subject('main bookmark 1')"), @"
+    @    merge
+    ├─╮
+    │ ○  side bookmark 2
+    │ │
+    │ ○  side bookmark 1
+    │ │
+    ○ │  main bookmark 2
+    │ │
+    ~ │  (elided revisions)
+    ├─╯
+    ○  initial
+    │
+    ◆
+    [EOF]
+    ");
+
+    // Elide a commit on the right side of the merge.
+    insta::assert_snapshot!(get_log("all() ~ subject('side bookmark 1')"), @"
+    @    merge
+    ├─╮
+    │ ○  side bookmark 2
+    │ │
+    │ ~  (elided revisions)
+    ○ │  main bookmark 2
+    │ │
+    ○ │  main bookmark 1
+    ├─╯
+    ○  initial
+    │
+    ◆
     [EOF]
     ");
 
