@@ -239,10 +239,10 @@ impl<'matcher> TreeWalkVisitor<'matcher> for TreeEntriesVisitor<'matcher> {
 // impls below, so callers are unaffected by the `async fn` here.
 #[expect(async_fn_in_trait)]
 pub trait ToTreeMergeExt {
-    /// If every non-`None` term of a `MergedTreeValue`
-    /// is a `TreeValue::Tree`, this converts it to
-    /// a `Merge<Tree>`, with empty trees instead of
-    /// any `None` terms. Otherwise, returns `None`.
+    /// If a `MergedTreeValue` is a tree merge as defined by
+    /// `jj_lib::backend::MergedTreeValueExt::is_tree()`, this converts it to
+    /// a `Merge<Tree>`, with empty trees instead of any `None` terms and of any
+    /// non-tree terms that cancel out. Otherwise, returns `None`.
     async fn to_tree_merge(
         &self,
         store: &Arc<Store>,

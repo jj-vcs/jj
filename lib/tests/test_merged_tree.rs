@@ -998,6 +998,116 @@ fn test_path_value_and_entries() -> TestResult {
     Ok(())
 }
 
+/// Test reading a merge where a path is a file in some terms and a directory in
+/// others, and the file terms cancel out.
+#[test]
+fn test_read_directory_with_canceled_file_terms() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let dir_path = repo_path("dir");
+    let conflicted_path = repo_path("dir/conflicted");
+    let resolved_path = repo_path("dir/resolved");
+    let terms = [
+        create_tree(repo, &[(conflicted_path, "1"), (resolved_path, "1")]),
+        create_tree(repo, &[(dir_path, "file")]),
+        create_tree(repo, &[(dir_path, "file")]),
+        create_tree(repo, &[(conflicted_path, "0"), (resolved_path, "1")]),
+        create_tree(repo, &[(conflicted_path, "2"), (resolved_path, "1")]),
+    ];
+    let merged_tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(
+            terms
+                .iter()
+                .map(|tree| tree.tree_ids().first().clone())
+                .collect_vec(),
+        ),
+        ConflictLabels::from_vec(
+            ["a", "base1", "b", "base2", "c"]
+                .map(str::to_owned)
+                .to_vec(),
+        ),
+    );
+    let term_values = |path: &RepoPath| -> MergedTreeValue {
+        Merge::from_vec(
+            terms
+                .iter()
+                .map(|tree| {
+                    tree.path_value(path)
+                        .block_on()
+                        .unwrap()
+                        .into_resolved()
+                        .unwrap()
+                })
+                .collect_vec(),
+        )
+    };
+    let conflicted_value = term_values(conflicted_path);
+    let resolved_value = Merge::resolved(
+        terms[0]
+            .path_value(resolved_path)
+            .block_on()?
+            .into_resolved()
+            .unwrap(),
+    );
+
+    // The directory is a tree merge, so the files in it are visible
+    assert!(merged_tree.path_value(dir_path).block_on()?.is_tree());
+    assert_eq!(
+        merged_tree.path_value(conflicted_path).block_on()?,
+        conflicted_value
+    );
+    assert_eq!(
+        merged_tree.path_value(resolved_path).block_on()?,
+        resolved_value
+    );
+
+    // entries() lists the files in the directory instead of the directory
+    let actual_entries: Vec<_> = merged_tree
+        .entries()
+        .map(|(path, result)| (path, result.unwrap()))
+        .collect()
+        .block_on();
+    assert_eq!(
+        actual_entries,
+        [
+            (conflicted_path.to_owned(), conflicted_value.clone()),
+            (resolved_path.to_owned(), resolved_value.clone()),
+        ]
+    );
+
+    // conflicts() lists the conflicted file instead of the directory
+    let actual_conflicts: Vec<_> = merged_tree
+        .conflicts()
+        .map(|(path, result)| (path, result.unwrap()))
+        .collect()
+        .block_on();
+    assert_eq!(
+        actual_conflicts,
+        [(conflicted_path.to_owned(), conflicted_value.clone())]
+    );
+
+    // diff() compares the files in the directory
+    let actual_diff: Vec<_> = merged_tree
+        .diff(&terms[0], &EverythingMatcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+    assert_eq!(
+        actual_diff,
+        [(
+            conflicted_path.to_owned(),
+            (
+                conflicted_value,
+                terms[0].path_value(conflicted_path).block_on()?
+            ),
+        )]
+    );
+    diff_stream_sequential_equals_concurrent(&merged_tree, &terms[0], &EverythingMatcher);
+    Ok(())
+}
+
 #[test]
 fn test_resolve_success() -> TestResult {
     let test_repo = TestRepo::init();
@@ -1175,6 +1285,61 @@ fn test_resolve_with_conflict_containing_empty_subtree() -> TestResult {
     );
     let resolved_tree = tree.clone().resolve().block_on()?;
     assert_tree_eq!(resolved_tree, tree);
+    Ok(())
+}
+
+#[test]
+fn test_resolve_directory_whose_file_terms_cancel() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // At "d", two terms hold the same file, and the others a directory or nothing. The file terms
+    // cancel out, so "d" merges as directories, resolving "d/same". The first and the last two
+    // terms differ only at "file", which resolves at the root, and at "d", whose canceled file
+    // terms are removed. Once they are equal, simplifying cancels "side 1" against "base 2",
+    // keeping "side 3".
+    let file = repo_path("file");
+    let d = repo_path("d");
+    let same = repo_path("d/same");
+    let conflict = repo_path("d/conflict");
+    let tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(vec![
+            create_single_tree(repo, &[(file, "file")]).id().clone(),
+            create_single_tree(repo, &[(file, "file"), (same, "same"), (conflict, "a")])
+                .id()
+                .clone(),
+            create_single_tree(repo, &[(file, "file"), (same, "same"), (conflict, "b")])
+                .id()
+                .clone(),
+            create_single_tree(repo, &[(file, "file"), (d, "d")])
+                .id()
+                .clone(),
+            create_single_tree(repo, &[(d, "d")]).id().clone(),
+        ]),
+        ConflictLabels::from_vec(vec![
+            "side 1".into(),
+            "base 1".into(),
+            "side 2".into(),
+            "base 2".into(),
+            "side 3".into(),
+        ]),
+    );
+    let resolved = tree.resolve().block_on()?;
+    assert_tree_eq!(
+        resolved,
+        MergedTree::new(
+            repo.store().clone(),
+            Merge::from_vec(vec![
+                create_single_tree(repo, &[]).id().clone(),
+                create_single_tree(repo, &[(conflict, "a")]).id().clone(),
+                create_single_tree(repo, &[(conflict, "b")]).id().clone(),
+            ]),
+            ConflictLabels::from_vec(vec!["side 3".into(), "base 1".into(), "side 2".into()]),
+        )
+    );
+    let again = resolved.clone().resolve().block_on()?;
+    assert_tree_eq!(again, resolved);
     Ok(())
 }
 
