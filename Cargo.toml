@@ -11,6 +11,7 @@ members = [
     "lib",
     "lib/gen-protos",
     "lib/testutils",
+    "local-util",
 ]
 
 [workspace.package]
@@ -149,6 +150,7 @@ jj-core-proc-macros = { path = "core/proc-macros", version = "0.46.0" }
 jj-dsl = { path = "dsl", version = "0.46.0" }
 jj-frontend = { path = "frontend", version = "0.46.0" }
 jj-lib = { path = "lib", version = "0.46.0", default-features = false }
+jj-local-util = { path = "local-util", version = "0.46.0" }
 testutils = { path = "lib/testutils" }
 
 [workspace.lints.clippy]

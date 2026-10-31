@@ -36,7 +36,6 @@ pub mod copies;
 pub mod dag_walk;
 pub mod dag_walk_async;
 pub mod diff;
-pub mod file_util;
 pub mod files;
 pub mod fileset_backend;
 pub mod filtered_tree_writer;
@@ -70,17 +69,6 @@ pub mod workspace_store;
 
 #[cfg(test)]
 mod tests {
-    use tempfile::TempDir;
-
     // Copied from `testutils::TestResult` to remove dependency cycle.
     pub type TestResult<T = ()> = eyre::Result<T>;
-
-    /// Unlike `testutils::new_temp_dir()`, this function doesn't set up
-    /// hermetic Git environment.
-    pub fn new_temp_dir() -> TempDir {
-        tempfile::Builder::new()
-            .prefix("jj-test-")
-            .tempdir()
-            .unwrap()
-    }
 }
