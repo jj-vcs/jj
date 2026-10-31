@@ -62,6 +62,7 @@ pub async fn merge_trees(store: &Arc<Store>, merge: Merge<TreeId>) -> BackendRes
         trees_to_resolve: BTreeMap::new(),
         work: FuturesUnordered::new(),
         unstarted_work: BTreeMap::new(),
+        unsimplified_values: BTreeMap::new(),
     };
     merger.enqueue_tree_read(
         RepoPathBuf::root(),
@@ -179,6 +180,9 @@ struct TreeMerger {
     work: FuturesUnordered<BoxFuture<'static, TreeMergerWorkOutput>>,
     // Futures we haven't started polling yet, in order to respect the backend's concurrency limit.
     unstarted_work: BTreeMap<TreeMergeWorkItemKey, BoxFuture<'static, TreeMergerWorkOutput>>,
+    // Original values of directories merged from their simplified terms. They replace the
+    // merged result unless it resolves.
+    unsimplified_values: BTreeMap<RepoPathBuf, MergedTreeValue>,
 }
 
 impl TreeMerger {
@@ -198,10 +202,15 @@ impl TreeMerger {
                         return Ok(tree);
                     }
                     // Propagate the write to the parent tree, replacing empty trees by `None`.
-                    let new_value = tree.map(|tree| {
+                    let mut new_value = tree.map(|tree| {
                         (tree.id() != self.store.empty_tree_id())
                             .then(|| TreeValue::Tree(tree.id().clone()))
                     });
+                    if let Some(original) = self.unsimplified_values.remove(&dir)
+                        && !new_value.is_resolved()
+                    {
+                        new_value = original;
+                    }
                     self.mark_completed(&dir, new_value);
                 }
                 TreeMergerWorkOutput::MergedFiles { path, result } => {
@@ -251,6 +260,12 @@ impl TreeMerger {
             unmerged_tree.pending_lookup.insert(basename);
             if value.is_tree() {
                 self.enqueue_tree_read(path, value);
+                continue;
+            }
+            let simplified = value.simplify();
+            if simplified.is_tree() {
+                self.unsimplified_values.insert(path.clone(), value);
+                self.enqueue_tree_read(path, simplified);
             } else {
                 // TODO: If it's e.g. a dir/file conflict, there's no need to try to
                 // resolve it as a file. We should mark them to
