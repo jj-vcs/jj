@@ -83,6 +83,10 @@ and this project adheres to
   exits with an error (previously `q` aborted successfully).
 
 ### Fixed bugs
+* `jj run` now captures subprocess output through temporary files on NetBSD,
+  where Tokio cannot poll child output pipes.
+  [#10342](https://github.com/jj-vcs/jj/issues/10342)
+
 
 * In graph output, an elided edge that passes through a merge or fork line is
   now drawn as elided (`╷`) before reaching the node, instead of looking like a
