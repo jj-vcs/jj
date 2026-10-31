@@ -203,9 +203,7 @@ impl ReadonlyRepo {
         let backend = backend_initializer(settings, &store_path)?;
         let backend_path = store_path.join("type");
         fs::write(&backend_path, backend.name()).context(&backend_path)?;
-        let merge_options = settings
-            .merge_options()
-            .map_err(|err| BackendInitError(err.into()))?;
+        let merge_options = settings.merge_options().map_err(BackendInitError::new)?;
         let store = Store::new(backend, signer, merge_options);
 
         let workspace_store_path = repo_path.join("workspace_store");
@@ -271,7 +269,7 @@ impl ReadonlyRepo {
             .await
             // If the root op index couldn't be read, the index backend wouldn't
             // be initialized properly.
-            .map_err(|err| BackendInitError(err.into()))?;
+            .map_err(BackendInitError::new)?;
         Ok(Arc::new(Self {
             loader,
             operation: root_operation,
@@ -710,9 +708,7 @@ impl RepoLoader {
         repo_path: &Path,
         store_factories: &StoreFactories,
     ) -> Result<Self, StoreLoadError> {
-        let merge_options = settings
-            .merge_options()
-            .map_err(|err| BackendLoadError(err.into()))?;
+        let merge_options = settings.merge_options().map_err(BackendLoadError::new)?;
         let store = Store::new(
             store_factories.load_backend(settings, &repo_path.join("store"))?,
             signer_from_settings(settings)?,

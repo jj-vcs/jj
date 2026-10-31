@@ -272,10 +272,24 @@ pub struct RelatedCopy {
 #[error(transparent)]
 pub struct BackendInitError(pub Box<dyn std::error::Error + Send + Sync>);
 
+impl BackendInitError {
+    /// Wraps an error that occurred during backend initialization.
+    pub fn new(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+        Self(err.into())
+    }
+}
+
 /// Error that may occur during backend loading.
 #[derive(Debug, Error)]
 #[error(transparent)]
 pub struct BackendLoadError(pub Box<dyn std::error::Error + Send + Sync>);
+
+impl BackendLoadError {
+    /// Wraps an error that occurred during backend loading.
+    pub fn new(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+        Self(err.into())
+    }
+}
 
 /// Commit-backend error that may occur after the backend is loaded.
 #[derive(Debug, Error)]

@@ -103,13 +103,13 @@ pub enum ConfigGetError {
 
 impl From<ConfigGetError> for BackendInitError {
     fn from(err: ConfigGetError) -> Self {
-        Self(err.into())
+        Self::new(err)
     }
 }
 
 impl From<ConfigGetError> for BackendLoadError {
     fn from(err: ConfigGetError) -> Self {
-        Self(err.into())
+        Self::new(err)
     }
 }
 

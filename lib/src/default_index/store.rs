@@ -76,7 +76,7 @@ pub struct DefaultIndexStoreInitError(#[from] pub PathError);
 
 impl From<DefaultIndexStoreInitError> for BackendInitError {
     fn from(err: DefaultIndexStoreInitError) -> Self {
-        Self(err.into())
+        Self::new(err)
     }
 }
 
