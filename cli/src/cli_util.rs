@@ -167,6 +167,7 @@ use crate::command_error::CommandError;
 use crate::command_error::handle_command_result;
 use crate::command_error::internal_error;
 use crate::command_error::internal_error_with_message;
+#[cfg(feature = "git")]
 use crate::command_error::print_error_sources;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
@@ -2181,6 +2182,7 @@ to the current parents may contain changes from multiple commits.
         &mut self,
         ui: &Ui,
         config: &SnapshotConfig,
+        #[cfg_attr(not(feature = "git"), expect(unused_variables))]
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, RunnerError> {
         let workspace_name = self.workspace_name().to_owned();
@@ -2380,6 +2382,7 @@ to the current parents may contain changes from multiple commits.
         ui: &Ui,
         mut tx: Transaction,
         description: impl Into<String>,
+        #[cfg_attr(not(feature = "git"), expect(unused_variables))]
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), RunnerError> {
         let old_repo = tx.base_repo().clone();
