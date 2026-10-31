@@ -16,6 +16,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
 use std::iter;
+use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -28,6 +29,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
 use jj_lib::content_hash::blake2b_hash;
+use jj_lib::dsl_util::AliasId;
 use jj_lib::file_util;
 use jj_lib::hex_util;
 use jj_lib::op_store::TimestampRange;
@@ -38,7 +40,6 @@ use jj_lib::template_parser::BinaryOp;
 use jj_lib::template_parser::ExpressionKind;
 use jj_lib::template_parser::ExpressionNode;
 use jj_lib::template_parser::FunctionCallNode;
-use jj_lib::template_parser::LambdaNode;
 use jj_lib::template_parser::TemplateAliasesMap;
 use jj_lib::template_parser::TemplateDiagnostics;
 use jj_lib::template_parser::TemplateParseError;
@@ -954,11 +955,23 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> AnyTemplateProperty<'a> for Expression<
 pub struct BuildContext<'i, P> {
     /// Map of functions to create `L::Property`.
     local_variables: HashMap<&'i str, &'i dyn Fn() -> P>,
+    /// Stack of outer `local_variables` maps from enclosing alias call sites.
+    outer_local_variables: Vec<HashMap<&'i str, &'i dyn Fn() -> P>>,
     /// Function to create `L::Property` representing `self`.
     ///
     /// This could be `local_variables["self"]`, but keyword lookup shouldn't be
     /// overridden by a user-defined `self` variable.
     self_variable: &'i dyn Fn() -> P,
+}
+
+impl<P> Clone for BuildContext<'_, P> {
+    fn clone(&self) -> Self {
+        Self {
+            local_variables: self.local_variables.clone(),
+            outer_local_variables: self.outer_local_variables.clone(),
+            self_variable: self.self_variable,
+        }
+    }
 }
 
 fn build_keyword<'a, L: TemplateLanguage<'a> + ?Sized>(
@@ -2209,16 +2222,15 @@ where
 {
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
-    let item_predicate =
-        template_parser::catch_aliases(diagnostics, lambda_node, |diagnostics, node| {
-            let lambda = template_parser::expect_lambda(node)?;
-            build_lambda_expression(
-                build_ctx,
-                lambda,
-                &[&|| item_placeholder.clone().into_dyn_wrapped()],
-                |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
-            )
-        })?;
+    let item_predicate = build_lambda_expression(
+        diagnostics,
+        build_ctx,
+        lambda_node,
+        &[&|| item_placeholder.clone().into_dyn_wrapped()],
+        |diagnostics, build_ctx, body| {
+            expect_boolean_expression(language, diagnostics, build_ctx, body)
+        },
+    )?;
     let out_property = self_property.and_then(move |items| {
         items
             .into_iter()
@@ -2252,16 +2264,15 @@ where
 {
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
-    let mapped_item =
-        template_parser::catch_aliases(diagnostics, lambda_node, |diagnostics, node| {
-            let lambda = template_parser::expect_lambda(node)?;
-            build_lambda_expression(
-                build_ctx,
-                lambda,
-                &[&|| item_placeholder.clone().into_dyn_wrapped()],
-                |build_ctx, body| expect_any_expression(language, diagnostics, build_ctx, body),
-            )
-        })?;
+    let mapped_item = build_lambda_expression(
+        diagnostics,
+        build_ctx,
+        lambda_node,
+        &[&|| item_placeholder.clone().into_dyn_wrapped()],
+        |diagnostics, build_ctx, body| {
+            expect_any_expression(language, diagnostics, build_ctx, body)
+        },
+    )?;
     let mapped_list = ListMapProperty::new(self_property, item_placeholder, mapped_item);
     Ok(Box::new(mapped_list))
 }
@@ -2284,16 +2295,15 @@ where
 {
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
-    let item_predicate =
-        template_parser::catch_aliases(diagnostics, lambda_node, |diagnostics, node| {
-            let lambda = template_parser::expect_lambda(node)?;
-            build_lambda_expression(
-                build_ctx,
-                lambda,
-                &[&|| item_placeholder.clone().into_dyn_wrapped()],
-                |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
-            )
-        })?;
+    let item_predicate = build_lambda_expression(
+        diagnostics,
+        build_ctx,
+        lambda_node,
+        &[&|| item_placeholder.clone().into_dyn_wrapped()],
+        |diagnostics, build_ctx, body| {
+            expect_boolean_expression(language, diagnostics, build_ctx, body)
+        },
+    )?;
 
     let out_property = self_property.and_then(move |items| {
         items
@@ -2322,16 +2332,15 @@ where
 {
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
-    let item_predicate =
-        template_parser::catch_aliases(diagnostics, lambda_node, |diagnostics, node| {
-            let lambda = template_parser::expect_lambda(node)?;
-            build_lambda_expression(
-                build_ctx,
-                lambda,
-                &[&|| item_placeholder.clone().into_dyn_wrapped()],
-                |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
-            )
-        })?;
+    let item_predicate = build_lambda_expression(
+        diagnostics,
+        build_ctx,
+        lambda_node,
+        &[&|| item_placeholder.clone().into_dyn_wrapped()],
+        |diagnostics, build_ctx, body| {
+            expect_boolean_expression(language, diagnostics, build_ctx, body)
+        },
+    )?;
 
     let out_property = self_property.and_then(move |items| {
         items
@@ -2345,24 +2354,35 @@ where
 /// Builds lambda expression to be evaluated with the provided arguments.
 /// `arg_fns` is usually an array of wrapped [`PropertyPlaceholder`]s.
 fn build_lambda_expression<'i, P, T>(
+    diagnostics: &mut TemplateDiagnostics,
     build_ctx: &BuildContext<'i, P>,
-    lambda: &LambdaNode<'i>,
+    lambda_node: &ExpressionNode<'i>,
     arg_fns: &[&'i dyn Fn() -> P],
-    build_body: impl FnOnce(&BuildContext<'i, P>, &ExpressionNode<'i>) -> TemplateParseResult<T>,
+    build_body: impl FnOnce(
+        &mut TemplateDiagnostics,
+        &BuildContext<'i, P>,
+        &ExpressionNode<'i>,
+    ) -> TemplateParseResult<T>,
 ) -> TemplateParseResult<T> {
-    if lambda.params.len() != arg_fns.len() {
-        return Err(TemplateParseError::expression(
-            format!("Expected {} lambda parameters", arg_fns.len()),
-            lambda.params_span,
-        ));
-    }
-    let mut local_variables = build_ctx.local_variables.clone();
-    local_variables.extend(iter::zip(&lambda.params, arg_fns));
-    let inner_build_ctx = BuildContext {
-        local_variables,
-        self_variable: build_ctx.self_variable,
-    };
-    build_body(&inner_build_ctx, &lambda.body)
+    catch_aliases(
+        diagnostics,
+        build_ctx,
+        lambda_node,
+        |diagnostics, build_ctx, node| {
+            let lambda = template_parser::expect_lambda(node)?;
+            if lambda.params.len() != arg_fns.len() {
+                return Err(TemplateParseError::expression(
+                    format!("Expected {} lambda parameters", arg_fns.len()),
+                    lambda.params_span,
+                ));
+            }
+            let mut build_ctx = build_ctx.clone();
+            build_ctx
+                .local_variables
+                .extend(iter::zip(&lambda.params, arg_fns));
+            build_body(diagnostics, &build_ctx, &lambda.body)
+        },
+    )
 }
 
 fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFunctionFnMap<'a, L> {
@@ -2520,19 +2540,13 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         let regex = pattern.to_regex();
 
         let captures_placeholder = PropertyPlaceholder::new();
-        let replacement_template = template_parser::catch_aliases(
+        let replacement_template = build_lambda_expression(
             diagnostics,
+            build_ctx,
             replacement_lambda_node,
-            |diagnostics, node| {
-                let lambda = template_parser::expect_lambda(node)?;
-                build_lambda_expression(
-                    build_ctx,
-                    lambda,
-                    &[&|| captures_placeholder.clone().into_dyn_wrapped()],
-                    |build_ctx, body| {
-                        expect_template_expression(language, diagnostics, build_ctx, body)
-                    },
-                )
+            &[&|| captures_placeholder.clone().into_dyn_wrapped()],
+            |diagnostics, build_ctx, body| {
+                expect_template_expression(language, diagnostics, build_ctx, body)
             },
         )?;
 
@@ -2789,92 +2803,98 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
 ) -> TemplateParseResult<Expression<L::Property>> {
-    template_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
-        ExpressionKind::Identifier(name) => {
-            if let Some(make) = build_ctx.local_variables.get(name) {
-                // Don't label a local variable with its name
-                Ok(Expression::unlabeled(make()))
-            } else if *name == "self" {
-                // "self" is a special variable, so don't label it
-                let make = build_ctx.self_variable;
-                Ok(Expression::unlabeled(make()))
-            } else {
-                let property = build_keyword(language, diagnostics, build_ctx, name, node.span)
-                    .map_err(|err| {
-                        err.extend_keyword_candidates(itertools::chain(
-                            build_ctx.local_variables.keys().copied(),
-                            ["self"],
-                        ))
-                    })?;
-                Ok(Expression::with_label(property, *name))
+    catch_aliases(
+        diagnostics,
+        build_ctx,
+        node,
+        |diagnostics, build_ctx, node| match &node.kind {
+            ExpressionKind::Identifier(name) => {
+                if let Some(make) = build_ctx.local_variables.get(name) {
+                    // Don't label a local variable with its name
+                    Ok(Expression::unlabeled(make()))
+                } else if *name == "self" {
+                    // "self" is a special variable, so don't label it
+                    let make = build_ctx.self_variable;
+                    Ok(Expression::unlabeled(make()))
+                } else {
+                    let property = build_keyword(language, diagnostics, build_ctx, name, node.span)
+                        .map_err(|err| {
+                            err.extend_keyword_candidates(itertools::chain(
+                                build_ctx.local_variables.keys().copied(),
+                                ["self"],
+                            ))
+                        })?;
+                    Ok(Expression::with_label(property, *name))
+                }
             }
-        }
-        ExpressionKind::Boolean(value) => {
-            let property = Literal(*value).into_dyn_wrapped();
-            Ok(Expression::unlabeled(property))
-        }
-        ExpressionKind::Integer(value) => {
-            let property = Literal(*value).into_dyn_wrapped();
-            Ok(Expression::unlabeled(property))
-        }
-        ExpressionKind::String(value) => {
-            let property = Literal(value.clone()).into_dyn_wrapped();
-            Ok(Expression::unlabeled(property))
-        }
-        ExpressionKind::Pattern(_) => Err(TemplateParseError::expression(
-            "String patterns may not be used as expression values",
-            node.span,
-        )),
-        ExpressionKind::Unary(op, arg_node) => {
-            let property = build_unary_operation(language, diagnostics, build_ctx, *op, arg_node)?;
-            Ok(Expression::unlabeled(property))
-        }
-        ExpressionKind::Binary(op, lhs_node, rhs_node) => {
-            let property = build_binary_operation(
-                language,
-                diagnostics,
-                build_ctx,
-                *op,
-                lhs_node,
-                rhs_node,
+            ExpressionKind::Boolean(value) => {
+                let property = Literal(*value).into_dyn_wrapped();
+                Ok(Expression::unlabeled(property))
+            }
+            ExpressionKind::Integer(value) => {
+                let property = Literal(*value).into_dyn_wrapped();
+                Ok(Expression::unlabeled(property))
+            }
+            ExpressionKind::String(value) => {
+                let property = Literal(value.clone()).into_dyn_wrapped();
+                Ok(Expression::unlabeled(property))
+            }
+            ExpressionKind::Pattern(_) => Err(TemplateParseError::expression(
+                "String patterns may not be used as expression values",
                 node.span,
-            )?;
-            Ok(Expression::unlabeled(property))
-        }
-        ExpressionKind::Concat(nodes) => {
-            let templates = nodes
-                .iter()
-                .map(|node| expect_template_expression(language, diagnostics, build_ctx, node))
-                .try_collect()?;
-            let property = L::Property::wrap_template(Box::new(ConcatTemplate(templates)));
-            Ok(Expression::unlabeled(property))
-        }
-        ExpressionKind::FunctionCall(function) => {
-            let property = language.build_function(diagnostics, build_ctx, function)?;
-            Ok(Expression::unlabeled(property))
-        }
-        ExpressionKind::MethodCall(method) => {
-            let mut expression =
-                build_expression(language, diagnostics, build_ctx, &method.object)?;
-            expression.property = language.build_method(
-                diagnostics,
-                build_ctx,
-                expression.property,
-                &method.function,
-            )?;
-            expression.labels.push(method.function.name.to_owned());
-            Ok(expression)
-        }
-        ExpressionKind::Lambda(_) => Err(TemplateParseError::expression(
-            "Lambda cannot be defined here",
-            node.span,
-        )),
-        ExpressionKind::Map(_) => Err(TemplateParseError::expression(
-            "Map cannot be defined here",
-            node.span,
-        )),
-        ExpressionKind::AliasExpanded(..) => unreachable!(),
-    })
+            )),
+            ExpressionKind::Unary(op, arg_node) => {
+                let property =
+                    build_unary_operation(language, diagnostics, build_ctx, *op, arg_node)?;
+                Ok(Expression::unlabeled(property))
+            }
+            ExpressionKind::Binary(op, lhs_node, rhs_node) => {
+                let property = build_binary_operation(
+                    language,
+                    diagnostics,
+                    build_ctx,
+                    *op,
+                    lhs_node,
+                    rhs_node,
+                    node.span,
+                )?;
+                Ok(Expression::unlabeled(property))
+            }
+            ExpressionKind::Concat(nodes) => {
+                let templates = nodes
+                    .iter()
+                    .map(|node| expect_template_expression(language, diagnostics, build_ctx, node))
+                    .try_collect()?;
+                let property = L::Property::wrap_template(Box::new(ConcatTemplate(templates)));
+                Ok(Expression::unlabeled(property))
+            }
+            ExpressionKind::FunctionCall(function) => {
+                let property = language.build_function(diagnostics, build_ctx, function)?;
+                Ok(Expression::unlabeled(property))
+            }
+            ExpressionKind::MethodCall(method) => {
+                let mut expression =
+                    build_expression(language, diagnostics, build_ctx, &method.object)?;
+                expression.property = language.build_method(
+                    diagnostics,
+                    build_ctx,
+                    expression.property,
+                    &method.function,
+                )?;
+                expression.labels.push(method.function.name.to_owned());
+                Ok(expression)
+            }
+            ExpressionKind::Lambda(_) => Err(TemplateParseError::expression(
+                "Lambda cannot be defined here",
+                node.span,
+            )),
+            ExpressionKind::Map(_) => Err(TemplateParseError::expression(
+                "Map cannot be defined here",
+                node.span,
+            )),
+            ExpressionKind::AliasExpanded(..) => unreachable!(),
+        },
+    )
 }
 
 /// Builds template evaluation tree from AST nodes, with fresh build context.
@@ -2891,6 +2911,7 @@ where
     let self_placeholder = PropertyPlaceholder::new();
     let build_ctx = BuildContext {
         local_variables: HashMap::new(),
+        outer_local_variables: Vec::new(),
         self_variable: &|| self_placeholder.clone().into_dyn_wrapped(),
     };
     let template = expect_template_expression(language, diagnostics, &build_ctx, node)?;
@@ -3035,28 +3056,41 @@ pub fn expect_serialize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
 ) -> TemplateParseResult<BoxedSerializeProperty<'a>> {
-    template_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
-        ExpressionKind::Map(entries) => {
-            let entries = entries
-                .iter()
-                .map(|(key_node, value_node)| -> TemplateParseResult<_> {
-                    let key =
-                        expect_serialize_expression(language, diagnostics, build_ctx, key_node)?;
-                    let value =
-                        expect_serialize_expression(language, diagnostics, build_ctx, value_node)?;
-                    Ok((key, value))
+    catch_aliases(
+        diagnostics,
+        build_ctx,
+        node,
+        |diagnostics, build_ctx, node| match &node.kind {
+            ExpressionKind::Map(entries) => {
+                let entries = entries
+                    .iter()
+                    .map(|(key_node, value_node)| -> TemplateParseResult<_> {
+                        let key = expect_serialize_expression(
+                            language,
+                            diagnostics,
+                            build_ctx,
+                            key_node,
+                        )?;
+                        let value = expect_serialize_expression(
+                            language,
+                            diagnostics,
+                            build_ctx,
+                            value_node,
+                        )?;
+                        Ok((key, value))
+                    })
+                    .try_collect()?;
+                Ok(SerializeMapProperty::new(entries).into_serialize())
+            }
+            _ => {
+                let expression = build_expression(language, diagnostics, build_ctx, node)?;
+                let actual_type = expression.type_name();
+                expression.try_into_serialize().ok_or_else(|| {
+                    TemplateParseError::expected_type("Serialize", actual_type, node.span)
                 })
-                .try_collect()?;
-            Ok(SerializeMapProperty::new(entries).into_serialize())
-        }
-        _ => {
-            let expression = build_expression(language, diagnostics, build_ctx, node)?;
-            let actual_type = expression.type_name();
-            expression.try_into_serialize().ok_or_else(|| {
-                TemplateParseError::expected_type("Serialize", actual_type, node.span)
-            })
-        }
-    })
+            }
+        },
+    )
 }
 
 pub fn expect_template_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
@@ -3081,12 +3115,17 @@ pub fn expect_any_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
 ) -> TemplateParseResult<BoxedAnyProperty<'a>> {
-    template_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
-        Ok(
-            Box::new(build_expression(language, diagnostics, build_ctx, node)?)
-                as BoxedAnyProperty<'a>,
-        )
-    })
+    catch_aliases(
+        diagnostics,
+        build_ctx,
+        node,
+        |diagnostics, build_ctx, node| {
+            Ok(
+                Box::new(build_expression(language, diagnostics, build_ctx, node)?)
+                    as BoxedAnyProperty<'a>,
+            )
+        },
+    )
 }
 
 fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
@@ -3097,11 +3136,54 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
     expected_type: &str,
     f: impl FnOnce(Expression<L::Property>) -> Option<T>,
 ) -> TemplateParseResult<T> {
+    catch_aliases(
+        diagnostics,
+        build_ctx,
+        node,
+        |diagnostics, build_ctx, node| {
+            let expression = build_expression(language, diagnostics, build_ctx, node)?;
+            let actual_type = expression.type_name();
+            f(expression).ok_or_else(|| {
+                TemplateParseError::expected_type(expected_type, actual_type, node.span)
+            })
+        },
+    )
+}
+
+/// Applies the given function to the innermost `node` by unwrapping alias expansion nodes and
+/// updating `build_ctx` local variables for the alias scope.
+fn catch_aliases<'a, 'i, P, T>(
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<'i, P>,
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(
+        &mut TemplateDiagnostics,
+        &BuildContext<'i, P>,
+        &'a ExpressionNode<'i>,
+    ) -> TemplateParseResult<T>,
+) -> TemplateParseResult<T> {
+    if !matches!(node.kind, ExpressionKind::AliasExpanded(..)) {
+        return f(diagnostics, build_ctx, node);
+    }
+    let mut build_ctx = build_ctx.clone();
+    let mut cur_node = node;
+    while let ExpressionKind::AliasExpanded(id, subst) = &cur_node.kind {
+        match id {
+            AliasId::Symbol(_) | AliasId::Pattern(..) | AliasId::Function(..) => {
+                let locals = mem::take(&mut build_ctx.local_variables);
+                build_ctx.outer_local_variables.push(locals);
+            }
+            AliasId::Parameter(_) => {
+                build_ctx.local_variables = build_ctx
+                    .outer_local_variables
+                    .pop()
+                    .expect("alias parameter should be expanded within alias definition");
+            }
+        }
+        cur_node = subst;
+    }
     template_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
-        let expression = build_expression(language, diagnostics, build_ctx, node)?;
-        let actual_type = expression.type_name();
-        f(expression)
-            .ok_or_else(|| TemplateParseError::expected_type(expected_type, actual_type, node.span))
+        f(diagnostics, &build_ctx, node)
     })
 }
 
@@ -4196,6 +4278,166 @@ mod tests {
         // Lambda expression in alias
         env.add_alias("identity", "|x| x");
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().map(identity)"#), @"a b c");
+
+        // Lambda parameter shadows symbol alias and function alias parameter.
+        env.add_alias("sym", "'alias'");
+        env.add_alias("map_sym(sym)", r#""a\nb\nc".lines().map(|sym| sym) ++ sym"#);
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().map(|sym| sym) ++ sym"#), @"a b calias");
+        insta::assert_snapshot!(env.render_ok(r#"map_sym("arg")"#), @"a b carg");
+
+        // Lambda parameter shouldn't bleed into alias definitions, unless passed as an argument.
+        env.add_alias("use_x_sym", "x");
+        env.add_alias("use_x_fn()", "x");
+        env.add_alias("use_x_lambda", "|y| x ++ y");
+        env.add_alias("id_fn(a)", "a");
+        env.add_alias("nested_fn(a)", "id_fn(a)");
+        env.add_alias("nested_use_x_fn(a)", "id_fn(a) ++ use_x_fn()");
+        env.add_alias(
+            "shadow_in_fn(a)",
+            r#""c\nd".lines().map(|x| id_fn(a) ++ x)"#,
+        );
+        insta::assert_snapshot!(env.parse_err(r#""a\nb".lines().map(|x| use_x_sym)"#), @r#"
+         --> 1:24
+          |
+        1 | "a\nb".lines().map(|x| use_x_sym)
+          |                        ^-------^
+          |
+          = In alias `use_x_sym`
+         --> 1:1
+          |
+        1 | x
+          | ^
+          |
+          = Keyword `x` doesn't exist
+        "#);
+        insta::assert_snapshot!(env.parse_err(r#""a\nb".lines().map(|x| use_x_fn())"#), @r#"
+         --> 1:24
+          |
+        1 | "a\nb".lines().map(|x| use_x_fn())
+          |                        ^--------^
+          |
+          = In alias `use_x_fn()`
+         --> 1:1
+          |
+        1 | x
+          | ^
+          |
+          = Keyword `x` doesn't exist
+        "#);
+        insta::assert_snapshot!(
+            env.parse_err(r#""a\nb".lines().map(|x| "c\nd".lines().map(use_x_lambda))"#), @r#"
+         --> 1:43
+          |
+        1 | "a\nb".lines().map(|x| "c\nd".lines().map(use_x_lambda))
+          |                                           ^----------^
+          |
+          = In alias `use_x_lambda`
+         --> 1:5
+          |
+        1 | |y| x ++ y
+          |     ^
+          |
+          = Keyword `x` doesn't exist
+        "#);
+        insta::assert_snapshot!(
+            env.parse_err(r#""a\nb".lines().map(|x| nested_fn(use_x_fn()))"#), @r#"
+         --> 1:24
+          |
+        1 | "a\nb".lines().map(|x| nested_fn(use_x_fn()))
+          |                        ^-------------------^
+          |
+          = In alias `nested_fn(a)`
+         --> 1:1
+          |
+        1 | id_fn(a)
+          | ^------^
+          |
+          = In alias `id_fn(a)`
+         --> 1:1
+          |
+        1 | a
+          | ^
+          |
+          = In function parameter `a`
+         --> 1:7
+          |
+        1 | id_fn(a)
+          |       ^
+          |
+          = In function parameter `a`
+         --> 1:34
+          |
+        1 | "a\nb".lines().map(|x| nested_fn(use_x_fn()))
+          |                                  ^--------^
+          |
+          = In alias `use_x_fn()`
+         --> 1:1
+          |
+        1 | x
+          | ^
+          |
+          = Keyword `x` doesn't exist
+        "#);
+        insta::assert_snapshot!(
+            env.parse_err(r#""a\nb".lines().map(|x| nested_use_x_fn(x))"#), @r#"
+         --> 1:24
+          |
+        1 | "a\nb".lines().map(|x| nested_use_x_fn(x))
+          |                        ^----------------^
+          |
+          = In alias `nested_use_x_fn(a)`
+         --> 1:13
+          |
+        1 | id_fn(a) ++ use_x_fn()
+          |             ^--------^
+          |
+          = In alias `use_x_fn()`
+         --> 1:1
+          |
+        1 | x
+          | ^
+          |
+          = Keyword `x` doesn't exist
+        "#);
+        insta::assert_snapshot!(env.parse_err(r#"shadow_in_fn(x)"#), @r#"
+         --> 1:1
+          |
+        1 | shadow_in_fn(x)
+          | ^-------------^
+          |
+          = In alias `shadow_in_fn(a)`
+         --> 1:24
+          |
+        1 | "c\nd".lines().map(|x| id_fn(a) ++ x)
+          |                        ^------^
+          |
+          = In alias `id_fn(a)`
+         --> 1:1
+          |
+        1 | a
+          | ^
+          |
+          = In function parameter `a`
+         --> 1:30
+          |
+        1 | "c\nd".lines().map(|x| id_fn(a) ++ x)
+          |                              ^
+          |
+          = In function parameter `a`
+         --> 1:14
+          |
+        1 | shadow_in_fn(x)
+          |              ^
+          |
+          = Keyword `x` doesn't exist
+        "#);
+        insta::assert_snapshot!(env.render_ok(r#""a\nb".lines().map(|x| id_fn(x))"#), @"a b");
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nb".lines().map(|x| nested_fn(x ++ "!"))"#),
+            @"a! b!");
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nb".lines().map(|x| shadow_in_fn(x))"#),
+            @"ac ad bc bd");
 
         // Not a lambda expression
         insta::assert_snapshot!(env.parse_err(r#""a".lines().map(empty)"#), @r#"

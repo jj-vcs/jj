@@ -2114,10 +2114,10 @@ mod tests {
 
         // Local variable shouldn't be expanded within aliases.
         assert_eq!(
-            with_aliases([("B", "A"), ("F(x)", "x&A")])
+            with_aliases([("B", "A"), ("P:x", "x&A"), ("F(x)", "x&A")])
                 .set_local("A", "a")
-                .parse_normalized("A|B|F(A)"),
-            parse_normalized("a|A|(a&A)")
+                .parse_normalized("A|B|P:A|F(A)"),
+            parse_normalized("a|A|(a&A)|(a&A)")
         );
     }
 
