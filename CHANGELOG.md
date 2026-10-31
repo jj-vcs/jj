@@ -82,6 +82,10 @@ and this project adheres to
   to converge. The special `q` abort choice was removed; canceling with EOF now
   exits with an error (previously `q` aborted successfully).
 
+* New `let([name, value, ...], body)` templating function which allows you to
+  assign a value to name bindings to be used in later expressions. Note that
+  each `name` is currently expanded inline and re-evaluated for each use.
+
 ### Fixed bugs
 
 * In graph output, an elided edge that passes through a merge or fork line is

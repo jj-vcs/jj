@@ -485,6 +485,68 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
             }
         }
     }
+
+    fn fold_function_call_args<F>(
+        folder: &mut F,
+        function: FunctionCallNode<'i>,
+    ) -> Result<FunctionCallNode<'i>, F::Error>
+    where
+        F: ExpressionFolder<'i, Self> + ?Sized,
+    {
+        if function.name == "let" && function.keyword_args.is_empty() {
+            // Intercept `let` so that its `nameN` variable bindings are kept as plain identifiers
+            // and not expanded into aliases. The custom folder here will also ensure that new
+            // bindings shadow outer aliases (so that later references are not expanded either).
+            Ok(FunctionCallNode {
+                name: function.name,
+                name_span: function.name_span,
+                args: fold_let_arguments(folder, function.args)?,
+                keyword_args: Vec::new(),
+                args_span: function.args_span,
+            })
+        } else {
+            dsl_util::fold_function_call_args(folder, function)
+        }
+    }
+}
+
+/// Folds `let([name1, value1, ...], body)` arguments sequentially so that binding names are not
+/// expanded as aliases (parsed as plain identifiers) and shadow outer aliases in subsequent
+/// bindings and the body.
+fn fold_let_arguments<'i, F>(
+    folder: &mut F,
+    args: Vec<ExpressionNode<'i>>,
+) -> Result<Vec<ExpressionNode<'i>>, F::Error>
+where
+    F: ExpressionFolder<'i, ExpressionKind<'i>> + ?Sized,
+{
+    let mut folded_args = Vec::with_capacity(args.len());
+    let mut scoped_params = Vec::new();
+    let mut iter = args.into_iter();
+    loop {
+        match (iter.next(), iter.next()) {
+            (Some(name_node), Some(value_node)) => {
+                // Fold the value expression before adding the name to the scope, since the value
+                // should use names in the outer scope before assigning to the new binding name.
+                let value_node = folder.fold_scoped_expression(value_node, &scoped_params)?;
+                if let ExpressionKind::Identifier(name) = name_node.kind {
+                    scoped_params.push(name);
+                }
+                folded_args.push(name_node);
+                folded_args.push(value_node);
+            }
+            (Some(body_node), None) => {
+                let body_node = folder.fold_scoped_expression(body_node, &scoped_params)?;
+                folded_args.push(body_node);
+                break;
+            }
+            // An even number of arguments (e.g. `let()` or `let(x, 1)`) is invalid and will be
+            // rejected later by `build_let_expression`.
+            (None, None) => break,
+            (None, Some(_)) => unreachable!(),
+        }
+    }
+    Ok(folded_args)
 }
 
 impl<'i> AliasExpandableExpression<'i> for ExpressionKind<'i> {
@@ -1825,6 +1887,14 @@ mod tests {
             parse_normalized("|A| A ++ (|B| A ++ B) ++ b"),
         );
 
+        // `let` binding names should not be expanded as aliases, and should shadow symbol aliases
+        // in subsequent bindings and the body.
+        assert_eq!(
+            with_aliases([("A", "a"), ("B", "b")])
+                .parse_normalized("let(A, A, B, A ++ B, A ++ B) ++ A ++ B"),
+            parse_normalized("let(A, a, B, A ++ b, A ++ B) ++ a ++ b"),
+        );
+
         // Map entries should be expanded.
         assert_eq!(
             with_aliases([("A", "a"), ("B", "b")]).parse_normalized("{A => !B}"),
@@ -1903,6 +1973,10 @@ mod tests {
         assert_eq!(
             with_aliases([("P:x", "(|x| x) ++ x")]).parse_normalized("P:a"),
             parse_normalized("(|x| x) ++ a"),
+        );
+        assert_eq!(
+            with_aliases([("P:x", "let(x, x, x) ++ x")]).parse_normalized("P:a"),
+            parse_normalized("let(x, a, x) ++ a"),
         );
 
         // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
@@ -1984,6 +2058,10 @@ mod tests {
         assert_eq!(
             with_aliases([("F(x)", "(|x| x) ++ x")]).parse_normalized("F(a ++ b)"),
             parse_normalized("(|x| x) ++ (a ++ b)"),
+        );
+        assert_eq!(
+            with_aliases([("F(x, y)", "let(x, x, x ++ y) ++ x")]).parse_normalized("F(a ++ b, c)"),
+            parse_normalized("let(x, (a ++ b), x ++ c) ++ (a ++ b)"),
         );
 
         // Invalid number of arguments.
