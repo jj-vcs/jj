@@ -3460,13 +3460,13 @@ achieved with `jj new`.
 
 Move changes from a revision into another revision
 
-Without any options, moves the changes from the working-copy revision to the parent revision.
+Without any options, moves the changes from the working-copy revision to the parent revision (equivalent to `-r @`).
 
 With the `-r` option, moves the changes from the specified revision to the parent revision. Fails if there are several parent revisions (i.e., the given revision is a merge).
 
 With the `--from` and/or `--into` options, moves changes from/to the given revisions. If either is left out, it defaults to the working-copy commit. For example, `jj squash --into @--` moves changes from the working-copy commit to the grandparent.
 
-If, after moving changes out, the source revision is empty compared to its parent(s), and `--keep-emptied` is not set, it will be abandoned. Without `--interactive` or paths, the source revision will always be empty.
+If, after moving changes out, the source revision is empty compared to its parent(s), and `--keep-emptied` is not given, it will be abandoned. Without `--interactive` or paths, the source revision will always be empty.
 
 If the source was abandoned and both the source and destination had a non-empty description, you will be asked for the combined description. If either was empty, then the other one will be used.
 
@@ -3486,20 +3486,30 @@ An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. U
 
 ###### **Options:**
 
-* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @). Incompatible with the experimental `-o`/`-A`/`-B` options
-* `-f`, `--from <REVSETS>` — Revision(s) to squash from (default: @)
-* `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into (default: @)
+* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @)
+
+   Incompatible with the experimental `-o`/`-A`/`-B` options.
+* `-f`, `--from <REVSETS>` — Revision(s) to squash from (default: @ if `-r` isn't given)
+* `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into (default: @ if `-r` isn't given)
+
+   Incompatible with the experimental `-o`/`-A`/`-B` options.
 * `-o`, `--onto <REVSETS>` [alias: `destination`] — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)
+
+   Incompatible with the `-r` flag.
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — (Experimental) The revision(s) to insert the new commit after (can be repeated to create a merge commit)
+
+   Incompatible with the `-r` flag.
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — (Experimental) The revision(s) to insert the new commit before (can be repeated to create a merge commit)
-* `-m`, `--message <MESSAGE>` — The description to use for squashed revision (don't open editor)
+
+   Incompatible with the `-r` flag.
+* `-m`, `--message <MESSAGE>` — The description to use for the squashed revision (don't open editor)
 * `-u`, `--use-destination-message` — Use the description of the destination revision and discard the description(s) of the source revision(s)
-* `--editor` — Open an editor to edit the change description
+* `--editor` — Open an editor to edit the description of the squashed revision
 
    Forces an editor to open when using `--message` to allow the message to be edited afterwards.
 * `-i`, `--interactive` — Interactively choose which parts to squash
-* `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
-* `-k`, `--keep-emptied` — The source revision will not be abandoned
+* `--tool <NAME>` — The diff editor to be used (implies --interactive)
+* `-k`, `--keep-emptied` — Do not abandon source revisions that become empty
 
 
 

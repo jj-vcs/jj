@@ -53,7 +53,7 @@ use crate::ui::Ui;
 /// Move changes from a revision into another revision
 ///
 /// Without any options, moves the changes from the working-copy revision to the
-/// parent revision.
+/// parent revision (equivalent to `-r @`).
 ///
 /// With the `-r` option, moves the changes from the specified revision to the
 /// parent revision. Fails if there are several parent revisions (i.e., the
@@ -65,7 +65,7 @@ use crate::ui::Ui;
 /// commit to the grandparent.
 ///
 /// If, after moving changes out, the source revision is empty compared to its
-/// parent(s), and `--keep-emptied` is not set, it will be abandoned. Without
+/// parent(s), and `--keep-emptied` is not given, it will be abandoned. Without
 /// `--interactive` or paths, the source revision will always be empty.
 ///
 /// If the source was abandoned and both the source and destination had a
@@ -86,18 +86,21 @@ use crate::ui::Ui;
 /// `--from @` is assumed).
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct SquashArgs {
-    /// Revision to squash into its parent (default: @). Incompatible with the
-    /// experimental `-o`/`-A`/`-B` options.
+    /// Revision to squash into its parent (default: @)
+    ///
+    /// Incompatible with the experimental `-o`/`-A`/`-B` options.
     #[arg(long, short, value_name = "REVSET")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revision: Option<RevisionArg>,
 
-    /// Revision(s) to squash from (default: @)
+    /// Revision(s) to squash from (default: @ if `-r` isn't given)
     #[arg(long, short, conflicts_with = "revision", value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     from: Vec<RevisionArg>,
 
-    /// Revision to squash into (default: @)
+    /// Revision to squash into (default: @ if `-r` isn't given)
+    ///
+    /// Incompatible with the experimental `-o`/`-A`/`-B` options.
     #[arg(
         long,
         short = 't',
@@ -110,6 +113,8 @@ pub(crate) struct SquashArgs {
 
     /// (Experimental) The revision(s) to use as parent for the new commit (can
     /// be repeated to create a merge commit)
+    ///
+    /// Incompatible with the `-r` flag.
     #[arg(
         long,
         visible_alias = "destination",
@@ -123,6 +128,8 @@ pub(crate) struct SquashArgs {
 
     /// (Experimental) The revision(s) to insert the new commit after (can be
     /// repeated to create a merge commit)
+    ///
+    /// Incompatible with the `-r` flag.
     #[arg(
         long,
         short = 'A',
@@ -135,6 +142,8 @@ pub(crate) struct SquashArgs {
 
     /// (Experimental) The revision(s) to insert the new commit before (can be
     /// repeated to create a merge commit)
+    ///
+    /// Incompatible with the `-r` flag.
     #[arg(
         long,
         short = 'B',
@@ -145,7 +154,7 @@ pub(crate) struct SquashArgs {
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     insert_before: Option<Vec<RevisionArg>>,
 
-    /// The description to use for squashed revision (don't open editor)
+    /// The description to use for the squashed revision (don't open editor)
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Option<Vec<String>>,
 
@@ -154,10 +163,10 @@ pub(crate) struct SquashArgs {
     #[arg(long, short, conflicts_with = "message_paragraphs")]
     use_destination_message: bool,
 
-    /// Open an editor to edit the change description
+    /// Open an editor to edit the description of the squashed revision
     ///
-    /// Forces an editor to open when using `--message` to allow the
-    /// message to be edited afterwards.
+    /// Forces an editor to open when using `--message` to allow the message to
+    /// be edited afterwards.
     #[arg(long)]
     editor: bool,
 
@@ -165,7 +174,7 @@ pub(crate) struct SquashArgs {
     #[arg(long, short)]
     interactive: bool,
 
-    /// Specify diff editor to be used (implies --interactive)
+    /// The diff editor to be used (implies --interactive)
     #[arg(long, value_name = "NAME")]
     #[arg(add = ArgValueCandidates::new(complete::diff_editors))]
     tool: Option<String>,
@@ -175,7 +184,7 @@ pub(crate) struct SquashArgs {
     #[arg(add = ArgValueCompleter::new(complete::squash_revision_files))]
     paths: Vec<String>,
 
-    /// The source revision will not be abandoned
+    /// Do not abandon source revisions that become empty
     #[arg(long, short)]
     keep_emptied: bool,
 }
