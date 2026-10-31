@@ -83,11 +83,19 @@ impl FsmonitorSettings {
 /// installed on the system.
 #[cfg(feature = "watchman")]
 pub mod watchman {
+    use std::env;
+    use std::fs;
+    use std::io;
+    use std::io::ErrorKind;
+    use std::io::Write as _;
     use std::path::Path;
     use std::path::PathBuf;
 
+    use etcetera::BaseStrategy as _;
     use itertools::Itertools as _;
+    use tempfile::NamedTempFile;
     use thiserror::Error;
+    use tracing::Instrument as _;
     use tracing::info;
     use tracing::instrument;
     use watchman_client::expr;
@@ -97,6 +105,128 @@ pub mod watchman {
     use watchman_client::prelude::QueryRequestCommon;
     use watchman_client::prelude::QueryResult;
     use watchman_client::prelude::TriggerRequest;
+
+    const WATCHMAN_COMMAND: &str = "watchman";
+
+    fn endpoint_cache_path() -> Option<PathBuf> {
+        let strategy = etcetera::choose_base_strategy().ok()?;
+        Some(strategy.cache_dir().join("jj").join("watchman-endpoint"))
+    }
+
+    fn read_cached_endpoint(path: &Path) -> Option<PathBuf> {
+        match fs::read_to_string(path) {
+            Ok(endpoint) => Some(endpoint.into()),
+            Err(err) if err.kind() == ErrorKind::NotFound => None,
+            Err(err) => {
+                tracing::debug!(?path, ?err, "failed to read cached Watchman endpoint");
+                None
+            }
+        }
+    }
+
+    fn write_cached_endpoint(path: &Path, endpoint: &Path) -> io::Result<()> {
+        let cache_dir = path
+            .parent()
+            .ok_or_else(|| io::Error::other("Watchman cache path has no parent"))?;
+        fs::create_dir_all(cache_dir)?;
+        // Multiple jj processes can refresh this shared cache concurrently. Write to
+        // a temporary file in the same directory, then atomically replace the cache.
+        let mut temp_file = NamedTempFile::new_in(cache_dir)?;
+        let endpoint = endpoint
+            .to_str()
+            .ok_or_else(|| io::Error::other("Watchman endpoint is not valid UTF-8"))?;
+        temp_file.write_all(endpoint.as_bytes())?;
+        crate::file_util::persist_temp_file(temp_file, path)?;
+        Ok(())
+    }
+
+    fn discovery_error(reason: impl ToString, stderr: &[u8]) -> watchman_client::Error {
+        watchman_client::Error::ConnectionDiscovery {
+            watchman_path: PathBuf::from(WATCHMAN_COMMAND),
+            reason: reason.to_string(),
+            stderr: String::from_utf8_lossy(stderr).into_owned(),
+        }
+    }
+
+    async fn discover_endpoint() -> Result<PathBuf, watchman_client::Error> {
+        // Connector performs discovery internally but does not expose the resolved
+        // endpoint. Run the same Watchman command here so the result can be cached.
+        let output = tokio::process::Command::new(WATCHMAN_COMMAND)
+            .args(["--output-encoding", "bser-v2", "get-sockname"])
+            .output()
+            .instrument(tracing::trace_span!("run watchman get-sockname"))
+            .await
+            .map_err(|err| discovery_error(err, &[]))?;
+        // Use Watchman's native encoding, matching watchman_client's own discovery.
+        let response: watchman_client::pdu::GetSockNameResponse =
+            serde_bser::from_slice(&output.stdout)
+                .map_err(|err| discovery_error(err, &output.stderr))?;
+        if let Some(message) = response.error {
+            return Err(watchman_client::Error::WatchmanServerError {
+                message,
+                command: "get-sockname".to_owned(),
+            });
+        }
+        let response_debug = format!("{response:#?}");
+        response
+            .sockname
+            .ok_or_else(|| watchman_client::Error::MissingField {
+                fieldname: "sockname",
+                command: "get-sockname".to_owned(),
+                response: response_debug,
+            })
+    }
+
+    async fn connect() -> Result<watchman_client::Client, watchman_client::Error> {
+        // A nonempty WATCHMAN_SOCK is an explicit user override. Preserve
+        // watchman_client's existing behavior and do not read or update the cache.
+        if env::var_os("WATCHMAN_SOCK").is_some_and(|value| !value.is_empty()) {
+            return watchman_client::Connector::new().connect().await;
+        }
+
+        let cache_path = endpoint_cache_path();
+        if let Some(endpoint) = cache_path.as_deref().and_then(read_cached_endpoint) {
+            // Watchman can replace its socket when the server restarts. Treat the
+            // cached endpoint as a hint and verify that it belongs to a responsive
+            // Watchman server before returning the client.
+            match watchman_client::Connector::new()
+                .unix_domain_socket(&endpoint)
+                .connect()
+                .await
+            {
+                Ok(client) => match client.version().await {
+                    Ok(_) => return Ok(client),
+                    Err(err) => tracing::debug!(
+                        ?endpoint,
+                        ?err,
+                        "cached Watchman endpoint failed validation"
+                    ),
+                },
+                Err(err) => tracing::debug!(
+                    ?endpoint,
+                    ?err,
+                    "failed to connect to cached Watchman endpoint"
+                ),
+            }
+        }
+
+        // The cached endpoint is absent or stale. Ask Watchman for its current
+        // endpoint and validate the connection before making it the new cache entry.
+        let endpoint = discover_endpoint().await?;
+        let client = watchman_client::Connector::new()
+            .unix_domain_socket(&endpoint)
+            .connect()
+            .await?;
+        client.version().await?;
+        // Caching is only an optimization. A cache write failure must not make an
+        // otherwise valid Watchman connection unusable.
+        if let Some(path) = cache_path
+            && let Err(err) = write_cached_endpoint(&path, &endpoint)
+        {
+            tracing::debug!(?path, ?err, "failed to cache Watchman endpoint");
+        }
+        Ok(client)
+    }
 
     /// Represents an instance in time from the perspective of the filesystem
     /// monitor.
@@ -182,11 +312,7 @@ pub mod watchman {
             config: &super::WatchmanConfig,
         ) -> Result<Self, Error> {
             info!("Initializing Watchman filesystem monitor...");
-            let connector = watchman_client::Connector::new();
-            let client = connector
-                .connect()
-                .await
-                .map_err(Error::WatchmanConnectError)?;
+            let client = connect().await.map_err(Error::WatchmanConnectError)?;
             let working_copy_root = watchman_client::CanonicalPath::canonicalize(working_copy_path)
                 .map_err(Error::CanonicalizeRootError)?;
             let resolved_root = client

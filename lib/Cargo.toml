@@ -52,6 +52,7 @@ rayon = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
+serde_bser = { workspace = true, optional = true }
 smallvec = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
@@ -84,7 +85,7 @@ nix = { workspace = true, features = [ "fs" ] }
 [features]
 default = ["git"]
 git = ["dep:gix"]
-watchman = ["dep:watchman_client", "dep:tokio"]
+watchman = ["dep:serde_bser", "dep:tokio", "dep:watchman_client"]
 testing = ["git"]
 
 [lints]
