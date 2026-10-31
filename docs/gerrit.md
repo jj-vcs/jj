@@ -98,6 +98,9 @@ There are a few ways of specifying the target remote for your projects:
 
 Additionally, you can specify the target remote branch:
 
+- If no branch is specified and `gerrit.default-remote-branch` is not configured,
+  `jj gerrit upload` will automatically default to the remote branch pointing
+  to the immutable base commit of the uploaded revision(s).
 - Run `jj config set --user gerrit.default-remote-branch <branch name>` to set
   your default branch across all repos.
 - Run `jj config set --repo gerrit.default-remote-branch <branch name>` to set
