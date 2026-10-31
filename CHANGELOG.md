@@ -12,6 +12,11 @@ and this project adheres to
 
 ### Breaking changes
 
+* `jj undo` and `jj redo` now only undo/redo operations performed in the
+  current workspace, skipping operations from other workspaces. They revert the
+  operation (like `jj op revert`) instead of restoring the repo to an earlier
+  operation, so changes made from other workspaces in the meantime are kept.
+
 * In non-colocated workspaces, `jj git fetch` and `push` no longer update
   remote-tracking Git refs. Use `jj git export` to export remote bookmarks to
   Git.
@@ -42,6 +47,9 @@ and this project adheres to
   methods now return `List<Option<Commit>>`.
 
 ### Deprecations
+
+* The `--allow-cross-workspace` flag of `jj undo` and `jj redo` is deprecated
+  and has no effect.
 
 ### New features
 
