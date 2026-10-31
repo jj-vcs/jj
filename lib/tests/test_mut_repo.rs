@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use futures::StreamExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::index::Index;
 use jj_lib::merge::Merge;
@@ -423,6 +424,30 @@ fn test_add_head_ancestor() -> TestResult {
     let mut_repo = tx.repo_mut();
     mut_repo.add_head(&commit1).block_on()?;
     assert_eq!(repo.view().heads(), &hashset! {commit3.id().clone()});
+    Ok(())
+}
+
+#[test]
+fn test_add_root_head_preserves_normalized_non_root_heads() -> TestResult {
+    let test_repo = TestRepo::init();
+    let mut tx = test_repo.repo.start_transaction();
+    let commit = write_random_commit(tx.repo_mut());
+    let repo = tx.commit("create non-root head").block_on()?;
+    let root = repo.store().root_commit();
+
+    let mut tx = repo.start_transaction();
+    tx.repo_mut().add_head(&root).block_on()?;
+    let heads = jj_lib::revset::RevsetExpression::visible_heads()
+        .evaluate(tx.repo())?
+        .stream()
+        .map(|id| id.unwrap())
+        .collect::<Vec<_>>()
+        .block_on();
+    assert_eq!(heads, vec![commit.id().clone()]);
+
+    let repo = tx.commit("add already visible root").block_on()?;
+    assert!(repo.view().is_heads_normalized());
+    assert_eq!(repo.view().heads(), &hashset! {commit.id().clone()});
     Ok(())
 }
 
