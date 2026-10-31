@@ -23,6 +23,7 @@ use jj_cli::cli_util::CommandHelper;
 use jj_cli::command_error::CommandError;
 use jj_cli::ui::Ui;
 use jj_lib::backend::Backend;
+use jj_lib::backend::BackendInitError;
 use jj_lib::commit::Commit;
 use jj_lib::default_backend_factories::default_index_store_initializer;
 use jj_lib::default_backend_factories::default_op_heads_store_initializer;
@@ -70,7 +71,9 @@ async fn run_custom_command(
             let wc_path = command_helper.cwd();
             let settings = command_helper.settings_for_new_workspace(ui, wc_path)?.0;
             let backend_initializer = |settings: &UserSettings, store_path: &Path| {
-                let git_settings = settings.git_backend_settings()?;
+                let git_settings = settings
+                    .git_backend_settings()
+                    .map_err(BackendInitError::new)?;
                 let backend: Box<dyn Backend> = Box::new(GitBackend::init_internal(
                     &git_settings,
                     store_path,

@@ -36,8 +36,6 @@ use thiserror::Error;
 use toml_edit::Document;
 use toml_edit::DocumentMut;
 
-use crate::backend::BackendInitError;
-use crate::backend::BackendLoadError;
 pub use crate::config_resolver::ConfigMigrateError;
 pub use crate::config_resolver::ConfigMigrateLayerError;
 pub use crate::config_resolver::ConfigMigrationRule;
@@ -99,18 +97,6 @@ pub enum ConfigGetError {
         /// Source file path where the value is defined.
         source_path: Option<PathBuf>,
     },
-}
-
-impl From<ConfigGetError> for BackendInitError {
-    fn from(err: ConfigGetError) -> Self {
-        Self::new(err)
-    }
-}
-
-impl From<ConfigGetError> for BackendLoadError {
-    fn from(err: ConfigGetError) -> Self {
-        Self::new(err)
-    }
 }
 
 /// Error that can occur when updating config variable.

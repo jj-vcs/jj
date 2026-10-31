@@ -231,7 +231,9 @@ impl Workspace {
         object_hash: gix::hash::Kind,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer = &|settings, store_path| {
-            let git_settings = settings.git_backend_settings()?;
+            let git_settings = settings
+                .git_backend_settings()
+                .map_err(BackendInitError::new)?;
             Ok(Box::new(crate::git_backend::GitBackend::init_internal(
                 &git_settings,
                 store_path,
@@ -270,7 +272,9 @@ impl Workspace {
                 } else {
                     workspace_root.to_owned()
                 };
-            let git_settings = settings.git_backend_settings()?;
+            let git_settings = settings
+                .git_backend_settings()
+                .map_err(BackendInitError::new)?;
             let backend = crate::git_backend::GitBackend::init_colocated(
                 &git_settings,
                 store_path,
@@ -320,7 +324,9 @@ impl Workspace {
                 }
                 _ => git_repo_path.to_owned(),
             };
-            let git_settings = settings.git_backend_settings()?;
+            let git_settings = settings
+                .git_backend_settings()
+                .map_err(BackendInitError::new)?;
             let backend = crate::git_backend::GitBackend::init_external(
                 &git_settings,
                 store_path,
