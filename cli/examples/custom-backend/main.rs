@@ -105,14 +105,18 @@ struct JitBackend {
 
 impl JitBackend {
     fn init(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendInitError> {
-        let git_settings = settings.git_backend_settings()?;
+        let git_settings = settings
+            .git_backend_settings()
+            .map_err(BackendInitError::new)?;
         let inner =
             GitBackend::init_internal(&git_settings, store_path, gix::hash::Kind::default())?;
         Ok(Self { inner })
     }
 
     fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
-        let git_settings = settings.git_backend_settings()?;
+        let git_settings = settings
+            .git_backend_settings()
+            .map_err(BackendLoadError::new)?;
         let inner = GitBackend::load(&git_settings, store_path)?;
         Ok(Self { inner })
     }

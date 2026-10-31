@@ -31,6 +31,7 @@ use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::Backend;
 use jj_lib::backend::BackendInitError;
+use jj_lib::backend::BackendLoadError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyHistory;
@@ -225,7 +226,9 @@ impl TestEnvironment {
         factories.add_backend(
             SecretBackend::NAME,
             Box::new(|settings, store_path| {
-                let git_settings = settings.git_backend_settings()?;
+                let git_settings = settings
+                    .git_backend_settings()
+                    .map_err(BackendLoadError::new)?;
                 Ok(Box::new(SecretBackend::load(&git_settings, store_path)?))
             }),
         );
@@ -281,7 +284,9 @@ impl TestRepoBackend {
     ) -> Result<Box<dyn Backend>, BackendInitError> {
         match self {
             Self::Git => {
-                let git_settings = settings.git_backend_settings()?;
+                let git_settings = settings
+                    .git_backend_settings()
+                    .map_err(BackendInitError::new)?;
                 Ok(Box::new(GitBackend::init_internal(
                     &git_settings,
                     store_path,

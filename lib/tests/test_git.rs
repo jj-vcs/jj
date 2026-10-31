@@ -31,6 +31,7 @@ use std::thread;
 use gix::remote::Direction;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
+use jj_lib::backend::BackendInitError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::MillisSinceEpoch;
@@ -189,7 +190,9 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
         settings,
         &repo_dir,
         &|settings, store_path| {
-            let git_settings = settings.git_backend_settings()?;
+            let git_settings = settings
+                .git_backend_settings()
+                .map_err(BackendInitError::new)?;
             let backend = GitBackend::init_external(&git_settings, store_path, git_repo_path)?;
             Ok(Box::new(backend))
         },
@@ -2434,7 +2437,9 @@ impl GitRepoData {
             &settings,
             &jj_repo_dir,
             &|settings, store_path| {
-                let git_settings = settings.git_backend_settings()?;
+                let git_settings = settings
+                    .git_backend_settings()
+                    .map_err(BackendInitError::new)?;
                 Ok(Box::new(GitBackend::init_external(
                     &git_settings,
                     store_path,
@@ -4260,7 +4265,9 @@ fn test_init() -> TestResult {
         &settings,
         &jj_repo_dir,
         &|settings, store_path| {
-            let git_settings = settings.git_backend_settings()?;
+            let git_settings = settings
+                .git_backend_settings()
+                .map_err(BackendInitError::new)?;
             Ok(Box::new(GitBackend::init_external(
                 &git_settings,
                 store_path,
@@ -5383,7 +5390,9 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         settings,
         &jj_repo_dir,
         &|settings, store_path| {
-            let git_settings = settings.git_backend_settings()?;
+            let git_settings = settings
+                .git_backend_settings()
+                .map_err(BackendInitError::new)?;
             Ok(Box::new(GitBackend::init_external(
                 &git_settings,
                 store_path,
