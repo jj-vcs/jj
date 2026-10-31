@@ -41,11 +41,11 @@ use jj_lib::backend::Tree;
 use jj_lib::backend::TreeId;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::ref_name::WorkspaceName;
-use jj_lib::repo::StoreFactories;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing_factory::signer_from_settings;
+use jj_lib::store_factories::StoreFactories;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
 
