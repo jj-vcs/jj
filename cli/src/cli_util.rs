@@ -1605,7 +1605,7 @@ impl WorkspaceCommandHelper {
                 )
                 .map_err(RunnerError::event_sink)?;
             }
-            self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
+            self.finish_transaction_locked(ui, tx, "import git head", git_import_export_lock)
                 .await?;
         }
         Ok(())
@@ -1659,7 +1659,7 @@ impl WorkspaceCommandHelper {
             .map_err(RunnerError::event_sink)?;
         }
         // This also exports previously modified refs if any.
-        self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)
+        self.finish_transaction_locked(ui, tx, "import git refs", git_import_export_lock)
             .await?;
         print_runner_event(ui, &RunnerEvent::GitRefsImportFinished)
             .map_err(RunnerError::event_sink)?;
@@ -2421,7 +2421,37 @@ to the current parents may contain changes from multiple commits.
         }
     }
 
+    /// Finishes a transaction: rebases descendants of rewritten commits,
+    /// exports to Git, commits the operation, and updates the working copy.
     async fn finish_transaction(
+        &mut self,
+        ui: &Ui,
+        mut tx: Transaction,
+        description: impl Into<String>,
+    ) -> Result<(), RunnerError> {
+        let num_rebased =
+            rebase_mutable_descendants(&self.env, &self.runner.options, &mut tx).await?;
+        if num_rebased > 0 {
+            print_runner_event(
+                ui,
+                &RunnerEvent::DescendantsRebased {
+                    num_rebased,
+                    reason: RebaseReason::RewrittenCommits,
+                },
+            )
+            .map_err(RunnerError::event_sink)?;
+        }
+        // Acquire git import/export lock before finishing the transaction to ensure
+        // Git HEAD export happens atomically with the transaction commit.
+        let git_import_export_lock = self.lock_git_import_export()?;
+        self.finish_transaction_locked(ui, tx, description, &git_import_export_lock)
+            .await
+    }
+
+    /// Like `finish_transaction()`, but for callers that already hold the Git
+    /// import/export lock. Descendants of rewritten commits are not rebased,
+    /// so the caller is responsible for doing that.
+    async fn finish_transaction_locked(
         &mut self,
         ui: &Ui,
         mut tx: Transaction,
@@ -3020,28 +3050,12 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
-        let Self { helper, mut tx, .. } = self;
+        let Self { helper, tx, .. } = self;
         if !tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
-        let num_rebased =
-            rebase_mutable_descendants(&helper.env, &helper.runner.options, &mut tx).await?;
-        if num_rebased > 0 {
-            print_runner_event(
-                ui,
-                &RunnerEvent::DescendantsRebased {
-                    num_rebased,
-                    reason: RebaseReason::RewrittenCommits,
-                },
-            )?;
-        }
-        // Acquire git import/export lock before finishing the transaction to ensure
-        // Git HEAD export happens atomically with the transaction commit.
-        let git_import_export_lock = helper.lock_git_import_export()?;
-        helper
-            .finish_transaction(ui, tx, description, &git_import_export_lock)
-            .await?;
+        helper.finish_transaction(ui, tx, description).await?;
         Ok(())
     }
 
