@@ -247,6 +247,10 @@ and this project adheres to
 
 ### Fixed bugs
 
+* `jj converge` no longer prompts for an author when divergent commits have
+  the same author name and email but different timestamps.
+  [#10261](https://github.com/jj-vcs/jj/issues/10261)
+
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
   such as `ssh` asking for a key passphrase or for confirmation of an unknown
   host key. Subprocesses started from a terminal now inherit its console, rather
