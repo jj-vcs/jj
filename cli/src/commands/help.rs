@@ -55,7 +55,7 @@ pub(crate) async fn cmd_help(
     if let Some(name) = &args.keyword {
         let keyword = find_keyword(name).expect("clap should check this with `value_parser`");
         ui.request_pager();
-        write!(ui.stdout(), "{}", keyword.content)?;
+        write!(ui.stdout(), "{}", strip_html_comments(keyword.content))?;
 
         return Ok(());
     }
@@ -155,6 +155,80 @@ fn find_keyword(name: &str) -> Option<&Keyword> {
     KEYWORDS.iter().find(|keyword| keyword.name == name)
 }
 
+/// Removes HTML comments (`<!-- ... -->`) from Markdown docs, since they are
+/// notes for editors and tools rather than for readers. Comments inside fenced
+/// code blocks are kept. A line that only contained a comment is dropped along
+/// with a following blank line, so paragraphs stay separated by one blank line.
+/// An unclosed comment is kept as is, along with everything after it.
+fn strip_html_comments(content: &str) -> String {
+    let mut output = String::with_capacity(content.len());
+    let mut fence = None;
+    let mut after_blank_line = true;
+    let mut rest = content;
+    while !rest.is_empty() {
+        let (line, after_line) = split_first_line(rest);
+        if let Some(marker) = fence {
+            if fence_marker(line) == Some(marker) {
+                fence = None;
+            }
+        } else if let Some(marker) = fence_marker(line) {
+            fence = Some(marker);
+        } else if line.contains("<!--") {
+            let Some((kept, after_comments)) = strip_comments(rest) else {
+                output.push_str(rest);
+                break;
+            };
+            rest = after_comments;
+            if !kept.trim().is_empty() {
+                output.push_str(&kept);
+                after_blank_line = false;
+            } else if after_blank_line {
+                let (next, after_next) = split_first_line(rest);
+                if next.trim().is_empty() {
+                    rest = after_next;
+                }
+            }
+            continue;
+        }
+        output.push_str(line);
+        after_blank_line = line.trim().is_empty();
+        rest = after_line;
+    }
+    output
+}
+
+/// Returns the marker if `line` opens or closes a fenced code block.
+fn fence_marker(line: &str) -> Option<&'static str> {
+    let trimmed = line.trim_start();
+    ["```", "~~~"]
+        .into_iter()
+        .find(|marker| trimmed.starts_with(marker))
+}
+
+/// Splits `text` after its first line break, or at the end if there is none.
+fn split_first_line(text: &str) -> (&str, &str) {
+    text.split_at(text.find('\n').map_or(text.len(), |i| i + 1))
+}
+
+/// Strips comments from the first line of `text`, continuing onto later lines
+/// while a comment is open. Returns the kept text and the text after the line
+/// where the last comment ends, or `None` if a comment is never closed.
+fn strip_comments(text: &str) -> Option<(String, &str)> {
+    let mut kept = String::new();
+    let mut rest = text;
+    loop {
+        let (line, after_line) = split_first_line(rest);
+        let Some(start) = line.find("<!--") else {
+            kept.push_str(line);
+            return Some((kept, after_line));
+        };
+        kept.push_str(&line[..start]);
+        let comment = &rest[start + "<!--".len()..];
+        let end = comment.find("-->")?;
+        rest = &comment[end + "-->".len()..];
+    }
+}
+
 pub fn show_keyword_hint_after_help() -> StyledStr {
     let mut ret = StyledStr::new();
     writeln!(
@@ -165,4 +239,86 @@ pub fn show_keyword_hint_after_help() -> StyledStr {
     )
     .unwrap();
     ret
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_html_comments() {
+        let input = indoc::indoc! {"
+            <!-- A comment on the first line. -->
+
+            Before.
+
+            <!-- A standalone comment. -->
+            <!-- Another one. -->
+
+            Inline <!-- comment --> text.
+            <!-- Between lines. -->
+            Same paragraph.
+
+            <!--- A comment that
+             spans lines. -->
+
+            Inline <!-- comment
+            over lines --> kept.
+            Next line.
+
+            <!-- Before a code block. -->
+            ```
+            code
+            ```
+
+            Paragraph after code.
+
+            ```
+            <!-- kept in code -->
+            ```
+
+            ~~~
+            ```
+            <!-- kept in code -->
+            ~~~
+            After.
+        "};
+        insta::assert_snapshot!(strip_html_comments(input), @"
+        Before.
+
+        Inline  text.
+        Same paragraph.
+
+        Inline  kept.
+        Next line.
+
+        ```
+        code
+        ```
+
+        Paragraph after code.
+
+        ```
+        <!-- kept in code -->
+        ```
+
+        ~~~
+        ```
+        <!-- kept in code -->
+        ~~~
+        After.
+        ");
+    }
+
+    #[test]
+    fn test_strip_html_comments_crlf() {
+        let input = "Before.\r\n\r\n<!-- comment -->\r\n\r\nAfter.\r\n";
+        assert_eq!(strip_html_comments(input), "Before.\r\n\r\nAfter.\r\n");
+    }
+
+    #[test]
+    fn test_strip_html_comments_unclosed() {
+        let input = "Before. <!-- unclosed\n\nAfter.\n";
+        assert_eq!(strip_html_comments(input), input);
+    }
 }
