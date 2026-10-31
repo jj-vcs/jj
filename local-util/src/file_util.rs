@@ -358,6 +358,16 @@ pub async fn copy_async_to_sync<R: AsyncRead, W: Write + ?Sized>(
     }
 }
 
+/// Returns true if the first 8000 bytes of `contents` contain a null character,
+/// which suggests that the file is binary.
+pub fn is_binary(contents: &[u8]) -> bool {
+    // This is the same heuristic used by git as of writing:
+    // https://github.com/git/git/blob/eea0e59ffbed6e33d171ace5be13cde9faa41639/xdiff-interface.c#L192-L198
+    const PEEK_SIZE: usize = 8000;
+    let start = &contents[..PEEK_SIZE.min(contents.len())];
+    start.contains(&b'\0')
+}
+
 #[cfg(unix)]
 mod platform {
     use std::convert::Infallible;
@@ -1003,5 +1013,22 @@ mod tests {
         assert_eq!(result?, 40000);
         assert_eq!(output, input);
         Ok(())
+    }
+
+    #[test_case(b"", false; "empty")]
+    #[test_case(b"a\nb\n", false; "text")]
+    #[test_case(b"a\rb", false; "lone CR")]
+    #[test_case(b"a\0b", true; "null character")]
+    fn test_is_binary(contents: &[u8], expected: bool) {
+        assert_eq!(is_binary(contents), expected);
+    }
+
+    #[test]
+    fn test_is_binary_probe_size() {
+        let mut contents = vec![b'a'; 8001];
+        contents[8000] = b'\0';
+        assert!(!is_binary(&contents));
+        contents[7999] = b'\0';
+        assert!(is_binary(&contents));
     }
 }
