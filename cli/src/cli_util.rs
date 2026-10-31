@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::borrow::Cow;
-use std::cell::OnceCell;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::env;
@@ -674,7 +673,7 @@ impl CommandHelper {
                     ..
                 } = workspace_command;
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
-                let repo = &workspace_command.runner.user_repo.repo;
+                let repo = workspace_command.runner.user_repo.repo();
                 let desired_wc_commit = workspace_command.prepare_working_copy_mutation().await?;
                 let mut locked_ws = workspace_command
                     .runner
@@ -723,13 +722,16 @@ impl CommandHelper {
                                     .options
                                     .maybe_commit_transaction(tx, "reset git head")
                                     .await?;
-                                workspace_command.runner.user_repo = ReadonlyUserRepo::new(repo);
+                                workspace_command.runner.user_repo = ReadonlyUserRepo::new(
+                                    repo,
+                                    workspace_command.runner.env.new_id_prefix_context(),
+                                );
                             }
                         }
 
                         let stats = update_stale_working_copy(
                             locked_ws,
-                            workspace_command.runner.user_repo.repo.op_id().clone(),
+                            workspace_command.runner.user_repo.repo().op_id().clone(),
                             &stale_wc_commit,
                             &desired_wc_commit,
                         )
@@ -907,19 +909,27 @@ pub async fn merge_operations(
     Ok(merged_repo.operation().clone())
 }
 
-/// A ReadonlyRepo along with user-config-dependent derived data. The derived
-/// data is lazily loaded.
+/// A ReadonlyRepo along with user-config-dependent derived data. The short
+/// commit/change ID prefixes are indexed lazily, the first time they're needed.
 struct ReadonlyUserRepo {
     repo: Arc<ReadonlyRepo>,
-    id_prefix_context: OnceCell<IdPrefixContext>,
+    id_prefix_context: Arc<IdPrefixContext>,
 }
 
 impl ReadonlyUserRepo {
-    fn new(repo: Arc<ReadonlyRepo>) -> Self {
+    fn new(repo: Arc<ReadonlyRepo>, id_prefix_context: IdPrefixContext) -> Self {
         Self {
             repo,
-            id_prefix_context: OnceCell::new(),
+            id_prefix_context: Arc::new(id_prefix_context),
         }
+    }
+
+    fn repo(&self) -> &Arc<ReadonlyRepo> {
+        &self.repo
+    }
+
+    fn id_prefix_context(&self) -> &Arc<IdPrefixContext> {
+        &self.id_prefix_context
     }
 }
 
@@ -1387,7 +1397,7 @@ impl WorkspaceOperationRunner {
         let may_update_working_copy = may_snapshot_working_copy && options.integrate_operation;
         Self {
             workspace,
-            user_repo: ReadonlyUserRepo::new(repo),
+            user_repo: ReadonlyUserRepo::new(repo, env.new_id_prefix_context()),
             env,
             options,
             may_snapshot_working_copy,
@@ -1400,7 +1410,7 @@ impl WorkspaceOperationRunner {
     }
 
     pub fn repo(&self) -> &Arc<ReadonlyRepo> {
-        &self.user_repo.repo
+        self.user_repo.repo()
     }
 
     pub fn env(&self) -> &Arc<WorkspaceEnvironment> {
@@ -1574,9 +1584,12 @@ impl WorkspaceCommandHelper {
                 .options
                 .maybe_commit_transaction(tx, "import git head")
                 .await?;
-            self.runner.user_repo = ReadonlyUserRepo::new(repo);
+            self.runner.user_repo =
+                ReadonlyUserRepo::new(repo, self.runner.env.new_id_prefix_context());
             if self.runner.options.integrate_operation {
-                locked_ws.finish(self.runner.user_repo.repo.op_id().clone()).await?;
+                locked_ws
+                    .finish(self.runner.user_repo.repo().op_id().clone())
+                    .await?;
             }
             print_runner_event(
                 ui,
@@ -1642,7 +1655,8 @@ impl WorkspaceCommandHelper {
                     .map_err(RunnerError::event_sink)?;
                 if tx.repo().has_changes() {
                     let new_repo = tx.commit("export git refs").await?;
-                    self.runner.user_repo = ReadonlyUserRepo::new(new_repo);
+                    self.runner.user_repo =
+                        ReadonlyUserRepo::new(new_repo, self.runner.env.new_id_prefix_context());
                 }
             }
             return Ok(());
@@ -1669,7 +1683,7 @@ impl WorkspaceCommandHelper {
     }
 
     pub fn repo(&self) -> &Arc<ReadonlyRepo> {
-        &self.runner.user_repo.repo
+        self.runner.user_repo.repo()
     }
 
     pub fn repo_path(&self) -> &Path {
@@ -1720,7 +1734,7 @@ impl WorkspaceCommandHelper {
         let mut locked_ws = self.runner.workspace.start_working_copy_mutation().await?;
         let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
             locked_ws.locked_wc(),
-            &self.runner.user_repo.repo,
+            self.runner.user_repo.repo(),
             workspace_name,
             "RECOVERY COMMIT FROM `jj workspace update-stale`
 
@@ -1739,7 +1753,8 @@ to the current parents may contain changes from multiple commits.
             short_commit_hash(new_commit.id())
         )?;
         locked_ws.finish(repo.op_id().clone()).await?;
-        self.runner.user_repo = ReadonlyUserRepo::new(repo);
+        self.runner.user_repo =
+            ReadonlyUserRepo::new(repo, self.runner.env.new_id_prefix_context());
 
         let stats = self
             .snapshot_impl(ui, snapshot_config, git_import_export_lock)
@@ -2057,10 +2072,7 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn id_prefix_context(&self) -> &IdPrefixContext {
-        self.runner
-            .user_repo
-            .id_prefix_context
-            .get_or_init(|| self.env.new_id_prefix_context())
+        self.runner.user_repo.id_prefix_context()
     }
 
     /// Adds hyperlink overrides for `jj arrange`, since they do not work in the
@@ -2259,7 +2271,8 @@ to the current parents may contain changes from multiple commits.
             return Ok(SnapshotStats::default());
         };
 
-        self.runner.user_repo = ReadonlyUserRepo::new(repo);
+        self.runner.user_repo =
+            ReadonlyUserRepo::new(repo, self.runner.env.new_id_prefix_context());
         let (new_tree, stats) = {
             let mut options = options;
             let progress = crate::progress::snapshot_progress(ui);
@@ -2270,7 +2283,7 @@ to the current parents may contain changes from multiple commits.
             let mut tx = self
                 .runner
                 .options
-                .start_transaction(&self.runner.user_repo.repo, &workspace_name);
+                .start_transaction(self.runner.user_repo.repo(), &workspace_name);
             tx.set_is_snapshot(true);
             let immutable_expr = self
                 .env
@@ -2359,12 +2372,13 @@ to the current parents may contain changes from multiple commits.
                 .options
                 .maybe_commit_transaction(tx, "snapshot working copy")
                 .await?;
-            self.runner.user_repo = ReadonlyUserRepo::new(repo);
+            self.runner.user_repo =
+                ReadonlyUserRepo::new(repo, self.runner.env.new_id_prefix_context());
             if !self.runner.options.integrate_operation {
                 print_runner_event(
                     ui,
                     &RunnerEvent::OperationLeftUnpublished {
-                        op_id: self.runner.user_repo.repo.op_id().clone(),
+                        op_id: self.runner.user_repo.repo().op_id().clone(),
                         is_snapshot: true,
                     },
                 )
@@ -2384,7 +2398,9 @@ to the current parents may contain changes from multiple commits.
         }
 
         if self.runner.options.integrate_operation {
-            locked_ws.finish(self.runner.user_repo.repo.op_id().clone()).await?;
+            locked_ws
+                .finish(self.runner.user_repo.repo().op_id().clone())
+                .await?;
         }
         Ok(stats)
     }
@@ -2431,7 +2447,7 @@ to the current parents may contain changes from multiple commits.
             .runner
             .options
             .start_transaction(self.repo(), self.workspace_name());
-        let id_prefix_context = mem::take(&mut self.runner.user_repo.id_prefix_context);
+        let id_prefix_context = self.runner.user_repo.id_prefix_context().clone();
         WorkspaceCommandTransaction {
             helper: self,
             tx,
@@ -2516,7 +2532,8 @@ to the current parents may contain changes from multiple commits.
             .options
             .maybe_commit_transaction(tx, description)
             .await?;
-        self.runner.user_repo = ReadonlyUserRepo::new(repo);
+        self.runner.user_repo =
+            ReadonlyUserRepo::new(repo, self.runner.env.new_id_prefix_context());
 
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)
@@ -2524,7 +2541,7 @@ to the current parents may contain changes from multiple commits.
         if self.runner.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
                 let stats = update_working_copy(
-                    &self.runner.user_repo.repo,
+                    self.runner.user_repo.repo(),
                     &mut self.runner.workspace,
                     maybe_old_wc_commit.as_ref(),
                     new_commit,
@@ -2945,8 +2962,8 @@ impl WorkspaceReporter<'_> {
 pub struct WorkspaceCommandTransaction<'a> {
     helper: &'a mut WorkspaceCommandHelper,
     tx: Transaction,
-    /// Cache of index built against the current MutableRepo state.
-    id_prefix_context: OnceCell<IdPrefixContext>,
+    /// Context for the current MutableRepo state. Its index is built lazily.
+    id_prefix_context: Arc<IdPrefixContext>,
 }
 
 impl WorkspaceCommandTransaction<'_> {
@@ -2969,7 +2986,7 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub fn repo_mut(&mut self) -> &mut MutableRepo {
-        self.id_prefix_context.take(); // invalidate
+        self.invalidate_id_prefix_context();
         self.tx.repo_mut()
     }
 
@@ -2981,14 +2998,18 @@ impl WorkspaceCommandTransaction<'_> {
 
     pub fn check_out(&mut self, commit: &Commit) -> Result<Commit, CheckOutCommitError> {
         let name = self.helper.workspace_name().to_owned();
-        self.id_prefix_context.take(); // invalidate
+        self.invalidate_id_prefix_context();
         self.tx.repo_mut().check_out(name, commit).block_on()
     }
 
     pub fn edit(&mut self, commit: &Commit) -> Result<(), EditCommitError> {
         let name = self.helper.workspace_name().to_owned();
-        self.id_prefix_context.take(); // invalidate
+        self.invalidate_id_prefix_context();
         self.tx.repo_mut().edit(name, commit).block_on()
+    }
+
+    fn invalidate_id_prefix_context(&mut self) {
+        self.id_prefix_context = Arc::new(self.helper.env.new_id_prefix_context());
     }
 
     pub fn format_commit_summary(&self, commit: &Commit) -> String {
@@ -3016,12 +3037,9 @@ impl WorkspaceCommandTransaction<'_> {
     /// Creates commit template language environment capturing the current
     /// transaction state.
     pub fn commit_template_language(&self) -> CommitTemplateLanguage<'_> {
-        let id_prefix_context = self
-            .id_prefix_context
-            .get_or_init(|| self.helper.env.new_id_prefix_context());
         self.helper
             .env
-            .commit_template_language(self.tx.repo(), id_prefix_context)
+            .commit_template_language(self.tx.repo(), &self.id_prefix_context)
     }
 
     /// Parses commit template with the current transaction state.
