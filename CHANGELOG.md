@@ -84,6 +84,9 @@ and this project adheres to
 
 ### Fixed bugs
 
+* Resolving a conflict of five or more terms no longer leaves a directory
+  conflicted when the terms where it is a file or symlink cancel out.
+
 * In graph output, an elided edge that passes through a merge or fork line is
   now drawn as elided (`╷`) before reaching the node, instead of looking like a
   direct edge. Consecutive unconnected nodes, such as in the `jj op show`
