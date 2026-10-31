@@ -1916,6 +1916,7 @@ fn test_git_push_no_description() {
     ------- stderr -------
     Error: Won't push commit 8d23abddc924 since it has no description
     Hint: Rejected commit: yqosqzyt 8d23abdd my-bookmark* | (empty) (no description set)
+    Hint: Run `jj describe 8d23abddc924` to add a description, or pass --allow-empty-description.
     [EOF]
     [exit status: 1]
     ");
@@ -1951,6 +1952,7 @@ fn test_git_push_no_description_in_immutable() {
     ------- stderr -------
     Error: Won't push commit 8d23abddc924 since it has no description
     Hint: Rejected commit: yqosqzyt 8d23abdd imm* | (empty) (no description set)
+    Hint: Run `jj describe 8d23abddc924` to add a description, or pass --allow-empty-description.
     [EOF]
     [exit status: 1]
     ");
@@ -1984,6 +1986,7 @@ fn test_git_push_missing_author() {
     ------- stderr -------
     Error: Won't push commit 613adaba9d49 since it has no author and/or committer set
     Hint: Rejected commit: vruxwmqv 613adaba missing-name* | (empty) initial
+    Hint: Run `jj metaedit --update-author 613adaba9d49` to re-stamp the commit with your current jj user.name and user.email.
     [EOF]
     [exit status: 1]
     ");
@@ -1994,6 +1997,7 @@ fn test_git_push_missing_author() {
     ------- stderr -------
     Error: Won't push commit bb4ea60fc9ba since it has no author and/or committer set
     Hint: Rejected commit: kpqxywon bb4ea60f missing-email* | (empty) initial
+    Hint: Run `jj metaedit --update-author bb4ea60fc9ba` to re-stamp the commit with your current jj user.name and user.email.
     [EOF]
     [exit status: 1]
     ");
@@ -2026,6 +2030,7 @@ fn test_git_push_missing_author_in_immutable() {
     ------- stderr -------
     Error: Won't push commit 5c3cc711907f since it has no author and/or committer set
     Hint: Rejected commit: yostqsxw 5c3cc711 imm* | (empty) no author email
+    Hint: Run `jj metaedit --update-author 5c3cc711907f` to re-stamp the commit with your current jj user.name and user.email.
     [EOF]
     [exit status: 1]
     ");
@@ -2061,6 +2066,7 @@ fn test_git_push_missing_committer() {
     ------- stderr -------
     Error: Won't push commit e8a77cb24da9 since it has no author and/or committer set
     Hint: Rejected commit: yqosqzyt e8a77cb2 missing-name* | (empty) no committer name
+    Hint: Run `jj metaedit --update-author e8a77cb24da9` to re-stamp the commit with your current jj user.name and user.email.
     [EOF]
     [exit status: 1]
     ");
@@ -2074,6 +2080,7 @@ fn test_git_push_missing_committer() {
     ------- stderr -------
     Error: Won't push commit 971c50fd8d1d since it has no author and/or committer set
     Hint: Rejected commit: kpqxywon 971c50fd missing-email* | (empty) no committer email
+    Hint: Run `jj metaedit --update-author 971c50fd8d1d` to re-stamp the commit with your current jj user.name and user.email.
     [EOF]
     [exit status: 1]
     ");
@@ -2086,6 +2093,7 @@ fn test_git_push_missing_committer() {
     ------- stderr -------
     Error: Won't push commit 4bd3b55c7759 since it has no description and has no author and/or committer set
     Hint: Rejected commit: kpqxywon 4bd3b55c missing-email* | (empty) (no description set)
+    Hint: Run `jj metaedit --update-author 4bd3b55c7759` to re-stamp the commit with your current jj user.name and user.email.
     [EOF]
     [exit status: 1]
     ");
@@ -2119,6 +2127,7 @@ fn test_git_push_missing_committer_in_immutable() {
     ------- stderr -------
     Error: Won't push commit ab230f98c812 since it has no author and/or committer set
     Hint: Rejected commit: yostqsxw ab230f98 imm* | (empty) no committer email
+    Hint: Run `jj metaedit --update-author ab230f98c812` to re-stamp the commit with your current jj user.name and user.email.
     [EOF]
     [exit status: 1]
     ");
@@ -2654,6 +2663,7 @@ fn test_git_push_commits_not_ready() {
     ------- stderr -------
     Warning: Won't push bookmark bookmark2: commit b63db0e60f60 has no author and/or committer set
       vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
+    Hint: Run `jj metaedit --update-author b63db0e60f60` to re-stamp the commit with your current jj user.name and user.email.
     Nothing changed.
     [EOF]
     ");
@@ -2681,6 +2691,7 @@ fn test_git_push_commits_not_ready() {
     ------- stderr -------
     Warning: Won't push bookmark bookmark2: commit b63db0e60f60 has no author and/or committer set
       vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
+    Hint: Run `jj metaedit --update-author b63db0e60f60` to re-stamp the commit with your current jj user.name and user.email.
     Nothing changed.
     [EOF]
     ");
