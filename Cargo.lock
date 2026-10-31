@@ -1395,6 +1395,7 @@ dependencies = [
 name = "gen-protos"
 version = "0.46.0"
 dependencies = [
+ "itertools 0.15.0",
  "prost-build",
 ]
 

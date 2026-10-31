@@ -1,6 +1,6 @@
 [package]
 name = "gen-protos"
-description = "Generate Protocol Buffers definitions for the jj-lib crate"
+description = "Generate Protocol Buffers definitions for the jj crates"
 publish = false
 
 version.workspace = true
@@ -9,6 +9,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+itertools = { workspace = true }
 prost-build = { workspace = true }
 
 [lints]
