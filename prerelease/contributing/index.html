@@ -3752,11 +3752,11 @@ to adjust the <code>site_url</code> to something like <code>https://jjfan.github
    protobuf-compiler</code> or downloading <a href="https://github.com/protocolbuffers/protobuf/releases">an official release</a>. The
    <code>prost</code> <a href="https://docs.rs/prost-build/latest/prost_build/#sourcing-protoc">library docs</a> have additional advice.</li>
 <li>Run <code>cargo run -p gen-protos</code> regularly (or after every edit to a <code>.proto</code>
-   file). This is the same as running <code>cargo run</code> from <code>lib/gen-protos</code>. The
+   file). This is the same as running <code>cargo run</code> from <code>gen-protos</code>. The
    <code>gen-protos</code> binary will use the <code>prost-build</code> library to compile the
    <code>.proto</code> files into <code>.rs</code> files.</li>
 <li>If you are adding a new <code>.proto</code> file, you will need to edit the list of
-   these files in <code>lib/gen-protos/src/main.rs</code>.</li>
+   these files in <code>gen-protos/src/main.rs</code>.</li>
 </ul>
 <p>The <code>.rs</code> files generated from <code>.proto</code> files are included in the repository,
  and there is a GitHub CI check that will complain if they do not match.</p>
