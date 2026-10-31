@@ -592,11 +592,11 @@ workflow.</p>
 <li>Install the <code dir="auto">protoc</code> compiler. This usually means either <code dir="auto">apt-get install protobuf-compiler</code> or downloading <a href="https://github.com/protocolbuffers/protobuf/releases">an official release</a>. The
 <code dir="auto">prost</code> <a href="https://docs.rs/prost-build/latest/prost_build/#sourcing-protoc">library docs</a> have additional advice.</li>
 <li>Run <code dir="auto">cargo run -p gen-protos</code> regularly (or after every edit to a <code dir="auto">.proto</code>
-file). This is the same as running <code dir="auto">cargo run</code> from <code dir="auto">lib/gen-protos</code>. The
+file). This is the same as running <code dir="auto">cargo run</code> from <code dir="auto">gen-protos</code>. The
 <code dir="auto">gen-protos</code> binary will use the <code dir="auto">prost-build</code> library to compile the
 <code dir="auto">.proto</code> files into <code dir="auto">.rs</code> files.</li>
 <li>If you are adding a new <code dir="auto">.proto</code> file, you will need to edit the list of
-these files in <code dir="auto">lib/gen-protos/src/main.rs</code>.</li>
+these files in <code dir="auto">gen-protos/src/main.rs</code>.</li>
 </ul>
 <p>The <code dir="auto">.rs</code> files generated from <code dir="auto">.proto</code> files are included in the repository,
 and there is a GitHub CI check that will complain if they do not match.</p>
