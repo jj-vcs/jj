@@ -134,6 +134,14 @@ GitHub. Existing PRs follow their change IDs, keeping comments and review histor
 
 Find it [here][jj-stack].
 
+## Ukemi
+
+Ukemi is an open-source Visual Studio Code extension for Jujutsu on Linux. It
+shows a change graph and supports drag-and-drop rebase, hunk split, undo, and
+GitHub pull requests and GitLab merge requests.
+
+Find it [here][ukemi].
+
 ## Finding other integrations
 
 You can find other community contributed tools and integrations in our
@@ -159,4 +167,5 @@ You can find other community contributed tools and integrations in our
 [vjj]: https://github.com/noahmayr/vjj
 [jj-view]: https://github.com/brychanrobot/jj-view
 [jj-stack]: https://www.serpentine.com/software/jj-stack
+[ukemi]: https://github.com/samuelba/ukemi
 [Wiki]: https://github.com/jj-vcs/jj/wiki
