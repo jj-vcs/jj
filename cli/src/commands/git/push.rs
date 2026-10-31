@@ -14,7 +14,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::future;
 use std::io;
 use std::io::Write as _;
 use std::iter;
@@ -564,7 +563,7 @@ pub async fn cmd_git_push(
         return Ok(());
     }
 
-    if !args.dry_run && tx.settings().get_bool("git.sign-on-push")? {
+    if !args.dry_run {
         let to_push_exprs = by_remote
             .iter()
             .map(|(remote, ref_updates)| ready_to_push_revset_expression(&tx, remote, ref_updates))
@@ -951,19 +950,18 @@ async fn sign_commits_before_push<'a>(
     commits_to_push: Arc<UserRevsetExpression>,
     by_remote: Vec<(&'a RemoteName, GitPushRefTargets)>,
 ) -> Result<(Vec<(&'a RemoteName, GitPushRefTargets)>, usize), CommandError> {
-    let mut sign_settings = tx.settings().sign_settings();
-    sign_settings.behavior = SignBehavior::Own;
-    // TODO: make filter condition configurable by revset?
-    let needs_signing = |commit: &Commit| {
-        future::ready(!commit.is_signed() && sign_settings.should_sign(commit.store_commit()))
-    };
-
     let workspace_helper = tx.base_workspace_helper();
+    let settings = tx.settings();
+    let sign_on_push = workspace_helper.parse_revset(
+        ui,
+        &RevisionArg::from(settings.get_string("git.sign-on-push")?),
+    )?;
+    let needs_signing = commits_to_push.intersection(sign_on_push.expression());
+
     let immutable = workspace_helper.env().immutable_expression();
     let skipped: Vec<Commit> = workspace_helper
-        .attach_revset_evaluator(commits_to_push.intersection(&immutable))
+        .attach_revset_evaluator(needs_signing.intersection(&immutable))
         .evaluate_to_commits()?
-        .try_filter(needs_signing)
         .take(11)
         .try_collect()
         .await?;
@@ -986,9 +984,8 @@ async fn sign_commits_before_push<'a>(
     }
 
     let commit_ids: IndexSet<CommitId> = workspace_helper
-        .attach_revset_evaluator(commits_to_push.minus(&immutable))
+        .attach_revset_evaluator(needs_signing.minus(&immutable))
         .evaluate_to_commits()?
-        .try_filter(needs_signing)
         .map_ok(|commit| commit.id().clone())
         .try_collect()
         .await?;
@@ -1015,7 +1012,7 @@ async fn sign_commits_before_push<'a>(
                     if commit_ids.contains(&old_commit_id) {
                         let commit = rewriter
                             .reparent()
-                            .set_sign_behavior(sign_settings.behavior)
+                            .set_sign_behavior(SignBehavior::Force)
                             .write()
                             .await?;
                         old_to_new_commits_map.insert(old_commit_id, commit.id().clone());

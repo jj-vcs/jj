@@ -43,11 +43,19 @@ and this project adheres to
 
 ### Deprecations
 
+* The `git.sign-on-push` option is now a revset instead of a boolean. The
+  default value is `none()`. If `git.sign-on-push` was previously set to `true`,
+  it will be set to `~signed() & mine()`.
+
 ### New features
 
-* `jj git push` with `git.sign-on-push` enabled now signs commits in a
+* `jj git push` with `git.sign-on-push` now signs commits in a
   separate transaction before the push, so commits stay signed if the push
   fails and a new push doesn't have to sign them again.
+
+* The `git.sign-on-push` config option has been changed from a boolean to a
+  string containing the revset of commits to be signed when `jj git push` is
+  run.
 
 * Diff hunk headers now include symbol context even for unsupported languages.
 
