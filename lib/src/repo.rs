@@ -68,6 +68,7 @@ use crate::merged_tree::MergedTree;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
+use crate::op_heads_store::OpHeadsKey;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store;
@@ -782,6 +783,7 @@ impl RepoLoader {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
+            &OpHeadsKey::Repo,
             async |op_heads| -> Result<Operation, RepoLoaderError> {
                 assert!(op_heads.len() > 1);
                 let transaction_description = Some("reconcile divergent operations");

@@ -22,6 +22,7 @@ use crate::backend::Timestamp;
 use crate::index::IndexError;
 use crate::index::ReadonlyIndex;
 use crate::index_store::IndexStoreError;
+use crate::op_heads_store::OpHeadsKey;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store;
@@ -229,9 +230,14 @@ impl UnpublishedOperation {
     }
 
     pub async fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        let _lock = self.op_heads_store.lock().await?;
+        let op_heads_key = OpHeadsKey::Repo;
+        let _lock = self.op_heads_store.lock(&op_heads_key).await?;
         self.op_heads_store
-            .update_op_heads(self.operation().parent_ids(), self.operation().id())
+            .update_op_heads(
+                &op_heads_key,
+                self.operation().parent_ids(),
+                self.operation().id(),
+            )
             .await?;
         Ok(self.repo)
     }
