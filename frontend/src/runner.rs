@@ -41,6 +41,7 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy::CheckoutError;
+use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::ResetError;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
@@ -178,6 +179,25 @@ pub enum RunnerEvent {
     WorkingCopyBecameImmutable {
         /// The new working-copy commit.
         new_wc_commit: Commit,
+    },
+    /// The working copy was updated from `old_commit` to `new_commit`.
+    WorkingCopyUpdated {
+        /// The repo containing the commits.
+        repo: ReadonlyUserRepo,
+        /// The previous working-copy commit, if any.
+        old_commit: Option<Commit>,
+        /// The new working-copy commit.
+        new_commit: Commit,
+        /// Statistics about the files updated in the working copy.
+        stats: CheckoutStats,
+    },
+    /// A transaction was committed, changing the repo from `old_repo` to
+    /// `new_repo`.
+    TransactionFinished {
+        /// The repo before the transaction.
+        old_repo: Arc<ReadonlyRepo>,
+        /// The repo after the transaction.
+        new_repo: ReadonlyUserRepo,
     },
     /// The user's name or email isn't configured, so new commits will have an
     /// empty author and committer.

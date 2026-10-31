@@ -717,7 +717,11 @@ impl CommandHelper {
                                 .runner
                                 .options
                                 .start_transaction(repo, workspace_name);
-                            let event_handler = CliRunnerEventHandler::new(ui);
+                            let event_handler = CliRunnerEventHandler::new(
+                                ui,
+                                &workspace_command.env,
+                                &workspace_command.commit_summary_template_text,
+                            );
                             try_reset_git_head(
                                 &event_handler,
                                 tx.repo_mut(),
@@ -1224,14 +1228,25 @@ impl WorkspaceCommandEnvironment {
 /// Prints [`RunnerEvent`]s for the CLI.
 struct CliRunnerEventHandler<'a> {
     ui: &'a Ui,
+    reporter: WorkspaceReporter<'a>,
 }
 
 impl<'a> CliRunnerEventHandler<'a> {
-    fn new(ui: &'a Ui) -> Self {
-        Self { ui }
+    fn new(
+        ui: &'a Ui,
+        env: &'a WorkspaceCommandEnvironment,
+        commit_summary_template_text: &'a str,
+    ) -> Self {
+        Self {
+            ui,
+            reporter: WorkspaceReporter {
+                env,
+                commit_summary_template_text,
+            },
+        }
     }
 
-    fn print_event(&self, event: RunnerEvent) -> Result<(), CommandError> {
+    async fn print_event(&self, event: RunnerEvent) -> Result<(), CommandError> {
         let ui = self.ui;
         match event {
             RunnerEvent::DescendantsRebased {
@@ -1271,6 +1286,33 @@ impl<'a> CliRunnerEventHandler<'a> {
                 "The working-copy commit became immutable; a new commit has been created on top \
                  of it.",
             )?,
+            RunnerEvent::WorkingCopyUpdated {
+                repo,
+                old_commit,
+                new_commit,
+                stats,
+            } => {
+                self.reporter
+                    .print_updated_working_copy_stats(
+                        ui,
+                        repo.repo().as_ref(),
+                        repo.id_prefix_context(),
+                        old_commit.as_ref(),
+                        &new_commit,
+                        &stats,
+                    )
+                    .await?;
+            }
+            RunnerEvent::TransactionFinished { old_repo, new_repo } => {
+                self.reporter
+                    .report_repo_changes(
+                        ui,
+                        &old_repo,
+                        new_repo.repo(),
+                        new_repo.id_prefix_context(),
+                    )
+                    .await?;
+            }
             RunnerEvent::UserIdentityNotConfigured {
                 missing_name,
                 missing_email,
@@ -1358,6 +1400,7 @@ impl RunnerEventHandler for CliRunnerEventHandler<'_> {
         event: RunnerEvent,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.print_event(event)
+            .await
             .map_err(|err| CliEventHandlerError(err).into())
     }
 
@@ -1380,12 +1423,6 @@ impl fmt::Display for CliEventHandlerError {
 }
 
 impl std::error::Error for CliEventHandlerError {}
-
-impl From<CliEventHandlerError> for RunnerError {
-    fn from(err: CliEventHandlerError) -> Self {
-        Self::EventHandler(Box::new(err))
-    }
-}
 
 /// Runs the operations that commands (or other user interfaces) perform on a
 /// workspace before and after modifying the repo: snapshotting the working
@@ -1582,7 +1619,8 @@ impl WorkspaceCommandHelper {
         }
 
         let mut tx = tx.into_inner();
-        let event_handler = CliRunnerEventHandler::new(ui);
+        let event_handler =
+            CliRunnerEventHandler::new(ui, &self.env, &self.commit_summary_template_text);
         let old_git_head = self.repo().view().git_head(&workspace_name).clone();
         let new_git_head = tx.repo().view().git_head(&workspace_name);
         if let Some(new_git_head_id) = new_git_head.as_normal() {
@@ -1659,7 +1697,8 @@ impl WorkspaceCommandHelper {
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), RunnerError> {
         let mut tx = self.start_transaction().into_inner();
-        let event_handler = CliRunnerEventHandler::new(ui);
+        let event_handler =
+            CliRunnerEventHandler::new(ui, &self.env, &self.commit_summary_template_text);
         let stats = jj_lib::git::import_refs(tx.repo_mut(), import_options).await?;
         event_handler
             .event(RunnerEvent::GitRefsImported(stats))
@@ -1696,7 +1735,8 @@ impl WorkspaceCommandHelper {
         // This also exports previously modified refs if any.
         self.finish_transaction_locked(ui, tx, "import git refs", git_import_export_lock)
             .await?;
-        let event_handler = CliRunnerEventHandler::new(ui);
+        let event_handler =
+            CliRunnerEventHandler::new(ui, &self.env, &self.commit_summary_template_text);
         event_handler
             .event(RunnerEvent::GitRefsImportFinished)
             .await
@@ -2279,7 +2319,8 @@ to the current parents may contain changes from multiple commits.
         #[cfg_attr(not(feature = "git"), expect(unused_variables))]
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, RunnerError> {
-        let event_handler = CliRunnerEventHandler::new(ui);
+        let event_handler =
+            CliRunnerEventHandler::new(ui, &self.env, &self.commit_summary_template_text);
         let workspace_name = self.workspace_name().to_owned();
         let repo = self.repo().clone();
         let options = config.snapshot_options();
@@ -2490,7 +2531,8 @@ to the current parents may contain changes from multiple commits.
         mut tx: Transaction,
         description: impl Into<String>,
     ) -> Result<(), RunnerError> {
-        let event_handler = CliRunnerEventHandler::new(ui);
+        let event_handler =
+            CliRunnerEventHandler::new(ui, &self.env, &self.commit_summary_template_text);
         let num_rebased =
             rebase_mutable_descendants(&self.env, &self.runner.options, &mut tx).await?;
         if num_rebased > 0 {
@@ -2517,7 +2559,8 @@ to the current parents may contain changes from multiple commits.
         #[cfg_attr(not(feature = "git"), expect(unused_variables))]
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), RunnerError> {
-        let event_handler = CliRunnerEventHandler::new(ui);
+        let event_handler =
+            CliRunnerEventHandler::new(ui, &self.env, &self.commit_summary_template_text);
         let old_repo = tx.base_repo().clone();
 
         let maybe_old_wc_commit = old_repo
@@ -2604,24 +2647,28 @@ to the current parents may contain changes from multiple commits.
                     new_commit,
                 )
                 .await?;
-                self.print_updated_working_copy_stats(
-                    ui,
-                    maybe_old_wc_commit.as_ref(),
-                    new_commit,
-                    &stats,
-                )
-                .await
-                .map_err(CliEventHandlerError)?;
+                event_handler
+                    .event(RunnerEvent::WorkingCopyUpdated {
+                        repo: self.runner.user_repo.clone(),
+                        old_commit: maybe_old_wc_commit.clone(),
+                        new_commit: new_commit.clone(),
+                        stats,
+                    })
+                    .await
+                    .map_err(RunnerError::EventHandler)?;
             } else {
                 // It seems the workspace was deleted, so we shouldn't try to
                 // update it.
             }
         }
 
-        self.reporter()
-            .report_repo_changes(ui, &old_repo, self.repo(), self.id_prefix_context())
+        event_handler
+            .event(RunnerEvent::TransactionFinished {
+                old_repo,
+                new_repo: self.runner.user_repo.clone(),
+            })
             .await
-            .map_err(CliEventHandlerError)?;
+            .map_err(RunnerError::EventHandler)?;
 
         if !self.runner.options.integrate_operation {
             event_handler
