@@ -92,9 +92,7 @@ impl SimpleWorkspaceStore {
         let store = Self::new(store_dir);
         if !store.store_file.exists() {
             // TODO: Remove this in jj 0.57+: older repos do not have a workspace store index so we initialize it here.
-            store
-                .initialize()
-                .map_err(|err| BackendLoadError(err.into()))?;
+            store.initialize().map_err(BackendLoadError::new)?;
         }
         Ok(store)
     }
@@ -107,9 +105,9 @@ impl SimpleWorkspaceStore {
     }
 
     fn initialize(&self) -> Result<(), BackendInitError> {
-        let _lock = self.lock().map_err(|err| BackendInitError(err.into()))?;
+        let _lock = self.lock().map_err(BackendInitError::new)?;
         self.write_store(simple_workspace_store::Workspaces::default())
-            .map_err(|err| BackendInitError(err.into()))?;
+            .map_err(BackendInitError::new)?;
         Ok(())
     }
 

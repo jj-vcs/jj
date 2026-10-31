@@ -77,7 +77,7 @@ pub struct SimpleOpStoreInitError(#[from] pub PathError);
 
 impl From<SimpleOpStoreInitError> for BackendInitError {
     fn from(err: SimpleOpStoreInitError) -> Self {
-        Self(err.into())
+        Self::new(err)
     }
 }
 
