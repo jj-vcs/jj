@@ -4,6 +4,8 @@ on:
   pull_request_review:
     types: [submitted]
 
+permissions: {}
+
 jobs:
   check-author:
     if: github.event.review.state == 'approved'
