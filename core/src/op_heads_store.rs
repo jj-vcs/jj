@@ -22,12 +22,13 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
-use jj_core::dag_walk_async;
-use jj_core::op_store::OpStore;
-use jj_core::op_store::OpStoreError;
-use jj_core::op_store::OperationId;
-use jj_core::operation::Operation;
 use thiserror::Error;
+
+use crate::dag_walk_async;
+use crate::op_store::OpStore;
+use crate::op_store::OpStoreError;
+use crate::op_store::OperationId;
+use crate::operation::Operation;
 
 #[derive(Debug, Error)]
 pub enum OpHeadsStoreError {
