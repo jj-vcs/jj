@@ -183,6 +183,12 @@ and this project adheres to
 
 ### New features
 
+* `jj split --no-editor` keeps the selected commit's description and leaves the
+  other split commit empty without opening an editor.
+
+* `jj squash --use-combined-message` can combine commit descriptions and
+  trailers without opening an editor.
+
 * `jj workspace add` supports `--colocate`/`--no-colocate` flags to control
   whether a Git worktree is created alongside the workspace. The default
   colocates when the current workspace is colocated and the `git.colocate`
