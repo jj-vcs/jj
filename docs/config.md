@@ -765,6 +765,39 @@ log = "builtin_log_compact_full_description"
 graph.style = "square"
 ```
 
+#### Graph colors
+
+Each column of the graph can have its own color, so that you can follow a line
+from a fork to a merge. The columns use the labels `graph lane0` to
+`graph lane11` in turn, and the thirteenth column uses `graph lane0` again. The
+labels have no color by default. You can customize the lane colors in the
+[`[colors]` table](#custom-colors-and-styles). For example, these are the
+default colors of `git log --graph`:
+
+```toml
+[colors]
+"graph lane0" = "red"
+"graph lane1" = "green"
+"graph lane2" = "yellow"
+"graph lane3" = "blue"
+"graph lane4" = "magenta"
+"graph lane5" = "cyan"
+"graph lane6" = { fg = "red", bold = true }
+"graph lane7" = { fg = "green", bold = true }
+"graph lane8" = { fg = "yellow", bold = true }
+"graph lane9" = { fg = "blue", bold = true }
+"graph lane10" = { fg = "magenta", bold = true }
+"graph lane11" = { fg = "cyan", bold = true }
+```
+
+A vertical line takes the color of its column. A horizontal line takes the
+color of the branch that forks or merges there. So a line that moves to another
+column changes color where it moves.
+
+A node symbol takes the color of its column too, unless a node label sets its
+own color. For example, the working-copy `@` stays green, because the default
+colors set `"node working_copy"`.
+
 #### Node style
 
 The symbols used to represent commits or operations can be customized via

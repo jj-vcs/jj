@@ -82,6 +82,12 @@ and this project adheres to
   to converge. The special `q` abort choice was removed; canceling with EOF now
   exits with an error (previously `q` aborted successfully).
 
+* The graph in `jj log`, `jj evolog`, `jj op log`, `jj op show`, and
+  `jj op diff` can now be colored by column. Each column uses one of the labels
+  `graph lane0` to `graph lane11` in turn. The labels have no color by default.
+  Set them in the `[colors]` table to turn the colors on. A node symbol takes
+  the color of its column, unless a node label sets its own color.
+
 ### Fixed bugs
 
 * In graph output, an elided edge that passes through a merge or fork line is

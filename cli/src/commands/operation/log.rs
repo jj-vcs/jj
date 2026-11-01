@@ -30,7 +30,6 @@ use super::diff::show_op_diff;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::WorkspaceCommandEnvironment;
-use crate::cli_util::format_template;
 use crate::cli_util::merge_operations;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -238,8 +237,7 @@ async fn do_op_log(
         op_walk::walk_ancestors(slice::from_ref(current_op)).take(args.limit.unwrap_or(usize::MAX));
 
     if !args.no_graph {
-        let mut raw_output = formatter.raw()?;
-        let mut graph = get_graphlog(graph_style, raw_output.as_mut());
+        let mut graph = get_graphlog(ui, graph_style, formatter);
         let stream = stream.map_ok(|op| {
             let ids = op.parent_ids();
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect();
@@ -268,11 +266,10 @@ async fn do_op_log(
                 let mut formatter = ui.new_formatter(&mut buffer);
                 show(ui, formatter.as_mut(), &op, &within_graph).await?;
             }
-            let node_symbol = format_template(ui, &op, &op_node_template);
             graph.add_node(
                 op.id(),
                 &edges,
-                &node_symbol,
+                &|formatter| op_node_template.format(&op, formatter),
                 &String::from_utf8_lossy(&buffer),
             )?;
         }
