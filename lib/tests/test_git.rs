@@ -3972,7 +3972,7 @@ fn test_reset_head_with_index() -> TestResult {
         std::thread::sleep(std::time::Duration::from_secs(2));
     }
 
-    // Rewriting the working-copy tree resets the index and adds new files.
+    // Rewriting the working-copy tree preserves staged changes and adds new files.
     {
         let mut index_manager = testutils::git::IndexManager::new(&git_repo);
         index_manager.add_file("file.txt", b"staged\n");
@@ -3989,26 +3989,32 @@ fn test_reset_head_with_index() -> TestResult {
         &test_workspace.workspace,
         (Some(&other_wc), &changed_wc),
     )?;
-    insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted new.txt Mode(FILE)");
+    insta::assert_snapshot!(get_index_state(workspace_root), @"
+    Unconflicted file.txt Mode(FILE)
+    Unconflicted new.txt Mode(FILE)
+    ");
+
+    // Removing the file removes its intent-to-add entry, but preserves staging.
+    reset_head_from(
+        tx.repo_mut(),
+        &test_workspace.workspace,
+        (Some(&changed_wc), &other_wc),
+    )?;
+    insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted file.txt Mode(FILE)");
 
     // A changed secondary parent also resets the index, even if HEAD is unchanged.
-    {
-        let mut index_manager = testutils::git::IndexManager::new(&git_repo);
-        index_manager.add_file("file.txt", b"staged\n");
-        index_manager.sync_index();
-    }
     let second_parent = commit_with_tree(repo.store(), repo.store().empty_merged_tree());
     let merge_wc = tx
         .repo_mut()
-        .rewrite_commit(&changed_wc)
+        .rewrite_commit(&other_wc)
         .set_parents(vec![commit1.id().clone(), second_parent.id().clone()])
         .write_unwrap();
     reset_head_from(
         tx.repo_mut(),
         &test_workspace.workspace,
-        (Some(&changed_wc), &merge_wc),
+        (Some(&other_wc), &merge_wc),
     )?;
-    insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted new.txt Mode(FILE)");
+    insta::assert_snapshot!(get_index_state(workspace_root), @"");
     Ok(())
 }
 

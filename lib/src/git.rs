@@ -2065,8 +2065,9 @@ impl GitResetHeadError {
 /// Sets Git HEAD to the first parent of `new_wc_commit`.
 ///
 /// Resets the Git index to the merged parent tree and clears any in-progress
-/// Git operation when switching working-copy changes or changing their parents
-/// or tree.
+/// Git operation when switching working-copy changes, changing their parents,
+/// or updating the recorded Git HEAD target. If only the working-copy tree
+/// changes, updates intent-to-add entries while preserving staged changes.
 ///
 /// Pass `None` for `old_wc_commit` to force a reset when the previous commit is
 /// unknown.
@@ -2115,16 +2116,27 @@ pub async fn reset_head(
     }
 
     let wc_changed = old_wc_commit.is_none_or(|old| {
-        let content_changed = old.tree_ids() != new_wc_commit.tree_ids();
         let parents_changed = old.parent_ids() != new_wc_commit.parent_ids();
         let wc_switched = old.change_id() != new_wc_commit.change_id();
-        content_changed || parents_changed || wc_switched
+        parents_changed || wc_switched
     });
     if head_changed || wc_changed {
         if git_repo.state().is_some() {
             clear_operation_state(&git_repo)?;
         }
         reset_index(mut_repo, &git_repo, new_wc_commit).await?;
+    } else if let Some(old) = old_wc_commit
+        && old.tree_ids() != new_wc_commit.tree_ids()
+    {
+        let mut index = git_repo
+            .index_or_empty()
+            .map_err(GitResetHeadError::from_git)?;
+        let index = Arc::make_mut(&mut index);
+        update_intent_to_add_impl(&git_repo, index, &old.tree(), &new_wc_commit.tree()).await?;
+        debug_assert!(index.verify_entries().is_ok());
+        index
+            .write(gix::index::write::Options::default())
+            .map_err(GitResetHeadError::from_git)?;
     }
     Ok(())
 }
