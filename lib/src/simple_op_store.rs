@@ -698,7 +698,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
             .collect();
         if !git_tags.is_empty() {
             let git_view = remote_views
-                .entry(crate::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO.to_owned())
+                .entry(jj_core::ref_name::REMOTE_NAME_FOR_LOCAL_GIT_REPO.to_owned())
                 .or_default();
             assert!(git_view.tags.is_empty());
             git_view.tags = git_tags;
