@@ -283,14 +283,18 @@ impl TracingSubscription {
         self.reload_log_filter
             .modify(|filter| {
                 // The default is INFO.
-                // jj-lib and jj-cli are whitelisted for DEBUG logging.
+                // Our own crates are allowlisted for DEBUG logging.
                 // This ensures that other crates' logging doesn't show up by default.
                 *filter = tracing_subscriber::EnvFilter::builder()
                     .with_default_directive(tracing::metadata::LevelFilter::INFO.into())
                     .with_env_var(Self::ENV_VAR_NAME)
                     .from_env_lossy()
+                    .add_directive("jj_cli=debug".parse().unwrap())
+                    .add_directive("jj_core=debug".parse().unwrap())
+                    .add_directive("jj_dsl=debug".parse().unwrap())
+                    .add_directive("jj_frontend=debug".parse().unwrap())
                     .add_directive("jj_lib=debug".parse().unwrap())
-                    .add_directive("jj_cli=debug".parse().unwrap());
+                    .add_directive("jj_local_util=debug".parse().unwrap());
             })
             .map_err(|err| internal_error_with_message("failed to enable debug logging", err))?;
         tracing::info!("debug logging enabled");
