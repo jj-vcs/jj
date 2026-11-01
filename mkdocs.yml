@@ -139,6 +139,7 @@ nav: # This lists all the files that become part of the documentation
 
   - Guides:
       - CLI options for specifying revisions: 'guides/cli-revision-options.md'
+      - Configuring revsets.log: 'guides/configuring-revsets-log.md'
       - Divergent changes: 'guides/divergence.md'
       - Multiple remotes: 'guides/multiple-remotes.md'
 
