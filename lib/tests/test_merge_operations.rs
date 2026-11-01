@@ -14,9 +14,9 @@
 
 use std::process::Command;
 
-use jj_lib::op_store;
-use jj_lib::operation::Operation;
-use jj_lib::ref_name::WorkspaceName;
+use jj_core::op_store;
+use jj_core::operation::Operation;
+use jj_core::ref_name::WorkspaceName;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;

@@ -30,14 +30,30 @@ use std::thread;
 
 use gix::remote::Direction;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendError;
-use jj_lib::backend::BackendInitError;
-use jj_lib::backend::ChangeId;
-use jj_lib::backend::CommitId;
-use jj_lib::backend::MillisSinceEpoch;
-use jj_lib::backend::Signature;
-use jj_lib::backend::Timestamp;
-use jj_lib::commit::Commit;
+use jj_core::backend::BackendError;
+use jj_core::backend::BackendInitError;
+use jj_core::backend::ChangeId;
+use jj_core::backend::CommitId;
+use jj_core::backend::MillisSinceEpoch;
+use jj_core::backend::Signature;
+use jj_core::backend::Timestamp;
+use jj_core::commit::Commit;
+use jj_core::hex_util;
+use jj_core::index::ResolvedChangeTargets;
+use jj_core::merge::Diff;
+use jj_core::object_id::ObjectId as _;
+use jj_core::op_store::ABSENT_REF_TARGET;
+use jj_core::op_store::LocalRemoteRefTarget;
+use jj_core::op_store::RefTarget;
+use jj_core::op_store::RemoteRef;
+use jj_core::op_store::RemoteRefState;
+use jj_core::ref_name::GitRefNameBuf;
+use jj_core::ref_name::RefName;
+use jj_core::ref_name::RemoteName;
+use jj_core::ref_name::RemoteRefSymbol;
+use jj_core::ref_name::WorkspaceName;
+use jj_core::str_util::StringExpression;
+use jj_core::str_util::StringMatcher;
 use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
@@ -70,27 +86,11 @@ use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
 use jj_lib::git::load_default_fetch_bookmarks;
 use jj_lib::git_backend::GitBackend;
-use jj_lib::hex_util;
-use jj_lib::index::ResolvedChangeTargets;
-use jj_lib::merge::Diff;
-use jj_lib::object_id::ObjectId as _;
-use jj_lib::op_store::ABSENT_REF_TARGET;
-use jj_lib::op_store::LocalRemoteRefTarget;
-use jj_lib::op_store::RefTarget;
-use jj_lib::op_store::RemoteRef;
-use jj_lib::op_store::RemoteRefState;
-use jj_lib::ref_name::GitRefNameBuf;
-use jj_lib::ref_name::RefName;
-use jj_lib::ref_name::RemoteName;
-use jj_lib::ref_name::RemoteRefSymbol;
-use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing_factory::signer_from_settings;
-use jj_lib::str_util::StringExpression;
-use jj_lib::str_util::StringMatcher;
 use jj_lib::workspace::Workspace;
 use maplit::btreemap;
 use maplit::hashset;
@@ -7142,7 +7142,7 @@ fn test_shallow_commits_lack_parents() -> TestResult {
     };
     assert_eq!(*repo.view().heads(), expected_heads);
 
-    let parents = |store: &Arc<jj_lib::store::Store>, commit| {
+    let parents = |store: &Arc<jj_core::store::Store>, commit| {
         let commit = store.get_commit(&jj_id(commit)).unwrap();
         commit.parent_ids().to_vec()
     };
@@ -7459,7 +7459,7 @@ fn test_push_updates_with_options() -> TestResult {
     let stats = result;
     assert_eq!(
         stats.pushed,
-        vec![jj_lib::ref_name::GitRefNameBuf::from("refs/heads/main")]
+        vec![jj_core::ref_name::GitRefNameBuf::from("refs/heads/main")]
     );
     assert!(stats.all_ok(), "{stats:?}");
 

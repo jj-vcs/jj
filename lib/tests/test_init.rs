@@ -16,9 +16,9 @@ use std::assert_matches;
 use std::path::Path;
 use std::path::PathBuf;
 
+use jj_core::ref_name::WorkspaceName;
 use jj_lib::config::StackedConfig;
 use jj_lib::git_backend::GitBackend;
-use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;

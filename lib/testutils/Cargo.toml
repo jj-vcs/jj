@@ -18,6 +18,7 @@ gix = { workspace = true, features = [
     "worktree-mutation",
 ] }
 itertools = { workspace = true }
+jj-core = { workspace = true }
 jj-lib = { workspace = true, features = ["testing"] }
 pollster = { workspace = true }
 proptest = { workspace = true }

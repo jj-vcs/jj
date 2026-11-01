@@ -14,11 +14,11 @@
 
 use futures::StreamExt as _;
 use itertools::Itertools as _;
+use jj_core::matchers::EverythingMatcher;
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
 use jj_lib::local_working_copy::LocalWorkingCopy;
-use jj_lib::matchers::EverythingMatcher;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPath;
-use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::WorkingCopy as _;
 use pollster::FutureExt as _;

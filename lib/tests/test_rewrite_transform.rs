@@ -14,7 +14,7 @@
 
 use std::collections::HashMap;
 
-use jj_lib::commit::Commit;
+use jj_core::commit::Commit;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::RewriteRefsOptions;

@@ -18,28 +18,28 @@ use std::sync::Arc;
 
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use jj_lib::backend::ChangeId;
-use jj_lib::backend::CommitId;
-use jj_lib::commit::Commit;
+use jj_core::backend::ChangeId;
+use jj_core::backend::CommitId;
+use jj_core::commit::Commit;
+use jj_core::index::Index;
+use jj_core::index::ResolvedChangeState;
+use jj_core::index::ResolvedChangeTargets;
+use jj_core::object_id::HexPrefix;
+use jj_core::object_id::ObjectId as _;
+use jj_core::object_id::PrefixResolution;
+use jj_core::op_store::RefTarget;
+use jj_core::op_store::RemoteRef;
+use jj_core::ref_name::RefName;
+use jj_core::ref_name::RemoteName;
+use jj_core::ref_name::RemoteRefSymbol;
+use jj_core::repo_path::RepoPathBuf;
 use jj_lib::default_index::DefaultIndexStore;
 use jj_lib::default_index::DefaultIndexStoreError;
 use jj_lib::default_index::DefaultMutableIndex;
 use jj_lib::default_index::DefaultReadonlyIndex;
-use jj_lib::index::Index;
-use jj_lib::index::ResolvedChangeState;
-use jj_lib::index::ResolvedChangeTargets;
-use jj_lib::object_id::HexPrefix;
-use jj_lib::object_id::ObjectId as _;
-use jj_lib::object_id::PrefixResolution;
-use jj_lib::op_store::RefTarget;
-use jj_lib::op_store::RemoteRef;
-use jj_lib::ref_name::RefName;
-use jj_lib::ref_name::RemoteName;
-use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::GENERATION_RANGE_FULL;
 use jj_lib::revset::PARENTS_RANGE_FULL;
 use jj_lib::revset::ResolvedExpression;
@@ -441,7 +441,7 @@ fn test_index_commits_hidden_but_referenced() -> TestResult {
                 [commit_a.id().clone()],
                 [commit_b.id().clone(), commit_c.id().clone()],
             ),
-            state: jj_lib::op_store::RemoteRefState::New,
+            state: jj_core::op_store::RemoteRefState::New,
         },
     );
 

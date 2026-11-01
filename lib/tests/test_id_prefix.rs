@@ -13,22 +13,22 @@
 // limitations under the License.
 
 use itertools::Itertools as _;
-use jj_lib::backend::ChangeId;
-use jj_lib::backend::CommitId;
-use jj_lib::backend::MillisSinceEpoch;
-use jj_lib::backend::Signature;
-use jj_lib::backend::Timestamp;
+use jj_core::backend::ChangeId;
+use jj_core::backend::CommitId;
+use jj_core::backend::MillisSinceEpoch;
+use jj_core::backend::Signature;
+use jj_core::backend::Timestamp;
+use jj_core::index::ResolvedChangeTargets;
+use jj_core::object_id::HexPrefix;
+use jj_core::object_id::ObjectId as _;
+use jj_core::object_id::PrefixResolution::AmbiguousMatch;
+use jj_core::object_id::PrefixResolution::NoMatch;
+use jj_core::object_id::PrefixResolution::SingleMatch;
+use jj_core::op_store::RefTarget;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::id_prefix::IdPrefixIndex;
-use jj_lib::index::ResolvedChangeTargets;
-use jj_lib::object_id::HexPrefix;
-use jj_lib::object_id::ObjectId as _;
-use jj_lib::object_id::PrefixResolution::AmbiguousMatch;
-use jj_lib::object_id::PrefixResolution::NoMatch;
-use jj_lib::object_id::PrefixResolution::SingleMatch;
-use jj_lib::op_store::RefTarget;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;

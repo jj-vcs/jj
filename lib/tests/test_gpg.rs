@@ -7,11 +7,11 @@ use std::os::unix::prelude::PermissionsExt as _;
 use std::process::Stdio;
 
 use insta::assert_debug_snapshot;
+use jj_core::signing::SigStatus;
+use jj_core::signing::SignError;
+use jj_core::signing::SigningBackend as _;
 use jj_lib::gpg_signing::GpgBackend;
 use jj_lib::gpg_signing::GpgsmBackend;
-use jj_lib::signing::SigStatus;
-use jj_lib::signing::SignError;
-use jj_lib::signing::SigningBackend as _;
 use testutils::TestResult;
 use testutils::ensure_running_outside_ci;
 use testutils::is_external_tool_installed;

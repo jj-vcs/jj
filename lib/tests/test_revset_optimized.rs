@@ -23,8 +23,8 @@ use std::sync::Arc;
 
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
-use jj_lib::commit::Commit;
+use jj_core::backend::CommitId;
+use jj_core::commit::Commit;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::repo::MutableRepo;

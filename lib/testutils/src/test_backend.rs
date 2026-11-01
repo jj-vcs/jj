@@ -32,27 +32,27 @@ use futures::io::Cursor;
 use futures::stream;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
-use jj_lib::backend::Backend;
-use jj_lib::backend::BackendError;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::ChangeId;
-use jj_lib::backend::Commit;
-use jj_lib::backend::CommitId;
-use jj_lib::backend::CopyHistory;
-use jj_lib::backend::CopyId;
-use jj_lib::backend::CopyRecord;
-use jj_lib::backend::FileId;
-use jj_lib::backend::RelatedCopy;
-use jj_lib::backend::SecureSig;
-use jj_lib::backend::SigningFn;
-use jj_lib::backend::SymlinkId;
-use jj_lib::backend::Tree;
-use jj_lib::backend::TreeId;
-use jj_lib::backend::make_root_commit;
-use jj_lib::dag_walk::topo_order_reverse;
-use jj_lib::object_id::ObjectId as _;
-use jj_lib::repo_path::RepoPath;
-use jj_lib::repo_path::RepoPathBuf;
+use jj_core::backend::Backend;
+use jj_core::backend::BackendError;
+use jj_core::backend::BackendResult;
+use jj_core::backend::ChangeId;
+use jj_core::backend::Commit;
+use jj_core::backend::CommitId;
+use jj_core::backend::CopyHistory;
+use jj_core::backend::CopyId;
+use jj_core::backend::CopyRecord;
+use jj_core::backend::FileId;
+use jj_core::backend::RelatedCopy;
+use jj_core::backend::SecureSig;
+use jj_core::backend::SigningFn;
+use jj_core::backend::SymlinkId;
+use jj_core::backend::Tree;
+use jj_core::backend::TreeId;
+use jj_core::backend::make_root_commit;
+use jj_core::dag_walk::topo_order_reverse;
+use jj_core::object_id::ObjectId as _;
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
 use tokio::runtime::Runtime;
 
 const HASH_LENGTH: usize = 10;
@@ -106,8 +106,8 @@ impl Debug for TestBackendFactory {
     }
 }
 
-fn get_hash(content: &(impl jj_lib::content_hash::ContentHash + ?Sized)) -> Vec<u8> {
-    jj_lib::content_hash::blake2b_hash(content).as_slice()[..HASH_LENGTH].to_vec()
+fn get_hash(content: &(impl jj_core::content_hash::ContentHash + ?Sized)) -> Vec<u8> {
+    jj_core::content_hash::blake2b_hash(content).as_slice()[..HASH_LENGTH].to_vec()
 }
 
 /// A commit backend for use in tests.
