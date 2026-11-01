@@ -38,6 +38,9 @@ use jj_core::object_id::ObjectId as _;
 use jj_core::object_id::PrefixResolution;
 use jj_core::object_id::id_type;
 use jj_core::repo_path::RepoPathBuf;
+use jj_core::revset_backend::ResolvedExpression;
+use jj_core::revset_backend::Revset;
+use jj_core::revset_backend::RevsetEvaluationError;
 use jj_core::store::Store;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
@@ -55,9 +58,6 @@ use super::mutable::MutableCommitIndexSegment;
 use super::readonly::ReadonlyCommitIndexSegment;
 use super::rev_walk::filter_slice_by_range;
 use super::revset_engine;
-use crate::revset::ResolvedExpression;
-use crate::revset::Revset;
-use crate::revset::RevsetEvaluationError;
 
 // Invalid commit IDs should be rejected by the revset frontend, but there
 // are a few edge cases that break the precondition:

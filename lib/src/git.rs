@@ -74,6 +74,8 @@ use jj_core::ref_name::RemoteRefSymbol;
 use jj_core::ref_name::RemoteRefSymbolBuf;
 use jj_core::ref_name::WorkspaceName;
 use jj_core::repo_path::RepoPath;
+use jj_core::revset_backend::RevsetEvaluationError;
+use jj_core::revset_backend::RevsetStreamExt as _;
 use jj_core::store::Store;
 use jj_core::str_util::StringExpression;
 use jj_core::str_util::StringMatcher;
@@ -96,9 +98,7 @@ use crate::git_subprocess::GitSubprocessError;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::revset::ResolvedRevsetExpression;
-use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
-use crate::revset::RevsetStreamExt as _;
 use crate::settings::UserSettings;
 
 /// Reserved remote name for the backing Git repo.
@@ -3675,9 +3675,10 @@ fn to_fetched_ref_update(
 mod tests {
     use std::assert_matches;
 
+    use jj_dsl::revset_parser::RevsetDiagnostics;
+
     use super::*;
     use crate::revset;
-    use crate::revset::RevsetDiagnostics;
 
     #[test]
     fn test_split_positive_negative_patterns() {

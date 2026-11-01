@@ -43,12 +43,12 @@ use jj_core::merge::Diff;
 use jj_core::merge::Merge;
 use jj_core::merged_tree::MergedTree;
 use jj_core::repo_path::RepoPath;
+use jj_core::revset_backend::RevsetStreamExt as _;
 
 use crate::commit_builder::CommitBuilder;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::revset::RevsetExpression;
-use crate::revset::RevsetStreamExt as _;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.
 pub async fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendResult<MergedTree> {

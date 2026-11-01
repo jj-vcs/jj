@@ -41,6 +41,8 @@ use jj_core::merge::SameChange;
 use jj_core::merged_tree::MergedTree;
 use jj_core::repo_path::RepoPath;
 use jj_core::repo_path::RepoPathBuf;
+use jj_core::revset_backend::RevsetEvaluationError;
+use jj_core::revset_backend::RevsetFilterPredicate;
 use jj_core::store::Store;
 
 use crate::conflicts::ConflictMarkerStyle;
@@ -51,9 +53,7 @@ use crate::conflicts::materialize_tree_value;
 use crate::fileset::FilesetExpression;
 use crate::repo::Repo;
 use crate::revset::ResolvedRevsetExpression;
-use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
-use crate::revset::RevsetFilterPredicate;
 
 /// Annotation results for a specific file
 #[derive(Clone, Debug)]

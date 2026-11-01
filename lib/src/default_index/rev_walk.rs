@@ -20,6 +20,7 @@ use std::iter::Fuse;
 use std::iter::FusedIterator;
 use std::ops::Range;
 
+use jj_core::revset_backend::PARENTS_RANGE_FULL;
 use smallvec::SmallVec;
 
 use super::composite::CompositeCommitIndex;
@@ -28,7 +29,6 @@ use super::entry::GlobalCommitPosition;
 use super::entry::SmallGlobalCommitPositionsVec;
 use super::rev_walk_queue::RevWalkQueue;
 use super::rev_walk_queue::RevWalkWorkItem;
-use crate::revset::PARENTS_RANGE_FULL;
 
 /// Like `Iterator`, but doesn't borrow the `index` internally.
 pub(super) trait RevWalk<I: ?Sized> {

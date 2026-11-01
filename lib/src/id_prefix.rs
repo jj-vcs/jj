@@ -27,13 +27,13 @@ use jj_core::index::ResolvedChangeTargets;
 use jj_core::object_id::HexPrefix;
 use jj_core::object_id::ObjectId;
 use jj_core::object_id::PrefixResolution;
+use jj_core::revset_backend::RevsetEvaluationError;
 use jj_core::view::View;
 use once_cell::sync::OnceCell;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::repo::Repo;
-use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExtensions;
 use crate::revset::RevsetResolutionError;
 use crate::revset::SymbolResolver;

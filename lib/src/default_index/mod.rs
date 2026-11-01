@@ -60,6 +60,7 @@ mod tests {
     use jj_core::index::Index as _;
     use jj_core::object_id::HexPrefix;
     use jj_core::object_id::PrefixResolution;
+    use jj_core::revset_backend::PARENTS_RANGE_FULL;
     use pollster::FutureExt as _;
     use smallvec::smallvec_inline;
     use test_case::test_case;
@@ -77,7 +78,6 @@ mod tests {
     use crate::default_index::entry::LocalCommitPosition;
     use crate::default_index::entry::SmallLocalCommitPositionsVec;
     use crate::default_index::readonly::FieldLengths;
-    use crate::revset::PARENTS_RANGE_FULL;
     use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 

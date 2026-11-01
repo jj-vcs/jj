@@ -41,6 +41,9 @@ use jj_core::object_id::HexPrefix;
 use jj_core::object_id::ObjectId;
 use jj_core::object_id::PrefixResolution;
 use jj_core::repo_path::RepoPathBuf;
+use jj_core::revset_backend::ResolvedExpression;
+use jj_core::revset_backend::Revset;
+use jj_core::revset_backend::RevsetEvaluationError;
 use jj_core::store::Store;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
@@ -67,9 +70,6 @@ use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
 use super::readonly::OVERFLOW_FLAG;
 use super::readonly::ReadonlyCommitIndexSegment;
-use crate::revset::ResolvedExpression;
-use crate::revset::Revset;
-use crate::revset::RevsetEvaluationError;
 
 #[derive(Clone, Debug)]
 struct MutableGraphEntry {
