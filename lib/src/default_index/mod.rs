@@ -15,7 +15,7 @@
 //! An on-disk index of the commits in a repository.
 //!
 //! Implements an index of the commits in a repository that conforms to the
-//! trains in the [index module](crate::index). The index is stored on local
+//! trains in the [index module](jj_core::index). The index is stored on local
 //! disk and contains an entry for every commit in the repository. See
 //! [`DefaultReadonlyIndex`] and [`DefaultMutableIndex`].
 
@@ -55,6 +55,11 @@ mod tests {
     use std::sync::Arc;
 
     use itertools::Itertools as _;
+    use jj_core::backend::ChangeId;
+    use jj_core::backend::CommitId;
+    use jj_core::index::Index as _;
+    use jj_core::object_id::HexPrefix;
+    use jj_core::object_id::PrefixResolution;
     use pollster::FutureExt as _;
     use smallvec::smallvec_inline;
     use test_case::test_case;
@@ -69,14 +74,9 @@ mod tests {
     use super::mutable::MutableCommitIndexSegment;
     use super::readonly::ReadonlyCommitIndexSegment;
     use super::*;
-    use crate::backend::ChangeId;
-    use crate::backend::CommitId;
     use crate::default_index::entry::LocalCommitPosition;
     use crate::default_index::entry::SmallLocalCommitPositionsVec;
     use crate::default_index::readonly::FieldLengths;
-    use crate::index::Index as _;
-    use crate::object_id::HexPrefix;
-    use crate::object_id::PrefixResolution;
     use crate::revset::PARENTS_RANGE_FULL;
     use crate::tests::TestResult;
     use crate::tests::new_temp_dir;

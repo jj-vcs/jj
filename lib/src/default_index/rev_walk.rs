@@ -688,12 +688,12 @@ pub(super) fn filter_slice_by_range<'a, T: Copy>(slice: &'a [T], range: &Range<u
 )]
 mod tests {
     use itertools::Itertools as _;
+    use jj_core::backend::ChangeId;
+    use jj_core::backend::CommitId;
 
     use super::super::composite::AsCompositeIndex as _;
     use super::super::mutable::DefaultMutableIndex;
     use super::*;
-    use crate::backend::ChangeId;
-    use crate::backend::CommitId;
     use crate::default_index::readonly::FieldLengths;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {

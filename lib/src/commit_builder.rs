@@ -16,27 +16,27 @@
 
 use std::sync::Arc;
 
+use jj_core::backend;
+use jj_core::backend::BackendError;
+use jj_core::backend::BackendResult;
+use jj_core::backend::ChangeId;
+use jj_core::backend::CommitId;
+use jj_core::backend::Signature;
+use jj_core::backend::TreeId;
+use jj_core::commit::Commit;
+use jj_core::commit::is_backend_commit_empty;
+use jj_core::conflict_labels::ConflictLabels;
+use jj_core::merge::Merge;
+use jj_core::merged_tree::MergedTree;
+use jj_core::store::Store;
 use pollster::FutureExt as _;
 
-use crate::backend;
-use crate::backend::BackendError;
-use crate::backend::BackendResult;
-use crate::backend::ChangeId;
-use crate::backend::CommitId;
-use crate::backend::Signature;
-use crate::backend::TreeId;
-use crate::commit::Commit;
-use crate::commit::is_backend_commit_empty;
-use crate::conflict_labels::ConflictLabels;
-use crate::merge::Merge;
-use crate::merged_tree::MergedTree;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::settings::JJRng;
 use crate::settings::SignBehavior;
 use crate::settings::SignSettings;
 use crate::settings::UserSettings;
-use crate::store::Store;
 
 #[must_use]
 pub struct CommitBuilder<'repo> {

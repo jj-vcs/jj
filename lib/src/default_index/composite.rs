@@ -24,6 +24,21 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use itertools::Itertools as _;
+use jj_core::backend::ChangeId;
+use jj_core::backend::CommitId;
+use jj_core::hex_util;
+use jj_core::index::ChangeIdIndex;
+use jj_core::index::Index;
+use jj_core::index::IndexError;
+use jj_core::index::IndexResult;
+use jj_core::index::ResolvedChangeState;
+use jj_core::index::ResolvedChangeTargets;
+use jj_core::object_id::HexPrefix;
+use jj_core::object_id::ObjectId as _;
+use jj_core::object_id::PrefixResolution;
+use jj_core::object_id::id_type;
+use jj_core::repo_path::RepoPathBuf;
+use jj_core::store::Store;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 use thiserror::Error;
@@ -40,24 +55,9 @@ use super::mutable::MutableCommitIndexSegment;
 use super::readonly::ReadonlyCommitIndexSegment;
 use super::rev_walk::filter_slice_by_range;
 use super::revset_engine;
-use crate::backend::ChangeId;
-use crate::backend::CommitId;
-use crate::hex_util;
-use crate::index::ChangeIdIndex;
-use crate::index::Index;
-use crate::index::IndexError;
-use crate::index::IndexResult;
-use crate::index::ResolvedChangeState;
-use crate::index::ResolvedChangeTargets;
-use crate::object_id::HexPrefix;
-use crate::object_id::ObjectId as _;
-use crate::object_id::PrefixResolution;
-use crate::object_id::id_type;
-use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedExpression;
 use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
-use crate::store::Store;
 
 // Invalid commit IDs should be rejected by the revset frontend, but there
 // are a few edge cases that break the precondition:

@@ -26,33 +26,33 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
+use jj_core::backend::BackendError;
+use jj_core::backend::BackendResult;
+use jj_core::backend::CommitId;
+use jj_core::commit::Commit;
+use jj_core::commit::CommitIteratorExt as _;
+use jj_core::commit::conflict_label_for_commits;
+use jj_core::conflict_labels::ConflictLabels;
+use jj_core::index::Index;
+use jj_core::index::IndexResult;
+use jj_core::index::ResolvedChangeTargets;
+use jj_core::iter_util::fallible_any;
+use jj_core::matchers::Matcher;
+use jj_core::matchers::Visit;
+use jj_core::merge::Diff;
+use jj_core::merge::Merge;
+use jj_core::merged_tree::MergedTree;
+use jj_core::repo_path::RepoPath;
 
-use crate::backend::BackendError;
-use crate::backend::BackendResult;
-use crate::backend::CommitId;
-use crate::commit::Commit;
-use crate::commit::CommitIteratorExt as _;
-use crate::commit::conflict_label_for_commits;
 use crate::commit_builder::CommitBuilder;
-use crate::conflict_labels::ConflictLabels;
-use crate::index::Index;
-use crate::index::IndexResult;
-use crate::index::ResolvedChangeTargets;
-use crate::iter_util::fallible_any;
-use crate::matchers::Matcher;
-use crate::matchers::Visit;
-use crate::merge::Diff;
-use crate::merge::Merge;
-use crate::merged_tree::MergedTree;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
-use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetStreamExt as _;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.
 pub async fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendResult<MergedTree> {
-    crate::commit::merge_commit_trees(repo.store(), repo.index(), commits).await
+    jj_core::commit::merge_commit_trees(repo.store(), repo.index(), commits).await
 }
 
 /// Merges `commits` without attempting to resolve file conflicts.
@@ -60,7 +60,7 @@ pub async fn merge_commit_trees_no_resolve(
     repo: &dyn Repo,
     commits: &[Commit],
 ) -> BackendResult<MergedTree> {
-    crate::commit::merge_commit_trees_no_resolve(repo.store(), repo.index(), commits).await
+    jj_core::commit::merge_commit_trees_no_resolve(repo.store(), repo.index(), commits).await
 }
 
 /// Restore matching paths from the source into the destination.

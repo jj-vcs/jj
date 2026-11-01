@@ -30,6 +30,9 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use itertools::Itertools as _;
+use jj_local_util::file_util::IoResultExt as _;
+use jj_local_util::file_util::PathError;
+use jj_local_util::file_util::new_temp_file_for_replacement;
 use serde::Deserialize;
 use serde::de::IntoDeserializer as _;
 use thiserror::Error;
@@ -42,9 +45,6 @@ pub use crate::config_resolver::ConfigMigrationRule;
 pub use crate::config_resolver::ConfigResolutionContext;
 pub use crate::config_resolver::migrate;
 pub use crate::config_resolver::resolve;
-use crate::file_util::IoResultExt as _;
-use crate::file_util::PathError;
-use crate::file_util::new_temp_file_for_replacement;
 
 /// Config value or table node.
 pub type ConfigItem = toml_edit::Item;

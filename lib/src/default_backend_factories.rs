@@ -49,7 +49,7 @@ pub fn default_backend_factories() -> StoreFactories {
         Box::new(|settings, store_path| {
             let git_settings = settings
                 .git_backend_settings()
-                .map_err(crate::backend::BackendLoadError::new)?;
+                .map_err(jj_core::backend::BackendLoadError::new)?;
             Ok(Box::new(crate::git_backend::GitBackend::load(
                 &git_settings,
                 store_path,
@@ -62,7 +62,7 @@ pub fn default_backend_factories() -> StoreFactories {
         Box::new(|settings, store_path| {
             let git_settings = settings
                 .git_backend_settings()
-                .map_err(crate::backend::BackendLoadError::new)?;
+                .map_err(jj_core::backend::BackendLoadError::new)?;
             Ok(Box::new(crate::secret_backend::SecretBackend::load(
                 &git_settings,
                 store_path,

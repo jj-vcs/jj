@@ -22,11 +22,11 @@ use std::pin::pin;
 use std::sync::Arc;
 
 use futures::TryStreamExt as _;
+use jj_core::backend::BackendError;
+use jj_core::backend::CommitId;
+use jj_core::commit::Commit;
 use thiserror::Error;
 
-use crate::backend::BackendError;
-use crate::backend::CommitId;
-use crate::commit::Commit;
 use crate::repo::Repo;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::Revset;

@@ -21,26 +21,28 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use jj_core::backend::BackendInitError;
+use jj_core::commit::Commit;
+use jj_core::merged_tree::MergedTree;
+use jj_core::op_store::OperationId;
+use jj_core::operation::Operation;
+use jj_core::ref_name::WorkspaceName;
+use jj_core::ref_name::WorkspaceNameBuf;
+use jj_core::signing::Signer;
+use jj_core::workspace_store::WorkspaceStoreError;
+use jj_local_util::file_util;
+use jj_local_util::file_util::BadPathEncoding;
+use jj_local_util::file_util::IoResultExt as _;
+use jj_local_util::file_util::PathError;
 use thiserror::Error;
 
-use crate::backend::BackendInitError;
-use crate::commit::Commit;
 use crate::default_backend_factories::default_index_store_initializer;
 use crate::default_backend_factories::default_op_heads_store_initializer;
 use crate::default_backend_factories::default_op_store_initializer;
 use crate::default_backend_factories::default_submodule_store_initializer;
 use crate::default_backend_factories::default_working_copy_factory;
 use crate::default_backend_factories::default_workspace_store_initializer;
-use crate::file_util;
-use crate::file_util::BadPathEncoding;
-use crate::file_util::IoResultExt as _;
-use crate::file_util::PathError;
-use crate::merged_tree::MergedTree;
 use crate::op_heads_store::OpHeadsStoreError;
-use crate::op_store::OperationId;
-use crate::operation::Operation;
-use crate::ref_name::WorkspaceName;
-use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::BackendInitializer;
 use crate::repo::CheckOutCommitError;
 use crate::repo::IndexStoreInitializer;
@@ -57,7 +59,6 @@ use crate::repo::SubmoduleStoreInitializer;
 use crate::repo::WorkspaceStoreInitializer;
 use crate::repo::read_store_type;
 use crate::settings::UserSettings;
-use crate::signing::Signer;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::simple_backend::SimpleBackend;
@@ -68,7 +69,6 @@ use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
-use crate::workspace_store::WorkspaceStoreError;
 
 #[derive(Error, Debug)]
 pub enum WorkspaceInitError {
@@ -262,13 +262,13 @@ impl Workspace {
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
                                    store_path: &Path|
-         -> Result<Box<dyn crate::backend::Backend>, _> {
+         -> Result<Box<dyn jj_core::backend::Backend>, _> {
             // TODO: Clean up path normalization. store_path is canonicalized by
             // ReadonlyRepo::init(). workspace_root will be canonicalized by
             // Workspace::new(), but it's not yet here.
             let store_relative_workspace_root =
                 if let Ok(workspace_root) = dunce::canonicalize(workspace_root) {
-                    crate::file_util::relative_path(store_path, &workspace_root)
+                    jj_local_util::file_util::relative_path(store_path, &workspace_root)
                 } else {
                     workspace_root.to_owned()
                 };
@@ -307,7 +307,7 @@ impl Workspace {
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
                                    store_path: &Path|
-         -> Result<Box<dyn crate::backend::Backend>, _> {
+         -> Result<Box<dyn jj_core::backend::Backend>, _> {
             // If the git repo is inside the workspace, use a relative path to it so the
             // whole workspace can be moved without breaking.
             // TODO: Clean up path normalization. store_path is canonicalized by
@@ -320,7 +320,7 @@ impl Workspace {
                 (Ok(workspace_root), Ok(git_repo_path))
                     if git_repo_path.starts_with(&workspace_root) =>
                 {
-                    crate::file_util::relative_path(store_path, &git_repo_path)
+                    jj_local_util::file_util::relative_path(store_path, &git_repo_path)
                 }
                 _ => git_repo_path.to_owned(),
             };

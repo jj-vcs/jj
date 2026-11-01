@@ -21,10 +21,9 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
 use thiserror::Error;
-
-use crate::repo_path::RepoPath;
-use crate::repo_path::RepoPathBuf;
 
 #[derive(Debug, Error)]
 pub enum GitIgnoreError {

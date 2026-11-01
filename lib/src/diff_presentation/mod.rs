@@ -21,18 +21,18 @@ use std::mem;
 
 use bstr::BString;
 use itertools::Itertools as _;
+use jj_core::backend::BackendResult;
+use jj_core::diff::CompareBytesExactly;
+use jj_core::diff::CompareBytesIgnoreAllWhitespace;
+use jj_core::diff::CompareBytesIgnoreWhitespaceAmount;
+use jj_core::diff::ContentDiff;
+use jj_core::diff::DiffHunk;
+use jj_core::diff::DiffHunkKind;
+use jj_core::diff::find_line_ranges;
+use jj_core::merge::Diff;
+use jj_core::repo_path::RepoPath;
 
-use crate::backend::BackendResult;
 use crate::conflicts::MaterializedFileValue;
-use crate::diff::CompareBytesExactly;
-use crate::diff::CompareBytesIgnoreAllWhitespace;
-use crate::diff::CompareBytesIgnoreWhitespaceAmount;
-use crate::diff::ContentDiff;
-use crate::diff::DiffHunk;
-use crate::diff::DiffHunkKind;
-use crate::diff::find_line_ranges;
-use crate::merge::Diff;
-use crate::repo_path::RepoPath;
 
 pub mod unified;
 // TODO: colored_diffs utils should also be moved from `jj_cli::diff_utils` to

@@ -24,16 +24,16 @@ use std::process::ExitStatus;
 use std::process::Stdio;
 
 use either::Either;
+use jj_core::signing::SigStatus;
+use jj_core::signing::SignError;
+use jj_core::signing::SigningBackend;
+use jj_core::signing::Verification;
+use jj_local_util::subprocess_util::suppress_console_window;
 use thiserror::Error;
 
 use crate::config::ConfigGetError;
 use crate::config::ConfigGetResultExt as _;
 use crate::settings::UserSettings;
-use crate::signing::SigStatus;
-use crate::signing::SignError;
-use crate::signing::SigningBackend;
-use crate::signing::Verification;
-use crate::subprocess_util::suppress_console_window;
 
 #[derive(Debug)]
 pub struct SshBackend {

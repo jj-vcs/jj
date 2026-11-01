@@ -18,6 +18,13 @@ use std::ops::Range;
 
 use bstr::BStr;
 use bstr::BString;
+use jj_core::backend::BackendError;
+use jj_core::backend::MergedTreeValueExt as _;
+use jj_core::diff::ContentDiff;
+use jj_core::diff::DiffHunkKind;
+use jj_core::merge::Diff;
+use jj_core::object_id::ObjectId as _;
+use jj_core::repo_path::RepoPath;
 use thiserror::Error;
 
 use super::DiffTokenType;
@@ -27,16 +34,9 @@ use super::LineCompareMode;
 use super::diff_by_line;
 use super::file_content_for_diff;
 use super::unzip_diff_hunks_to_lines;
-use crate::backend::BackendError;
-use crate::backend::MergedTreeValueExt as _;
 use crate::conflicts::ConflictMaterializeOptions;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_merge_result_to_bytes;
-use crate::diff::ContentDiff;
-use crate::diff::DiffHunkKind;
-use crate::merge::Diff;
-use crate::object_id::ObjectId as _;
-use crate::repo_path::RepoPath;
 
 #[derive(Clone, Debug)]
 pub struct GitDiffPart {
