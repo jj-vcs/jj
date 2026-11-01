@@ -1825,6 +1825,44 @@ fn test_evaluate_expression_first_parent() {
 }
 
 #[test]
+fn test_common_ancestor_distance() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let x = write_random_commit(mut_repo);
+    let m = write_random_commit_with_parents(mut_repo, &[&x]);
+    let o = write_random_commit_with_parents(mut_repo, &[&m]);
+    let n = write_random_commit_with_parents(mut_repo, &[&x]);
+    let y = write_random_commit_with_parents(mut_repo, &[&o, &n]);
+    let sibling_a = write_random_commit_with_parents(mut_repo, &[&x]);
+    let sibling_b = write_random_commit_with_parents(mut_repo, &[&x]);
+
+    let distance = |from: &Commit, to: &Commit| {
+        jj_lib::revset::common_ancestor_distance(mut_repo, &[from.id().clone()], &[to.id().clone()])
+            .unwrap()
+    };
+    assert_eq!(distance(&x, &y), 2);
+    assert_eq!(distance(&y, &x), 2);
+    assert_eq!(distance(&x, &x), 0);
+    assert_eq!(distance(&x, &m), 1);
+    assert_eq!(distance(&sibling_a, &sibling_b), 2);
+
+    let distance_sets = |from: &[&Commit], to: &[&Commit]| {
+        let from_ids = from.iter().map(|commit| commit.id().clone()).collect_vec();
+        let to_ids = to.iter().map(|commit| commit.id().clone()).collect_vec();
+        jj_lib::revset::common_ancestor_distance(mut_repo, &from_ids, &to_ids).unwrap()
+    };
+    // Pick the closest pair when either side contains multiple commits.
+    assert_eq!(distance_sets(&[&x, &sibling_a], &[&sibling_b]), 1);
+    // Overlapping input sets have distance 0.
+    assert_eq!(distance_sets(&[&x, &y], &[&x]), 0);
+
+    assert!(jj_lib::revset::common_ancestor_distance(mut_repo, &[], &[x.id().clone()]).is_err());
+}
+
+#[test]
 fn test_evaluate_expression_first_ancestors() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
