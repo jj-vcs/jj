@@ -31,6 +31,28 @@ use bstr::BString;
 use futures::StreamExt as _;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
+use jj_core::backend::BackendResult;
+use jj_core::backend::ChangeId;
+use jj_core::backend::CommitId;
+use jj_core::backend::MillisSinceEpoch;
+use jj_core::commit::Commit;
+use jj_core::commit::merge_commit_trees_no_resolve;
+use jj_core::conflict_labels::ConflictLabels;
+use jj_core::diff::ContentDiff;
+use jj_core::diff::DiffHunkKind;
+use jj_core::files;
+use jj_core::files::MergeOptions;
+use jj_core::graph::GraphNode;
+use jj_core::matchers::FilesMatcher;
+use jj_core::matchers::Matcher;
+use jj_core::matchers::Visit;
+use jj_core::merge::Merge;
+use jj_core::object_id::HexPrefix;
+use jj_core::object_id::PrefixResolution;
+use jj_core::repo_path::RepoPath;
+use jj_core::store::Store;
+use jj_core::str_util::StringMatcher;
+use jj_core::tree_merge::resolve_file_values;
 use pollster::FutureExt as _;
 
 use super::composite::AsCompositeIndex;
@@ -41,28 +63,9 @@ use super::rev_walk::PeekableRevWalk;
 use super::rev_walk::RevWalk;
 use super::rev_walk::RevWalkBuilder;
 use super::revset_graph_iterator::RevsetGraphWalk;
-use crate::backend::BackendResult;
-use crate::backend::ChangeId;
-use crate::backend::CommitId;
-use crate::backend::MillisSinceEpoch;
-use crate::commit::Commit;
-use crate::commit::merge_commit_trees_no_resolve;
-use crate::conflict_labels::ConflictLabels;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_tree_value;
 use crate::default_index::bit_set::AncestorsBitSet;
-use crate::diff::ContentDiff;
-use crate::diff::DiffHunkKind;
-use crate::files;
-use crate::files::MergeOptions;
-use crate::graph::GraphNode;
-use crate::matchers::FilesMatcher;
-use crate::matchers::Matcher;
-use crate::matchers::Visit;
-use crate::merge::Merge;
-use crate::object_id::HexPrefix;
-use crate::object_id::PrefixResolution;
-use crate::repo_path::RepoPath;
 use crate::revset::DiffMatchSide;
 use crate::revset::GENERATION_RANGE_FULL;
 use crate::revset::ResolvedExpression;
@@ -71,9 +74,6 @@ use crate::revset::Revset;
 use crate::revset::RevsetContainingFn;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetFilterPredicate;
-use crate::store::Store;
-use crate::str_util::StringMatcher;
-use crate::tree_merge::resolve_file_values;
 use crate::union_find;
 
 type BoxedPredicateFn<'a> = Box<
@@ -1562,13 +1562,13 @@ async fn to_file_content(
 )]
 mod tests {
     use indoc::indoc;
+    use jj_core::files::FileMergeHunkLevel;
+    use jj_core::merge::SameChange;
+    use jj_core::str_util::StringPattern;
 
     use super::*;
     use crate::default_index::DefaultMutableIndex;
     use crate::default_index::readonly::FieldLengths;
-    use crate::files::FileMergeHunkLevel;
-    use crate::merge::SameChange;
-    use crate::str_util::StringPattern;
     use crate::tests::TestResult;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {

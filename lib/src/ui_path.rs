@@ -19,13 +19,12 @@ use std::iter;
 use std::path::Path;
 use std::path::PathBuf;
 
+use jj_core::merge::Diff;
+use jj_core::repo_path::RelativePathParseError;
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
+use jj_local_util::file_util;
 use thiserror::Error;
-
-use crate::file_util;
-use crate::merge::Diff;
-use crate::repo_path::RelativePathParseError;
-use crate::repo_path::RepoPath;
-use crate::repo_path::RepoPathBuf;
 
 /// An error which occurs when we're parsing paths.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]

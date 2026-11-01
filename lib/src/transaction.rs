@@ -16,27 +16,27 @@
 
 use std::sync::Arc;
 
+use jj_core::backend::Timestamp;
+use jj_core::index::IndexError;
+use jj_core::index::ReadonlyIndex;
+use jj_core::index_store::IndexStoreError;
+use jj_core::op_store;
+use jj_core::op_store::OpStoreError;
+use jj_core::op_store::OperationMetadata;
+use jj_core::op_store::TimestampRange;
+use jj_core::operation::Operation;
+use jj_core::ref_name::WorkspaceName;
+use jj_core::view::View;
 use thiserror::Error;
 
-use crate::backend::Timestamp;
-use crate::index::IndexError;
-use crate::index::ReadonlyIndex;
-use crate::index_store::IndexStoreError;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
-use crate::op_store;
-use crate::op_store::OpStoreError;
-use crate::op_store::OperationMetadata;
-use crate::op_store::TimestampRange;
-use crate::operation::Operation;
-use crate::ref_name::WorkspaceName;
 use crate::repo::MutableRepo;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RepoLoader;
 use crate::repo::RepoLoaderError;
 use crate::settings::UserSettings;
-use crate::view::View;
 
 /// Error from attempts to write and publish transaction.
 #[derive(Debug, Error)]

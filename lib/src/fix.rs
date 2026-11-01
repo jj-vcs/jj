@@ -23,27 +23,27 @@ use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use indexmap::IndexSet;
+use jj_core::backend::BackendError;
+use jj_core::backend::CommitId;
+use jj_core::backend::FileId;
+use jj_core::backend::TreeValue;
+use jj_core::commit::Commit;
+use jj_core::diff::ContentDiff;
+use jj_core::diff::DiffHunkKind;
+use jj_core::matchers::Matcher;
+use jj_core::merged_tree::TreeDiffEntry;
+use jj_core::merged_tree_builder::MergedTreeBuilder;
+use jj_core::repo_path::RepoPathBuf;
+use jj_core::store::Store;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 
-use crate::backend::BackendError;
-use crate::backend::CommitId;
-use crate::backend::FileId;
-use crate::backend::TreeValue;
-use crate::commit::Commit;
-use crate::diff::ContentDiff;
-use crate::diff::DiffHunkKind;
-use crate::matchers::Matcher;
-use crate::merged_tree::TreeDiffEntry;
-use crate::merged_tree_builder::MergedTreeBuilder;
 use crate::repo::MutableRepo;
 use crate::repo::Repo as _;
-use crate::repo_path::RepoPathBuf;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetStreamExt as _;
 use crate::rewrite::merge_commit_trees;
-use crate::store::Store;
 
 /// Represents a file whose content may be transformed by a FileFixer.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]

@@ -25,17 +25,17 @@ use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
+use jj_core::backend::BackendError;
+use jj_core::backend::BackendResult;
+use jj_core::backend::CommitId;
+use jj_core::commit::Commit;
+use jj_core::dag_walk;
+use jj_core::op_store::OpStoreError;
+use jj_core::op_store::OpStoreResult;
+use jj_core::operation::Operation;
 use thiserror::Error;
 
-use crate::backend::BackendError;
-use crate::backend::BackendResult;
-use crate::backend::CommitId;
-use crate::commit::Commit;
-use crate::dag_walk;
-use crate::op_store::OpStoreError;
-use crate::op_store::OpStoreResult;
 use crate::op_walk;
-use crate::operation::Operation;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 

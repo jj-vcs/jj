@@ -28,32 +28,32 @@ use bstr::BStr;
 use bstr::BString;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
+use jj_core::backend::BackendError;
+use jj_core::backend::BackendResult;
+use jj_core::backend::CommitId;
+use jj_core::commit::Commit;
+use jj_core::diff::ContentDiff;
+use jj_core::diff::DiffHunkKind;
+use jj_core::files::FileMergeHunkLevel;
+use jj_core::files::MergeOptions;
+use jj_core::graph::GraphEdge;
+use jj_core::merge::SameChange;
+use jj_core::merged_tree::MergedTree;
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
+use jj_core::store::Store;
 
-use crate::backend::BackendError;
-use crate::backend::BackendResult;
-use crate::backend::CommitId;
-use crate::commit::Commit;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::ConflictMaterializeOptions;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_merge_result_to_bytes;
 use crate::conflicts::materialize_tree_value;
-use crate::diff::ContentDiff;
-use crate::diff::DiffHunkKind;
-use crate::files::FileMergeHunkLevel;
-use crate::files::MergeOptions;
 use crate::fileset::FilesetExpression;
-use crate::graph::GraphEdge;
-use crate::merge::SameChange;
-use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
-use crate::repo_path::RepoPath;
-use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetFilterPredicate;
-use crate::store::Store;
 
 /// Annotation results for a specific file
 #[derive(Clone, Debug)]

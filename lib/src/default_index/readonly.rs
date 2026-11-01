@@ -28,6 +28,19 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use itertools::Itertools as _;
+use jj_core::backend::ChangeId;
+use jj_core::backend::CommitId;
+use jj_core::graph::GraphNode;
+use jj_core::index::ChangeIdIndex;
+use jj_core::index::Index;
+use jj_core::index::IndexResult;
+use jj_core::index::MutableIndex;
+use jj_core::index::ReadonlyIndex;
+use jj_core::object_id::HexPrefix;
+use jj_core::object_id::ObjectId;
+use jj_core::object_id::PrefixResolution;
+use jj_core::repo_path::RepoPathBuf;
+use jj_core::store::Store;
 use smallvec::smallvec;
 use thiserror::Error;
 
@@ -45,22 +58,9 @@ use super::entry::SmallLocalCommitPositionsVec;
 use super::mutable::DefaultMutableIndex;
 use super::revset_engine;
 use super::revset_engine::RevsetImpl;
-use crate::backend::ChangeId;
-use crate::backend::CommitId;
-use crate::graph::GraphNode;
-use crate::index::ChangeIdIndex;
-use crate::index::Index;
-use crate::index::IndexResult;
-use crate::index::MutableIndex;
-use crate::index::ReadonlyIndex;
-use crate::object_id::HexPrefix;
-use crate::object_id::ObjectId;
-use crate::object_id::PrefixResolution;
-use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedExpression;
 use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
-use crate::store::Store;
 
 /// Error while loading index segment file.
 #[derive(Debug, Error)]

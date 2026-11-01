@@ -21,28 +21,28 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use futures::AsyncRead;
 use futures::stream::BoxStream;
+use jj_core::backend::Backend;
+use jj_core::backend::BackendError;
+use jj_core::backend::BackendLoadError;
+use jj_core::backend::BackendResult;
+use jj_core::backend::ChangeId;
+use jj_core::backend::Commit;
+use jj_core::backend::CommitId;
+use jj_core::backend::CopyHistory;
+use jj_core::backend::CopyId;
+use jj_core::backend::CopyRecord;
+use jj_core::backend::FileId;
+use jj_core::backend::RelatedCopy;
+use jj_core::backend::SigningFn;
+use jj_core::backend::SymlinkId;
+use jj_core::backend::Tree;
+use jj_core::backend::TreeId;
+use jj_core::object_id::ObjectId as _;
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
 
-use crate::backend::Backend;
-use crate::backend::BackendError;
-use crate::backend::BackendLoadError;
-use crate::backend::BackendResult;
-use crate::backend::ChangeId;
-use crate::backend::Commit;
-use crate::backend::CommitId;
-use crate::backend::CopyHistory;
-use crate::backend::CopyId;
-use crate::backend::CopyRecord;
-use crate::backend::FileId;
-use crate::backend::RelatedCopy;
-use crate::backend::SigningFn;
-use crate::backend::SymlinkId;
-use crate::backend::Tree;
-use crate::backend::TreeId;
 use crate::git_backend::GitBackend;
 use crate::git_backend::GitBackendSettings;
-use crate::object_id::ObjectId as _;
-use crate::repo_path::RepoPath;
-use crate::repo_path::RepoPathBuf;
 
 const SECRET_CONTENTS_HEX: [&str; 2] = [
     "d97c5eada5d8c52079031eef0107a4430a9617c5", // "secret\n"

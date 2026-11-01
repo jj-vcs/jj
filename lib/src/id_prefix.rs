@@ -19,18 +19,19 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use futures::TryStreamExt as _;
+use jj_core::backend::ChangeId;
+use jj_core::backend::CommitId;
+use jj_core::hex_util;
+use jj_core::index::IndexResult;
+use jj_core::index::ResolvedChangeTargets;
+use jj_core::object_id::HexPrefix;
+use jj_core::object_id::ObjectId;
+use jj_core::object_id::PrefixResolution;
+use jj_core::view::View;
 use once_cell::sync::OnceCell;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
-use crate::backend::ChangeId;
-use crate::backend::CommitId;
-use crate::hex_util;
-use crate::index::IndexResult;
-use crate::index::ResolvedChangeTargets;
-use crate::object_id::HexPrefix;
-use crate::object_id::ObjectId;
-use crate::object_id::PrefixResolution;
 use crate::repo::Repo;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExtensions;
@@ -38,7 +39,6 @@ use crate::revset::RevsetResolutionError;
 use crate::revset::SymbolResolver;
 use crate::revset::SymbolResolverExtension;
 use crate::revset::UserRevsetExpression;
-use crate::view::View;
 
 #[derive(Debug, Error)]
 pub enum IdPrefixIndexLoadError {

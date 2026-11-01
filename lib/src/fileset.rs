@@ -21,9 +21,12 @@ use std::sync::LazyLock;
 use itertools::Itertools as _;
 pub use jj_core::fileset_backend::FilePattern;
 pub use jj_core::fileset_backend::FilesetExpression;
+use jj_core::matchers::PathGlobPattern;
+use jj_core::repo_path::RelativePathParseError;
+use jj_core::repo_path::RepoPathBuf;
+use jj_dsl::dsl_util::collect_similar;
 use thiserror::Error;
 
-use crate::dsl_util::collect_similar;
 use crate::fileset_parser;
 use crate::fileset_parser::BinaryOp;
 use crate::fileset_parser::ExpressionKind;
@@ -35,9 +38,6 @@ pub use crate::fileset_parser::FilesetParseErrorKind;
 pub use crate::fileset_parser::FilesetParseResult;
 use crate::fileset_parser::FunctionCallNode;
 use crate::fileset_parser::UnaryOp;
-use crate::matchers::PathGlobPattern;
-use crate::repo_path::RelativePathParseError;
-use crate::repo_path::RepoPathBuf;
 use crate::ui_path::RepoPathUiConverter;
 use crate::ui_path::UiPathParseError;
 

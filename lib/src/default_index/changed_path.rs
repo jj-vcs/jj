@@ -29,23 +29,23 @@ use either::Either;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
+use jj_core::backend::BackendResult;
+use jj_core::commit::Commit;
+use jj_core::commit::merge_commit_trees_no_resolve;
+use jj_core::index::Index;
+use jj_core::matchers::EverythingMatcher;
+use jj_core::object_id::ObjectId as _;
+use jj_core::object_id::id_type;
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
+use jj_core::tree_merge::resolve_file_values;
+use jj_local_util::file_util::IoResultExt as _;
+use jj_local_util::file_util::PathError;
+use jj_local_util::file_util::new_temp_file_with_default_permissions;
+use jj_local_util::file_util::persist_content_addressed_temp_file;
 
 use super::entry::GlobalCommitPosition;
 use super::readonly::ReadonlyIndexLoadError;
-use crate::backend::BackendResult;
-use crate::commit::Commit;
-use crate::commit::merge_commit_trees_no_resolve;
-use crate::file_util::IoResultExt as _;
-use crate::file_util::PathError;
-use crate::file_util::new_temp_file_with_default_permissions;
-use crate::file_util::persist_content_addressed_temp_file;
-use crate::index::Index;
-use crate::matchers::EverythingMatcher;
-use crate::object_id::ObjectId as _;
-use crate::object_id::id_type;
-use crate::repo_path::RepoPath;
-use crate::repo_path::RepoPathBuf;
-use crate::tree_merge::resolve_file_values;
 
 /// Current format version of the changed-path index segment file.
 const FILE_FORMAT_VERSION: u32 = 0;

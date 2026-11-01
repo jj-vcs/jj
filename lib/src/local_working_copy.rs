@@ -51,6 +51,45 @@ use futures::TryStreamExt as _;
 use futures::io::AllowStdIo;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
+use jj_core::backend::BackendError;
+use jj_core::backend::CopyId;
+use jj_core::backend::FileId;
+use jj_core::backend::MergedTreeValue;
+use jj_core::backend::MergedTreeValueExt as _;
+use jj_core::backend::MillisSinceEpoch;
+use jj_core::backend::SymlinkId;
+use jj_core::backend::TreeId;
+use jj_core::backend::TreeValue;
+use jj_core::commit::Commit;
+use jj_core::conflict_labels::ConflictLabels;
+use jj_core::matchers::DifferenceMatcher;
+use jj_core::matchers::EverythingMatcher;
+use jj_core::matchers::FilesMatcher;
+use jj_core::matchers::IntersectionMatcher;
+use jj_core::matchers::Matcher;
+use jj_core::matchers::PrefixMatcher;
+use jj_core::matchers::UnionMatcher;
+use jj_core::merge::Merge;
+use jj_core::merge::MergeBuilder;
+use jj_core::merge::SameChange;
+use jj_core::merged_tree::MergedTree;
+use jj_core::merged_tree::TreeDiffEntry;
+use jj_core::merged_tree_builder::MergedTreeBuilder;
+use jj_core::object_id::ObjectId as _;
+use jj_core::op_store::OperationId;
+use jj_core::ref_name::WorkspaceName;
+use jj_core::ref_name::WorkspaceNameBuf;
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
+use jj_core::repo_path::RepoPathComponent;
+use jj_core::store::Store;
+use jj_local_util::file_util::FileIdentity;
+use jj_local_util::file_util::check_symlink_support;
+use jj_local_util::file_util::copy_async_to_sync;
+use jj_local_util::file_util::new_temp_file_with_default_permissions;
+use jj_local_util::file_util::persist_temp_file;
+use jj_local_util::file_util::symlink_file;
+use jj_local_util::lock::FileLock;
 use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
 use prost::Message as _;
@@ -61,18 +100,7 @@ use thiserror::Error;
 use tracing::instrument;
 use tracing::trace_span;
 
-use crate::backend::BackendError;
-use crate::backend::CopyId;
-use crate::backend::FileId;
-use crate::backend::MergedTreeValue;
-use crate::backend::MergedTreeValueExt as _;
-use crate::backend::MillisSinceEpoch;
-use crate::backend::SymlinkId;
-use crate::backend::TreeId;
-use crate::backend::TreeValue;
-use crate::commit::Commit;
 use crate::config::ConfigGetError;
-use crate::conflict_labels::ConflictLabels;
 use crate::conflicts;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::ConflictMaterializeOptions;
@@ -83,41 +111,13 @@ use crate::conflicts::materialize_merge_result_to_bytes;
 use crate::conflicts::materialize_tree_value;
 pub use crate::eol::EolConversionMode;
 use crate::eol::TargetEolStrategy;
-use crate::file_util::FileIdentity;
-use crate::file_util::check_symlink_support;
-use crate::file_util::copy_async_to_sync;
-use crate::file_util::new_temp_file_with_default_permissions;
-use crate::file_util::persist_temp_file;
-use crate::file_util::symlink_file;
 use crate::fsmonitor::FsmonitorSettings;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::WatchmanConfig;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::watchman;
 use crate::gitignore::GitIgnoreFile;
-use crate::lock::FileLock;
-use crate::matchers::DifferenceMatcher;
-use crate::matchers::EverythingMatcher;
-use crate::matchers::FilesMatcher;
-use crate::matchers::IntersectionMatcher;
-use crate::matchers::Matcher;
-use crate::matchers::PrefixMatcher;
-use crate::matchers::UnionMatcher;
-use crate::merge::Merge;
-use crate::merge::MergeBuilder;
-use crate::merge::SameChange;
-use crate::merged_tree::MergedTree;
-use crate::merged_tree::TreeDiffEntry;
-use crate::merged_tree_builder::MergedTreeBuilder;
-use crate::object_id::ObjectId as _;
-use crate::op_store::OperationId;
-use crate::ref_name::WorkspaceName;
-use crate::ref_name::WorkspaceNameBuf;
-use crate::repo_path::RepoPath;
-use crate::repo_path::RepoPathBuf;
-use crate::repo_path::RepoPathComponent;
 use crate::settings::UserSettings;
-use crate::store::Store;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
@@ -195,7 +195,7 @@ impl ExecChangePolicy {
             ExecChangeSetting::Ignore => Self::Ignore,
             ExecChangeSetting::Respect => Self::Respect,
             ExecChangeSetting::Auto => {
-                match crate::file_util::check_executable_bit_support(state_path) {
+                match jj_local_util::file_util::check_executable_bit_support(state_path) {
                     Ok(false) => Self::Ignore,
                     Ok(true) => Self::Respect,
                     Err(err) => {

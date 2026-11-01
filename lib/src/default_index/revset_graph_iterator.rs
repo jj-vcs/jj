@@ -19,6 +19,9 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use itertools::Itertools as _;
+use jj_core::backend::CommitId;
+use jj_core::graph::GraphEdge;
+use jj_core::graph::GraphNode;
 
 use super::bit_set::PositionsBitSet;
 use super::composite::CompositeCommitIndex;
@@ -27,9 +30,6 @@ use super::entry::CommitIndexEntry;
 use super::entry::GlobalCommitPosition;
 use super::rev_walk::RevWalk;
 use super::revset_engine::BoxedRevWalk;
-use crate::backend::CommitId;
-use crate::graph::GraphEdge;
-use crate::graph::GraphNode;
 use crate::revset::RevsetEvaluationError;
 
 // This can be cheaply allocated and hashed compared to `CommitId`-based type.

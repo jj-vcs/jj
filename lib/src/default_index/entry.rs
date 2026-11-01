@@ -17,13 +17,13 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 
+use jj_core::backend::ChangeId;
+use jj_core::backend::CommitId;
+use jj_core::object_id::ObjectId as _;
 use smallvec::SmallVec;
 
 use super::composite::CompositeCommitIndex;
 use super::composite::DynCommitIndexSegment;
-use crate::backend::ChangeId;
-use crate::backend::CommitId;
-use crate::object_id::ObjectId as _;
 
 /// Global commit index position.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]

@@ -15,16 +15,17 @@
 //! Generic APIs to work with cryptographic signatures created and verified by
 //! various backends.
 
+use jj_core::content_hash::blake2b_hash;
+use jj_core::hex_util;
+use jj_core::signing::SigStatus;
+use jj_core::signing::SignError;
+use jj_core::signing::SignResult;
+use jj_core::signing::SigningBackend;
+use jj_core::signing::Verification;
+
 use crate::config::ConfigGetError;
 use crate::config::ConfigGetResultExt as _;
-use crate::content_hash::blake2b_hash;
-use crate::hex_util;
 use crate::settings::UserSettings;
-use crate::signing::SigStatus;
-use crate::signing::SignError;
-use crate::signing::SignResult;
-use crate::signing::SigningBackend;
-use crate::signing::Verification;
 
 /// A test signing backend that uses a simple hash-based signature format.
 #[derive(Debug)]

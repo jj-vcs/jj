@@ -21,27 +21,27 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use itertools::Itertools as _;
+use jj_core::backend::ChangeId;
+use jj_core::backend::Commit;
+use jj_core::backend::Signature;
+use jj_core::backend::Timestamp;
+use jj_core::files::MergeOptions;
+use jj_core::ref_name::RemoteNameBuf;
+use jj_core::time_util;
+use jj_local_util::file_util::expand_home_path;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use serde::Deserialize;
 
-use crate::backend::ChangeId;
-use crate::backend::Commit;
-use crate::backend::Signature;
-use crate::backend::Timestamp;
 use crate::config::ConfigGetError;
 use crate::config::ConfigGetResultExt as _;
 use crate::config::ConfigTable;
 use crate::config::ConfigValue;
 use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
-use crate::file_util::expand_home_path;
-use crate::files::MergeOptions;
 use crate::fmt_util::binary_prefix;
 #[cfg(feature = "git")]
 use crate::git_backend::GitBackendSettings;
-use crate::ref_name::RemoteNameBuf;
-use crate::time_util;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
@@ -442,8 +442,9 @@ fn parse_human_byte_size(v: &str) -> Result<u64, &'static str> {
 mod tests {
     use std::assert_matches;
 
+    use jj_core::backend::MillisSinceEpoch;
+
     use super::*;
-    use crate::backend::MillisSinceEpoch;
 
     #[test]
     fn parse_timestamp_with_numeric_offset() {

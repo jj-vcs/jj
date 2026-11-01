@@ -28,43 +28,42 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use itertools::Itertools as _;
+use jj_core::backend::BackendInitError;
+use jj_core::backend::CommitId;
+use jj_core::backend::MillisSinceEpoch;
+use jj_core::backend::Timestamp;
+use jj_core::content_hash::blake2b_hash;
+use jj_core::dag_walk_async;
+use jj_core::object_id::HexPrefix;
+use jj_core::object_id::ObjectId;
+use jj_core::object_id::PrefixResolution;
+use jj_core::op_store;
+use jj_core::op_store::OpStore;
+use jj_core::op_store::OpStoreError;
+use jj_core::op_store::OpStoreResult;
+use jj_core::op_store::Operation;
+use jj_core::op_store::OperationId;
+use jj_core::op_store::OperationMetadata;
+use jj_core::op_store::RefTarget;
+use jj_core::op_store::RemoteRef;
+use jj_core::op_store::RemoteRefState;
+use jj_core::op_store::RemoteView;
+use jj_core::op_store::RootOperationData;
+use jj_core::op_store::TimestampRange;
+use jj_core::op_store::View;
+use jj_core::op_store::ViewId;
+use jj_core::ref_name::GitRefNameBuf;
+use jj_core::ref_name::RefNameBuf;
+use jj_core::ref_name::RemoteNameBuf;
+use jj_core::ref_name::WorkspaceName;
+use jj_core::ref_name::WorkspaceNameBuf;
+use jj_local_util::file_util::IoResultExt as _;
+use jj_local_util::file_util::PathError;
+use jj_local_util::file_util::new_temp_file_with_default_permissions;
+use jj_local_util::file_util::persist_content_addressed_temp_file;
 use prost::Message as _;
 use smallvec::SmallVec;
 use thiserror::Error;
-
-use crate::backend::BackendInitError;
-use crate::backend::CommitId;
-use crate::backend::MillisSinceEpoch;
-use crate::backend::Timestamp;
-use crate::content_hash::blake2b_hash;
-use crate::dag_walk_async;
-use crate::file_util::IoResultExt as _;
-use crate::file_util::PathError;
-use crate::file_util::new_temp_file_with_default_permissions;
-use crate::file_util::persist_content_addressed_temp_file;
-use crate::object_id::HexPrefix;
-use crate::object_id::ObjectId;
-use crate::object_id::PrefixResolution;
-use crate::op_store;
-use crate::op_store::OpStore;
-use crate::op_store::OpStoreError;
-use crate::op_store::OpStoreResult;
-use crate::op_store::Operation;
-use crate::op_store::OperationId;
-use crate::op_store::OperationMetadata;
-use crate::op_store::RefTarget;
-use crate::op_store::RemoteRef;
-use crate::op_store::RemoteRefState;
-use crate::op_store::RemoteView;
-use crate::op_store::RootOperationData;
-use crate::op_store::TimestampRange;
-use crate::op_store::View;
-use crate::op_store::ViewId;
-use crate::ref_name::GitRefNameBuf;
-use crate::ref_name::RefNameBuf;
-use crate::ref_name::RemoteNameBuf;
-use crate::ref_name::WorkspaceName;
-use crate::ref_name::WorkspaceNameBuf;
 
 // BLAKE2b-512 hash length in bytes
 const OPERATION_ID_LENGTH: usize = 64;
@@ -995,11 +994,11 @@ fn remote_ref_state_from_proto(proto_value: i32) -> Result<RemoteRefState, PostD
 #[cfg(test)]
 mod tests {
     use insta::assert_snapshot;
+    use jj_core::hex_util;
     use maplit::btreemap;
     use maplit::hashset;
 
     use super::*;
-    use crate::hex_util;
     use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 

@@ -23,29 +23,29 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use jj_core::backend::BackendError;
+use jj_core::commit::Commit;
+use jj_core::matchers::Matcher;
+use jj_core::merged_tree::MergedTree;
+use jj_core::op_store::OpStoreError;
+use jj_core::op_store::OperationId;
+use jj_core::operation::Operation;
+use jj_core::ref_name::WorkspaceName;
+use jj_core::ref_name::WorkspaceNameBuf;
+use jj_core::repo_path::InvalidRepoPathError;
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
+use jj_core::store::Store;
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::backend::BackendError;
-use crate::commit::Commit;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
-use crate::matchers::Matcher;
-use crate::merged_tree::MergedTree;
-use crate::op_store::OpStoreError;
-use crate::op_store::OperationId;
 use crate::op_walk;
-use crate::operation::Operation;
-use crate::ref_name::WorkspaceName;
-use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RewriteRootCommit;
-use crate::repo_path::InvalidRepoPathError;
-use crate::repo_path::RepoPath;
-use crate::repo_path::RepoPathBuf;
 use crate::settings::UserSettings;
-use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 
 /// The trait all working-copy implementations must implement.
