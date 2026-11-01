@@ -2265,37 +2265,18 @@ to the current parents may contain changes from multiple commits.
 
             #[cfg(feature = "git")]
             if self.env.base.working_copy_shared_with_git() && self.options.integrate_operation {
-                let workspace_root = self.env.workspace_root();
-                if wc_immutable {
-                    // New working-copy commit is created on top. Reset Git HEAD and index.
-                    try_reset_git_head(
-                        ui,
-                        mut_repo,
-                        &workspace_name,
-                        workspace_root,
-                        (Some(&wc_commit), &new_wc_commit),
-                        git_import_export_lock,
-                    )
-                    .await?;
-                    // export_refs() is probably unnecessary because there should be no
-                    // rewritten descendants, but it's harmless.
-                    let stats = jj_lib::git::export_refs(mut_repo)?;
-                    print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
-                        .map_err(RunnerError::event_sink)?;
-                } else {
-                    let old_tree = wc_commit.tree();
-                    let new_tree = new_wc_commit.tree();
-                    jj_lib::git::update_intent_to_add(
-                        mut_repo.base_repo().as_ref(),
-                        workspace_root,
-                        &old_tree,
-                        &new_tree,
-                    )
-                    .await?;
-                    let stats = jj_lib::git::export_refs(mut_repo)?;
-                    print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
-                        .map_err(RunnerError::event_sink)?;
-                }
+                try_reset_git_head(
+                    ui,
+                    mut_repo,
+                    &workspace_name,
+                    self.env.workspace_root(),
+                    (Some(&wc_commit), &new_wc_commit),
+                    git_import_export_lock,
+                )
+                .await?;
+                let stats = jj_lib::git::export_refs(mut_repo)?;
+                print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
+                    .map_err(RunnerError::event_sink)?;
             }
 
             let repo = self
