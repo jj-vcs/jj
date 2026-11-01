@@ -247,6 +247,10 @@ and this project adheres to
 
 ### Fixed bugs
 
+* On Windows, paths containing reserved device names or characters that
+  Windows can't represent are skipped during checkout and Git index updates.
+  [#8985](https://github.com/jj-vcs/jj/issues/8985)
+
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
   such as `ssh` asking for a key passphrase or for confirmation of an unknown
   host key. Subprocesses started from a terminal now inherit its console, rather
