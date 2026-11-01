@@ -44,6 +44,7 @@ use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::ResetError;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
+use jj_lib::working_copy::SnapshotProgress;
 use jj_lib::working_copy::WorkingCopyStateError;
 use thiserror::Error;
 
@@ -233,6 +234,10 @@ pub trait RunnerEventHandler {
         &mut self,
         event: RunnerEvent,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Returns a callback for reporting progress while snapshotting the working
+    /// copy.
+    fn snapshot_progress(&self) -> Option<Box<SnapshotProgress<'_>>>;
 }
 
 /// Configuration used when snapshotting the working copy and importing changes
