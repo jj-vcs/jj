@@ -27,6 +27,8 @@ use diff::OperationDiffArgs;
 use diff::cmd_op_diff;
 use integrate::OperationIntegrateArgs;
 use integrate::cmd_op_integrate;
+use jj_lib::operation::Operation;
+use jj_lib::repo::Repo as _;
 use log::OperationLogArgs;
 use log::cmd_op_log;
 use restore::OperationRestoreArgs;
@@ -37,6 +39,7 @@ use show::OperationShowArgs;
 use show::cmd_op_show;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -83,7 +86,7 @@ pub(crate) enum RevertWhatToRestore {
     RemoteTracking,
 }
 
-// pub for `jj undo`
+// pub for `jj undo` and `jj redo`
 pub(crate) const DEFAULT_REVERT_WHAT: [RevertWhatToRestore; 2] = [
     RevertWhatToRestore::Repo,
     RevertWhatToRestore::RemoteTracking,
@@ -114,4 +117,25 @@ pub(crate) fn view_with_desired_portions_restored(
         git_heads: current_view.git_heads.clone(),
         wc_commit_ids: repo_source.wc_commit_ids.clone(),
     }
+}
+
+/// Applies the inverse of `op` to the repo in `tx`, restoring only the
+/// portions of the view specified by the `what` argument
+pub(crate) async fn revert_operation(
+    tx: &mut WorkspaceCommandTransaction<'_>,
+    op: &Operation,
+    op_parent: &Operation,
+    what: &[RevertWhatToRestore],
+) -> Result<(), CommandError> {
+    let repo_loader = tx.base_repo().loader();
+    let repo_at_op = &repo_loader.load_at(op).await?;
+    let repo_at_op_parent = &repo_loader.load_at(op_parent).await?;
+    tx.repo_mut().merge(repo_at_op, repo_at_op_parent).await?;
+    let new_view = view_with_desired_portions_restored(
+        tx.repo().view().store_view(),
+        tx.base_repo().view().store_view(),
+        what,
+    );
+    tx.repo_mut().set_view(new_view);
+    Ok(())
 }

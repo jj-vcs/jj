@@ -16,11 +16,10 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::operation::Operation;
-use jj_lib::repo::Repo as _;
 
 use super::DEFAULT_REVERT_WHAT;
 use super::RevertWhatToRestore;
-use super::view_with_desired_portions_restored;
+use super::revert_operation;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
@@ -65,18 +64,7 @@ pub async fn cmd_op_revert(
     };
 
     let mut tx = workspace_command.start_transaction();
-    let repo_loader = tx.base_repo().loader();
-    let repo_at_target_op = &repo_loader.load_at(&target_op).await?;
-    let repo_at_target_op_parent = &repo_loader.load_at(&target_op_parent).await?;
-    tx.repo_mut()
-        .merge(repo_at_target_op, repo_at_target_op_parent)
-        .await?;
-    let new_view = view_with_desired_portions_restored(
-        tx.repo().view().store_view(),
-        tx.base_repo().view().store_view(),
-        &args.what,
-    );
-    tx.repo_mut().set_view(new_view);
+    revert_operation(&mut tx, &target_op, &target_op_parent, &args.what).await?;
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Reverted operation: ")?;
         let template = tx.base_workspace_helper().operation_summary_template();
