@@ -2835,6 +2835,7 @@ dependencies = [
  "regex",
  "rustversion",
  "serde",
+ "serde_bser",
  "smallvec",
  "tempfile",
  "test-case",
