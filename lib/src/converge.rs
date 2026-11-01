@@ -35,6 +35,7 @@ use jj_core::backend::BackendResult;
 use jj_core::backend::ChangeId;
 use jj_core::backend::CommitId;
 use jj_core::backend::Signature;
+use jj_core::backend::Timestamp;
 use jj_core::backend::TreeId;
 use jj_core::commit::Commit;
 use jj_core::conflict_labels::ConflictLabels;
@@ -379,7 +380,18 @@ async fn converge_author(
     let excluded_divergent_commits = HashSet::default();
     let (value_merge, base_commit) =
         create_value_merge(graph, &excluded_divergent_commits, value_fn).await?;
+    // Keep this resolution so a one-sided timestamp edit, and the same new
+    // timestamp written on every side, still win before the projection below.
     if let Some(value) = value_merge.resolve_trivial(SameChange::Accept) {
+        return Ok(ConvergedAttribute::Solved(value.clone()));
+    }
+
+    // `Signature` equality includes the timestamp, so two rewrites of the same
+    // name and email stay conflicted. Project each term onto the earliest
+    // timestamp for that name and email and try again. A real name or email
+    // conflict is still unsolved.
+    let projected = project_author_to_earliest_timestamp(&value_merge);
+    if let Some(value) = projected.resolve_trivial(SameChange::Accept) {
         Ok(ConvergedAttribute::Solved(value.clone()))
     } else {
         Ok(ConvergedAttribute::Unsolved {
@@ -387,6 +399,23 @@ async fn converge_author(
             excluded_divergent_commits: HashSet::default(),
         })
     }
+}
+
+// Projects each signature onto the earliest timestamp of its name and email.
+fn project_author_to_earliest_timestamp(merge: &Merge<Signature>) -> Merge<Signature> {
+    let mut earliest_by_identity = HashMap::<(&str, &str), Timestamp>::new();
+    for signature in merge {
+        earliest_by_identity
+            .entry((&signature.name, &signature.email))
+            .and_modify(|earliest| *earliest = std::cmp::min(*earliest, signature.timestamp))
+            .or_insert(signature.timestamp);
+    }
+
+    merge.map(|signature| Signature {
+        timestamp: earliest_by_identity[&(signature.name.as_str(), signature.email.as_str())],
+        name: signature.name.clone(),
+        email: signature.email.clone(),
+    })
 }
 
 async fn converge_description(
