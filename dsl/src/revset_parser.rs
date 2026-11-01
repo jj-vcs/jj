@@ -26,6 +26,8 @@ use jj_core::ref_name::RemoteNameBuf;
 use jj_core::ref_name::RemoteRefSymbolBuf;
 use jj_core::symbol_util::format_string;
 use pest::Parser as _;
+use pest::error::ErrorVariant;
+use pest::error::LineColLocation;
 use pest::iterators::Pair;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
@@ -179,7 +181,7 @@ impl Rule {
             Self::difference_op => Some("~"),
             Self::compat_add_op => Some("+"),
             Self::compat_sub_op => Some("-"),
-            Self::infix_op => None,
+            Self::non_union_infix_op => None,
             Self::function => None,
             Self::function_name => None,
             Self::argument => None,
@@ -196,6 +198,14 @@ impl Rule {
             Self::function_alias_declaration => None,
             Self::pattern_alias_declaration => None,
             Self::alias_declaration => None,
+            Self::bounded_infix_range_expression => None,
+            Self::bounded_postfix_op => None,
+            Self::bounded_prefix_op => None,
+            Self::bounded_range_expression => None,
+            Self::postfix_op_width_limit_reached => None,
+            Self::prefix_op_width_limit_reached => None,
+            Self::range_expression_width_limit_reached => None,
+            Self::recursive_depth_limit_reached => None,
         }
     }
 }
@@ -206,10 +216,10 @@ pub type RevsetDiagnostics = Diagnostics<RevsetParseError>;
 
 /// Error occurred during revset parsing and name resolution.
 #[derive(Debug, Error)]
-#[error("{pest_error}")]
+#[error("{}", .pest_error.as_ref().map_or_else(|| .kind.to_string(), |e| e.to_string()))]
 pub struct RevsetParseError {
     kind: Box<RevsetParseErrorKind>,
-    pest_error: Box<pest::error::Error<Rule>>,
+    pest_error: Option<Box<pest::error::Error<Rule>>>,
     source: Option<Box<dyn error::Error + Send + Sync>>,
 }
 
@@ -263,7 +273,7 @@ impl RevsetParseError {
         ));
         Self {
             kind: Box::new(kind),
-            pest_error,
+            pest_error: Some(pest_error),
             source: None,
         }
     }
@@ -328,9 +338,41 @@ impl AliasExpandError for RevsetParseError {
 
 impl From<pest::error::Error<Rule>> for RevsetParseError {
     fn from(err: pest::error::Error<Rule>) -> Self {
+        if let ErrorVariant::ParsingError {
+            positives,
+            negatives,
+        } = &err.variant
+            && let Some(msg) = positives
+                .iter()
+                .chain(negatives)
+                .find_map(|rule| match rule {
+                    Rule::postfix_op_width_limit_reached => Some("Too many op postfixes"),
+                    Rule::prefix_op_width_limit_reached => Some("Too many op prefixes"),
+                    Rule::range_expression_width_limit_reached => {
+                        Some("Too many chained operators")
+                    }
+                    Rule::recursive_depth_limit_reached => Some("Expression is nested too deeply"),
+                    _ => None,
+                })
+        {
+            let (line, col) = match err.line_col {
+                LineColLocation::Pos(pos) | LineColLocation::Span(pos, _) => pos,
+            };
+
+            // When dealing with bound-related parsing errors, there's little to no value in
+            // the regular error print-outs, because they're likely too large and too noisy.
+            // Without `pest_error` attached, kind is displayed, so put the message there.
+            return Self {
+                kind: Box::new(RevsetParseErrorKind::Expression(format!(
+                    "{msg} (at line {line}, column {col})"
+                ))),
+                pest_error: None,
+                source: None,
+            };
+        }
         Self {
             kind: Box::new(RevsetParseErrorKind::SyntaxError),
-            pest_error: Box::new(rename_rules_in_pest_error(err)),
+            pest_error: Some(Box::new(rename_rules_in_pest_error(err))),
             source: None,
         }
     }
@@ -620,12 +662,28 @@ fn parse_expression_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParse
             let expr = ExpressionKind::Binary(op_kind, lhs, rhs);
             Ok(ExpressionNode::new(expr, span))
         })
-        .parse(pair.into_inner())
+        .parse(pair.into_inner().filter(|r| {
+            !matches!(
+                r.as_rule(),
+                Rule::postfix_op_width_limit_reached
+                    | Rule::prefix_op_width_limit_reached
+                    | Rule::range_expression_width_limit_reached
+                    | Rule::recursive_depth_limit_reached
+            )
+        }))
 }
 
 fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseError> {
     let span = pair.as_span();
-    let mut pairs = pair.into_inner();
+    let mut pairs = pair.into_inner().filter(|r| {
+        !matches!(
+            r.as_rule(),
+            Rule::postfix_op_width_limit_reached
+                | Rule::prefix_op_width_limit_reached
+                | Rule::range_expression_width_limit_reached
+                | Rule::recursive_depth_limit_reached
+        )
+    });
     let first = pairs.next().unwrap();
     let expr = match first.as_rule() {
         // Ignore inner span to preserve parenthesized expression as such.
@@ -652,7 +710,9 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
         }
         // Identifier without "@" may be substituted by aliases. Primary expression including "@"
         // is considered an indecomposable unit, and no alias substitution would be made.
-        Rule::identifier if pairs.peek().is_none() => ExpressionKind::Identifier(first.as_str()),
+        Rule::identifier if pairs.clone().peekable().next().is_none() => {
+            ExpressionKind::Identifier(first.as_str())
+        }
         Rule::identifier | Rule::string_literal | Rule::raw_string_literal => {
             let name = parse_as_string_literal(first);
             match pairs.next() {
@@ -2155,5 +2215,173 @@ mod tests {
             format_remote_symbol(" foo ", "bar:baz"),
             r#"" foo "@"bar:baz""#
         );
+    }
+
+    // WIDTH & DEPTH must match the constant in revset.pest.
+    // TODO: declare consts in this module and inject them into the pest grammar.
+    const WIDTH: usize = 32;
+    const DEPTH: usize = 64;
+    const TOOLONG: usize = 10 * DEPTH * WIDTH;
+
+    #[track_caller]
+    fn assert_bounded(f: impl Fn(usize) -> String, bound: usize) {
+        assert!(parse_program(&f(bound)).is_ok(), "n = {bound} must parse");
+        assert!(
+            parse_program(&f(bound + 1)).is_err(),
+            "n = {} must fail with",
+            bound + 1
+        );
+        assert!(
+            parse_program(&f(TOOLONG)).is_err(),
+            "n = {TOOLONG} must fail"
+        );
+    }
+
+    fn nested(open: &str, inner: &str, close: &str, n: usize) -> String {
+        open.repeat(n) + inner + &close.repeat(n)
+    }
+
+    fn ast_depth(node: &ExpressionNode) -> usize {
+        let children: Vec<&ExpressionNode> = match &node.kind {
+            ExpressionKind::Binary(_, lhs, rhs) => vec![lhs.as_ref(), rhs.as_ref()],
+            ExpressionKind::FunctionCall(function) => function
+                .args
+                .iter()
+                .chain(function.keyword_args.iter().map(|arg| &arg.value))
+                .collect(),
+            ExpressionKind::Pattern(pattern) => vec![&pattern.value],
+            ExpressionKind::Unary(_, arg) | ExpressionKind::AliasExpanded(_, arg) => {
+                vec![arg.as_ref()]
+            }
+            ExpressionKind::UnionAll(nodes) => nodes.iter().collect(),
+            _ => vec![],
+        };
+        1 + children.into_iter().map(ast_depth).max().unwrap_or(0)
+    }
+
+    #[test]
+    fn test_parse_bound_prefix_ops() {
+        const { assert!(DEPTH >= WIDTH, "Test assumes DEPTH >= WIDTH.") };
+        assert_bounded(|n| "~".repeat(n) + "x", WIDTH - 1);
+        // Prefix entries are dropped before the operand is parsed, so runs in
+        // sibling operands don't add up.
+        let text = vec!["~".repeat(WIDTH - 1) + "x"; TOOLONG].join("|");
+        assert!(parse_program(&text).is_ok());
+    }
+
+    #[test]
+    fn test_parse_bound_postfix_ops() {
+        const { assert!(DEPTH > WIDTH, "Test assumes DEPTH > WIDTH.") };
+        for op in ["-", "+"] {
+            assert_bounded(|n| "x".to_owned() + &op.repeat(n), WIDTH - 1);
+        }
+    }
+
+    #[test]
+    fn test_parse_bound_infix_chain() {
+        const { assert!(DEPTH > WIDTH, "Test assumes DEPTH > WIDTH.") };
+        for op in ["&", "~", " & ", " ~ "] {
+            assert_bounded(|n| vec!["x"; n].join(op), WIDTH);
+        }
+        // A chain may mix the non-union operators; they share one bound.
+        assert_bounded(
+            |n| (0..n).fold("x".to_owned(), |text, i| text + ["&x", "~x"][i % 2]),
+            WIDTH - 1,
+        );
+    }
+
+    #[test]
+    fn test_parse_unbounded_union_is_flat() {
+        // Each union operand is bounded on its own, so maximal chains repeat freely
+        // without deepening the tree.
+        let term = vec!["x"; WIDTH].join("&");
+        let text = vec![term; TOOLONG].join("|");
+        let depth = ast_depth(&parse_program(&text).unwrap());
+        // Maximum depth comes from the joined terms, unions are flat
+        // and only add a single AST node.
+        assert!(depth == WIDTH + 1, "depth {depth}");
+    }
+
+    #[test]
+    fn test_parse_bound_nesting_depth() {
+        const { assert!(DEPTH >= WIDTH, "Test assumes DEPTH >= WIDTH.") };
+        assert_bounded(|n| nested("(", "x", ")", n), DEPTH - 1);
+        assert_bounded(|n| nested("f(", "x", ")", n), DEPTH - 1);
+        assert_bounded(|n| nested("f(x, ", "x", ")", n), DEPTH - 1);
+    }
+
+    #[test]
+    fn test_parse_bound_shared_stack() {
+        // Nesting entries stay on the stack while inner constructs are parsed, so
+        // at the innermost of n levels only WIDTH - 2 - n more entries fit (the
+        // -2 term is due to the top level and a bracket each consuming one token).
+        // That means that presence of any width-bounded expressions will cause
+        // the ast depth to be bounded by the WIDTH limit. Compare with the
+        // test_parse_bound_deepest_ast.
+        assert_bounded(|n| nested("(", "~x", ")", n), WIDTH - 2);
+        assert_bounded(|n| nested("(", "x-", ")", n), WIDTH - 2);
+        assert_bounded(|n| nested("(", "x&x", ")", n), WIDTH - 2);
+    }
+
+    #[test]
+    fn test_parse_bound_deepest_ast() {
+        /// The deepest AST the bounds allow: at nesting level l (0 = top level), the
+        /// first operand is the next level, followed by the longest chain allowed at
+        /// that depth (bound - (l + 1)).
+        fn deepest_shared_stack(suffix: &str, bound: usize) -> String {
+            let mut text = "x".to_owned();
+            for l in (0..bound).rev() {
+                text = format!("({text}){}", suffix.repeat(bound - (1 + l)));
+            }
+            text
+        }
+
+        const { assert!(DEPTH > WIDTH, "Test assumes DEPTH > WIDTH.") };
+
+        // Check that bounds don't allow a stack that could overflow on a test runner.
+        for suffix in ["&x", "-"] {
+            let text = deepest_shared_stack(suffix, WIDTH);
+            let node = parse_program(&text).unwrap();
+            // A recursive pass over the deepest tree, then dropping it.
+            // This should not overflow the stack!
+            drop(normalize_tree(node));
+
+            // Check that we really exhausted the stack, by observing that
+            // adding just a single level more fails the parsing.
+            let test = deepest_shared_stack(suffix, WIDTH + 1);
+            assert!(parse_program(&test).is_err());
+        }
+    }
+
+    #[test]
+    fn test_parse_bound_pattern_nesting() {
+        let f = |n| nested("a:(", "b", ")", n);
+        // Pattern values and parentheses share the nesting budget (2 entries
+        // per level), top level already counts (-1).
+        assert!(parse_program(&f(DEPTH / 2 - 1)).is_ok());
+        assert!(parse_program(&f(DEPTH / 2)).is_err());
+
+        // This could have used assert_bounded as previous tests, but this one
+        // is a bit special. Using bounds an inner level parsing can fail, but
+        // that could trigger its reparsing, just like a malformed input did
+        // (see #10357). This would manifest itself as this tests hanging. It's
+        // good to use a somewhat large number, but not too large, so that a
+        // potential stack overflow couldn't mask the exponential parsing.
+        assert!(parse_program(&f(DEPTH * 5)).is_err());
+        assert!(parse_program(&f(TOOLONG)).is_err());
+    }
+
+    // TODO: This overflows the stack.
+    #[test]
+    #[ignore]
+    fn test_expand_long_alias_chain() {
+        let chain = |n| {
+            (0..n)
+                .map(|i| (format!("a{i}"), format!("a{}", i + 1)))
+                .chain([(format!("a{n}"), "x".to_owned())])
+                .collect::<Vec<_>>()
+        };
+        assert!(with_aliases(chain(50)).parse("a0").is_ok());
+        assert!(with_aliases(chain(TOOLONG)).parse("a0").is_err());
     }
 }
