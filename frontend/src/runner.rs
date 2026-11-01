@@ -18,6 +18,7 @@
 use std::fmt;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -224,11 +225,14 @@ pub enum RebaseReason {
 }
 
 /// Receives [`RunnerEvent`]s from a `WorkspaceOperationRunner`.
+#[async_trait(?Send)]
 pub trait RunnerEventHandler {
     /// Handles `event`. Returning an error aborts the operation, and the error
     /// is returned from the runner as [`RunnerError::EventHandling`].
-    fn event(&mut self, event: RunnerEvent)
-    -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn event(
+        &mut self,
+        event: RunnerEvent,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
 /// Configuration used when snapshotting the working copy and importing changes
