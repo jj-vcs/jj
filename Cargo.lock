@@ -2790,6 +2790,7 @@ dependencies = [
 name = "jj-frontend"
 version = "0.46.0"
 dependencies = [
+ "async-trait",
  "jiff",
  "jj-lib",
  "thiserror 2.0.21",
