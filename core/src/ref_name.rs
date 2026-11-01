@@ -42,6 +42,9 @@ use ref_cast::ref_cast_custom;
 use crate::content_hash::ContentHash;
 use crate::symbol_util::format_string;
 
+/// Reserved remote name for the backing Git repo.
+pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &RemoteName = RemoteName::new("git");
+
 /// Owned Git ref name in fully-qualified form (e.g. `refs/heads/main`.)
 ///
 /// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can

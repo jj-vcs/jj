@@ -64,6 +64,7 @@ use jj_core::op_store::RemoteRef;
 use jj_core::op_store::RemoteRefState;
 use jj_core::ref_name::GitRefName;
 use jj_core::ref_name::GitRefNameBuf;
+pub use jj_core::ref_name::REMOTE_NAME_FOR_LOCAL_GIT_REPO;
 use jj_core::ref_name::RefName;
 use jj_core::ref_name::RefNameBuf;
 use jj_core::ref_name::RemoteName;
@@ -100,8 +101,6 @@ use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetExpression;
 use crate::settings::UserSettings;
 
-/// Reserved remote name for the backing Git repo.
-pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &RemoteName = RemoteName::new("git");
 /// Git ref prefix that would conflict with the reserved "git" remote.
 pub const RESERVED_REMOTE_REF_NAMESPACE: &str = "refs/remotes/git/";
 /// Git ref prefix where remote bookmarks are stored.
