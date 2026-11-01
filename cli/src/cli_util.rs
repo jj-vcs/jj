@@ -1230,8 +1230,8 @@ fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
             )?;
             writeln!(
                 ui.hint_default(),
-                "The operation's result was recorded, but the working copy stayed on the commit left by \
-                 the other process. Run `jj log` to see both; they may be divergent."
+                "The operation's result was recorded, but the working copy stayed on the commit \
+                 left by the other process. Run `jj log` to see both; they may be divergent."
             )
         }
         RunnerEvent::DescendantsRebased {
