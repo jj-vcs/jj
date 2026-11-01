@@ -1861,6 +1861,27 @@ fn test_dotgit_ignored() -> TestResult {
     Ok(())
 }
 
+#[test_case(".GIT", ".git"; "git")]
+#[test_case(".JJ", ".jj"; "jj")]
+fn test_nested_repo_ignored_icase_fs(marker: &str, reserved: &str) -> TestResult {
+    let mut test_workspace = TestWorkspace::init();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+    let nested = workspace_root.join("nested");
+    std::fs::create_dir_all(nested.join(marker))?;
+    std::fs::write(nested.join("file"), "contents")?;
+
+    let new_tree = test_workspace.snapshot()?;
+    if nested.join(reserved).exists() {
+        assert_tree_eq!(new_tree, test_workspace.repo.store().empty_merged_tree());
+    } else {
+        assert_ne!(
+            *new_tree.tree_ids(),
+            test_workspace.repo.store().empty_merged_tree_id()
+        );
+    }
+    Ok(())
+}
+
 #[test_case(""; "ignore nothing")]
 #[test_case("/*\n"; "ignore all")]
 fn test_git_submodule(gitignore_content: &str) -> TestResult {
