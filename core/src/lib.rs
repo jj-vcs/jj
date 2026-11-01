@@ -27,6 +27,10 @@
 // - https://github.com/rust-lang/rust/issues/54363
 extern crate self as jj_core;
 
+// Re-exported for use by the `id_type!` macro.
+#[doc(hidden)]
+pub use serde;
+
 pub mod backend;
 mod cached_loader;
 pub mod commit;
