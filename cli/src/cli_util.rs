@@ -53,6 +53,7 @@ use jj_frontend::runner::ReadonlyUserRepo;
 use jj_frontend::runner::RebaseReason;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::RunnerEvent;
+use jj_frontend::runner::RunnerEventHandler;
 use jj_frontend::runner::RunnerOptions;
 use jj_frontend::runner::SnapshotConfig;
 use jj_frontend::runner::StaleWorkingCopyError;
@@ -714,8 +715,9 @@ impl CommandHelper {
                                 .runner
                                 .options
                                 .start_transaction(repo, workspace_name);
+                            let event_handler = CliRunnerEventHandler::new(ui);
                             try_reset_git_head(
-                                ui,
+                                &event_handler,
                                 tx.repo_mut(),
                                 workspace_name,
                                 workspace_root,
@@ -1217,119 +1219,140 @@ impl WorkspaceCommandEnvironment {
     }
 }
 
-fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
-    match event {
-        RunnerEvent::DescendantsRebased {
-            num_rebased,
-            reason,
-        } => match reason {
-            RebaseReason::RewrittenCommits => {
-                writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")
-            }
-            RebaseReason::RewrittenInGit => writeln!(
-                ui.status(),
-                "Rebased {num_rebased} descendant commits off of commits rewritten from Git."
-            ),
-            RebaseReason::WorkingCopySnapshot => writeln!(
-                ui.status(),
-                "Rebased {num_rebased} descendant commits onto updated working copy."
-            ),
-        },
-        RunnerEvent::OperationLeftUnpublished { op_id, is_snapshot } => {
-            let kind = if *is_snapshot {
-                "Snapshot operation"
-            } else {
-                "Operation"
-            };
-            writeln!(
-                ui.status(),
-                "{kind} left uncommitted because --no-integrate-operation was requested: {}",
-                short_operation_hash(op_id)
-            )
-        }
-        RunnerEvent::SnapshotOnImmutableWorkingCopy { new_wc_commit: _ } => writeln!(
-            ui.warning_default(),
-            "The working-copy commit is immutable; a new commit has been created on top of it.",
-        ),
-        RunnerEvent::WorkingCopyBecameImmutable { new_wc_commit: _ } => writeln!(
-            ui.warning_default(),
-            "The working-copy commit became immutable; a new commit has been created on top of it.",
-        ),
-        RunnerEvent::UserIdentityNotConfigured {
-            missing_name,
-            missing_email,
-        } => {
-            let not_configured_msg = match (missing_name, missing_email) {
-                (true, true) => "Name and email not configured.",
-                (true, false) => "Name not configured.",
-                (false, true) => "Email not configured.",
-                (false, false) => return Ok(()),
-            };
-            writeln!(
-                ui.warning_default(),
-                "{not_configured_msg} Until configured, your commits will be created with the \
-                 empty identity, and can't be pushed to remotes."
-            )?;
-            writeln!(ui.hint_default(), "To configure, run:")?;
-            if *missing_name {
-                writeln!(
-                    ui.hint_no_heading(),
-                    r#"  jj config set --user user.name "Some One""#
-                )?;
-            }
-            if *missing_email {
-                writeln!(
-                    ui.hint_no_heading(),
-                    r#"  jj config set --user user.email "someone@example.com""#
-                )?;
-            }
-            Ok(())
-        }
-        #[cfg(feature = "git")]
-        RunnerEvent::JjConflictFilesInWorkingCopy => {
-            writeln!(
-                ui.warning_default(),
-                "The working copy contains '.jjconflict' files. These files are used by `jj` \
-                 internally and should not be present in the working copy."
-            )?;
-            writeln!(
-                ui.hint_default(),
-                "You may have used a regular `git` command to check out a conflicted commit."
-            )?;
-            writeln!(
-                ui.hint_default(),
-                "You can use `jj abandon` to discard the working copy changes."
-            )
-        }
-        #[cfg(feature = "git")]
-        RunnerEvent::GitHeadImported { first_import } => {
-            if *first_import {
-                // Don't print verbose message on initial checkout.
-                Ok(())
-            } else {
+/// Prints [`RunnerEvent`]s for the CLI.
+struct CliRunnerEventHandler<'a> {
+    ui: &'a Ui,
+}
+
+impl<'a> CliRunnerEventHandler<'a> {
+    fn new(ui: &'a Ui) -> Self {
+        Self { ui }
+    }
+
+    fn print_event(&self, event: RunnerEvent) -> Result<(), CommandError> {
+        let ui = self.ui;
+        match event {
+            RunnerEvent::DescendantsRebased {
+                num_rebased,
+                reason,
+            } => match reason {
+                RebaseReason::RewrittenCommits => {
+                    writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
+                }
+                RebaseReason::RewrittenInGit => writeln!(
+                    ui.status(),
+                    "Rebased {num_rebased} descendant commits off of commits rewritten from Git."
+                )?,
+                RebaseReason::WorkingCopySnapshot => writeln!(
+                    ui.status(),
+                    "Rebased {num_rebased} descendant commits onto updated working copy."
+                )?,
+            },
+            RunnerEvent::OperationLeftUnpublished { op_id, is_snapshot } => {
+                let kind = if is_snapshot {
+                    "Snapshot operation"
+                } else {
+                    "Operation"
+                };
                 writeln!(
                     ui.status(),
-                    "Reset the working copy parent to the new Git HEAD."
-                )
+                    "{kind} left uncommitted because --no-integrate-operation was requested: {}",
+                    short_operation_hash(&op_id)
+                )?;
+            }
+            RunnerEvent::SnapshotOnImmutableWorkingCopy { new_wc_commit: _ } => writeln!(
+                ui.warning_default(),
+                "The working-copy commit is immutable; a new commit has been created on top of it.",
+            )?,
+            RunnerEvent::WorkingCopyBecameImmutable { new_wc_commit: _ } => writeln!(
+                ui.warning_default(),
+                "The working-copy commit became immutable; a new commit has been created on top \
+                 of it.",
+            )?,
+            RunnerEvent::UserIdentityNotConfigured {
+                missing_name,
+                missing_email,
+            } => {
+                let not_configured_msg = match (missing_name, missing_email) {
+                    (true, true) => "Name and email not configured.",
+                    (true, false) => "Name not configured.",
+                    (false, true) => "Email not configured.",
+                    (false, false) => return Ok(()),
+                };
+                writeln!(
+                    ui.warning_default(),
+                    "{not_configured_msg} Until configured, your commits will be created with the \
+                     empty identity, and can't be pushed to remotes."
+                )?;
+                writeln!(ui.hint_default(), "To configure, run:")?;
+                if missing_name {
+                    writeln!(
+                        ui.hint_no_heading(),
+                        r#"  jj config set --user user.name "Some One""#
+                    )?;
+                }
+                if missing_email {
+                    writeln!(
+                        ui.hint_no_heading(),
+                        r#"  jj config set --user user.email "someone@example.com""#
+                    )?;
+                }
+            }
+            #[cfg(feature = "git")]
+            RunnerEvent::JjConflictFilesInWorkingCopy => {
+                writeln!(
+                    ui.warning_default(),
+                    "The working copy contains '.jjconflict' files. These files are used by `jj` \
+                     internally and should not be present in the working copy."
+                )?;
+                writeln!(
+                    ui.hint_default(),
+                    "You may have used a regular `git` command to check out a conflicted commit."
+                )?;
+                writeln!(
+                    ui.hint_default(),
+                    "You can use `jj abandon` to discard the working copy changes."
+                )?;
+            }
+            #[cfg(feature = "git")]
+            RunnerEvent::GitHeadImported { first_import } => {
+                if first_import {
+                    // Don't print verbose message on initial checkout.
+                } else {
+                    writeln!(
+                        ui.status(),
+                        "Reset the working copy parent to the new Git HEAD."
+                    )?;
+                }
+            }
+            #[cfg(feature = "git")]
+            RunnerEvent::GitRefsImported(stats) => {
+                crate::git_util::print_git_import_stats_summary(ui, &stats)?;
+            }
+            #[cfg(feature = "git")]
+            RunnerEvent::GitRefsImportFinished => writeln!(
+                ui.status(),
+                "Done importing changes from the underlying Git repo."
+            )?,
+            #[cfg(feature = "git")]
+            RunnerEvent::GitRefsExported(stats) => {
+                crate::git_util::print_git_export_stats(ui, &stats)?;
+            }
+            #[cfg(feature = "git")]
+            RunnerEvent::GitHeadResetFailed(err) => {
+                use std::error::Error as _;
+                writeln!(ui.warning_default(), "{err}")?;
+                print_error_sources(ui, err.source())?;
             }
         }
-        #[cfg(feature = "git")]
-        RunnerEvent::GitRefsImported(stats) => {
-            crate::git_util::print_git_import_stats_summary(ui, stats)
-        }
-        #[cfg(feature = "git")]
-        RunnerEvent::GitRefsImportFinished => writeln!(
-            ui.status(),
-            "Done importing changes from the underlying Git repo."
-        ),
-        #[cfg(feature = "git")]
-        RunnerEvent::GitRefsExported(stats) => crate::git_util::print_git_export_stats(ui, stats),
-        #[cfg(feature = "git")]
-        RunnerEvent::GitHeadResetFailed(err) => {
-            use std::error::Error as _;
-            writeln!(ui.warning_default(), "{err}")?;
-            print_error_sources(ui, err.source())
-        }
+        Ok(())
+    }
+}
+
+impl RunnerEventHandler for CliRunnerEventHandler<'_> {
+    fn event(&self, event: RunnerEvent) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.print_event(event)
+            .map_err(|err| CliEventHandlerError(err).into())
     }
 }
 
@@ -1337,19 +1360,19 @@ fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
 /// converted back to the original error when the [`RunnerError`] is converted
 /// to a [`CommandError`].
 #[derive(Debug)]
-pub(crate) struct CliEventSinkError(pub(crate) CommandError);
+pub(crate) struct CliEventHandlerError(pub(crate) CommandError);
 
-impl fmt::Display for CliEventSinkError {
+impl fmt::Display for CliEventHandlerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0.error, f)
     }
 }
 
-impl std::error::Error for CliEventSinkError {}
+impl std::error::Error for CliEventHandlerError {}
 
-impl From<CliEventSinkError> for RunnerError {
-    fn from(err: CliEventSinkError) -> Self {
-        Self::event_sink(err)
+impl From<CliEventHandlerError> for RunnerError {
+    fn from(err: CliEventHandlerError) -> Self {
+        Self::EventHandler(Box::new(err))
     }
 }
 
@@ -1548,6 +1571,7 @@ impl WorkspaceCommandHelper {
         }
 
         let mut tx = tx.into_inner();
+        let event_handler = CliRunnerEventHandler::new(ui);
         let old_git_head = self.repo().view().git_head(&workspace_name).clone();
         let new_git_head = tx.repo().view().git_head(&workspace_name);
         if let Some(new_git_head_id) = new_git_head.as_normal() {
@@ -1574,35 +1598,29 @@ impl WorkspaceCommandHelper {
                     .finish(self.runner.user_repo.repo().op_id().clone())
                     .await?;
             }
-            print_runner_event(
-                ui,
-                &RunnerEvent::GitHeadImported {
+            event_handler
+                .event(RunnerEvent::GitHeadImported {
                     first_import: old_git_head.is_absent(),
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
+                })
+                .map_err(RunnerError::EventHandler)?;
             if !self.runner.options.integrate_operation {
-                print_runner_event(
-                    ui,
-                    &RunnerEvent::OperationLeftUnpublished {
+                event_handler
+                    .event(RunnerEvent::OperationLeftUnpublished {
                         op_id: self.repo().op_id().clone(),
                         is_snapshot: false,
-                    },
-                )
-                .map_err(RunnerError::event_sink)?;
+                    })
+                    .map_err(RunnerError::EventHandler)?;
             }
         } else {
             // Unlikely, but the HEAD ref got deleted by git?
             let num_rebased = tx.repo_mut().rebase_descendants().await?;
             if num_rebased > 0 {
-                print_runner_event(
-                    ui,
-                    &RunnerEvent::DescendantsRebased {
+                event_handler
+                    .event(RunnerEvent::DescendantsRebased {
                         num_rebased,
                         reason: RebaseReason::RewrittenCommits,
-                    },
-                )
-                .map_err(RunnerError::event_sink)?;
+                    })
+                    .map_err(RunnerError::EventHandler)?;
             }
             self.finish_transaction_locked(ui, tx, "import git head", git_import_export_lock)
                 .await?;
@@ -1627,15 +1645,18 @@ impl WorkspaceCommandHelper {
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), RunnerError> {
         let mut tx = self.start_transaction().into_inner();
+        let event_handler = CliRunnerEventHandler::new(ui);
         let stats = jj_lib::git::import_refs(tx.repo_mut(), import_options).await?;
-        print_runner_event(ui, &RunnerEvent::GitRefsImported(stats))
-            .map_err(RunnerError::event_sink)?;
+        event_handler
+            .event(RunnerEvent::GitRefsImported(stats))
+            .map_err(RunnerError::EventHandler)?;
 
         if !tx.repo().has_changes() {
             if self.runner.options.integrate_operation {
                 let stats = jj_lib::git::export_refs(tx.repo_mut())?;
-                print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
-                    .map_err(RunnerError::event_sink)?;
+                event_handler
+                    .event(RunnerEvent::GitRefsExported(stats))
+                    .map_err(RunnerError::EventHandler)?;
                 if tx.repo().has_changes() {
                     let new_repo = tx.commit("export git refs").await?;
                     self.runner.user_repo =
@@ -1648,20 +1669,20 @@ impl WorkspaceCommandHelper {
         let num_rebased =
             rebase_mutable_descendants(&self.env, &self.runner.options, &mut tx).await?;
         if num_rebased > 0 {
-            print_runner_event(
-                ui,
-                &RunnerEvent::DescendantsRebased {
+            event_handler
+                .event(RunnerEvent::DescendantsRebased {
                     num_rebased,
                     reason: RebaseReason::RewrittenInGit,
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
+                })
+                .map_err(RunnerError::EventHandler)?;
         }
         // This also exports previously modified refs if any.
         self.finish_transaction_locked(ui, tx, "import git refs", git_import_export_lock)
             .await?;
-        print_runner_event(ui, &RunnerEvent::GitRefsImportFinished)
-            .map_err(RunnerError::event_sink)?;
+        let event_handler = CliRunnerEventHandler::new(ui);
+        event_handler
+            .event(RunnerEvent::GitRefsImportFinished)
+            .map_err(RunnerError::EventHandler)?;
         Ok(())
     }
 
@@ -2240,6 +2261,7 @@ to the current parents may contain changes from multiple commits.
         #[cfg_attr(not(feature = "git"), expect(unused_variables))]
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, RunnerError> {
+        let event_handler = CliRunnerEventHandler::new(ui);
         let workspace_name = self.workspace_name().to_owned();
         let repo = self.repo().clone();
         let options = config.snapshot_options();
@@ -2285,13 +2307,11 @@ to the current parents may contain changes from multiple commits.
                     .new_commit(vec![wc_commit.id().clone()], new_tree.clone())
                     .write()
                     .await?;
-                print_runner_event(
-                    ui,
-                    &RunnerEvent::SnapshotOnImmutableWorkingCopy {
+                event_handler
+                    .event(RunnerEvent::SnapshotOnImmutableWorkingCopy {
                         new_wc_commit: new_wc_commit.clone(),
-                    },
-                )
-                .map_err(RunnerError::event_sink)?;
+                    })
+                    .map_err(RunnerError::EventHandler)?;
             } else {
                 new_wc_commit = mut_repo
                     .rewrite_commit(&wc_commit)
@@ -2304,14 +2324,12 @@ to the current parents may contain changes from multiple commits.
             // Rebase descendants
             let num_rebased = mut_repo.rebase_descendants().await?;
             if num_rebased > 0 {
-                print_runner_event(
-                    ui,
-                    &RunnerEvent::DescendantsRebased {
+                event_handler
+                    .event(RunnerEvent::DescendantsRebased {
                         num_rebased,
                         reason: RebaseReason::WorkingCopySnapshot,
-                    },
-                )
-                .map_err(RunnerError::event_sink)?;
+                    })
+                    .map_err(RunnerError::EventHandler)?;
             }
 
             #[cfg(feature = "git")]
@@ -2322,7 +2340,7 @@ to the current parents may contain changes from multiple commits.
                 if wc_immutable {
                     // New working-copy commit is created on top. Reset Git HEAD and index.
                     try_reset_git_head(
-                        ui,
+                        &event_handler,
                         mut_repo,
                         &workspace_name,
                         workspace_root,
@@ -2333,8 +2351,9 @@ to the current parents may contain changes from multiple commits.
                     // export_refs() is probably unnecessary because there should be no
                     // rewritten descendants, but it's harmless.
                     let stats = jj_lib::git::export_refs(mut_repo)?;
-                    print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
-                        .map_err(RunnerError::event_sink)?;
+                    event_handler
+                        .event(RunnerEvent::GitRefsExported(stats))
+                        .map_err(RunnerError::EventHandler)?;
                 } else {
                     let old_tree = wc_commit.tree();
                     let new_tree = new_wc_commit.tree();
@@ -2346,8 +2365,9 @@ to the current parents may contain changes from multiple commits.
                     )
                     .await?;
                     let stats = jj_lib::git::export_refs(mut_repo)?;
-                    print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
-                        .map_err(RunnerError::event_sink)?;
+                    event_handler
+                        .event(RunnerEvent::GitRefsExported(stats))
+                        .map_err(RunnerError::EventHandler)?;
                 }
             }
 
@@ -2359,14 +2379,12 @@ to the current parents may contain changes from multiple commits.
             self.runner.user_repo =
                 ReadonlyUserRepo::new(repo, self.runner.env.new_id_prefix_context());
             if !self.runner.options.integrate_operation {
-                print_runner_event(
-                    ui,
-                    &RunnerEvent::OperationLeftUnpublished {
+                event_handler
+                    .event(RunnerEvent::OperationLeftUnpublished {
                         op_id: self.runner.user_repo.repo().op_id().clone(),
                         is_snapshot: true,
-                    },
-                )
-                .map_err(RunnerError::event_sink)?;
+                    })
+                    .map_err(RunnerError::EventHandler)?;
             }
         }
 
@@ -2377,8 +2395,9 @@ to the current parents may contain changes from multiple commits.
                 .entries_non_recursive()
                 .any(|entry| entry.name().as_internal_str().starts_with(".jjconflict"))
         {
-            print_runner_event(ui, &RunnerEvent::JjConflictFilesInWorkingCopy)
-                .map_err(RunnerError::event_sink)?;
+            event_handler
+                .event(RunnerEvent::JjConflictFilesInWorkingCopy)
+                .map_err(RunnerError::EventHandler)?;
         }
 
         if self.runner.options.integrate_operation {
@@ -2447,17 +2466,16 @@ to the current parents may contain changes from multiple commits.
         mut tx: Transaction,
         description: impl Into<String>,
     ) -> Result<(), RunnerError> {
+        let event_handler = CliRunnerEventHandler::new(ui);
         let num_rebased =
             rebase_mutable_descendants(&self.env, &self.runner.options, &mut tx).await?;
         if num_rebased > 0 {
-            print_runner_event(
-                ui,
-                &RunnerEvent::DescendantsRebased {
+            event_handler
+                .event(RunnerEvent::DescendantsRebased {
                     num_rebased,
                     reason: RebaseReason::RewrittenCommits,
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
+                })
+                .map_err(RunnerError::EventHandler)?;
         }
         // Acquire git import/export lock before finishing the transaction to ensure
         // Git HEAD export happens atomically with the transaction commit.
@@ -2474,6 +2492,7 @@ to the current parents may contain changes from multiple commits.
         #[cfg_attr(not(feature = "git"), expect(unused_variables))]
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), RunnerError> {
+        let event_handler = CliRunnerEventHandler::new(ui);
         let old_repo = tx.base_repo().clone();
 
         let maybe_old_wc_commit = old_repo
@@ -2509,13 +2528,11 @@ to the current parents may contain changes from multiple commits.
                 .await?;
             tx.repo_mut()
                 .set_wc_commit(self.workspace_name().to_owned(), new_wc_commit.id().clone())?;
-            print_runner_event(
-                ui,
-                &RunnerEvent::WorkingCopyBecameImmutable {
+            event_handler
+                .event(RunnerEvent::WorkingCopyBecameImmutable {
                     new_wc_commit: new_wc_commit.clone(),
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
+                })
+                .map_err(RunnerError::EventHandler)?;
             Some(new_wc_commit)
         } else {
             maybe_new_wc_commit
@@ -2525,7 +2542,7 @@ to the current parents may contain changes from multiple commits.
         if self.env.base.working_copy_shared_with_git() && self.runner.options.integrate_operation {
             if let Some(wc_commit) = &maybe_new_wc_commit {
                 try_reset_git_head(
-                    ui,
+                    &event_handler,
                     tx.repo_mut(),
                     self.workspace_name(),
                     self.workspace_root(),
@@ -2535,8 +2552,9 @@ to the current parents may contain changes from multiple commits.
                 .await?;
             }
             let stats = jj_lib::git::export_refs(tx.repo_mut())?;
-            print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
-                .map_err(RunnerError::event_sink)?;
+            event_handler
+                .event(RunnerEvent::GitRefsExported(stats))
+                .map_err(RunnerError::EventHandler)?;
         }
 
         let repo = self
@@ -2566,7 +2584,7 @@ to the current parents may contain changes from multiple commits.
                     &stats,
                 )
                 .await
-                .map_err(CliEventSinkError)?;
+                .map_err(CliEventHandlerError)?;
             } else {
                 // It seems the workspace was deleted, so we shouldn't try to
                 // update it.
@@ -2576,31 +2594,27 @@ to the current parents may contain changes from multiple commits.
         self.reporter()
             .report_repo_changes(ui, &old_repo, self.repo(), self.id_prefix_context())
             .await
-            .map_err(CliEventSinkError)?;
+            .map_err(CliEventHandlerError)?;
 
         if !self.runner.options.integrate_operation {
-            print_runner_event(
-                ui,
-                &RunnerEvent::OperationLeftUnpublished {
+            event_handler
+                .event(RunnerEvent::OperationLeftUnpublished {
                     op_id: self.repo().op_id().clone(),
                     is_snapshot: false,
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
+                })
+                .map_err(RunnerError::EventHandler)?;
         }
 
         let settings = self.settings();
         let missing_name = settings.user_name().is_empty();
         let missing_email = settings.user_email().is_empty();
         if missing_name || missing_email {
-            print_runner_event(
-                ui,
-                &RunnerEvent::UserIdentityNotConfigured {
+            event_handler
+                .event(RunnerEvent::UserIdentityNotConfigured {
                     missing_name,
                     missing_email,
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
+                })
+                .map_err(RunnerError::EventHandler)?;
         }
         Ok(())
     }
@@ -2672,7 +2686,7 @@ pub async fn export_working_copy_changes_to_git(
 
 #[cfg(feature = "git")]
 async fn try_reset_git_head(
-    ui: &Ui,
+    event_handler: &dyn RunnerEventHandler,
     mut_repo: &mut MutableRepo,
     workspace_name: &WorkspaceName,
     workspace_root: &Path,
@@ -2688,8 +2702,9 @@ async fn try_reset_git_head(
     match jj_lib::git::reset_head(mut_repo, workspace_name, workspace_root, wc_commit).await {
         Ok(()) => Ok(()),
         Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
-            print_runner_event(ui, &RunnerEvent::GitHeadResetFailed(err))
-                .map_err(RunnerError::event_sink)?;
+            event_handler
+                .event(RunnerEvent::GitHeadResetFailed(err))
+                .map_err(RunnerError::EventHandler)?;
             Ok(())
         }
         Err(err) => Err(err.into()),

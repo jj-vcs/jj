@@ -221,6 +221,13 @@ pub enum RebaseReason {
     WorkingCopySnapshot,
 }
 
+/// Receives [`RunnerEvent`]s from a `WorkspaceOperationRunner`.
+pub trait RunnerEventHandler {
+    /// Handles `event`. Returning an error aborts the operation, and the error
+    /// is returned from the runner as [`RunnerError::EventHandler`].
+    fn event(&self, event: RunnerEvent) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+}
+
 /// Configuration used when snapshotting the working copy and importing changes
 /// from Git.
 pub struct SnapshotConfig {
@@ -328,14 +335,7 @@ pub enum RunnerError {
     GitResetHead(#[from] jj_lib::git::GitResetHeadError),
     /// The caller failed to handle a [`RunnerEvent`].
     #[error(transparent)]
-    EventSink(Box<dyn std::error::Error + Send + Sync>),
-}
-
-impl RunnerError {
-    /// Wraps an error from the caller's handling of a [`RunnerEvent`].
-    pub fn event_sink(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        Self::EventSink(err.into())
-    }
+    EventHandler(Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// The working copy can't be snapshotted because it's not at the repo's
