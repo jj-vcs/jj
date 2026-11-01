@@ -254,7 +254,7 @@ impl GitBackend {
     ) -> Result<Self, Box<GitBackendInitError>> {
         let canonical_workspace_root = {
             let path = store_path.join(workspace_root);
-            dunce::canonicalize(&path)
+            file_util::canonicalize(&path)
                 .context(&path)
                 .map_err(GitBackendInitError::Path)?
         };
@@ -374,7 +374,7 @@ impl GitBackend {
         // Try the open repository first.
         let open_repo = self.git_repo();
         if let Some(workdir) = open_repo.workdir()
-            && (workdir == path || dunce::canonicalize(path).is_ok_and(|path| workdir == path))
+            && (workdir == path || file_util::canonicalize(path).is_ok_and(|path| workdir == path))
         {
             return Ok(open_repo);
         }
@@ -392,7 +392,7 @@ impl GitBackend {
             })?
             .to_thread_local();
         let canonicalize = |path: &Path| {
-            dunce::canonicalize(path).map_err(|err| GitRepoAtWorkdirError::Other(err.into()))
+            file_util::canonicalize(path).map_err(|err| GitRepoAtWorkdirError::Other(err.into()))
         };
         if open_repo.common_dir() == work_repo.common_dir()
             || canonicalize(open_repo.common_dir())? == canonicalize(work_repo.common_dir())?
@@ -608,9 +608,9 @@ impl GitBackend {
 pub fn canonicalize_git_repo_path(path: &Path) -> io::Result<PathBuf> {
     if path.ends_with(".git") {
         let workdir = path.parent().unwrap();
-        dunce::canonicalize(workdir).map(|dir| dir.join(".git"))
+        file_util::canonicalize(workdir).map(|dir| dir.join(".git"))
     } else {
-        dunce::canonicalize(path)
+        file_util::canonicalize(path)
     }
 }
 

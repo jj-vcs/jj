@@ -180,7 +180,7 @@ impl Workspace {
         working_copy: Box<dyn WorkingCopy>,
         repo_loader: RepoLoader,
     ) -> Result<Self, PathError> {
-        let workspace_root = dunce::canonicalize(workspace_root).context(workspace_root)?;
+        let workspace_root = file_util::canonicalize(workspace_root).context(workspace_root)?;
         Ok(Self::new_no_canonicalize(
             workspace_root,
             repo_path,
@@ -269,8 +269,8 @@ impl Workspace {
             // ReadonlyRepo::init(). workspace_root will be canonicalized by
             // Workspace::new(), but it's not yet here.
             let store_relative_workspace_root =
-                if let Ok(workspace_root) = dunce::canonicalize(workspace_root) {
-                    jj_local_util::file_util::relative_path(store_path, &workspace_root)
+                if let Ok(workspace_root) = file_util::canonicalize(workspace_root) {
+                    file_util::relative_path(store_path, &workspace_root)
                 } else {
                     workspace_root.to_owned()
                 };
@@ -316,13 +316,13 @@ impl Workspace {
             // ReadonlyRepo::init(). workspace_root will be canonicalized by
             // Workspace::new(), but it's not yet here.
             let store_relative_git_repo_path = match (
-                dunce::canonicalize(workspace_root),
+                file_util::canonicalize(workspace_root),
                 jj_git_backend::git_backend::canonicalize_git_repo_path(git_repo_path),
             ) {
                 (Ok(workspace_root), Ok(git_repo_path))
                     if git_repo_path.starts_with(&workspace_root) =>
                 {
-                    jj_local_util::file_util::relative_path(store_path, &git_repo_path)
+                    file_util::relative_path(store_path, &git_repo_path)
                 }
                 _ => git_repo_path.to_owned(),
             };
@@ -392,7 +392,7 @@ impl Workspace {
             )
             .await?;
             let repo_loader = repo.loader().clone();
-            let repo_dir = dunce::canonicalize(&repo_dir).context(&repo_dir)?;
+            let repo_dir = file_util::canonicalize(&repo_dir).context(&repo_dir)?;
             let workspace = Self::new(workspace_root, repo_dir, working_copy, repo_loader)?;
             repo.loader()
                 .workspace_store()
@@ -438,8 +438,8 @@ impl Workspace {
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
 
-        let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
-        let jj_dir_abs = dunce::canonicalize(&jj_dir).context(&jj_dir)?;
+        let repo_dir = file_util::canonicalize(repo_path).context(repo_path)?;
+        let jj_dir_abs = file_util::canonicalize(&jj_dir).context(&jj_dir)?;
         let path_to_store = file_util::relative_path(&jj_dir_abs, &repo_dir);
         let path_to_store = if path_to_store.is_relative() {
             file_util::slash_path(&path_to_store).into_owned()
@@ -642,7 +642,7 @@ impl DefaultWorkspaceLoader {
             let buf = fs::read(&repo_dir).context(&repo_dir)?;
             let repo_path =
                 file_util::path_from_bytes(&buf).map_err(WorkspaceLoadError::DecodeRepoPath)?;
-            repo_dir = dunce::canonicalize(jj_dir.join(repo_path)).context(repo_path)?;
+            repo_dir = file_util::canonicalize(jj_dir.join(repo_path)).context(repo_path)?;
             if !repo_dir.is_dir() {
                 return Err(WorkspaceLoadError::RepoDoesNotExist(repo_dir));
             }
