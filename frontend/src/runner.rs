@@ -104,6 +104,9 @@ impl RunnerOptions {
 /// importing from or exporting to Git, or finishing a transaction.
 #[derive(Debug)]
 pub enum RunnerEvent {
+    /// The working copy was concurrently checked out by another process, so this
+    /// operation's checkout was skipped.
+    ConcurrentCheckout,
     /// Descendants of rewritten commits were rebased.
     DescendantsRebased {
         /// Number of rebased commits.

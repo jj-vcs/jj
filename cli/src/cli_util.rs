@@ -1223,6 +1223,17 @@ impl WorkspaceCommandEnvironment {
 
 fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
     match event {
+        RunnerEvent::ConcurrentCheckout => {
+            writeln!(
+                ui.warning_default(),
+                "The working copy was concurrently modified while this command was running."
+            )?;
+            writeln!(
+                ui.hint_default(),
+                "The operation's result was recorded, but the working copy stayed on the commit left by \
+                 the other process. Run `jj log` to see both; they may be divergent."
+            )
+        }
         RunnerEvent::DescendantsRebased {
             num_rebased,
             reason,
@@ -2447,26 +2458,27 @@ to the current parents may contain changes from multiple commits.
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)
         // don't leave the working copy in a stale state.
+        let mut update_working_copy_result = Ok(());
         if self.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
-                let stats = update_working_copy(
-                    ui,
+                let result = update_working_copy(
                     &self.user_repo.repo,
                     &mut self.workspace,
                     maybe_old_wc_commit.as_ref(),
                     new_commit,
                 )
-                .await?;
-                if let Some(stats) = stats {
+                .await;
+                if let Ok(stats) = &result {
                     self.print_updated_working_copy_stats(
                         ui,
                         maybe_old_wc_commit.as_ref(),
                         new_commit,
-                        &stats,
+                        stats,
                     )
                     .await
                     .map_err(CliEventSinkError)?;
                 }
+                update_working_copy_result = result.map(|_| ());
             } else {
                 // It seems the workspace was deleted, so we shouldn't try to
                 // update it.
@@ -2502,7 +2514,7 @@ to the current parents may contain changes from multiple commits.
             )
             .map_err(RunnerError::event_sink)?;
         }
-        Ok(())
+        update_working_copy_result
     }
 
     /// Identifies bookmarks which are eligible to be moved automatically
@@ -2982,9 +2994,16 @@ impl WorkspaceCommandTransaction<'_> {
         // Acquire git import/export lock before finishing the transaction to ensure
         // Git HEAD export happens atomically with the transaction commit.
         let git_import_export_lock = helper.lock_git_import_export()?;
-        helper
+        match helper
             .finish_transaction(ui, tx, description, &git_import_export_lock)
-            .await?;
+            .await
+        {
+            Err(RunnerError::CheckOut {
+                source: CheckoutError::ConcurrentCheckout,
+                ..
+            }) => print_runner_event(ui, &RunnerEvent::ConcurrentCheckout)?,
+            result => result?,
+        }
         Ok(())
     }
 
@@ -3540,40 +3559,22 @@ pub async fn rebase_or_reparent_descendants(
 }
 
 pub async fn update_working_copy(
-    ui: &Ui,
     repo: &Arc<ReadonlyRepo>,
     workspace: &mut Workspace,
     old_commit: Option<&Commit>,
     new_commit: &Commit,
-) -> Result<Option<CheckoutStats>, RunnerError> {
+) -> Result<CheckoutStats, RunnerError> {
     let old_tree = old_commit.map(|commit| commit.tree());
-    match workspace
+    // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
+    // warning for most commands (but be an error for the checkout command)
+    let stats = workspace
         .check_out(repo.op_id().clone(), old_tree.as_ref(), new_commit)
         .await
-    {
-        Ok(stats) => Ok(Some(stats)),
-        // TODO: This should probably be an error for the checkout command.
-        Err(CheckoutError::ConcurrentCheckout) => {
-            write_concurrent_checkout_warning(ui).map_err(|err| CliEventSinkError(err.into()))?;
-            Ok(None)
-        }
-        Err(source) => Err(RunnerError::CheckOut {
+        .map_err(|source| RunnerError::CheckOut {
             commit_id: new_commit.id().clone(),
             source,
-        }),
-    }
-}
-
-fn write_concurrent_checkout_warning(ui: &Ui) -> io::Result<()> {
-    writeln!(
-        ui.warning_default(),
-        "The working copy was concurrently modified while this command was running."
-    )?;
-    writeln!(
-        ui.hint_default(),
-        "The operation's result was recorded, but the working copy stayed on the commit left by \
-         the other process. Run `jj log` to see both; they may be divergent."
-    )
+        })?;
+    Ok(stats)
 }
 
 /// Whether or not the `bookmark` has any tracked remotes (i.e. is a tracking
