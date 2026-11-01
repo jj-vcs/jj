@@ -106,10 +106,10 @@ macro_rules! _impl_id_type {
             }
         }
 
-        impl serde::Serialize for $name {
+        impl $crate::serde::Serialize for $name {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
-                S: serde::Serializer,
+                S: $crate::serde::Serializer,
             {
                 if serializer.is_human_readable() {
                     self.$hex_method().serialize(serializer)
