@@ -140,6 +140,7 @@ use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
+use jj_lib::working_copy::SnapshotProgress;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy;
@@ -1359,6 +1360,11 @@ impl RunnerEventHandler for CliRunnerEventHandler<'_> {
         self.print_event(event)
             .map_err(|err| CliEventHandlerError(err).into())
     }
+
+    fn snapshot_progress(&self) -> Option<Box<SnapshotProgress<'_>>> {
+        let progress = crate::progress::snapshot_progress(self.ui)?;
+        Some(Box::new(progress))
+    }
 }
 
 /// [`CommandError`] from the CLI's handling of a [`RunnerEvent`]. It's
@@ -2293,8 +2299,8 @@ to the current parents may contain changes from multiple commits.
             ReadonlyUserRepo::new(repo, self.runner.env.new_id_prefix_context());
         let (new_tree, stats) = {
             let mut options = options;
-            let progress = crate::progress::snapshot_progress(ui);
-            options.progress = progress.as_ref().map(|x| x as _);
+            let progress = event_handler.snapshot_progress();
+            options.progress = progress.as_deref();
             locked_ws.locked_wc().snapshot(&options).await?
         };
         if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
