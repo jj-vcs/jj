@@ -43,9 +43,18 @@ and this project adheres to
 
 ### Deprecations
 
+* The `git.sign-on-push` boolean option is deprecated in favor of the
+  `revsets.git-sign-on-push` revset. The default value is `none()`. If
+  `git.sign-on-push` was previously set to `true`, it will be migrated to
+  `revsets.git-sign-on-push = "~signed() & mine()"`.
+
 ### New features
 
-* `jj git push` with `git.sign-on-push` enabled now signs commits in a
+* New `revsets.git-sign-on-push` config option containing the revset of
+  commits to be signed when `jj git push` is run. It replaces the
+  `git.sign-on-push` boolean option.
+
+* `jj git push` with `revsets.git-sign-on-push` now signs commits in a
   separate transaction before the push, so commits stay signed if the push
   fails and a new push doesn't have to sign them again.
 
