@@ -72,9 +72,9 @@ pub use jj_core::merge;
 pub use jj_core::merged_tree;
 pub use jj_core::merged_tree_builder;
 pub use jj_core::object_id;
-pub use jj_local_util::lock;
-pub mod op_heads_store;
+pub use jj_core::op_heads_store;
 pub use jj_core::op_store;
+pub use jj_local_util::lock;
 pub mod op_walk;
 pub use jj_core::operation;
 #[expect(missing_docs)]
@@ -96,7 +96,7 @@ pub use jj_core::tree_merge;
 // in the lib it should be moved to the examples (e.g
 // "examples/simple-backend/").
 pub mod simple_backend;
-pub mod simple_op_heads_store;
+pub use jj_simple_op_heads_store::simple_op_heads_store;
 pub mod simple_op_store;
 pub mod simple_workspace_store;
 pub mod ssh_signing;
