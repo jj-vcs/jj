@@ -257,6 +257,17 @@
     `jj new @ A`
   Notes:
 
+- Use case: Squash-merge a branch into the current bookmark
+  Git command: >
+    `git merge --squash <branch>`
+  Jujutsu command: >
+    `jj rebase --branch <branch> --onto main`, then
+    `jj squash --from 'main..<branch>-' --into <branch>`
+  Notes: Rebasing replays the branch on top of `main` first, so changes
+    made on `main` in the meantime are kept, then squashing folds the
+    branch into a single commit. Works even if the branch merged `main`
+    back in.
+
 - Use case: Check out a named revision (or branch) to examine source
   Git command: >
     `git checkout v1.0.1`
