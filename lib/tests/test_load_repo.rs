@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_lib::ref_name::WorkspaceName;
+use jj_core::ref_name::WorkspaceName;
 use jj_lib::repo::RepoLoader;
 use pollster::FutureExt as _;
 use testutils::TestRepo;

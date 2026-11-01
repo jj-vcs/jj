@@ -19,12 +19,12 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::Arc;
 
-use jj_lib::backend::TreeValue;
-use jj_lib::commit::Commit;
-use jj_lib::merged_tree::MergedTree;
+use jj_core::backend::TreeValue;
+use jj_core::commit::Commit;
+use jj_core::merged_tree::MergedTree;
+use jj_core::repo_path::RepoPath;
+use jj_core::store::Store;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPath;
-use jj_lib::store::Store;
 use pollster::FutureExt as _;
 use testutils::TestResult;
 use testutils::TestTreeBuilder;

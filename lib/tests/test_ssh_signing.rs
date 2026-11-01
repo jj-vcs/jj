@@ -21,8 +21,8 @@ use std::os::unix::prelude::PermissionsExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 
-use jj_lib::signing::SigStatus;
-use jj_lib::signing::SigningBackend as _;
+use jj_core::signing::SigStatus;
+use jj_core::signing::SigningBackend as _;
 use jj_lib::ssh_signing::SshBackend;
 use testutils::TestResult;
 

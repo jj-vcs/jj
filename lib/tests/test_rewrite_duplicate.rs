@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
+use jj_core::backend::CommitId;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::transaction::Transaction;

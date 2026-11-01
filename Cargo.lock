@@ -4757,6 +4757,7 @@ dependencies = [
  "futures 0.3.34",
  "gix",
  "itertools 0.15.0",
+ "jj-core",
  "jj-lib",
  "pollster",
  "proptest",

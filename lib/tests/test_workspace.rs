@@ -15,9 +15,9 @@
 use std::assert_matches;
 use std::thread;
 
+use jj_core::ref_name::WorkspaceName;
+use jj_core::ref_name::WorkspaceNameBuf;
 use jj_lib::default_backend_factories::default_working_copy_factory;
-use jj_lib::ref_name::WorkspaceName;
-use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;

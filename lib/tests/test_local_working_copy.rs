@@ -31,16 +31,21 @@ use futures::StreamExt as _;
 use gix::odb::pack::FindExt as _;
 use indoc::indoc;
 use itertools::Itertools as _;
-use jj_lib::backend::CopyId;
-use jj_lib::backend::TreeValue;
-use jj_lib::conflict_labels::ConflictLabels;
+use jj_core::backend::CopyId;
+use jj_core::backend::TreeValue;
+use jj_core::conflict_labels::ConflictLabels;
+use jj_core::files::FileMergeHunkLevel;
+use jj_core::files::MergeOptions;
+use jj_core::matchers::FilesMatcher;
+use jj_core::merge::Merge;
+use jj_core::merge::SameChange;
+use jj_core::merged_tree::MergedTree;
+use jj_core::merged_tree_builder::MergedTreeBuilder;
+use jj_core::op_store::OperationId;
+use jj_core::ref_name::WorkspaceName;
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
 use jj_lib::conflicts::ConflictMaterializeOptions;
-use jj_lib::file_util;
-use jj_lib::file_util::check_symlink_support;
-use jj_lib::file_util::symlink_dir;
-use jj_lib::file_util::symlink_file;
-use jj_lib::files::FileMergeHunkLevel;
-use jj_lib::files::MergeOptions;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::git::get_git_backend;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -48,18 +53,9 @@ use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::local_working_copy::LockedLocalWorkingCopy;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateSettings;
-use jj_lib::matchers::FilesMatcher;
-use jj_lib::merge::Merge;
-use jj_lib::merge::SameChange;
-use jj_lib::merged_tree::MergedTree;
-use jj_lib::merged_tree_builder::MergedTreeBuilder;
-use jj_lib::op_store::OperationId;
 use jj_lib::protos::local_working_copy as working_copy_proto;
-use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPath;
-use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::secret_backend::SecretBackend;
 use jj_lib::working_copy::CheckoutError;
@@ -67,6 +63,10 @@ use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy as _;
+use jj_local_util::file_util;
+use jj_local_util::file_util::check_symlink_support;
+use jj_local_util::file_util::symlink_dir;
+use jj_local_util::file_util::symlink_file;
 use pollster::FutureExt as _;
 use prost::Message as _;
 use test_case::test_case;
@@ -188,7 +188,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) -> TestResult {
                 })
             }
             Kind::Executable => {
-                let id: jj_lib::backend::FileId =
+                let id: jj_core::backend::FileId =
                     testutils::write_file(store, path, "executable file contents");
                 Merge::normal(TreeValue::File {
                     id,

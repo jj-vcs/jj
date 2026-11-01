@@ -15,7 +15,7 @@
 use std::assert_matches;
 use std::sync::Arc;
 
-use jj_lib::backend::CommitId;
+use jj_core::backend::CommitId;
 use jj_lib::bisect::BisectionResult;
 use jj_lib::bisect::Bisector;
 use jj_lib::bisect::Evaluation;
