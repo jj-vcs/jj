@@ -164,7 +164,10 @@ pub(crate) async fn cmd_absorb(
         .await?;
 
     let mut tx = workspace_command.start_transaction();
-    let stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits).await?;
+    let mut stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits).await?;
+    // Finish the rewrites from this transaction before tx.finish() evaluates the
+    // immutable expression, whose references could make hidden descendants reachable.
+    stats.num_rebased += tx.repo_mut().rebase_descendants().await?;
 
     if let Some(mut formatter) = ui.status_formatter() {
         if !stats.rewritten_destinations.is_empty() {
