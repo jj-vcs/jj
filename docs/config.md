@@ -618,6 +618,18 @@ To prevent rewriting commits authored by other users:
 Ancestors of the configured set are also immutable. The root commit is always
 immutable even if the set is empty.
 
+!!! warning
+
+    Functions such as `remote_bookmarks()` may include hidden revisions.
+    Mentioning them in `immutable_heads()`, even in a negated expression, can
+    temporarily make those revisions and their ancestors reachable. For example,
+    those hidden revisions may then appear in `mutable()`.
+
+    To exclude bookmarks by name, negate the name pattern:
+    `remote_bookmarks(~'private/*')`. Negating the entire revset instead, as
+    in `~remote_bookmarks('private/*')`, brings revisions pointed to by
+    `private/*` bookmarks into the evaluation.
+
 Immutable commits (other than the root commit) can be rewritten using the
 `--ignore-immutable` CLI flag.
 
