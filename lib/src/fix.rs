@@ -34,15 +34,15 @@ use jj_core::matchers::Matcher;
 use jj_core::merged_tree::TreeDiffEntry;
 use jj_core::merged_tree_builder::MergedTreeBuilder;
 use jj_core::repo_path::RepoPathBuf;
+use jj_core::revset_backend::RevsetEvaluationError;
+use jj_core::revset_backend::RevsetStreamExt as _;
 use jj_core::store::Store;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 
 use crate::repo::MutableRepo;
 use crate::repo::Repo as _;
-use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
-use crate::revset::RevsetStreamExt as _;
 use crate::rewrite::merge_commit_trees;
 
 /// Represents a file whose content may be transformed by a FileFixer.

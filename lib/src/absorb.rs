@@ -38,6 +38,7 @@ use jj_core::merge::Merge;
 use jj_core::merged_tree::MergedTree;
 use jj_core::merged_tree_builder::MergedTreeBuilder;
 use jj_core::repo_path::RepoPathBuf;
+use jj_core::revset_backend::RevsetEvaluationError;
 use thiserror::Error;
 
 use crate::annotate::FileAnnotator;
@@ -47,7 +48,6 @@ use crate::conflicts::materialized_diff_stream;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::revset::ResolvedRevsetExpression;
-use crate::revset::RevsetEvaluationError;
 
 /// The source commit to absorb into its ancestry.
 #[derive(Clone, Debug)]

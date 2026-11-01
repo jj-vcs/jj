@@ -43,6 +43,7 @@ use jj_core::merge::Merge;
 use jj_core::merge::MergeBuilder;
 use jj_core::merge::SameChange;
 use jj_core::merged_tree::MergedTree;
+use jj_core::revset_backend::RevsetEvaluationError;
 use jj_core::store::Store;
 use thiserror::Error;
 
@@ -55,7 +56,6 @@ use crate::repo::MutableRepo;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::revset::ResolvedRevsetExpression;
-use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::rewrite::merge_commit_trees_no_resolve;
 

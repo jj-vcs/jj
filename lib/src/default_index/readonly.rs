@@ -40,6 +40,9 @@ use jj_core::object_id::HexPrefix;
 use jj_core::object_id::ObjectId;
 use jj_core::object_id::PrefixResolution;
 use jj_core::repo_path::RepoPathBuf;
+use jj_core::revset_backend::ResolvedExpression;
+use jj_core::revset_backend::Revset;
+use jj_core::revset_backend::RevsetEvaluationError;
 use jj_core::store::Store;
 use smallvec::smallvec;
 use thiserror::Error;
@@ -58,9 +61,6 @@ use super::entry::SmallLocalCommitPositionsVec;
 use super::mutable::DefaultMutableIndex;
 use super::revset_engine;
 use super::revset_engine::RevsetImpl;
-use crate::revset::ResolvedExpression;
-use crate::revset::Revset;
-use crate::revset::RevsetEvaluationError;
 
 /// Error while loading index segment file.
 #[derive(Debug, Error)]
