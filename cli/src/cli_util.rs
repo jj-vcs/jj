@@ -29,6 +29,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use async_trait::async_trait;
 use bstr::ByteVec as _;
 use clap::ArgMatches;
 use clap::Command;
@@ -1351,8 +1352,9 @@ impl<'a> CliRunnerEventHandler<'a> {
     }
 }
 
+#[async_trait(?Send)]
 impl RunnerEventHandler for CliRunnerEventHandler<'_> {
-    fn event(
+    async fn event(
         &mut self,
         event: RunnerEvent,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -1607,6 +1609,7 @@ impl WorkspaceCommandHelper {
                 .event(RunnerEvent::GitHeadImported {
                     first_import: old_git_head.is_absent(),
                 })
+                .await
                 .map_err(RunnerError::EventHandling)?;
             if !self.runner.options.integrate_operation {
                 event_handler
@@ -1614,6 +1617,7 @@ impl WorkspaceCommandHelper {
                         op_id: self.repo().op_id().clone(),
                         is_snapshot: false,
                     })
+                    .await
                     .map_err(RunnerError::EventHandling)?;
             }
         } else {
@@ -1625,6 +1629,7 @@ impl WorkspaceCommandHelper {
                         num_rebased,
                         reason: RebaseReason::RewrittenCommits,
                     })
+                    .await
                     .map_err(RunnerError::EventHandling)?;
             }
             self.finish_transaction_locked(ui, tx, "import git head", git_import_export_lock)
@@ -1654,6 +1659,7 @@ impl WorkspaceCommandHelper {
         let stats = jj_lib::git::import_refs(tx.repo_mut(), import_options).await?;
         event_handler
             .event(RunnerEvent::GitRefsImported(stats))
+            .await
             .map_err(RunnerError::EventHandling)?;
 
         if !tx.repo().has_changes() {
@@ -1661,6 +1667,7 @@ impl WorkspaceCommandHelper {
                 let stats = jj_lib::git::export_refs(tx.repo_mut())?;
                 event_handler
                     .event(RunnerEvent::GitRefsExported(stats))
+                    .await
                     .map_err(RunnerError::EventHandling)?;
                 if tx.repo().has_changes() {
                     let new_repo = tx.commit("export git refs").await?;
@@ -1679,6 +1686,7 @@ impl WorkspaceCommandHelper {
                     num_rebased,
                     reason: RebaseReason::RewrittenInGit,
                 })
+                .await
                 .map_err(RunnerError::EventHandling)?;
         }
         // This also exports previously modified refs if any.
@@ -1687,6 +1695,7 @@ impl WorkspaceCommandHelper {
         let mut event_handler = CliRunnerEventHandler::new(ui);
         event_handler
             .event(RunnerEvent::GitRefsImportFinished)
+            .await
             .map_err(RunnerError::EventHandling)?;
         Ok(())
     }
@@ -2316,6 +2325,7 @@ to the current parents may contain changes from multiple commits.
                     .event(RunnerEvent::SnapshotOnImmutableWorkingCopy {
                         new_wc_commit: new_wc_commit.clone(),
                     })
+                    .await
                     .map_err(RunnerError::EventHandling)?;
             } else {
                 new_wc_commit = mut_repo
@@ -2334,6 +2344,7 @@ to the current parents may contain changes from multiple commits.
                         num_rebased,
                         reason: RebaseReason::WorkingCopySnapshot,
                     })
+                    .await
                     .map_err(RunnerError::EventHandling)?;
             }
 
@@ -2353,6 +2364,7 @@ to the current parents may contain changes from multiple commits.
                 let stats = jj_lib::git::export_refs(mut_repo)?;
                 event_handler
                     .event(RunnerEvent::GitRefsExported(stats))
+                    .await
                     .map_err(RunnerError::EventHandling)?;
             }
 
@@ -2369,6 +2381,7 @@ to the current parents may contain changes from multiple commits.
                         op_id: self.runner.user_repo.repo().op_id().clone(),
                         is_snapshot: true,
                     })
+                    .await
                     .map_err(RunnerError::EventHandling)?;
             }
         }
@@ -2382,6 +2395,7 @@ to the current parents may contain changes from multiple commits.
         {
             event_handler
                 .event(RunnerEvent::JjConflictFilesInWorkingCopy)
+                .await
                 .map_err(RunnerError::EventHandling)?;
         }
 
@@ -2456,6 +2470,7 @@ to the current parents may contain changes from multiple commits.
         if !tx.repo().has_changes() {
             event_handler
                 .event(RunnerEvent::NothingChanged)
+                .await
                 .map_err(RunnerError::EventHandling)?;
             return Ok(());
         }
@@ -2467,6 +2482,7 @@ to the current parents may contain changes from multiple commits.
                     num_rebased,
                     reason: RebaseReason::RewrittenCommits,
                 })
+                .await
                 .map_err(RunnerError::EventHandling)?;
         }
         // Acquire git import/export lock before finishing the transaction to ensure
@@ -2527,6 +2543,7 @@ to the current parents may contain changes from multiple commits.
                 .event(RunnerEvent::WorkingCopyBecameImmutable {
                     new_wc_commit: new_wc_commit.clone(),
                 })
+                .await
                 .map_err(RunnerError::EventHandling)?;
             Some(new_wc_commit)
         } else {
@@ -2549,6 +2566,7 @@ to the current parents may contain changes from multiple commits.
             let stats = jj_lib::git::export_refs(tx.repo_mut())?;
             event_handler
                 .event(RunnerEvent::GitRefsExported(stats))
+                .await
                 .map_err(RunnerError::EventHandling)?;
         }
 
@@ -2597,6 +2615,7 @@ to the current parents may contain changes from multiple commits.
                     op_id: self.repo().op_id().clone(),
                     is_snapshot: false,
                 })
+                .await
                 .map_err(RunnerError::EventHandling)?;
         }
 
@@ -2609,6 +2628,7 @@ to the current parents may contain changes from multiple commits.
                     missing_name,
                     missing_email,
                 })
+                .await
                 .map_err(RunnerError::EventHandling)?;
         }
         Ok(())
@@ -2699,6 +2719,7 @@ async fn try_reset_git_head(
         Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
             event_handler
                 .event(RunnerEvent::GitHeadResetFailed(err))
+                .await
                 .map_err(RunnerError::EventHandling)?;
             Ok(())
         }
