@@ -76,7 +76,7 @@ fn annotate_within(
         .block_on()
         .unwrap();
     annotator.compute(repo, domain).block_on().unwrap();
-    format_annotation(repo, &annotator.to_annotation())
+    format_annotation(&annotator.to_annotation())
 }
 
 fn annotate_parent_tree(repo: &dyn Repo, commit: &Commit, file_path: &RepoPath) -> String {
@@ -91,21 +91,20 @@ fn annotate_parent_tree(repo: &dyn Repo, commit: &Commit, file_path: &RepoPath) 
         Some(TreeValue::File { id, .. }) => read_file(repo.store(), file_path, &id),
         value => panic!("unexpected path value: {value:?}"),
     };
-    let mut annotator = FileAnnotator::with_file_content(commit.id(), file_path, text);
+    let mut annotator = FileAnnotator::with_file_content(commit, file_path, text);
     annotator
         .compute(repo, &RevsetExpression::all())
         .block_on()
         .unwrap();
-    format_annotation(repo, &annotator.to_annotation())
+    format_annotation(&annotator.to_annotation())
 }
 
-fn format_annotation(repo: &dyn Repo, annotation: &FileAnnotation) -> String {
+fn format_annotation(annotation: &FileAnnotation) -> String {
     let mut output = String::new();
     for (origin, line) in annotation.line_origins() {
         let line_origin = origin.unwrap_or_else(|line_origin| line_origin);
         let line_number = line_origin.line_number + 1;
-        let commit = repo.store().get_commit(&line_origin.commit_id).unwrap();
-        let desc = commit.description().trim_end();
+        let desc = line_origin.commit.description().trim_end();
         let sigil = if origin.is_err() { '*' } else { ' ' };
         write!(output, "{desc}:{line_number}{sigil}: {line}").unwrap();
     }
@@ -226,7 +225,7 @@ fn test_annotate_merge_simple() -> TestResult {
     // Calculate incrementally
     let mut annotator = FileAnnotator::from_commit(&commit4, file_path).block_on()?;
     assert_eq!(annotator.pending_commits().collect_vec(), [commit4.id()]);
-    insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @"
+    insta::assert_snapshot!(format_annotation(&annotator.to_annotation()), @"
     commit4:1*: 2
     commit4:2*: 1
     commit4:3*: 3
@@ -242,7 +241,7 @@ fn test_annotate_merge_simple() -> TestResult {
         )
         .block_on()?;
     assert_eq!(annotator.pending_commits().collect_vec(), [commit1.id()]);
-    insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @"
+    insta::assert_snapshot!(format_annotation(&annotator.to_annotation()), @"
     commit2:1 : 2
     commit1:1*: 1
     commit3:2 : 3
@@ -254,7 +253,7 @@ fn test_annotate_merge_simple() -> TestResult {
         )
         .block_on()?;
     assert!(annotator.pending_commits().next().is_none());
-    insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @"
+    insta::assert_snapshot!(format_annotation(&annotator.to_annotation()), @"
     commit2:1 : 2
     commit1:1 : 1
     commit3:2 : 3
