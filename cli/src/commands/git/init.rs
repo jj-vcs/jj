@@ -256,6 +256,15 @@ async fn do_init(
             maybe_add_gitignore(&workspace_command)?;
         }
         GitInitMode::External(git_repo_path) => {
+            if let Ok(git_repo) = gix::open(git_repo_path) {
+                // `gix::open` ignores `HEAD` decode errors and
+                // `extensions.refStorage` (e.g. `reftable`, whose stub
+                // `.git/HEAD` points to `refs/heads/.invalid`). Validate
+                // `HEAD` before creating `.jj/`.
+                git_repo
+                    .head()
+                    .map_err(|err| user_error_with_message("Failed to open git repository", err))?;
+            }
             let (workspace, repo) = Workspace::init_external_git(
                 &settings,
                 workspace_root,
