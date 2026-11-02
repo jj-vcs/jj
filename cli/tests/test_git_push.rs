@@ -1961,36 +1961,32 @@ fn test_git_push_no_description_in_remote_tag() {
 }
 
 #[test]
-fn test_git_push_no_description_in_immutable() {
+fn test_git_push_no_description_on_remote() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    let origin_dir = test_env.work_dir("origin");
     let work_dir = test_env.work_dir("local");
-    work_dir
-        .run_jj(["bookmark", "create", "-r@", "imm"])
+    origin_dir.run_jj(["new", "root()"]).success();
+    origin_dir
+        .run_jj(["bookmark", "create", "-r@", "pub"])
         .success();
-    work_dir.run_jj(["describe", "-m="]).success();
-    work_dir.run_jj(["new", "-m", "foo"]).success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
+
+    // A commit that is already on a remote is not validated
+    work_dir
+        .run_jj(["new", "pub@origin", "-m", "foo"])
+        .success();
     work_dir.write_file("file", "contents");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
         .success();
-
-    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Error: Won't push commit 8d23abddc924 since it has no description
-    Hint: Rejected commit: yqosqzyt 8d23abdd imm* | (empty) (no description set)
-    [EOF]
-    [exit status: 1]
-    ");
-
-    test_env.add_config(r#"revset-aliases."immutable_heads()" = "imm""#);
     let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: my-bookmark [add to 240e2e89abb2]
+      bookmark: my-bookmark [add to a8e53469d601]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -2030,22 +2026,27 @@ fn test_git_push_missing_author() {
 }
 
 #[test]
-fn test_git_push_missing_author_in_immutable() {
+fn test_git_push_missing_author_on_remote() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    let origin_dir = test_env.work_dir("origin");
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
-        work_dir
+        origin_dir
             .run_jj_with(|cmd| cmd.args(args).env_remove(var))
             .success();
     };
     run_without_var("JJ_USER", &["new", "root()", "-m=no author name"]);
     run_without_var("JJ_EMAIL", &["new", "-m=no author email"]);
-    work_dir
-        .run_jj(["bookmark", "create", "-r@", "imm"])
+    origin_dir
+        .run_jj(["bookmark", "create", "-r@", "pub"])
         .success();
-    work_dir.run_jj(["new", "-m", "foo"]).success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
+    work_dir
+        .run_jj(["new", "pub@origin", "-m", "foo"])
+        .success();
     work_dir.write_file("file", "contents");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
@@ -2054,18 +2055,8 @@ fn test_git_push_missing_author_in_immutable() {
     let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit 5c3cc711907f since it has no author and/or committer set
-    Hint: Rejected commit: yostqsxw 5c3cc711 imm* | (empty) no author email
-    [EOF]
-    [exit status: 1]
-    ");
-
-    test_env.add_config(r#"revset-aliases."immutable_heads()" = "imm""#);
-    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
     Changes to push to origin:
-      bookmark: my-bookmark [add to 96080b93b4ce]
+      bookmark: my-bookmark [add to 2105e395b822]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -2122,23 +2113,28 @@ fn test_git_push_missing_committer() {
 }
 
 #[test]
-fn test_git_push_missing_committer_in_immutable() {
+fn test_git_push_missing_committer_on_remote() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    let origin_dir = test_env.work_dir("origin");
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
-        work_dir
+        origin_dir
             .run_jj_with(|cmd| cmd.args(args).env_remove(var))
             .success();
     };
-    run_without_var("JJ_USER", &["describe", "-m=no committer name"]);
-    work_dir.run_jj(["new"]).success();
+    run_without_var("JJ_USER", &["new", "root()", "-m=no committer name"]);
+    origin_dir.run_jj(["new"]).success();
     run_without_var("JJ_EMAIL", &["describe", "-m=no committer email"]);
-    work_dir
-        .run_jj(["bookmark", "create", "-r@", "imm"])
+    origin_dir
+        .run_jj(["bookmark", "create", "-r@", "pub"])
         .success();
-    work_dir.run_jj(["new", "-m", "foo"]).success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
+    work_dir
+        .run_jj(["new", "pub@origin", "-m", "foo"])
+        .success();
     work_dir.write_file("file", "contents");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
@@ -2147,18 +2143,8 @@ fn test_git_push_missing_committer_in_immutable() {
     let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit ab230f98c812 since it has no author and/or committer set
-    Hint: Rejected commit: yostqsxw ab230f98 imm* | (empty) no committer email
-    [EOF]
-    [exit status: 1]
-    ");
-
-    test_env.add_config(r#"revset-aliases."immutable_heads()" = "imm""#);
-    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
     Changes to push to origin:
-      bookmark: my-bookmark [add to e0dff9c29479]
+      bookmark: my-bookmark [add to ab32d51d3f22]
     Dry-run requested, not pushing.
     [EOF]
     ");
