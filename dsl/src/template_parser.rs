@@ -460,10 +460,11 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
                 Ok(Self::MethodCall(method))
             }
             Self::Lambda(lambda) => {
+                let body = folder.fold_scoped_expression(lambda.body, &lambda.params)?;
                 let lambda = Box::new(LambdaNode {
                     params: lambda.params,
                     params_span: lambda.params_span,
-                    body: folder.fold_expression(lambda.body)?,
+                    body,
                 });
                 Ok(Self::Lambda(lambda))
             }
@@ -1808,12 +1809,20 @@ mod tests {
             with_aliases([("A", "a")]).parse_normalized("|| A"),
             parse_normalized("|| a"),
         );
-        // No matter if 'A' is a formal parameter. Alias substitution isn't scoped.
-        // If we don't like this behavior, maybe we can turn off alias substitution
-        // for lambda parameters.
+        // Formal parameter should precede the symbol alias.
         assert_eq!(
             with_aliases([("A", "a ++ b")]).parse_normalized("|A| A"),
-            parse_normalized("|A| (a ++ b)"),
+            parse_normalized("|A| A"),
+        );
+        // Formal parameter shouldn't be expanded in symbol alias.
+        assert_eq!(
+            with_aliases([("A", "x ++ a")]).parse_normalized("|x| x ++ A"),
+            parse_normalized("|x| x ++ (x ++ a)"),
+        );
+        // Outer formal parameter shouldn't be shadowed outside inner lambda.
+        assert_eq!(
+            with_aliases([("A", "a"), ("B", "b")]).parse_normalized("|A| A ++ (|B| A ++ B) ++ B"),
+            parse_normalized("|A| A ++ (|B| A ++ B) ++ b"),
         );
 
         // Map entries should be expanded.
@@ -1878,11 +1887,22 @@ mod tests {
             parse_normalized("a")
         );
 
-        // Formal parameter shouldn't be substituted by alias parameter, but
-        // the expression should be substituted.
+        // Formal parameter shouldn't be substituted by alias parameter.
         assert_eq!(
             with_aliases([("P:x", "|x| x")]).parse_normalized("P:a"),
-            parse_normalized("|x| a"),
+            parse_normalized("|x| x"),
+        );
+        assert_eq!(
+            with_aliases([("P:x", "|x, y| x ++ y")]).parse_normalized("P:a"),
+            parse_normalized("|x, y| x ++ y"),
+        );
+        assert_eq!(
+            with_aliases([("P:x", "|y| x ++ y")]).parse_normalized("P:a"),
+            parse_normalized("|y| a ++ y"),
+        );
+        assert_eq!(
+            with_aliases([("P:x", "(|x| x) ++ x")]).parse_normalized("P:a"),
+            parse_normalized("(|x| x) ++ a"),
         );
 
         // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
@@ -1956,11 +1976,14 @@ mod tests {
             parse_normalized("x.F()"),
         );
 
-        // Formal parameter shouldn't be substituted by alias parameter, but
-        // the expression should be substituted.
+        // Formal parameter shouldn't be substituted by alias parameter.
         assert_eq!(
-            with_aliases([("F(x)", "|x| x")]).parse_normalized("F(a ++ b)"),
-            parse_normalized("|x| (a ++ b)"),
+            with_aliases([("F(x, y)", "|x| x ++ y")]).parse_normalized("F(a ++ b, c)"),
+            parse_normalized("|x| x ++ c"),
+        );
+        assert_eq!(
+            with_aliases([("F(x)", "(|x| x) ++ x")]).parse_normalized("F(a ++ b)"),
+            parse_normalized("(|x| x) ++ (a ++ b)"),
         );
 
         // Invalid number of arguments.

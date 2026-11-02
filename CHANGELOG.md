@@ -147,6 +147,17 @@ and this project adheres to
   same commit when there's a merge between them whose parents both lead to
   that commit.
 
+* Lambda parameters in the templating language now shadow template aliases.
+  Previously, if you had `template-aliases.x = 'abc'`, then `|x| x` would have
+  silently expanded to `|x| abc`, which would then fail with a "keyword doesn't
+  exist" error.
+
+* Lambda parameters in the templating language no longer bleed into expanded
+  aliases. For example, previously, `|x| my_func()` would have worked with
+  `template-aliases.'my_func()' = 'x ++ "!"'`, since the `x` variable from the
+  lambda scope bled into the function call context. Now, this results in an
+  error during the alias' resolution that the keyword `x` doesn't exist.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
