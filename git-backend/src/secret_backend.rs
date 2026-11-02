@@ -44,9 +44,13 @@ use jj_core::repo_path::RepoPathBuf;
 use crate::git_backend::GitBackend;
 use crate::git_backend::GitBackendSettings;
 
-const SECRET_CONTENTS_HEX: [&str; 2] = [
+const SECRET_CONTENTS_HEX: [&str; 4] = [
+    // SHA-1
     "d97c5eada5d8c52079031eef0107a4430a9617c5", // "secret\n"
     "536aca34dbae6b2b8af26bebdcba83543c9546f0", // "secret"
+    // SHA-256
+    "6ecf416550a9e53369aebefa2071a4de6e03ed9a10136e60c3fcbd3bd05897fc", // "secret\n"
+    "ed23037c9393c06980d673c327ad1b6719aec4ba614e1a34544d0cabe35f8be8", // "secret"
 ];
 
 /// A commit backend that's completely compatible with the Git backend, except
