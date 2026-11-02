@@ -824,12 +824,13 @@ impl<'repo> CommitsValidator<'repo> {
         args: &GitPushArgs,
     ) -> Result<Self, CommandError> {
         let repo = workspace_helper.repo().as_ref();
-        let known_heads = repo
-            .view()
-            .remote_bookmarks(remote)
-            .flat_map(|(_, old_head)| old_head.target.present_adds())
-            .cloned()
-            .collect();
+        let known_heads = itertools::chain(
+            repo.view().remote_bookmarks(remote),
+            repo.view().remote_tags(remote),
+        )
+        .flat_map(|(_, old_head)| old_head.target.present_adds())
+        .cloned()
+        .collect();
         let immutable_heads = workspace_helper
             .attach_revset_evaluator(workspace_helper.env().immutable_heads_expression().clone())
             .resolve()?;

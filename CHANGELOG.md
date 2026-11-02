@@ -84,6 +84,9 @@ and this project adheres to
 
 ### Fixed bugs
 
+* `jj git push` no longer validates (e.g. for empty descriptions) commits that
+  are already on the remote as a tag.
+
 * In graph output, an elided edge that passes through a merge or fork line is
   now drawn as elided (`╷`) before reaching the node, instead of looking like a
   direct edge. Consecutive unconnected nodes, such as in the `jj op show`
