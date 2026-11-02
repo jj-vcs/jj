@@ -71,7 +71,7 @@ use jj_lib::workspace::WorkspaceInitError;
 use jj_lib::workspace_store::WorkspaceStoreError;
 use thiserror::Error;
 
-use crate::cli_util::CliEventSinkError;
+use crate::cli_util::CliEventHandlerError;
 use crate::cli_util::short_operation_hash;
 use crate::description_util::ParseBulkEditMessageError;
 use crate::description_util::TempTextEditError;
@@ -321,12 +321,9 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
             RunnerError::GitExport(err) => err.into(),
             #[cfg(feature = "git")]
             RunnerError::GitResetHead(err) => err.into(),
-            RunnerError::EventSink(err) => match err.downcast::<CliEventSinkError>() {
+            RunnerError::EventHandler(err) => match err.downcast::<CliEventHandlerError>() {
                 Ok(err) => err.0,
-                Err(err) => match err.downcast::<io::Error>() {
-                    Ok(err) => (*err).into(),
-                    Err(err) => internal_error(err),
-                },
+                Err(err) => internal_error(err),
             },
         }
     }

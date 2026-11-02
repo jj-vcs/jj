@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::borrow::Cow;
-use std::cell::OnceCell;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::env;
@@ -30,6 +29,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use async_trait::async_trait;
 use bstr::ByteVec as _;
 use clap::ArgMatches;
 use clap::Command;
@@ -50,9 +50,11 @@ use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_frontend::revset_util::default_ignored_remote_name;
 use jj_frontend::runner::GitImportExportLock;
+use jj_frontend::runner::ReadonlyUserRepo;
 use jj_frontend::runner::RebaseReason;
 use jj_frontend::runner::RunnerError;
 use jj_frontend::runner::RunnerEvent;
+use jj_frontend::runner::RunnerEventHandler;
 use jj_frontend::runner::RunnerOptions;
 use jj_frontend::runner::SnapshotConfig;
 use jj_frontend::runner::StaleWorkingCopyError;
@@ -138,6 +140,7 @@ use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
+use jj_lib::working_copy::SnapshotProgress;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy;
@@ -506,7 +509,11 @@ impl CommandHelper {
                 // auto-update-stale, so let's do that now. We need to do it up here, not at a
                 // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
                 // of the working copy.
-                let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
+                let WorkspaceCommandHelper {
+                    runner: WorkspaceOperationRunner { workspace, .. },
+                    env,
+                    ..
+                } = workspace_command;
                 self.recover_stale_working_copy_impl(ui, workspace, env, &git_import_export_lock)
                     .await?
             }
@@ -671,11 +678,19 @@ impl CommandHelper {
 
                 let stale_wc_commit = workspace_command.get_wc_commit().await?.unwrap();
 
-                let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
+                let WorkspaceCommandHelper {
+                    runner: WorkspaceOperationRunner { workspace, .. },
+                    env,
+                    ..
+                } = workspace_command;
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
-                let repo = &workspace_command.user_repo.repo;
-                let desired_wc_commit = workspace_command.prepare_working_copy_mutation().await?;
+                let repo = workspace_command.runner.user_repo.repo();
+                let desired_wc_commit = workspace_command
+                    .runner
+                    .prepare_working_copy_mutation()
+                    .await?;
                 let mut locked_ws = workspace_command
+                    .runner
                     .workspace
                     .start_working_copy_mutation()
                     .await?;
@@ -698,15 +713,21 @@ impl CommandHelper {
                         // Reset Git HEAD first if the repo is colocated
                         #[cfg(feature = "git")]
                         if workspace_command.env.base.working_copy_shared_with_git()
-                            && workspace_command.options.integrate_operation
+                            && workspace_command.runner.options.integrate_operation
                         {
                             let workspace_name = workspace_command.env.workspace_name();
                             let workspace_root = workspace_command.env.workspace_root();
                             let mut tx = workspace_command
+                                .runner
                                 .options
                                 .start_transaction(repo, workspace_name);
-                            try_reset_git_head(
+                            let event_handler = CliRunnerEventHandler::new(
                                 ui,
+                                &workspace_command.env,
+                                &workspace_command.commit_summary_template_text,
+                            );
+                            try_reset_git_head(
+                                &event_handler,
                                 tx.repo_mut(),
                                 workspace_name,
                                 workspace_root,
@@ -716,16 +737,20 @@ impl CommandHelper {
                             .await?;
                             if tx.repo().has_changes() {
                                 let repo = workspace_command
+                                    .runner
                                     .options
                                     .maybe_commit_transaction(tx, "reset git head")
                                     .await?;
-                                workspace_command.user_repo = ReadonlyUserRepo::new(repo);
+                                workspace_command.runner.user_repo = ReadonlyUserRepo::new(
+                                    repo,
+                                    workspace_command.runner.env.new_id_prefix_context(),
+                                );
                             }
                         }
 
                         let stats = update_stale_working_copy(
                             locked_ws,
-                            workspace_command.user_repo.repo.op_id().clone(),
+                            workspace_command.runner.user_repo.repo().op_id().clone(),
                             &stale_wc_commit,
                             &desired_wc_commit,
                         )
@@ -901,22 +926,6 @@ pub async fn merge_operations(
         )?;
     }
     Ok(merged_repo.operation().clone())
-}
-
-/// A ReadonlyRepo along with user-config-dependent derived data. The derived
-/// data is lazily loaded.
-struct ReadonlyUserRepo {
-    repo: Arc<ReadonlyRepo>,
-    id_prefix_context: OnceCell<IdPrefixContext>,
-}
-
-impl ReadonlyUserRepo {
-    fn new(repo: Arc<ReadonlyRepo>) -> Self {
-        Self {
-            repo,
-            id_prefix_context: OnceCell::new(),
-        }
-    }
 }
 
 /// A advanceable bookmark to satisfy the "advance-bookmarks" feature.
@@ -1220,119 +1229,188 @@ impl WorkspaceCommandEnvironment {
     }
 }
 
-fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
-    match event {
-        RunnerEvent::DescendantsRebased {
-            num_rebased,
-            reason,
-        } => match reason {
-            RebaseReason::RewrittenCommits => {
-                writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")
-            }
-            RebaseReason::RewrittenInGit => writeln!(
-                ui.status(),
-                "Rebased {num_rebased} descendant commits off of commits rewritten from Git."
-            ),
-            RebaseReason::WorkingCopySnapshot => writeln!(
-                ui.status(),
-                "Rebased {num_rebased} descendant commits onto updated working copy."
-            ),
-        },
-        RunnerEvent::OperationLeftUnpublished { op_id, is_snapshot } => {
-            let kind = if *is_snapshot {
-                "Snapshot operation"
-            } else {
-                "Operation"
-            };
-            writeln!(
-                ui.status(),
-                "{kind} left uncommitted because --no-integrate-operation was requested: {}",
-                short_operation_hash(op_id)
-            )
+/// Prints [`RunnerEvent`]s for the CLI.
+struct CliRunnerEventHandler<'a> {
+    ui: &'a Ui,
+    reporter: WorkspaceReporter<'a>,
+}
+
+impl<'a> CliRunnerEventHandler<'a> {
+    fn new(
+        ui: &'a Ui,
+        env: &'a WorkspaceCommandEnvironment,
+        commit_summary_template_text: &'a str,
+    ) -> Self {
+        Self {
+            ui,
+            reporter: WorkspaceReporter {
+                env,
+                commit_summary_template_text,
+            },
         }
-        RunnerEvent::SnapshotOnImmutableWorkingCopy { new_wc_commit: _ } => writeln!(
-            ui.warning_default(),
-            "The working-copy commit is immutable; a new commit has been created on top of it.",
-        ),
-        RunnerEvent::WorkingCopyBecameImmutable { new_wc_commit: _ } => writeln!(
-            ui.warning_default(),
-            "The working-copy commit became immutable; a new commit has been created on top of it.",
-        ),
-        RunnerEvent::UserIdentityNotConfigured {
-            missing_name,
-            missing_email,
-        } => {
-            let not_configured_msg = match (missing_name, missing_email) {
-                (true, true) => "Name and email not configured.",
-                (true, false) => "Name not configured.",
-                (false, true) => "Email not configured.",
-                (false, false) => return Ok(()),
-            };
-            writeln!(
-                ui.warning_default(),
-                "{not_configured_msg} Until configured, your commits will be created with the \
-                 empty identity, and can't be pushed to remotes."
-            )?;
-            writeln!(ui.hint_default(), "To configure, run:")?;
-            if *missing_name {
-                writeln!(
-                    ui.hint_no_heading(),
-                    r#"  jj config set --user user.name "Some One""#
-                )?;
-            }
-            if *missing_email {
-                writeln!(
-                    ui.hint_no_heading(),
-                    r#"  jj config set --user user.email "someone@example.com""#
-                )?;
-            }
-            Ok(())
-        }
-        #[cfg(feature = "git")]
-        RunnerEvent::JjConflictFilesInWorkingCopy => {
-            writeln!(
-                ui.warning_default(),
-                "The working copy contains '.jjconflict' files. These files are used by `jj` \
-                 internally and should not be present in the working copy."
-            )?;
-            writeln!(
-                ui.hint_default(),
-                "You may have used a regular `git` command to check out a conflicted commit."
-            )?;
-            writeln!(
-                ui.hint_default(),
-                "You can use `jj abandon` to discard the working copy changes."
-            )
-        }
-        #[cfg(feature = "git")]
-        RunnerEvent::GitHeadImported { first_import } => {
-            if *first_import {
-                // Don't print verbose message on initial checkout.
-                Ok(())
-            } else {
+    }
+
+    async fn print_event(&self, event: RunnerEvent) -> Result<(), CommandError> {
+        let ui = self.ui;
+        match event {
+            RunnerEvent::DescendantsRebased {
+                num_rebased,
+                reason,
+            } => match reason {
+                RebaseReason::RewrittenCommits => {
+                    writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
+                }
+                RebaseReason::RewrittenInGit => writeln!(
+                    ui.status(),
+                    "Rebased {num_rebased} descendant commits off of commits rewritten from Git."
+                )?,
+                RebaseReason::WorkingCopySnapshot => writeln!(
+                    ui.status(),
+                    "Rebased {num_rebased} descendant commits onto updated working copy."
+                )?,
+            },
+            RunnerEvent::OperationLeftUnpublished { op_id, is_snapshot } => {
+                let kind = if is_snapshot {
+                    "Snapshot operation"
+                } else {
+                    "Operation"
+                };
                 writeln!(
                     ui.status(),
-                    "Reset the working copy parent to the new Git HEAD."
-                )
+                    "{kind} left uncommitted because --no-integrate-operation was requested: {}",
+                    short_operation_hash(&op_id)
+                )?;
+            }
+            RunnerEvent::SnapshotOnImmutableWorkingCopy { new_wc_commit: _ } => writeln!(
+                ui.warning_default(),
+                "The working-copy commit is immutable; a new commit has been created on top of it.",
+            )?,
+            RunnerEvent::WorkingCopyBecameImmutable { new_wc_commit: _ } => writeln!(
+                ui.warning_default(),
+                "The working-copy commit became immutable; a new commit has been created on top \
+                 of it.",
+            )?,
+            RunnerEvent::WorkingCopyUpdated {
+                repo,
+                old_commit,
+                new_commit,
+                stats,
+            } => {
+                self.reporter
+                    .print_updated_working_copy_stats(
+                        ui,
+                        repo.repo().as_ref(),
+                        repo.id_prefix_context(),
+                        old_commit.as_ref(),
+                        &new_commit,
+                        &stats,
+                    )
+                    .await?;
+            }
+            RunnerEvent::TransactionFinished { old_repo, new_repo } => {
+                self.reporter
+                    .report_repo_changes(
+                        ui,
+                        &old_repo,
+                        new_repo.repo(),
+                        new_repo.id_prefix_context(),
+                    )
+                    .await?;
+            }
+            RunnerEvent::UserIdentityNotConfigured {
+                missing_name,
+                missing_email,
+            } => {
+                let not_configured_msg = match (missing_name, missing_email) {
+                    (true, true) => "Name and email not configured.",
+                    (true, false) => "Name not configured.",
+                    (false, true) => "Email not configured.",
+                    (false, false) => return Ok(()),
+                };
+                writeln!(
+                    ui.warning_default(),
+                    "{not_configured_msg} Until configured, your commits will be created with the \
+                     empty identity, and can't be pushed to remotes."
+                )?;
+                writeln!(ui.hint_default(), "To configure, run:")?;
+                if missing_name {
+                    writeln!(
+                        ui.hint_no_heading(),
+                        r#"  jj config set --user user.name "Some One""#
+                    )?;
+                }
+                if missing_email {
+                    writeln!(
+                        ui.hint_no_heading(),
+                        r#"  jj config set --user user.email "someone@example.com""#
+                    )?;
+                }
+            }
+            #[cfg(feature = "git")]
+            RunnerEvent::JjConflictFilesInWorkingCopy => {
+                writeln!(
+                    ui.warning_default(),
+                    "The working copy contains '.jjconflict' files. These files are used by `jj` \
+                     internally and should not be present in the working copy."
+                )?;
+                writeln!(
+                    ui.hint_default(),
+                    "You may have used a regular `git` command to check out a conflicted commit."
+                )?;
+                writeln!(
+                    ui.hint_default(),
+                    "You can use `jj abandon` to discard the working copy changes."
+                )?;
+            }
+            #[cfg(feature = "git")]
+            RunnerEvent::GitHeadImported { first_import } => {
+                if first_import {
+                    // Don't print verbose message on initial checkout.
+                } else {
+                    writeln!(
+                        ui.status(),
+                        "Reset the working copy parent to the new Git HEAD."
+                    )?;
+                }
+            }
+            #[cfg(feature = "git")]
+            RunnerEvent::GitRefsImported(stats) => {
+                crate::git_util::print_git_import_stats_summary(ui, &stats)?;
+            }
+            #[cfg(feature = "git")]
+            RunnerEvent::GitRefsImportFinished => writeln!(
+                ui.status(),
+                "Done importing changes from the underlying Git repo."
+            )?,
+            #[cfg(feature = "git")]
+            RunnerEvent::GitRefsExported(stats) => {
+                crate::git_util::print_git_export_stats(ui, &stats)?;
+            }
+            #[cfg(feature = "git")]
+            RunnerEvent::GitHeadResetFailed(err) => {
+                use std::error::Error as _;
+                writeln!(ui.warning_default(), "{err}")?;
+                print_error_sources(ui, err.source())?;
             }
         }
-        #[cfg(feature = "git")]
-        RunnerEvent::GitRefsImported(stats) => {
-            crate::git_util::print_git_import_stats_summary(ui, stats)
-        }
-        #[cfg(feature = "git")]
-        RunnerEvent::GitRefsImportFinished => writeln!(
-            ui.status(),
-            "Done importing changes from the underlying Git repo."
-        ),
-        #[cfg(feature = "git")]
-        RunnerEvent::GitRefsExported(stats) => crate::git_util::print_git_export_stats(ui, stats),
-        #[cfg(feature = "git")]
-        RunnerEvent::GitHeadResetFailed(err) => {
-            use std::error::Error as _;
-            writeln!(ui.warning_default(), "{err}")?;
-            print_error_sources(ui, err.source())
-        }
+        Ok(())
+    }
+}
+
+#[async_trait(?Send)]
+impl RunnerEventHandler for CliRunnerEventHandler<'_> {
+    async fn event(
+        &self,
+        event: RunnerEvent,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.print_event(event)
+            .await
+            .map_err(|err| CliEventHandlerError(err).into())
+    }
+
+    fn snapshot_progress(&self) -> Option<Box<SnapshotProgress<'_>>> {
+        let progress = crate::progress::snapshot_progress(self.ui)?;
+        Some(Box::new(progress))
     }
 }
 
@@ -1340,72 +1418,120 @@ fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
 /// converted back to the original error when the [`RunnerError`] is converted
 /// to a [`CommandError`].
 #[derive(Debug)]
-pub(crate) struct CliEventSinkError(pub(crate) CommandError);
+pub(crate) struct CliEventHandlerError(pub(crate) CommandError);
 
-impl fmt::Display for CliEventSinkError {
+impl fmt::Display for CliEventHandlerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0.error, f)
     }
 }
 
-impl std::error::Error for CliEventSinkError {}
+impl std::error::Error for CliEventHandlerError {}
 
-impl From<CliEventSinkError> for RunnerError {
-    fn from(err: CliEventSinkError) -> Self {
-        Self::event_sink(err)
-    }
-}
-
-/// Provides utilities for writing a command that works on a [`Workspace`]
-/// (which most commands do).
-pub struct WorkspaceCommandHelper {
+/// Runs the operations that commands (or other user interfaces) perform on a
+/// workspace before and after modifying the repo: snapshotting the working
+/// copy, importing from and exporting to Git, finishing transactions, and
+/// updating the working copy.
+pub struct WorkspaceOperationRunner {
     workspace: Workspace,
     user_repo: ReadonlyUserRepo,
-    env: WorkspaceCommandEnvironment,
+    env: Arc<WorkspaceEnvironment>,
     options: RunnerOptions,
-    // TODO: Parsed template can be cached if it doesn't capture 'repo lifetime
-    commit_summary_template_text: String,
-    op_summary_template_text: String,
     may_snapshot_working_copy: bool,
     may_update_working_copy: bool,
 }
 
-impl WorkspaceCommandHelper {
-    #[instrument(skip_all)]
-    fn new(
-        ui: &Ui,
+impl WorkspaceOperationRunner {
+    /// Creates a runner for `workspace` with `repo` loaded. If
+    /// `may_snapshot_working_copy` is false, the working copy will be neither
+    /// snapshotted nor updated.
+    pub fn new(
         workspace: Workspace,
         repo: Arc<ReadonlyRepo>,
-        env: WorkspaceCommandEnvironment,
+        env: Arc<WorkspaceEnvironment>,
         options: RunnerOptions,
         may_snapshot_working_copy: bool,
-    ) -> Result<Self, CommandError> {
-        let settings = workspace.settings();
-        let commit_summary_template_text = settings.get_string("templates.commit_summary")?;
-        let op_summary_template_text = settings.get_string("templates.op_summary")?;
+    ) -> Self {
         let may_update_working_copy = may_snapshot_working_copy && options.integrate_operation;
-
-        let helper = Self {
+        Self {
             workspace,
-            user_repo: ReadonlyUserRepo::new(repo),
+            user_repo: ReadonlyUserRepo::new(repo, env.new_id_prefix_context()),
             env,
             options,
-            commit_summary_template_text,
-            op_summary_template_text,
             may_snapshot_working_copy,
             may_update_working_copy,
-        };
-        // Parse commit_summary template early to report error before starting
-        // mutable operation.
-        helper.parse_operation_template(ui, &helper.op_summary_template_text)?;
-        helper.parse_commit_template(ui, &helper.commit_summary_template_text)?;
-        helper.parse_commit_template(ui, SHORT_CHANGE_ID_TEMPLATE_TEXT)?;
-        Ok(helper)
+        }
+    }
+
+    pub fn workspace(&self) -> &Workspace {
+        &self.workspace
+    }
+
+    pub fn repo(&self) -> &Arc<ReadonlyRepo> {
+        self.user_repo.repo()
+    }
+
+    pub fn env(&self) -> &Arc<WorkspaceEnvironment> {
+        &self.env
+    }
+
+    pub fn options(&self) -> &RunnerOptions {
+        &self.options
+    }
+
+    pub fn workspace_name(&self) -> &WorkspaceName {
+        self.workspace.workspace_name()
+    }
+
+    pub fn workspace_root(&self) -> &Path {
+        self.workspace.workspace_root()
     }
 
     /// Settings for this workspace.
     pub fn settings(&self) -> &UserSettings {
         self.workspace.settings()
+    }
+
+    /// Starts a transaction on the current repo, with this workspace's name
+    /// and the operation attributes from [`RunnerOptions`].
+    pub fn start_transaction(&self) -> Transaction {
+        self.options
+            .start_transaction(self.user_repo.repo(), self.workspace.workspace_name())
+    }
+
+    /// Finishes a transaction started by [`Self::start_transaction()`]:
+    /// rebases descendants of rewritten commits, exports to Git, commits the
+    /// operation, and updates the working copy.
+    pub async fn finish_transaction(
+        &mut self,
+        event_handler: &dyn RunnerEventHandler,
+        mut tx: Transaction,
+        description: impl Into<String>,
+    ) -> Result<(), RunnerError> {
+        let num_rebased = self.rebase_mutable_descendants(&mut tx).await?;
+        if num_rebased > 0 {
+            event_handler
+                .event(RunnerEvent::DescendantsRebased {
+                    num_rebased,
+                    reason: RebaseReason::RewrittenCommits,
+                })
+                .await
+                .map_err(RunnerError::EventHandler)?;
+        }
+        // Acquire git import/export lock before finishing the transaction to ensure
+        // Git HEAD export happens atomically with the transaction commit.
+        let git_import_export_lock = self.lock_git_import_export()?;
+        self.finish_transaction_locked(event_handler, tx, description, &git_import_export_lock)
+            .await
+    }
+
+    /// Rebases descendants of rewritten commits, except those that are
+    /// immutable.
+    pub async fn rebase_mutable_descendants(
+        &self,
+        tx: &mut Transaction,
+    ) -> Result<usize, RunnerError> {
+        rebase_mutable_descendants(&self.env, &self.options, tx).await
     }
 
     pub fn check_working_copy_writable(&self) -> Result<(), RunnerError> {
@@ -1427,56 +1553,41 @@ impl WorkspaceCommandHelper {
     /// colocated with Git. Returns a token that can be passed to functions
     /// that need to import from or export to Git. For non-colocated repos,
     /// returns a token with no lock inside.
-    fn lock_git_import_export(&self) -> Result<GitImportExportLock, RunnerError> {
-        self.env.base.lock_git_import_export(&self.workspace)
+    pub fn lock_git_import_export(&self) -> Result<GitImportExportLock, RunnerError> {
+        self.env.lock_git_import_export(&self.workspace)
     }
 
     /// Note that unless you have a good reason not to do so, you should always
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
     #[instrument(skip_all)]
-    async fn snapshot_impl(
+    pub async fn snapshot(
         &mut self,
-        ui: &Ui,
+        event_handler: &dyn RunnerEventHandler,
         config: &SnapshotConfig,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, RunnerError> {
         assert!(self.may_snapshot_working_copy);
         #[cfg(feature = "git")]
-        if self.env.base.working_copy_shared_with_git() {
-            self.import_git_head(ui, git_import_export_lock).await?;
+        if self.env.working_copy_shared_with_git() {
+            self.import_git_head(event_handler, git_import_export_lock)
+                .await?;
         }
         // Because the Git refs (except HEAD) aren't imported yet, the ref
         // pointing to the new working-copy commit might not be exported.
         // In that situation, the ref would be conflicted anyway, so export
         // failure is okay.
         let stats = self
-            .snapshot_working_copy(ui, config, git_import_export_lock)
+            .snapshot_working_copy(event_handler, config, git_import_export_lock)
             .await?;
 
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
         if let Some(import_options) = &config.git_import_options {
-            self.import_export_git_refs(ui, import_options, git_import_export_lock)
+            self.import_export_git_refs(event_handler, import_options, git_import_export_lock)
                 .await?;
         }
         Ok(stats)
-    }
-
-    /// Snapshots the working copy if allowed, and synchronizes Git refs if the
-    /// working copy is colocated with Git.
-    #[instrument(skip_all)]
-    pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<(), CommandError> {
-        if !self.may_snapshot_working_copy {
-            return Ok(());
-        }
-        let config = self.load_snapshot_config(ui)?;
-        let git_import_export_lock = self.lock_git_import_export()?;
-        let stats = self
-            .snapshot_impl(ui, &config, &git_import_export_lock)
-            .await?;
-        print_snapshot_stats(ui, &stats, self.env().path_converter())?;
-        Ok(())
     }
 
     /// Imports new HEAD from the colocated Git repo.
@@ -1489,7 +1600,7 @@ impl WorkspaceCommandHelper {
     #[instrument(skip_all)]
     async fn import_git_head(
         &mut self,
-        ui: &Ui,
+        event_handler: &dyn RunnerEventHandler,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), RunnerError> {
         assert!(self.may_snapshot_working_copy);
@@ -1501,7 +1612,6 @@ impl WorkspaceCommandHelper {
             return Ok(());
         }
 
-        let mut tx = tx.into_inner();
         let old_git_head = self.repo().view().git_head(&workspace_name).clone();
         let new_git_head = tx.repo().view().git_head(&workspace_name);
         if let Some(new_git_head_id) = new_git_head.as_normal() {
@@ -1516,48 +1626,50 @@ impl WorkspaceCommandHelper {
             // state to it without updating working copy files.
             locked_ws.locked_wc().reset(&wc_commit).await?;
             tx.repo_mut().rebase_descendants().await?;
-            self.user_repo = ReadonlyUserRepo::new(
-                self.options
-                    .maybe_commit_transaction(tx, "import git head")
-                    .await?,
-            );
+            let repo = self
+                .options
+                .maybe_commit_transaction(tx, "import git head")
+                .await?;
+            self.user_repo = ReadonlyUserRepo::new(repo, self.env.new_id_prefix_context());
             if self.options.integrate_operation {
                 locked_ws
-                    .finish(self.user_repo.repo.op_id().clone())
+                    .finish(self.user_repo.repo().op_id().clone())
                     .await?;
             }
-            print_runner_event(
-                ui,
-                &RunnerEvent::GitHeadImported {
+            event_handler
+                .event(RunnerEvent::GitHeadImported {
                     first_import: old_git_head.is_absent(),
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
+                })
+                .await
+                .map_err(RunnerError::EventHandler)?;
             if !self.options.integrate_operation {
-                print_runner_event(
-                    ui,
-                    &RunnerEvent::OperationLeftUnpublished {
+                event_handler
+                    .event(RunnerEvent::OperationLeftUnpublished {
                         op_id: self.repo().op_id().clone(),
                         is_snapshot: false,
-                    },
-                )
-                .map_err(RunnerError::event_sink)?;
+                    })
+                    .await
+                    .map_err(RunnerError::EventHandler)?;
             }
         } else {
             // Unlikely, but the HEAD ref got deleted by git?
             let num_rebased = tx.repo_mut().rebase_descendants().await?;
             if num_rebased > 0 {
-                print_runner_event(
-                    ui,
-                    &RunnerEvent::DescendantsRebased {
+                event_handler
+                    .event(RunnerEvent::DescendantsRebased {
                         num_rebased,
                         reason: RebaseReason::RewrittenCommits,
-                    },
-                )
-                .map_err(RunnerError::event_sink)?;
+                    })
+                    .await
+                    .map_err(RunnerError::EventHandler)?;
             }
-            self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
-                .await?;
+            self.finish_transaction_locked(
+                event_handler,
+                tx,
+                "import git head",
+                git_import_export_lock,
+            )
+            .await?;
         }
         Ok(())
     }
@@ -1574,65 +1686,56 @@ impl WorkspaceCommandHelper {
     #[instrument(skip_all)]
     async fn import_export_git_refs(
         &mut self,
-        ui: &Ui,
+        event_handler: &dyn RunnerEventHandler,
         import_options: &jj_lib::git::GitImportOptions,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), RunnerError> {
-        let mut tx = self.start_transaction().into_inner();
+        let mut tx = self.start_transaction();
         let stats = jj_lib::git::import_refs(tx.repo_mut(), import_options).await?;
-        print_runner_event(ui, &RunnerEvent::GitRefsImported(stats))
-            .map_err(RunnerError::event_sink)?;
+        event_handler
+            .event(RunnerEvent::GitRefsImported(stats))
+            .await
+            .map_err(RunnerError::EventHandler)?;
 
         if !tx.repo().has_changes() {
             if self.options.integrate_operation {
                 let stats = jj_lib::git::export_refs(tx.repo_mut())?;
-                print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
-                    .map_err(RunnerError::event_sink)?;
+                event_handler
+                    .event(RunnerEvent::GitRefsExported(stats))
+                    .await
+                    .map_err(RunnerError::EventHandler)?;
                 if tx.repo().has_changes() {
                     let new_repo = tx.commit("export git refs").await?;
-                    self.user_repo = ReadonlyUserRepo::new(new_repo);
+                    self.user_repo =
+                        ReadonlyUserRepo::new(new_repo, self.env.new_id_prefix_context());
                 }
             }
             return Ok(());
         }
 
-        let num_rebased = rebase_mutable_descendants(&self.env, &self.options, &mut tx).await?;
+        let num_rebased = self.rebase_mutable_descendants(&mut tx).await?;
         if num_rebased > 0 {
-            print_runner_event(
-                ui,
-                &RunnerEvent::DescendantsRebased {
+            event_handler
+                .event(RunnerEvent::DescendantsRebased {
                     num_rebased,
                     reason: RebaseReason::RewrittenInGit,
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
+                })
+                .await
+                .map_err(RunnerError::EventHandler)?;
         }
         // This also exports previously modified refs if any.
-        self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)
-            .await?;
-        print_runner_event(ui, &RunnerEvent::GitRefsImportFinished)
-            .map_err(RunnerError::event_sink)?;
+        self.finish_transaction_locked(
+            event_handler,
+            tx,
+            "import git refs",
+            git_import_export_lock,
+        )
+        .await?;
+        event_handler
+            .event(RunnerEvent::GitRefsImportFinished)
+            .await
+            .map_err(RunnerError::EventHandler)?;
         Ok(())
-    }
-
-    pub fn repo(&self) -> &Arc<ReadonlyRepo> {
-        &self.user_repo.repo
-    }
-
-    pub fn repo_path(&self) -> &Path {
-        self.workspace.repo_path()
-    }
-
-    pub fn workspace(&self) -> &Workspace {
-        &self.workspace
-    }
-
-    pub fn working_copy(&self) -> &dyn WorkingCopy {
-        self.workspace.working_copy()
-    }
-
-    pub fn env(&self) -> &WorkspaceCommandEnvironment {
-        &self.env
     }
 
     async fn prepare_working_copy_mutation(&self) -> Result<Commit, RunnerError> {
@@ -1655,6 +1758,460 @@ impl WorkspaceCommandHelper {
         Ok((locked_ws, wc_commit))
     }
 
+    pub fn get_wc_commit_id(&self) -> Option<&CommitId> {
+        self.repo().view().get_wc_commit_id(self.workspace_name())
+    }
+
+    pub async fn get_wc_commit(&self) -> BackendResult<Option<Commit>> {
+        if let Some(id) = self.get_wc_commit_id() {
+            let commit = self.repo().store().get_commit_async(id).await?;
+            Ok(Some(commit))
+        } else {
+            Ok(None)
+        }
+    }
+
+    #[instrument(skip_all)]
+    pub async fn snapshot_working_copy(
+        &mut self,
+        event_handler: &dyn RunnerEventHandler,
+        config: &SnapshotConfig,
+        #[cfg_attr(not(feature = "git"), expect(unused_variables))]
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<SnapshotStats, RunnerError> {
+        let workspace_name = self.workspace_name().to_owned();
+        let repo = self.repo().clone();
+        let options = config.snapshot_options();
+
+        // Compare working-copy tree and operation with repo's, and reload as needed.
+        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
+
+        let Some((repo, wc_commit)) =
+            handle_stale_working_copy(locked_ws.locked_wc(), repo, &workspace_name).await?
+        else {
+            // If the workspace has been deleted, it's unclear what to do, so we just skip
+            // committing the working copy.
+            return Ok(SnapshotStats::default());
+        };
+
+        self.user_repo = ReadonlyUserRepo::new(repo, self.env.new_id_prefix_context());
+        let (new_tree, stats) = {
+            let mut options = options;
+            let progress = event_handler.snapshot_progress();
+            options.progress = progress.as_deref();
+            locked_ws.locked_wc().snapshot(&options).await?
+        };
+        if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
+            let mut tx = self
+                .options
+                .start_transaction(self.user_repo.repo(), &workspace_name);
+            tx.set_is_snapshot(true);
+            let immutable_expr = self
+                .env
+                .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)?;
+            let wc_immutable = !immutable_expr
+                .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
+                .evaluate(tx.repo())?
+                .is_empty()
+                .await?;
+            let mut_repo = tx.repo_mut();
+            let new_wc_commit;
+            if wc_immutable {
+                new_wc_commit = mut_repo
+                    .new_commit(vec![wc_commit.id().clone()], new_tree.clone())
+                    .write()
+                    .await?;
+                event_handler
+                    .event(RunnerEvent::SnapshotOnImmutableWorkingCopy {
+                        new_wc_commit: new_wc_commit.clone(),
+                    })
+                    .await
+                    .map_err(RunnerError::EventHandler)?;
+            } else {
+                new_wc_commit = mut_repo
+                    .rewrite_commit(&wc_commit)
+                    .set_tree(new_tree.clone())
+                    .write()
+                    .await?;
+            }
+            mut_repo.set_wc_commit(workspace_name.clone(), new_wc_commit.id().clone())?;
+
+            // Rebase descendants
+            let num_rebased = mut_repo.rebase_descendants().await?;
+            if num_rebased > 0 {
+                event_handler
+                    .event(RunnerEvent::DescendantsRebased {
+                        num_rebased,
+                        reason: RebaseReason::WorkingCopySnapshot,
+                    })
+                    .await
+                    .map_err(RunnerError::EventHandler)?;
+            }
+
+            #[cfg(feature = "git")]
+            if self.env.working_copy_shared_with_git() && self.options.integrate_operation {
+                let workspace_root = self.env.workspace_root();
+                if wc_immutable {
+                    // New working-copy commit is created on top. Reset Git HEAD and index.
+                    try_reset_git_head(
+                        event_handler,
+                        mut_repo,
+                        &workspace_name,
+                        workspace_root,
+                        &new_wc_commit,
+                        git_import_export_lock,
+                    )
+                    .await?;
+                    // export_refs() is probably unnecessary because there should be no
+                    // rewritten descendants, but it's harmless.
+                    let stats = jj_lib::git::export_refs(mut_repo)?;
+                    event_handler
+                        .event(RunnerEvent::GitRefsExported(stats))
+                        .await
+                        .map_err(RunnerError::EventHandler)?;
+                } else {
+                    let old_tree = wc_commit.tree();
+                    let new_tree = new_wc_commit.tree();
+                    jj_lib::git::update_intent_to_add(
+                        mut_repo.base_repo().as_ref(),
+                        workspace_root,
+                        &old_tree,
+                        &new_tree,
+                    )
+                    .await?;
+                    let stats = jj_lib::git::export_refs(mut_repo)?;
+                    event_handler
+                        .event(RunnerEvent::GitRefsExported(stats))
+                        .await
+                        .map_err(RunnerError::EventHandler)?;
+                }
+            }
+
+            let repo = self
+                .options
+                .maybe_commit_transaction(tx, "snapshot working copy")
+                .await?;
+            self.user_repo = ReadonlyUserRepo::new(repo, self.env.new_id_prefix_context());
+            if !self.options.integrate_operation {
+                event_handler
+                    .event(RunnerEvent::OperationLeftUnpublished {
+                        op_id: self.user_repo.repo().op_id().clone(),
+                        is_snapshot: true,
+                    })
+                    .await
+                    .map_err(RunnerError::EventHandler)?;
+            }
+        }
+
+        #[cfg(feature = "git")]
+        if self.env.working_copy_shared_with_git()
+            && let Ok(resolved_tree) = new_tree.trees().await?.into_resolved()
+            && resolved_tree
+                .entries_non_recursive()
+                .any(|entry| entry.name().as_internal_str().starts_with(".jjconflict"))
+        {
+            event_handler
+                .event(RunnerEvent::JjConflictFilesInWorkingCopy)
+                .await
+                .map_err(RunnerError::EventHandler)?;
+        }
+
+        if self.options.integrate_operation {
+            locked_ws
+                .finish(self.user_repo.repo().op_id().clone())
+                .await?;
+        }
+        Ok(stats)
+    }
+
+    async fn finish_transaction_locked(
+        &mut self,
+        event_handler: &dyn RunnerEventHandler,
+        mut tx: Transaction,
+        description: impl Into<String>,
+        #[cfg_attr(not(feature = "git"), expect(unused_variables))]
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<(), RunnerError> {
+        let old_repo = tx.base_repo().clone();
+
+        let maybe_old_wc_commit = old_repo
+            .view()
+            .get_wc_commit_id(self.workspace_name())
+            .map(|commit_id| tx.base_repo().store().get_commit(commit_id))
+            .transpose()?;
+        let maybe_new_wc_commit = tx
+            .repo()
+            .view()
+            .get_wc_commit_id(self.workspace_name())
+            .map(|commit_id| tx.repo().store().get_commit(commit_id))
+            .transpose()?;
+        // Create a new mutable working-copy commit to reduce unintended states.
+        // This isn't strictly required for correctness, so symbol resolution
+        // failures can be ignored. snapshot_working_copy() ensures that the
+        // working-copy commit is mutable.
+        let maybe_new_wc_commit = if let Some(wc_commit) = &maybe_new_wc_commit
+            && let Ok(immutable_expr) = self
+                .env
+                .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)
+            && !immutable_expr
+                .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
+                .evaluate(tx.repo())?
+                .is_empty()
+                .await?
+        {
+            let new_wc_commit = tx
+                .repo_mut()
+                .new_commit(vec![wc_commit.id().clone()], wc_commit.tree())
+                .write()
+                .await?;
+            tx.repo_mut()
+                .set_wc_commit(self.workspace_name().to_owned(), new_wc_commit.id().clone())?;
+            event_handler
+                .event(RunnerEvent::WorkingCopyBecameImmutable {
+                    new_wc_commit: new_wc_commit.clone(),
+                })
+                .await
+                .map_err(RunnerError::EventHandler)?;
+            Some(new_wc_commit)
+        } else {
+            maybe_new_wc_commit
+        };
+
+        #[cfg(feature = "git")]
+        if self.env.working_copy_shared_with_git() && self.options.integrate_operation {
+            if let Some(wc_commit) = &maybe_new_wc_commit {
+                try_reset_git_head(
+                    event_handler,
+                    tx.repo_mut(),
+                    self.workspace_name(),
+                    self.workspace_root(),
+                    wc_commit,
+                    git_import_export_lock,
+                )
+                .await?;
+            }
+            let stats = jj_lib::git::export_refs(tx.repo_mut())?;
+            event_handler
+                .event(RunnerEvent::GitRefsExported(stats))
+                .await
+                .map_err(RunnerError::EventHandler)?;
+        }
+
+        let repo = self
+            .options
+            .maybe_commit_transaction(tx, description)
+            .await?;
+        self.user_repo = ReadonlyUserRepo::new(repo, self.env.new_id_prefix_context());
+
+        // Update working copy before reporting repo changes, so that
+        // potential errors while reporting changes (broken pipe, etc)
+        // don't leave the working copy in a stale state.
+        if self.may_update_working_copy {
+            if let Some(new_commit) = &maybe_new_wc_commit {
+                let stats = update_working_copy(
+                    self.user_repo.repo(),
+                    &mut self.workspace,
+                    maybe_old_wc_commit.as_ref(),
+                    new_commit,
+                )
+                .await?;
+                event_handler
+                    .event(RunnerEvent::WorkingCopyUpdated {
+                        repo: self.user_repo.clone(),
+                        old_commit: maybe_old_wc_commit.clone(),
+                        new_commit: new_commit.clone(),
+                        stats,
+                    })
+                    .await
+                    .map_err(RunnerError::EventHandler)?;
+            } else {
+                // It seems the workspace was deleted, so we shouldn't try to
+                // update it.
+            }
+        }
+
+        event_handler
+            .event(RunnerEvent::TransactionFinished {
+                old_repo,
+                new_repo: self.user_repo.clone(),
+            })
+            .await
+            .map_err(RunnerError::EventHandler)?;
+
+        if !self.options.integrate_operation {
+            event_handler
+                .event(RunnerEvent::OperationLeftUnpublished {
+                    op_id: self.repo().op_id().clone(),
+                    is_snapshot: false,
+                })
+                .await
+                .map_err(RunnerError::EventHandler)?;
+        }
+
+        let settings = self.settings();
+        let missing_name = settings.user_name().is_empty();
+        let missing_email = settings.user_email().is_empty();
+        if missing_name || missing_email {
+            event_handler
+                .event(RunnerEvent::UserIdentityNotConfigured {
+                    missing_name,
+                    missing_email,
+                })
+                .await
+                .map_err(RunnerError::EventHandler)?;
+        }
+        Ok(())
+    }
+}
+
+/// Provides utilities for writing a command that works on a [`Workspace`]
+/// (which most commands do).
+pub struct WorkspaceCommandHelper {
+    runner: WorkspaceOperationRunner,
+    env: WorkspaceCommandEnvironment,
+    // TODO: Parsed template can be cached if it doesn't capture 'repo lifetime
+    commit_summary_template_text: String,
+    op_summary_template_text: String,
+}
+
+impl WorkspaceCommandHelper {
+    #[instrument(skip_all)]
+    fn new(
+        ui: &Ui,
+        workspace: Workspace,
+        repo: Arc<ReadonlyRepo>,
+        env: WorkspaceCommandEnvironment,
+        options: RunnerOptions,
+        may_snapshot_working_copy: bool,
+    ) -> Result<Self, CommandError> {
+        let settings = workspace.settings();
+        let commit_summary_template_text = settings.get_string("templates.commit_summary")?;
+        let op_summary_template_text = settings.get_string("templates.op_summary")?;
+        let runner = WorkspaceOperationRunner::new(
+            workspace,
+            repo,
+            env.base.clone(),
+            options,
+            may_snapshot_working_copy,
+        );
+        let helper = Self {
+            runner,
+            env,
+            commit_summary_template_text,
+            op_summary_template_text,
+        };
+        // Parse commit_summary template early to report error before starting
+        // mutable operation.
+        helper.parse_operation_template(ui, &helper.op_summary_template_text)?;
+        helper.parse_commit_template(ui, &helper.commit_summary_template_text)?;
+        helper.parse_commit_template(ui, SHORT_CHANGE_ID_TEMPLATE_TEXT)?;
+        Ok(helper)
+    }
+
+    /// Settings for this workspace.
+    pub fn settings(&self) -> &UserSettings {
+        self.runner.settings()
+    }
+
+    pub fn check_working_copy_writable(&self) -> Result<(), RunnerError> {
+        self.runner.check_working_copy_writable()
+    }
+
+    pub async fn start_working_copy_mutation(
+        &mut self,
+    ) -> Result<(LockedWorkspace<'_>, Commit), RunnerError> {
+        self.runner.start_working_copy_mutation().await
+    }
+
+    pub fn get_wc_commit_id(&self) -> Option<&CommitId> {
+        self.runner.get_wc_commit_id()
+    }
+
+    pub async fn get_wc_commit(&self) -> BackendResult<Option<Commit>> {
+        self.runner.get_wc_commit().await
+    }
+
+    /// Snapshots the working copy and imports from Git, printing events to
+    /// `ui`. See [`WorkspaceOperationRunner::snapshot()`].
+    async fn snapshot_impl(
+        &mut self,
+        ui: &Ui,
+        config: &SnapshotConfig,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<SnapshotStats, RunnerError> {
+        let event_handler =
+            CliRunnerEventHandler::new(ui, &self.env, &self.commit_summary_template_text);
+        self.runner
+            .snapshot(&event_handler, config, git_import_export_lock)
+            .await
+    }
+
+    /// Snapshots the working copy without importing from Git, printing events
+    /// to `ui`. See [`WorkspaceOperationRunner::snapshot_working_copy()`].
+    async fn snapshot_working_copy(
+        &mut self,
+        ui: &Ui,
+        config: &SnapshotConfig,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<SnapshotStats, RunnerError> {
+        let event_handler =
+            CliRunnerEventHandler::new(ui, &self.env, &self.commit_summary_template_text);
+        self.runner
+            .snapshot_working_copy(&event_handler, config, git_import_export_lock)
+            .await
+    }
+
+    /// Finishes `tx`, printing events to `ui`. See
+    /// [`WorkspaceOperationRunner::finish_transaction()`].
+    async fn finish_transaction(
+        &mut self,
+        ui: &Ui,
+        tx: Transaction,
+        description: impl Into<String>,
+    ) -> Result<(), RunnerError> {
+        let event_handler =
+            CliRunnerEventHandler::new(ui, &self.env, &self.commit_summary_template_text);
+        self.runner
+            .finish_transaction(&event_handler, tx, description)
+            .await
+    }
+
+    /// Snapshots the working copy if allowed, and synchronizes Git refs if the
+    /// working copy is colocated with Git.
+    #[instrument(skip_all)]
+    pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<(), CommandError> {
+        if !self.runner.may_snapshot_working_copy {
+            return Ok(());
+        }
+        let config = self.load_snapshot_config(ui)?;
+        let git_import_export_lock = self.runner.lock_git_import_export()?;
+        let stats = self
+            .snapshot_impl(ui, &config, &git_import_export_lock)
+            .await?;
+        print_snapshot_stats(ui, &stats, self.env().path_converter())?;
+        Ok(())
+    }
+
+    pub fn repo(&self) -> &Arc<ReadonlyRepo> {
+        self.runner.user_repo.repo()
+    }
+
+    pub fn repo_path(&self) -> &Path {
+        self.runner.workspace.repo_path()
+    }
+
+    pub fn workspace(&self) -> &Workspace {
+        &self.runner.workspace
+    }
+
+    pub fn working_copy(&self) -> &dyn WorkingCopy {
+        self.runner.workspace.working_copy()
+    }
+
+    pub fn env(&self) -> &WorkspaceCommandEnvironment {
+        &self.env
+    }
+
     async fn create_and_check_out_recovery_commit(
         &mut self,
         ui: &Ui,
@@ -1664,10 +2221,10 @@ impl WorkspaceCommandHelper {
         self.check_working_copy_writable()?;
 
         let workspace_name = self.workspace_name().to_owned();
-        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
+        let mut locked_ws = self.runner.workspace.start_working_copy_mutation().await?;
         let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
             locked_ws.locked_wc(),
-            &self.user_repo.repo,
+            self.runner.user_repo.repo(),
             workspace_name,
             "RECOVERY COMMIT FROM `jj workspace update-stale`
 
@@ -1686,7 +2243,8 @@ to the current parents may contain changes from multiple commits.
             short_commit_hash(new_commit.id())
         )?;
         locked_ws.finish(repo.op_id().clone()).await?;
-        self.user_repo = ReadonlyUserRepo::new(repo);
+        self.runner.user_repo =
+            ReadonlyUserRepo::new(repo, self.runner.env.new_id_prefix_context());
 
         let stats = self
             .snapshot_impl(ui, snapshot_config, git_import_export_lock)
@@ -1695,24 +2253,11 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn workspace_root(&self) -> &Path {
-        self.workspace.workspace_root()
+        self.runner.workspace.workspace_root()
     }
 
     pub fn workspace_name(&self) -> &WorkspaceName {
-        self.workspace.workspace_name()
-    }
-
-    pub fn get_wc_commit_id(&self) -> Option<&CommitId> {
-        self.repo().view().get_wc_commit_id(self.workspace_name())
-    }
-
-    pub async fn get_wc_commit(&self) -> BackendResult<Option<Commit>> {
-        if let Some(id) = self.get_wc_commit_id() {
-            let commit = self.repo().store().get_commit_async(id).await?;
-            Ok(Some(commit))
-        } else {
-            Ok(None)
-        }
+        self.runner.workspace.workspace_name()
     }
 
     pub fn working_copy_shared_with_git(&self) -> bool {
@@ -2004,9 +2549,7 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn id_prefix_context(&self) -> &IdPrefixContext {
-        self.user_repo
-            .id_prefix_context
-            .get_or_init(|| self.env.new_id_prefix_context())
+        self.runner.user_repo.id_prefix_context()
     }
 
     /// Adds hyperlink overrides for `jj arrange`, since they do not work in the
@@ -2073,7 +2616,7 @@ to the current parents may contain changes from multiple commits.
     /// Creates operation template language environment for this workspace.
     pub fn operation_template_language(&self) -> OperationTemplateLanguage {
         OperationTemplateLanguage::new(
-            self.workspace.repo_loader(),
+            self.runner.workspace.repo_loader(),
             Some(self.repo().op_id()),
             self.env.cwd(),
             self.env.operation_template_extensions(),
@@ -2141,7 +2684,7 @@ to the current parents may contain changes from multiple commits.
         let immutable_expr = self
             .env
             .base
-            .resolve_immutable_expression(repo, self.options.ignore_immutable)?;
+            .resolve_immutable_expression(repo, self.runner.options.ignore_immutable)?;
         let Some(commit_id) = immutable_expr
             .intersection(to_rewrite_expr)
             .evaluate(repo)?
@@ -2183,157 +2726,6 @@ to the current parents may contain changes from multiple commits.
         Err(error)
     }
 
-    #[instrument(skip_all)]
-    async fn snapshot_working_copy(
-        &mut self,
-        ui: &Ui,
-        config: &SnapshotConfig,
-        #[cfg_attr(not(feature = "git"), expect(unused_variables))]
-        git_import_export_lock: &GitImportExportLock,
-    ) -> Result<SnapshotStats, RunnerError> {
-        let workspace_name = self.workspace_name().to_owned();
-        let repo = self.repo().clone();
-        let options = config.snapshot_options();
-
-        // Compare working-copy tree and operation with repo's, and reload as needed.
-        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
-
-        let Some((repo, wc_commit)) =
-            handle_stale_working_copy(locked_ws.locked_wc(), repo, &workspace_name).await?
-        else {
-            // If the workspace has been deleted, it's unclear what to do, so we just skip
-            // committing the working copy.
-            return Ok(SnapshotStats::default());
-        };
-
-        self.user_repo = ReadonlyUserRepo::new(repo);
-        let (new_tree, stats) = {
-            let mut options = options;
-            let progress = crate::progress::snapshot_progress(ui);
-            options.progress = progress.as_ref().map(|x| x as _);
-            locked_ws.locked_wc().snapshot(&options).await?
-        };
-        if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
-            let mut tx = self
-                .options
-                .start_transaction(&self.user_repo.repo, &workspace_name);
-            tx.set_is_snapshot(true);
-            let immutable_expr = self
-                .env
-                .base
-                .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)?;
-            let wc_immutable = !immutable_expr
-                .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
-                .evaluate(tx.repo())?
-                .is_empty()
-                .await?;
-            let mut_repo = tx.repo_mut();
-            let new_wc_commit;
-            if wc_immutable {
-                new_wc_commit = mut_repo
-                    .new_commit(vec![wc_commit.id().clone()], new_tree.clone())
-                    .write()
-                    .await?;
-                print_runner_event(
-                    ui,
-                    &RunnerEvent::SnapshotOnImmutableWorkingCopy {
-                        new_wc_commit: new_wc_commit.clone(),
-                    },
-                )
-                .map_err(RunnerError::event_sink)?;
-            } else {
-                new_wc_commit = mut_repo
-                    .rewrite_commit(&wc_commit)
-                    .set_tree(new_tree.clone())
-                    .write()
-                    .await?;
-            }
-            mut_repo.set_wc_commit(workspace_name.clone(), new_wc_commit.id().clone())?;
-
-            // Rebase descendants
-            let num_rebased = mut_repo.rebase_descendants().await?;
-            if num_rebased > 0 {
-                print_runner_event(
-                    ui,
-                    &RunnerEvent::DescendantsRebased {
-                        num_rebased,
-                        reason: RebaseReason::WorkingCopySnapshot,
-                    },
-                )
-                .map_err(RunnerError::event_sink)?;
-            }
-
-            #[cfg(feature = "git")]
-            if self.env.base.working_copy_shared_with_git() && self.options.integrate_operation {
-                let workspace_root = self.env.workspace_root();
-                if wc_immutable {
-                    // New working-copy commit is created on top. Reset Git HEAD and index.
-                    try_reset_git_head(
-                        ui,
-                        mut_repo,
-                        &workspace_name,
-                        workspace_root,
-                        &new_wc_commit,
-                        git_import_export_lock,
-                    )
-                    .await?;
-                    // export_refs() is probably unnecessary because there should be no
-                    // rewritten descendants, but it's harmless.
-                    let stats = jj_lib::git::export_refs(mut_repo)?;
-                    print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
-                        .map_err(RunnerError::event_sink)?;
-                } else {
-                    let old_tree = wc_commit.tree();
-                    let new_tree = new_wc_commit.tree();
-                    jj_lib::git::update_intent_to_add(
-                        mut_repo.base_repo().as_ref(),
-                        workspace_root,
-                        &old_tree,
-                        &new_tree,
-                    )
-                    .await?;
-                    let stats = jj_lib::git::export_refs(mut_repo)?;
-                    print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
-                        .map_err(RunnerError::event_sink)?;
-                }
-            }
-
-            let repo = self
-                .options
-                .maybe_commit_transaction(tx, "snapshot working copy")
-                .await?;
-            self.user_repo = ReadonlyUserRepo::new(repo);
-            if !self.options.integrate_operation {
-                print_runner_event(
-                    ui,
-                    &RunnerEvent::OperationLeftUnpublished {
-                        op_id: self.user_repo.repo.op_id().clone(),
-                        is_snapshot: true,
-                    },
-                )
-                .map_err(RunnerError::event_sink)?;
-            }
-        }
-
-        #[cfg(feature = "git")]
-        if self.env.base.working_copy_shared_with_git()
-            && let Ok(resolved_tree) = new_tree.trees().await?.into_resolved()
-            && resolved_tree
-                .entries_non_recursive()
-                .any(|entry| entry.name().as_internal_str().starts_with(".jjconflict"))
-        {
-            print_runner_event(ui, &RunnerEvent::JjConflictFilesInWorkingCopy)
-                .map_err(RunnerError::event_sink)?;
-        }
-
-        if self.options.integrate_operation {
-            locked_ws
-                .finish(self.user_repo.repo.op_id().clone())
-                .await?;
-        }
-        Ok(stats)
-    }
-
     fn reporter(&self) -> WorkspaceReporter<'_> {
         WorkspaceReporter {
             env: &self.env,
@@ -2373,151 +2765,15 @@ to the current parents may contain changes from multiple commits.
 
     pub fn start_transaction(&mut self) -> WorkspaceCommandTransaction<'_> {
         let tx = self
+            .runner
             .options
             .start_transaction(self.repo(), self.workspace_name());
-        let id_prefix_context = mem::take(&mut self.user_repo.id_prefix_context);
+        let id_prefix_context = self.runner.user_repo.id_prefix_context().clone();
         WorkspaceCommandTransaction {
             helper: self,
             tx,
             id_prefix_context,
         }
-    }
-
-    async fn finish_transaction(
-        &mut self,
-        ui: &Ui,
-        mut tx: Transaction,
-        description: impl Into<String>,
-        #[cfg_attr(not(feature = "git"), expect(unused_variables))]
-        git_import_export_lock: &GitImportExportLock,
-    ) -> Result<(), RunnerError> {
-        let old_repo = tx.base_repo().clone();
-
-        let maybe_old_wc_commit = old_repo
-            .view()
-            .get_wc_commit_id(self.workspace_name())
-            .map(|commit_id| tx.base_repo().store().get_commit(commit_id))
-            .transpose()?;
-        let maybe_new_wc_commit = tx
-            .repo()
-            .view()
-            .get_wc_commit_id(self.workspace_name())
-            .map(|commit_id| tx.repo().store().get_commit(commit_id))
-            .transpose()?;
-        // Create a new mutable working-copy commit to reduce unintended states.
-        // This isn't strictly required for correctness, so symbol resolution
-        // failures can be ignored. snapshot_working_copy() ensures that the
-        // working-copy commit is mutable.
-        let maybe_new_wc_commit = if let Some(wc_commit) = &maybe_new_wc_commit
-            && let Ok(immutable_expr) = self
-                .env
-                .base
-                .resolve_immutable_expression(tx.repo(), self.options.ignore_immutable)
-            && !immutable_expr
-                .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
-                .evaluate(tx.repo())?
-                .is_empty()
-                .await?
-        {
-            let new_wc_commit = tx
-                .repo_mut()
-                .new_commit(vec![wc_commit.id().clone()], wc_commit.tree())
-                .write()
-                .await?;
-            tx.repo_mut()
-                .set_wc_commit(self.workspace_name().to_owned(), new_wc_commit.id().clone())?;
-            print_runner_event(
-                ui,
-                &RunnerEvent::WorkingCopyBecameImmutable {
-                    new_wc_commit: new_wc_commit.clone(),
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
-            Some(new_wc_commit)
-        } else {
-            maybe_new_wc_commit
-        };
-
-        #[cfg(feature = "git")]
-        if self.env.base.working_copy_shared_with_git() && self.options.integrate_operation {
-            if let Some(wc_commit) = &maybe_new_wc_commit {
-                try_reset_git_head(
-                    ui,
-                    tx.repo_mut(),
-                    self.workspace_name(),
-                    self.workspace_root(),
-                    wc_commit,
-                    git_import_export_lock,
-                )
-                .await?;
-            }
-            let stats = jj_lib::git::export_refs(tx.repo_mut())?;
-            print_runner_event(ui, &RunnerEvent::GitRefsExported(stats))
-                .map_err(RunnerError::event_sink)?;
-        }
-
-        self.user_repo = ReadonlyUserRepo::new(
-            self.options
-                .maybe_commit_transaction(tx, description)
-                .await?,
-        );
-
-        // Update working copy before reporting repo changes, so that
-        // potential errors while reporting changes (broken pipe, etc)
-        // don't leave the working copy in a stale state.
-        if self.may_update_working_copy {
-            if let Some(new_commit) = &maybe_new_wc_commit {
-                let stats = update_working_copy(
-                    &self.user_repo.repo,
-                    &mut self.workspace,
-                    maybe_old_wc_commit.as_ref(),
-                    new_commit,
-                )
-                .await?;
-                self.print_updated_working_copy_stats(
-                    ui,
-                    maybe_old_wc_commit.as_ref(),
-                    new_commit,
-                    &stats,
-                )
-                .await
-                .map_err(CliEventSinkError)?;
-            } else {
-                // It seems the workspace was deleted, so we shouldn't try to
-                // update it.
-            }
-        }
-
-        self.reporter()
-            .report_repo_changes(ui, &old_repo, self.repo(), self.id_prefix_context())
-            .await
-            .map_err(CliEventSinkError)?;
-
-        if !self.options.integrate_operation {
-            print_runner_event(
-                ui,
-                &RunnerEvent::OperationLeftUnpublished {
-                    op_id: self.repo().op_id().clone(),
-                    is_snapshot: false,
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
-        }
-
-        let settings = self.settings();
-        let missing_name = settings.user_name().is_empty();
-        let missing_email = settings.user_email().is_empty();
-        if missing_name || missing_email {
-            print_runner_event(
-                ui,
-                &RunnerEvent::UserIdentityNotConfigured {
-                    missing_name,
-                    missing_email,
-                },
-            )
-            .map_err(RunnerError::event_sink)?;
-        }
-        Ok(())
     }
 
     /// Identifies bookmarks which are eligible to be moved automatically
@@ -2587,7 +2843,7 @@ pub async fn export_working_copy_changes_to_git(
 
 #[cfg(feature = "git")]
 async fn try_reset_git_head(
-    ui: &Ui,
+    event_handler: &dyn RunnerEventHandler,
     mut_repo: &mut MutableRepo,
     workspace_name: &WorkspaceName,
     workspace_root: &Path,
@@ -2603,8 +2859,10 @@ async fn try_reset_git_head(
     match jj_lib::git::reset_head(mut_repo, workspace_name, workspace_root, wc_commit).await {
         Ok(()) => Ok(()),
         Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
-            print_runner_event(ui, &RunnerEvent::GitHeadResetFailed(err))
-                .map_err(RunnerError::event_sink)?;
+            event_handler
+                .event(RunnerEvent::GitHeadResetFailed(err))
+                .await
+                .map_err(RunnerError::EventHandler)?;
             Ok(())
         }
         Err(err) => Err(err.into()),
@@ -2889,8 +3147,8 @@ impl WorkspaceReporter<'_> {
 pub struct WorkspaceCommandTransaction<'a> {
     helper: &'a mut WorkspaceCommandHelper,
     tx: Transaction,
-    /// Cache of index built against the current MutableRepo state.
-    id_prefix_context: OnceCell<IdPrefixContext>,
+    /// Context for the current MutableRepo state. Its index is built lazily.
+    id_prefix_context: Arc<IdPrefixContext>,
 }
 
 impl WorkspaceCommandTransaction<'_> {
@@ -2913,7 +3171,7 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub fn repo_mut(&mut self) -> &mut MutableRepo {
-        self.id_prefix_context.take(); // invalidate
+        self.invalidate_id_prefix_context();
         self.tx.repo_mut()
     }
 
@@ -2925,14 +3183,18 @@ impl WorkspaceCommandTransaction<'_> {
 
     pub fn check_out(&mut self, commit: &Commit) -> Result<Commit, CheckOutCommitError> {
         let name = self.helper.workspace_name().to_owned();
-        self.id_prefix_context.take(); // invalidate
+        self.invalidate_id_prefix_context();
         self.tx.repo_mut().check_out(name, commit).block_on()
     }
 
     pub fn edit(&mut self, commit: &Commit) -> Result<(), EditCommitError> {
         let name = self.helper.workspace_name().to_owned();
-        self.id_prefix_context.take(); // invalidate
+        self.invalidate_id_prefix_context();
         self.tx.repo_mut().edit(name, commit).block_on()
+    }
+
+    fn invalidate_id_prefix_context(&mut self) {
+        self.id_prefix_context = Arc::new(self.helper.env.new_id_prefix_context());
     }
 
     pub fn format_commit_summary(&self, commit: &Commit) -> String {
@@ -2960,12 +3222,9 @@ impl WorkspaceCommandTransaction<'_> {
     /// Creates commit template language environment capturing the current
     /// transaction state.
     pub fn commit_template_language(&self) -> CommitTemplateLanguage<'_> {
-        let id_prefix_context = self
-            .id_prefix_context
-            .get_or_init(|| self.helper.env.new_id_prefix_context());
         self.helper
             .env
-            .commit_template_language(self.tx.repo(), id_prefix_context)
+            .commit_template_language(self.tx.repo(), &self.id_prefix_context)
     }
 
     /// Parses commit template with the current transaction state.
@@ -2979,27 +3238,12 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
-        let Self { helper, mut tx, .. } = self;
+        let Self { helper, tx, .. } = self;
         if !tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
-        let num_rebased = rebase_mutable_descendants(&helper.env, &helper.options, &mut tx).await?;
-        if num_rebased > 0 {
-            print_runner_event(
-                ui,
-                &RunnerEvent::DescendantsRebased {
-                    num_rebased,
-                    reason: RebaseReason::RewrittenCommits,
-                },
-            )?;
-        }
-        // Acquire git import/export lock before finishing the transaction to ensure
-        // Git HEAD export happens atomically with the transaction commit.
-        let git_import_export_lock = helper.lock_git_import_export()?;
-        helper
-            .finish_transaction(ui, tx, description, &git_import_export_lock)
-            .await?;
+        helper.finish_transaction(ui, tx, description).await?;
         Ok(())
     }
 
@@ -3123,7 +3367,7 @@ fn command_args_to_transaction_attribute(command_args: &[String]) -> Vec<(String
 }
 
 async fn rebase_mutable_descendants(
-    env: &WorkspaceCommandEnvironment,
+    env: &WorkspaceEnvironment,
     options: &RunnerOptions,
     tx: &mut Transaction,
 ) -> Result<usize, RunnerError> {
@@ -3132,9 +3376,8 @@ async fn rebase_mutable_descendants(
     // tx.base_repo() here because we're interested in existing immutable
     // commits that are still reachable.
     let mut num_rebased = 0;
-    let immutable = env
-        .base
-        .resolve_immutable_expression(tx.base_repo().as_ref(), options.ignore_immutable)?;
+    let immutable =
+        env.resolve_immutable_expression(tx.base_repo().as_ref(), options.ignore_immutable)?;
     tx.repo_mut()
         .rebase_descendants_with_options(
             &immutable,

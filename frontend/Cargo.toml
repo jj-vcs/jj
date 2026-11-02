@@ -19,6 +19,7 @@ include = [
 ]
 
 [dependencies]
+async-trait = { workspace = true }
 jiff = { workspace = true }
 jj-lib = { workspace = true }
 thiserror = { workspace = true }
