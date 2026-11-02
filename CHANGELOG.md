@@ -84,6 +84,10 @@ and this project adheres to
 
 ### Fixed bugs
 
+* `jj absorb` no longer makes hidden descendants visible when they are referenced
+  in a custom immutable expression.
+  [#9948](https://github.com/jj-vcs/jj/issues/9948)
+
 * In graph output, an elided edge that passes through a merge or fork line is
   now drawn as elided (`╷`) before reaching the node, instead of looking like a
   direct edge. Consecutive unconnected nodes, such as in the `jj op show`
