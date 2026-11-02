@@ -2362,16 +2362,23 @@ pub async fn update_intent_to_add(
     write_locked_index(&index, lock)
 }
 
+/// How long to wait for a concurrent process to release `index.lock`.
+const INDEX_LOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
+
 /// Acquires `index.lock` for the Git index, the same lock Git takes when
 /// updating the index.
 ///
 /// Take the lock before reading the index and hold it until the modified index
 /// is written by `write_locked_index()`. Otherwise, changes made by Git (e.g.
 /// `git add`) between our read and write would be lost.
+///
+/// If the lock is already held, retries for a short while. Git commands such as
+/// `git status`, which IDEs often run in the background, briefly take the lock
+/// to refresh stat information.
 fn lock_index(git_repo: &gix::Repository) -> Result<gix::lock::File, GitResetHeadError> {
     gix::lock::File::acquire_to_update_resource(
         git_repo.index_path(),
-        gix::lock::acquire::Fail::Immediately,
+        gix::lock::acquire::Fail::AfterDurationWithBackoff(INDEX_LOCK_TIMEOUT),
         None,
         0,
     )

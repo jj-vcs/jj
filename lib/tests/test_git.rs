@@ -4013,6 +4013,57 @@ fn test_reset_head_with_index() -> TestResult {
 }
 
 #[test]
+fn test_reset_head_waits_for_index_lock() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
+    let workspace_root = test_workspace.workspace.workspace_root();
+    let lock_path = git_repo.path().join("index.lock");
+
+    let mut tx = repo.start_transaction();
+    let tree = repo.store().empty_merged_tree();
+    let wc_commit = tx
+        .repo_mut()
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree)
+        .write_unwrap();
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &wc_commit)?;
+
+    // A lock released shortly by another process is waited for.
+    let changed_tree = create_tree(repo, &[(repo_path("new.txt"), "new\n")]);
+    let changed_wc = tx
+        .repo_mut()
+        .rewrite_commit(&wc_commit)
+        .set_tree(changed_tree)
+        .write_unwrap();
+    std::fs::write(&lock_path, b"")?;
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            std::fs::remove_file(&lock_path).unwrap();
+        });
+        reset_head_from(
+            tx.repo_mut(),
+            &test_workspace.workspace,
+            (Some(&wc_commit), &changed_wc),
+        )
+    })?;
+    insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted new.txt Mode(FILE)");
+
+    // A lock that isn't released makes the update fail without touching the
+    // index.
+    std::fs::write(&lock_path, b"")?;
+    let result = reset_head_from(
+        tx.repo_mut(),
+        &test_workspace.workspace,
+        (Some(&changed_wc), &wc_commit),
+    );
+    assert!(result.is_err());
+    insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted new.txt Mode(FILE)");
+    assert!(lock_path.exists());
+    Ok(())
+}
+
+#[test]
 fn test_reset_head_with_index_no_conflict() -> TestResult {
     let test_workspace = TestWorkspace::init_colocated_git();
     let repo = &test_workspace.repo;
