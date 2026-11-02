@@ -2128,11 +2128,9 @@ pub async fn reset_head(
     } else if let Some(old) = old_wc_commit
         && old.tree_ids() != new_wc_commit.tree_ids()
     {
-        let mut index = git_repo
-            .index_or_empty()
-            .map_err(GitResetHeadError::from_git)?;
-        let index = Arc::make_mut(&mut index);
-        update_intent_to_add_impl(&git_repo, index, &old.tree(), &new_wc_commit.tree()).await?;
+        let mut index = open_index_or_empty(&git_repo)?;
+        update_intent_to_add_impl(&git_repo, &mut index, &old.tree(), &new_wc_commit.tree())
+            .await?;
         debug_assert!(index.verify_entries().is_ok());
         index
             .write(gix::index::write::Options::default())
@@ -2359,17 +2357,44 @@ pub async fn update_intent_to_add(
     let git_repo = git_backend
         .open_git_repo_at_workdir(workspace_root)
         .map_err(GitResetHeadError::from_git)?;
-    let mut index = git_repo
-        .index_or_empty()
-        .map_err(GitResetHeadError::from_git)?;
-    let mut_index = Arc::make_mut(&mut index);
-    update_intent_to_add_impl(&git_repo, mut_index, old_tree, new_tree).await?;
-    debug_assert!(mut_index.verify_entries().is_ok());
-    mut_index
+    let mut index = open_index_or_empty(&git_repo)?;
+    update_intent_to_add_impl(&git_repo, &mut index, old_tree, new_tree).await?;
+    debug_assert!(index.verify_entries().is_ok());
+    index
         .write(gix::index::write::Options::default())
         .map_err(GitResetHeadError::from_git)?;
 
     Ok(())
+}
+
+/// Reads the Git index from disk, or returns an empty index if there's none.
+///
+/// Unlike `gix::Repository::index_or_empty()`, this bypasses the index cache
+/// shared by all handles of the repository. That cache is invalidated based on
+/// the file's mtime, which may not change between writes made in quick
+/// succession (notably on Windows), so `index_or_empty()` may return stale
+/// entries. Callers that modify the index and write it back must not lose
+/// concurrent changes such as entries staged by `git add`.
+pub fn open_index_or_empty(
+    git_repo: &gix::Repository,
+) -> Result<gix::index::File, GitResetHeadError> {
+    match git_repo.open_index() {
+        Ok(index) => Ok(index),
+        Err(err)
+            if err
+                .downcast_any_ref::<gix::index::file::init::OpenError>()
+                .is_some_and(|err| {
+                    err.source.kind() == std::io::ErrorKind::NotFound
+                        && err.path == git_repo.index_path()
+                }) =>
+        {
+            Ok(gix::index::File::from_state(
+                gix::index::State::new(git_repo.object_hash()),
+                git_repo.index_path(),
+            ))
+        }
+        Err(err) => Err(GitResetHeadError::from_git(err)),
+    }
 }
 
 async fn update_intent_to_add_impl(
