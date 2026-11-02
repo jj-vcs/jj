@@ -1931,6 +1931,36 @@ fn test_git_push_no_description() {
 }
 
 #[test]
+fn test_git_push_no_description_in_remote_tag() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    let origin_dir = test_env.work_dir("origin");
+    let work_dir = test_env.work_dir("local");
+    origin_dir.run_jj(["new", "root()", "-m="]).success();
+    origin_dir.run_jj(["tag", "set", "-r@", "v1"]).success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+
+    // A commit that is already on the remote as a tag is not validated
+    work_dir
+        .run_jj(["new", "remote_tags(v1)", "-m", "foo"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
+        .success();
+    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: my-bookmark [add to 5ce2ed7563d1]
+    Dry-run requested, not pushing.
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_push_no_description_in_immutable() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
