@@ -2088,9 +2088,10 @@ unset, all commits are eligible to be pushed.
 private-commits = "description('wip:*') | description('private:*')"
 ```
 
-If a commit is in `git.private-commits` but is already on the remote, then it is
-not considered a private commit. Commits that are immutable are also excluded
-from the private set.
+If a commit is in `git.private-commits` but is already on the remote being
+pushed to, then it is not considered a private commit. Commits that are on
+other remotes are still considered private, since the remote being pushed to
+may be more public.
 
 Private commits prevent their descendants from being pushed, since doing so
 would require pushing the private commit as well.
