@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::assert_matches;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
@@ -22,6 +23,7 @@ use std::time::SystemTime;
 use futures::executor::block_on_stream;
 use itertools::Itertools as _;
 use jj_core::backend::Backend as _;
+use jj_core::backend::BackendError;
 use jj_core::backend::CommitId;
 use jj_core::backend::CopyRecord;
 use jj_core::commit::Commit;
@@ -455,15 +457,13 @@ fn test_jj_trees_header_with_one_tree() -> TestResult {
     // Import new commit into `jj` repo. This should fail, because allowing a
     // non-conflicted commit to have a different tree in `jj` than in Git could be
     // used to hide malicious code.
-    insta::assert_debug_snapshot!(git_backend.import_head_commits(std::slice::from_ref(&new_commit_id)), @r#"
-    Err(
-        ReadObject {
-            object_type: "commit",
-            hash: "87df728a30166ce1de0bf883948dd66b74cf25a0",
-            source: "Invalid jj:trees header",
-        },
-    )
-    "#);
+    assert_matches!(
+        git_backend.import_head_commits(std::slice::from_ref(&new_commit_id)),
+        Err(BackendError::ReadObject { object_type, hash, source })
+            if object_type == "commit"
+                && hash == new_commit_id.hex()
+                && source.to_string() == "Invalid jj:trees header"
+    );
     Ok(())
 }
 
