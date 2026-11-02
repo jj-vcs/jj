@@ -1990,6 +1990,30 @@ fn test_git_push_no_description_on_remote() {
     Dry-run requested, not pushing.
     [EOF]
     ");
+
+    // A commit that is immutable but not on any remote is still validated
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "imm"])
+        .success();
+    work_dir.run_jj(["new", "-m", "bar"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "my-bookmark2"])
+        .success();
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--bookmark=my-bookmark2",
+        "--dry-run",
+        "--config=revset-aliases.'immutable_heads()'='imm'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Won't push commit f5a334d32294 since it has no description
+    Hint: Rejected commit: kxryzmor f5a334d3 imm* | (empty) (no description set)
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]

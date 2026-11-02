@@ -213,7 +213,7 @@ fn test_git_private_commits_can_be_overridden() {
 }
 
 #[test]
-fn test_git_private_commits_are_not_checked_if_immutable() {
+fn test_git_private_commits_are_checked_even_if_immutable() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
@@ -228,11 +228,10 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Changes to push to origin:
-      bookmark: main [move forward from 95cc152cd086 to 7f665ca27d4e]
-    Warning: The working-copy commit became immutable; a new commit has been created on top of it.
-    Working copy  (@) now at: yostqsxw 17947f20 (empty) (no description set)
-    Parent commit (@-)      : yqosqzyt 7f665ca2 main | (empty) private 1
+    Warning: Won't push bookmark main: commit 7f665ca27d4e is private
+      yqosqzyt 7f665ca2 main* | (empty) private 1
+    Hint: Configured git.private-commits: 'description('private*')'
+    Nothing changed.
     [EOF]
     ");
 }

@@ -47,7 +47,6 @@ use jj_lib::refs::RefPushAction;
 use jj_lib::refs::classify_ref_push_action;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
-use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetContainingFn;
 use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetEvaluationError;
@@ -809,7 +808,6 @@ impl RejectedCommitReason {
 struct CommitsValidator<'repo> {
     repo: &'repo dyn Repo,
     known_heads: Vec<CommitId>,
-    immutable_heads: Arc<ResolvedRevsetExpression>,
     private_commits: Option<(String, Box<RevsetContainingFn<'static>>)>,
     allow_empty_description: bool,
     allow_conflicts: bool,
@@ -829,10 +827,8 @@ impl<'repo> CommitsValidator<'repo> {
         )
         .flat_map(|(_, old_head)| old_head.target.present_adds())
         .cloned()
+        .chain([repo.store().root_commit_id().clone()])
         .collect();
-        let immutable_heads = workspace_helper
-            .attach_revset_evaluator(workspace_helper.env().immutable_heads_expression().clone())
-            .resolve()?;
         let private_commits = if !args.allow_private {
             let settings = workspace_helper.settings();
             let revset_str = settings.get_string("git.private-commits")?;
@@ -847,7 +843,6 @@ impl<'repo> CommitsValidator<'repo> {
         Ok(Self {
             repo,
             known_heads,
-            immutable_heads,
             private_commits,
             allow_empty_description: args.allow_empty_description,
             allow_conflicts: args.allow_conflicts,
@@ -876,7 +871,6 @@ impl<'repo> CommitsValidator<'repo> {
         new_heads: &[CommitId],
     ) -> Result<Result<(), RejectedCommitReason>, RevsetEvaluationError> {
         let new_commits = RevsetExpression::commits(self.known_heads.clone())
-            .union(&self.immutable_heads)
             .range(&RevsetExpression::commits(new_heads.to_vec()));
         let mut commit_stream = new_commits
             .evaluate(self.repo)?
