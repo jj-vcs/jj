@@ -157,8 +157,8 @@ fn test_resolve_symbol_empty_string() -> TestResult {
 #[test]
 fn test_resolve_symbol_commit_id() -> TestResult {
     let settings = testutils::user_settings();
-    // Test only with git so we can get predictable commit ids
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    // Test only with SHA-1 git so we can get predictable commit ids
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
@@ -280,8 +280,8 @@ fn test_resolve_symbol_commit_id() -> TestResult {
 #[test_case(false ; "mutable")]
 #[test_case(true ; "readonly")]
 fn test_resolve_symbol_change_id(readonly: bool) -> TestResult {
-    // Test only with git so we can get predictable commit ids
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    // Test only with SHA-1 git so we can get predictable commit ids
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
     let repo = &test_repo.repo;
 
     // Add some commits that will end up having change ids with common prefixes
