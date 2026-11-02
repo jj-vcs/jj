@@ -310,7 +310,7 @@ impl TestRepoBackend {
                 Ok(Box::new(GitBackend::init_internal(
                     &git_settings,
                     store_path,
-                    gix::hash::Kind::default(),
+                    git::object_hash(),
                 )?))
             }
             Self::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
@@ -429,7 +429,7 @@ impl TestWorkspace {
             &user_settings(),
             &workspace_root,
             WorkspaceName::DEFAULT,
-            gix::hash::Kind::default(),
+            git::object_hash(),
         )
         .block_on()
         .unwrap();
