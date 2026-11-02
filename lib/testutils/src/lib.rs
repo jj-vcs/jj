@@ -290,7 +290,11 @@ pub struct TestRepo {
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum TestRepoBackend {
+    /// Git backend using the object format from [`git::object_hash()`].
     Git,
+    /// Git backend that always uses SHA-1, for tests that depend on specific
+    /// commit ids.
+    GitSha1,
     Simple,
     Test,
 }
@@ -304,6 +308,7 @@ impl TestRepoBackend {
     ) -> Result<Box<dyn Backend>, BackendInitError> {
         match self {
             Self::Git => init_git_backend(settings, store_path, git::object_hash()),
+            Self::GitSha1 => init_git_backend(settings, store_path, gix::hash::Kind::Sha1),
             Self::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
             Self::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
         }
