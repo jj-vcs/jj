@@ -23,6 +23,30 @@ use gix::date::parse::TimeBuf;
 pub const GIT_USER: &str = "Someone";
 pub const GIT_EMAIL: &str = "someone@example.org";
 
+/// Environment variable that selects the object format of Git repositories
+/// created by tests ("sha1" or "sha256").
+pub const OBJECT_HASH_ENV_VAR: &str = "JJ_TEST_GIT_OBJECT_HASH";
+
+/// Returns the object format of Git repositories created by tests.
+///
+/// Defaults to SHA-1. Set [`OBJECT_HASH_ENV_VAR`] to run tests against SHA-256
+/// repositories instead.
+pub fn object_hash() -> gix::hash::Kind {
+    match std::env::var(OBJECT_HASH_ENV_VAR) {
+        Ok(value) if !value.is_empty() => value
+            .parse()
+            .unwrap_or_else(|err| panic!("invalid {OBJECT_HASH_ENV_VAR}: {err}")),
+        _ => gix::hash::Kind::Sha1,
+    }
+}
+
+fn create_options() -> gix::create::Options {
+    gix::create::Options {
+        object_hash: Some(object_hash()),
+        ..Default::default()
+    }
+}
+
 fn git_config() -> Vec<BString> {
     vec![
         format!("user.name = {GIT_USER}").into(),
@@ -45,7 +69,7 @@ pub fn init(directory: impl AsRef<Path>) -> gix::Repository {
     gix::ThreadSafeRepository::init_opts(
         directory,
         gix::create::Kind::WithWorktree,
-        gix::create::Options::default(),
+        create_options(),
         open_options(),
     )
     .unwrap()
@@ -56,7 +80,7 @@ pub fn init_bare(directory: impl AsRef<Path>) -> gix::Repository {
     gix::ThreadSafeRepository::init_opts(
         directory,
         gix::create::Kind::Bare,
-        gix::create::Options::default(),
+        create_options(),
         open_options(),
     )
     .unwrap()
