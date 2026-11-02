@@ -3295,7 +3295,7 @@ fn test_always_store_empty_tree() -> TestResult {
     let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
     let git_backend = get_git_backend(test_workspace.repo.store())?;
     let git_repo = git_backend.git_repo();
-    let empty_tree_id = gix::ObjectId::empty_tree(gix::hash::Kind::Sha1);
+    let empty_tree_id = gix::ObjectId::empty_tree(git_repo.object_hash());
 
     test_workspace.snapshot()?;
 
