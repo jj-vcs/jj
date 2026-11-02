@@ -135,6 +135,7 @@ use jj_lib::transaction::Transaction;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::ui_path::UiPathParseError;
 use jj_lib::working_copy;
+use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
@@ -1222,6 +1223,17 @@ impl WorkspaceCommandEnvironment {
 
 fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
     match event {
+        RunnerEvent::ConcurrentCheckout => {
+            writeln!(
+                ui.warning_default(),
+                "The working copy was concurrently modified while this command was running."
+            )?;
+            writeln!(
+                ui.hint_default(),
+                "The operation's result was recorded, but the working copy stayed on the commit \
+                 left by the other process. Run `jj log` to see both; they may be divergent."
+            )
+        }
         RunnerEvent::DescendantsRebased {
             num_rebased,
             reason,
@@ -2446,23 +2458,27 @@ to the current parents may contain changes from multiple commits.
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)
         // don't leave the working copy in a stale state.
+        let mut update_working_copy_result = Ok(());
         if self.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
-                let stats = update_working_copy(
+                let result = update_working_copy(
                     &self.user_repo.repo,
                     &mut self.workspace,
                     maybe_old_wc_commit.as_ref(),
                     new_commit,
                 )
-                .await?;
-                self.print_updated_working_copy_stats(
-                    ui,
-                    maybe_old_wc_commit.as_ref(),
-                    new_commit,
-                    &stats,
-                )
-                .await
-                .map_err(CliEventSinkError)?;
+                .await;
+                if let Ok(stats) = &result {
+                    self.print_updated_working_copy_stats(
+                        ui,
+                        maybe_old_wc_commit.as_ref(),
+                        new_commit,
+                        stats,
+                    )
+                    .await
+                    .map_err(CliEventSinkError)?;
+                }
+                update_working_copy_result = result.map(|_| ());
             } else {
                 // It seems the workspace was deleted, so we shouldn't try to
                 // update it.
@@ -2498,7 +2514,7 @@ to the current parents may contain changes from multiple commits.
             )
             .map_err(RunnerError::event_sink)?;
         }
-        Ok(())
+        update_working_copy_result
     }
 
     /// Identifies bookmarks which are eligible to be moved automatically
@@ -2978,9 +2994,16 @@ impl WorkspaceCommandTransaction<'_> {
         // Acquire git import/export lock before finishing the transaction to ensure
         // Git HEAD export happens atomically with the transaction commit.
         let git_import_export_lock = helper.lock_git_import_export()?;
-        helper
+        match helper
             .finish_transaction(ui, tx, description, &git_import_export_lock)
-            .await?;
+            .await
+        {
+            Err(RunnerError::CheckOut {
+                source: CheckoutError::ConcurrentCheckout,
+                ..
+            }) => print_runner_event(ui, &RunnerEvent::ConcurrentCheckout)?,
+            result => result?,
+        }
         Ok(())
     }
 
