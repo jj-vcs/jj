@@ -2128,13 +2128,12 @@ pub async fn reset_head(
     } else if let Some(old) = old_wc_commit
         && old.tree_ids() != new_wc_commit.tree_ids()
     {
+        let lock = lock_index(&git_repo)?;
         let mut index = open_index_or_empty(&git_repo)?;
         update_intent_to_add_impl(&git_repo, &mut index, &old.tree(), &new_wc_commit.tree())
             .await?;
         debug_assert!(index.verify_entries().is_ok());
-        index
-            .write(gix::index::write::Options::default())
-            .map_err(GitResetHeadError::from_git)?;
+        write_locked_index(&index, lock)?;
     }
     Ok(())
 }
@@ -2205,25 +2204,24 @@ async fn reset_index(
     update_intent_to_add_impl(git_repo, &mut index, &parent_tree, &wc_tree).await?;
 
     // Match entries in the new index with entries in the old index, and copy stat
-    // information if the entry didn't change.
-    if let Some(old_index) = git_repo.try_index().map_err(GitResetHeadError::from_git)? {
-        index
-            .entries_mut_with_paths()
-            .merge_join_by(old_index.entries(), |(entry, path), old_entry| {
-                gix::index::Entry::cmp_filepaths(path, old_entry.path(&old_index))
-                    .then_with(|| entry.stage().cmp(&old_entry.stage()))
-            })
-            .filter_map(|merged| merged.both())
-            .map(|((entry, _), old_entry)| (entry, old_entry))
-            .filter(|(entry, old_entry)| entry.id == old_entry.id && entry.mode == old_entry.mode)
-            .for_each(|(entry, old_entry)| entry.stat = old_entry.stat);
-    }
+    // information if the entry didn't change. The lock is held from here so the
+    // index can't be replaced after we read the stat information from it.
+    let lock = lock_index(git_repo)?;
+    let old_index = open_index_or_empty(git_repo)?;
+    index
+        .entries_mut_with_paths()
+        .merge_join_by(old_index.entries(), |(entry, path), old_entry| {
+            gix::index::Entry::cmp_filepaths(path, old_entry.path(&old_index))
+                .then_with(|| entry.stage().cmp(&old_entry.stage()))
+        })
+        .filter_map(|merged| merged.both())
+        .map(|((entry, _), old_entry)| (entry, old_entry))
+        .filter(|(entry, old_entry)| entry.id == old_entry.id && entry.mode == old_entry.mode)
+        .for_each(|(entry, old_entry)| entry.stat = old_entry.stat);
 
     debug_assert!(index.verify_entries().is_ok());
 
-    index
-        .write(gix::index::write::Options::default())
-        .map_err(GitResetHeadError::from_git)
+    write_locked_index(&index, lock)
 }
 
 async fn build_index_from_merged_tree(
@@ -2357,13 +2355,45 @@ pub async fn update_intent_to_add(
     let git_repo = git_backend
         .open_git_repo_at_workdir(workspace_root)
         .map_err(GitResetHeadError::from_git)?;
+    let lock = lock_index(&git_repo)?;
     let mut index = open_index_or_empty(&git_repo)?;
     update_intent_to_add_impl(&git_repo, &mut index, old_tree, new_tree).await?;
     debug_assert!(index.verify_entries().is_ok());
-    index
-        .write(gix::index::write::Options::default())
-        .map_err(GitResetHeadError::from_git)?;
+    write_locked_index(&index, lock)
+}
 
+/// Acquires `index.lock` for the Git index, the same lock Git takes when
+/// updating the index.
+///
+/// Take the lock before reading the index and hold it until the modified index
+/// is written by `write_locked_index()`. Otherwise, changes made by Git (e.g.
+/// `git add`) between our read and write would be lost.
+fn lock_index(git_repo: &gix::Repository) -> Result<gix::lock::File, GitResetHeadError> {
+    gix::lock::File::acquire_to_update_resource(
+        git_repo.index_path(),
+        gix::lock::acquire::Fail::Immediately,
+        None,
+        0,
+    )
+    .map_err(GitResetHeadError::from_git)
+}
+
+/// Writes `index` to the lock file and atomically replaces the Git index with
+/// it.
+fn write_locked_index(
+    index: &gix::index::File,
+    lock: gix::lock::File,
+) -> Result<(), GitResetHeadError> {
+    debug_assert_eq!(lock.resource_path(), index.path());
+    let mut out = std::io::BufWriter::new(lock);
+    index
+        .write_to(&mut out, gix::index::write::Options::default())
+        .map_err(GitResetHeadError::from_git)?;
+    let lock = out
+        .into_inner()
+        .map_err(|err| GitResetHeadError::from_git(err.into_error()))?;
+    lock.commit()
+        .map_err(|err| GitResetHeadError::from_git(err.error))?;
     Ok(())
 }
 
