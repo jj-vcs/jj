@@ -623,7 +623,16 @@ workspace, such as commits on remotes. It is also used for deciding which
 commits to show by default in `jj log`. Commits that should be immutable only
 from the current workspace can instead be added to
 `revset-aliases."workspace_immutable_heads()"`, which defaults to
-`immutable_heads()`.
+`immutable_heads() | (working_copies() ~ present(@))`. That means that the
+working-copy commits of other workspaces are immutable by default, so you
+don't accidentally make the other workspaces stale. A commit that is checked
+out in the current workspace stays mutable even if another workspace also has
+it checked out. To allow rewriting other workspaces' working-copy commits:
+
+```toml
+[revset-aliases]
+"workspace_immutable_heads()" = "immutable_heads()"
+```
 
 !!! warning
 

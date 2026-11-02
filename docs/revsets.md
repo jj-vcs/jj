@@ -662,8 +662,9 @@ for a comprehensive list.
   [here](config.md#set-of-immutable-commits) for details.
 
 * `workspace_immutable_heads()`: The heads of the set of commits that cannot be
-  rewritten from the current workspace. Resolves to `immutable_heads()` by
-  default. It can be overridden as required. See
+  rewritten from the current workspace. Resolves to `immutable_heads() |
+  (working_copies() ~ present(@))` by default, i.e. other workspaces'
+  working-copy commits are also immutable. It can be overridden as required. See
   [here](config.md#set-of-immutable-commits) for details.
 
 * `immutable()`: The set of commits that `jj` treats as immutable. This is

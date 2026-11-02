@@ -24,6 +24,12 @@ and this project adheres to
 * Deleted `jj debug snapshot`. It was deprecated in 0.39.0. Use `jj util snapshot`
   instead.
 
+* The working-copy commits of other workspaces (and their ancestors) are now
+  considered immutable by default, so you don't accidentally make the other
+  workspaces stale. Use `--ignore-immutable` or set
+  `revset-aliases."workspace_immutable_heads()" = "immutable_heads()"` to
+  rewrite them. See [docs](docs/config.md#set-of-immutable-commits)
+
 ### Deprecations
 
 ### New features

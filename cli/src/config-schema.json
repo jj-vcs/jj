@@ -794,7 +794,7 @@
                 "workspace_immutable_heads()": {
                     "type": "string",
                     "description": "Revisions that cannot be rewritten from the current workspace. Ancestors of these are also considered immutable. Should usually include `immutable_heads()`.",
-                    "default": "immutable_heads()"
+                    "default": "immutable_heads() | (working_copies() ~ present(@))"
                 }
             },
             "additionalProperties": {
