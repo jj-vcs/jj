@@ -227,13 +227,16 @@ fn to_slash_separated(path: &Path) -> OsString {
 
 /// Creates a temporary file with normal file creation permissions.
 pub fn new_temp_file_with_default_permissions(dir: impl AsRef<Path>) -> io::Result<NamedTempFile> {
-    let mut builder = tempfile::Builder::new();
     #[cfg(unix)]
-    {
+    let builder = {
         use std::os::unix::fs::PermissionsExt as _;
+        let mut builder = tempfile::Builder::new();
         // Request normal file mode. The umask applies to the actual mode.
         builder.permissions(fs::Permissions::from_mode(0o666));
-    }
+        builder
+    };
+    #[cfg(not(unix))]
+    let builder = tempfile::Builder::new();
     builder.tempfile_in(dir)
 }
 
