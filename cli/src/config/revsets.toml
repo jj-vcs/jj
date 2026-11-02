@@ -16,7 +16,7 @@ log = "builtin_log()"
 # Emit the working-copy branch first, which is usually most interesting.
 # This also helps stabilize output order.
 log-graph-prioritize = "present(@)"
-op-diff-changes-in = "mutable() | immutable_heads()"
+op-diff-changes-in = "~::(immutable_heads() | root()) | immutable_heads()"
 sign = "reachable(@, mutable())"
 bookmark-advance-to = "@"
 bookmark-advance-from = "heads(::to & bookmarks())"
@@ -45,7 +45,12 @@ latest(
 trunk() | tags() | untracked_remote_bookmarks() | untracked_remote_tags()
 '''
 'immutable_heads()' = 'builtin_immutable_heads()'
-'immutable()' = '::(immutable_heads() | root())'
+# Heads of commits that cannot be rewritten from this workspace. Should usually
+# include `immutable_heads()`.
+'workspace_immutable_heads()' = 'immutable_heads()'
+# Keep in sync with `WorkspaceEnvironment::immutable_expression()`, which is
+# what's used for deciding which commits can be rewritten.
+'immutable()' = '::(workspace_immutable_heads() | root())'
 'mutable()' = '~immutable()'
 
 'visible()' = '::visible_heads()'

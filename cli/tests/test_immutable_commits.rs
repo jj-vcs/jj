@@ -93,8 +93,23 @@ fn test_rewrite_immutable_generic() {
     [exit status: 1]
     ");
 
-    // Can use --ignore-immutable to override
+    // Unresolvable workspace_immutable_heads()
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
+    test_env.add_config(
+        r#"revset-aliases."workspace_immutable_heads()" = "immutable_heads() | bookmark_that_does_not_exist""#,
+    );
+    let output = work_dir.run_jj(["edit", "main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Config error: Invalid `revset-aliases.workspace_immutable_heads()`
+    Caused by: Revision `bookmark_that_does_not_exist` doesn't exist
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+    test_env.add_config(r#"revset-aliases."workspace_immutable_heads()" = "immutable_heads()""#);
+
+    // Can use --ignore-immutable to override
     let output = work_dir.run_jj(["--ignore-immutable", "edit", "main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -119,7 +134,7 @@ fn test_rewrite_immutable_generic() {
     let output = work_dir.run_jj(["new", "main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: wqnwkozp 8fc35e6e (empty) (no description set)
+    Working copy  (@) now at: lylxulpl 883af231 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 9d190342 main | b
     [EOF]
     ");

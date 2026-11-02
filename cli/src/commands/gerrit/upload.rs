@@ -498,13 +498,13 @@ pub async fn cmd_gerrit_upload(
     // If you have the changes main -> A -> B, then `jj gerrit upload -r B`
     // uploads both A and B. Thus, we need to ensure that A also has a
     // `Change-Id` trailer.
-    // We make an assumption here that all immutable commits already have a
-    // `Change-Id` trailer.
+    // We make an assumption here that all commits in `::immutable_heads()`
+    // already have a `Change-Id` trailer.
     let to_upload: Vec<Commit> = workspace_command
         .attach_revset_evaluator(
             workspace_command
                 .env()
-                .immutable_expression()
+                .immutable_heads_expression()
                 .range(&RevsetExpression::commits(revisions.clone())),
         )
         .evaluate_to_commits()?

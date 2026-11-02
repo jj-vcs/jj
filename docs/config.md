@@ -618,6 +618,13 @@ To prevent rewriting commits authored by other users:
 Ancestors of the configured set are also immutable. The root commit is always
 immutable even if the set is empty.
 
+`immutable_heads()` is meant for commits that are immutable from any
+workspace, such as commits on remotes. It is also used for deciding which
+commits to show by default in `jj log`. Commits that should be immutable only
+from the current workspace can instead be added to
+`revset-aliases."workspace_immutable_heads()"`, which defaults to
+`immutable_heads()`.
+
 !!! warning
 
     Functions such as `remote_bookmarks()` may include hidden revisions.
@@ -709,7 +716,8 @@ op-diff-changes-in = "mutable() | trunk()"
 ```
 
 The default value for `revsets.op-diff-changes-in` is
-`'mutable() | immutable_heads()'`.
+`'~::(immutable_heads() | root()) | immutable_heads()'`, i.e. revisions that
+are not immutable from every workspace, plus the immutable heads.
 
 ### Prioritize Revsets in the Log over @
 

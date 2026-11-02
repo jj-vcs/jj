@@ -308,6 +308,9 @@ pub enum RunnerError {
     /// The configured `immutable_heads()` couldn't be resolved.
     #[error("Invalid `revset-aliases.immutable_heads()`")]
     InvalidImmutableHeads(#[source] RevsetResolutionError),
+    /// The configured `workspace_immutable_heads()` couldn't be resolved.
+    #[error("Invalid `revset-aliases.workspace_immutable_heads()`")]
+    InvalidWorkspaceImmutableHeads(#[source] RevsetResolutionError),
     /// A commit couldn't be checked out in the working copy.
     #[error("Failed to check out commit {}", commit_id.hex())]
     CheckOut {

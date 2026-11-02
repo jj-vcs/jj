@@ -261,6 +261,7 @@ impl From<WorkspaceEnvironmentError> for CommandError {
         match err {
             WorkspaceEnvironmentError::Config(err) => err.into(),
             WorkspaceEnvironmentError::InvalidImmutableHeads(_)
+            | WorkspaceEnvironmentError::InvalidWorkspaceImmutableHeads(_)
             | WorkspaceEnvironmentError::InvalidShortPrefixes(_) => config_error(err),
             #[cfg(feature = "git")]
             WorkspaceEnvironmentError::GitRepoAtWorkdir(err) => err.into(),
@@ -287,7 +288,8 @@ impl From<RunnerError> for CommandError {
                 user_error(err)
             }
             RunnerError::GitImportExportLock(_) => user_error(err),
-            RunnerError::InvalidImmutableHeads(_) => config_error(err),
+            RunnerError::InvalidImmutableHeads(_)
+            | RunnerError::InvalidWorkspaceImmutableHeads(_) => config_error(err),
             RunnerError::CheckOut { .. } => internal_error(err),
             RunnerError::StaleWorkingCopy(err) => match err {
                 StaleWorkingCopyError::Stale { wc_op_id } => user_error(format!(

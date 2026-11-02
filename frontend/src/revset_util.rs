@@ -29,8 +29,6 @@ use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::store::Store;
 
-const USER_IMMUTABLE_HEADS: &str = "immutable_heads";
-
 /// Returns the special remote name that should be ignored by default.
 #[cfg_attr(not(feature = "git"), expect(unused_variables))]
 pub fn default_ignored_remote_name(store: &Store) -> Option<&'static RemoteName> {
@@ -44,18 +42,41 @@ pub fn default_ignored_remote_name(store: &Store) -> Option<&'static RemoteName>
     None
 }
 
-/// Parses user-configured expression defining the heads of the immutable set.
-/// Includes the root commit.
+/// Parses user-configured expression defining the heads of the set of commits
+/// that are immutable from any workspace (`immutable_heads()`). Includes the
+/// root commit.
 pub fn parse_immutable_heads_expression(
     diagnostics: &mut RevsetDiagnostics,
     context: &RevsetParseContext,
 ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
-    let (_, _, immutable_heads_str, _) = context
-        .aliases_map
-        .get_function(USER_IMMUTABLE_HEADS, 0)
-        .unwrap();
-    let heads = revset::parse(diagnostics, immutable_heads_str, context)?;
+    let heads = parse_alias_body(diagnostics, "immutable_heads", context)?;
     Ok(heads.union(&RevsetExpression::root()))
+}
+
+/// Parses user-configured expression defining the heads of the set of commits
+/// that cannot be rewritten from this workspace
+/// (`workspace_immutable_heads()`). Includes the root commit.
+///
+/// The ancestors of this expression must match the default definition of the
+/// `immutable()` alias.
+pub fn parse_workspace_immutable_heads_expression(
+    diagnostics: &mut RevsetDiagnostics,
+    context: &RevsetParseContext,
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
+    let heads = parse_alias_body(diagnostics, "workspace_immutable_heads", context)?;
+    Ok(heads.union(&RevsetExpression::root()))
+}
+
+fn parse_alias_body(
+    diagnostics: &mut RevsetDiagnostics,
+    name: &str,
+    context: &RevsetParseContext,
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
+    let (_, _, body, _) = context
+        .aliases_map
+        .get_function(name, 0)
+        .expect("alias should be defined by default");
+    revset::parse(diagnostics, body, context)
 }
 
 /// Parses and resolves `trunk()` alias to detect name resolution error in it.

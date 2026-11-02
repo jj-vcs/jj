@@ -980,9 +980,15 @@ fn print_workspace_environment_diagnostics(
 ) -> io::Result<()> {
     let WorkspaceEnvironmentDiagnostics {
         immutable_heads,
+        workspace_immutable_heads,
         short_prefixes,
     } = diagnostics;
     print_parse_diagnostics(ui, "In `revset-aliases.immutable_heads()`", immutable_heads)?;
+    print_parse_diagnostics(
+        ui,
+        "In `revset-aliases.workspace_immutable_heads()`",
+        workspace_immutable_heads,
+    )?;
     print_parse_diagnostics(ui, "In `revsets.short-prefixes`", short_prefixes)?;
     Ok(())
 }
@@ -1060,7 +1066,10 @@ impl WorkspaceCommandEnvironment {
         self.base.immutable_expression()
     }
 
-    /// User-configured expression defining the heads of the immutable set.
+    /// User-configured expression defining the heads of the set of commits
+    /// that are immutable from any workspace (`immutable_heads()`). Unlike
+    /// [`Self::immutable_expression()`], this doesn't include commits that are
+    /// immutable only from this workspace. Includes the root commit.
     pub fn immutable_heads_expression(&self) -> &Arc<UserRevsetExpression> {
         self.base.immutable_heads_expression()
     }

@@ -28,6 +28,11 @@ and this project adheres to
 
 ### New features
 
+* New `workspace_immutable_heads()` revset alias for commits that cannot be
+  rewritten from the current workspace. It defaults to `immutable_heads()`
+  and replaces that function in the definition of `immutable()`.
+  See [docs](docs/config.md#set-of-immutable-commits)
+
 ### Fixed bugs
 
 ## [0.47.1] - 2026-11-04

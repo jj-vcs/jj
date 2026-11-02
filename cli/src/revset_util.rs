@@ -182,7 +182,7 @@ pub(super) fn warn_user_redefined_builtin(
             writeln!(
                 ui.warning_default(),
                 "Redefining `{table_name}.{decl}` is not recommended; redefine \
-                 `immutable_heads()` instead.",
+                 `immutable_heads()` or `workspace_immutable_heads()` instead.",
             )?;
         }
     }

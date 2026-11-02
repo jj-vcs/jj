@@ -66,6 +66,11 @@ impl<T> Diagnostics<T> {
         self.diagnostics.push(diag);
     }
 
+    /// Retains only the diagnostic messages specified by the predicate.
+    pub fn retain(&mut self, f: impl FnMut(&T) -> bool) {
+        self.diagnostics.retain(f);
+    }
+
     /// Moves diagnostic messages of different type (such as fileset warnings
     /// emitted within `file()` revset.)
     pub fn extend_with<U>(&mut self, diagnostics: Diagnostics<U>, mut f: impl FnMut(U) -> T) {
