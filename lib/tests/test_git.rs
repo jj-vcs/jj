@@ -3966,12 +3966,6 @@ fn test_reset_head_with_index() -> TestResult {
     )?;
     insta::assert_snapshot!(get_index_state(workspace_root), @"");
 
-    // Workaround for windows-x86_64 CI failure. windows-aarch64 passes without
-    // it. TODO: Remove this hack.
-    if cfg!(windows) {
-        std::thread::sleep(std::time::Duration::from_secs(2));
-    }
-
     // Rewriting the working-copy tree preserves staged changes and adds new files.
     {
         let mut index_manager = testutils::git::IndexManager::new(&git_repo);

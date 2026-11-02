@@ -328,10 +328,7 @@ pub struct IndexManager<'a> {
 
 impl<'a> IndexManager<'a> {
     pub fn new(repo: &'a gix::Repository) -> Self {
-        // This would be equivalent to repo.open_index_or_empty() if such
-        // function existed.
-        let index = repo.index_or_empty().unwrap();
-        let index = gix::index::File::clone(&index); // unshare
+        let index = jj_lib::git::open_index_or_empty(repo).unwrap();
         Self { index, repo }
     }
 
