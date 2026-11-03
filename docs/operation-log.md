@@ -17,6 +17,10 @@ revert a specific one which isn't the most recent operation (`jj op revert`). It
 also lets you restore the entire repo to the way it looked at an earlier point
 (`jj op restore`).
 
+`jj undo` and `jj redo` only consider operations performed in the current
+workspace. They revert the operation instead of restoring the repo to an earlier
+operation, so changes made from other workspaces in the meantime are kept.
+
 When referring to operations, you can use `@` to represent the current
 operation.
 
