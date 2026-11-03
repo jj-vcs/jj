@@ -122,8 +122,8 @@ and this project adheres to
   and `jj` commands could import partially fetched refs, causing divergence.
   [#7349](https://github.com/jj-vcs/jj/issues/7349)
 
-* Fixed a race condition in colocated workspaces where changes made by a
-  concurrent Git process could get lost.
+* Fixed a race condition in colocated workspaces where changes to the Git index
+  made by a concurrent Git process could get lost.
 
 * In colocated workspaces, Git export failures are no longer misidentified as
   external changes. Those changes are now re-exported on the next `jj`
