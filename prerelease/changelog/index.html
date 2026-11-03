@@ -9371,6 +9371,12 @@ and this project adheres to
   to converge. The special <code>q</code> abort choice was removed; canceling with EOF now
   exits with an error (previously <code>q</code> aborted successfully).</p>
 </li>
+<li>
+<p><code>jj file search</code> now detects binary files (any null byte in the first 8000
+  bytes) and emits <code>Binary file matches: &lt;path&gt;</code> instead of dumping raw bytes to
+  stdout. Use <code>--binary-as-text</code> to force text treatment, or <code>--skip-binary</code> to
+  skip binary files entirely.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
