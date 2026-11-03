@@ -344,6 +344,10 @@ workspace the command was run in, so <code dir="auto">jj undo</code> there undoe
 refusing to undo an operation from another workspace.</p>
 </li>
 <li>
+<p><code dir="auto">jj workspace add -r</code> with an invalid revision no longer leaves a
+half-created workspace behind.</p>
+</li>
+<li>
 <p>Date patterns such as <code dir="auto">after:"2024-03-10 03:30"</code> are now resolved with the
 correct UTC offset on days with a daylight savings transition. Previously,
 the offset from the start of the day was used, so times after were off
