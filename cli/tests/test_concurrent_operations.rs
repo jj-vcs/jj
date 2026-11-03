@@ -122,12 +122,18 @@ fn test_concurrent_rebases_form_rewrite_cycle() {
 
     let output = get_log_output(&work_dir);
     insta::assert_snapshot!(output, @"
+    @  Z
+    ○  Y
+    │ ○  Y
+    ├─╯
+    ○  X
+    ○  Z
+    ◆
+    [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
-    Internal error: Failed to load the repo
-    Caused by: Cycle in rebase dependencies involving 7f3a5be96112b04342d98f6e04a73dab53ed3cbe
+    Rebased 2 descendant commits onto commits rewritten by other operation.
     [EOF]
-    [exit status: 255]
     ");
 }
 
