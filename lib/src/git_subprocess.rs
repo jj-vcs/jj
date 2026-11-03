@@ -73,6 +73,8 @@ pub enum GitSubprocessError {
          {MINIMUM_GIT_VERSION})"
     )]
     UnsupportedGitOption(String),
+    #[error("The remote repository uses a different object format")]
+    ObjectFormatMismatch,
     #[error("Git process failed: {0}")]
     External(String),
 }
@@ -412,6 +414,13 @@ fn parse_no_remote_ref(stderr: &[u8]) -> Option<String> {
         .map(|refname| refname.to_str_lossy().into_owned())
 }
 
+fn parse_object_format_mismatch(stderr: &[u8]) -> Option<GitSubprocessError> {
+    let first_line = stderr.lines().next()?;
+    (first_line.starts_with(b"fatal: mismatched algorithms: ")
+        || first_line == b"fatal: Server does not support this repository's object format")
+        .then_some(GitSubprocessError::ObjectFormatMismatch)
+}
+
 /// Parse remote tracking branch not found
 ///
 /// This returns true if the error was detected
@@ -472,6 +481,10 @@ fn parse_git_fetch_output(output: &Output) -> Result<GitFetchStatus, GitSubproce
 
     if let Some(remote) = parse_no_such_remote(&output.stderr) {
         return Err(GitSubprocessError::NoSuchRepository(remote));
+    }
+
+    if let Some(err) = parse_object_format_mismatch(&output.stderr) {
+        return Err(err);
     }
 
     if let Some(refspec) = parse_no_remote_ref(&output.stderr) {
@@ -986,6 +999,12 @@ and the repository exists. "###;
     const SAMPLE_NO_REMOTE_REF_ERROR: &[u8] = b"fatal: couldn't find remote ref refs/heads/noexist";
     const SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR: &[u8] =
         b"error: remote-tracking branch 'bookmark' not found";
+    const SAMPLE_OBJECT_FORMAT_MISMATCH_ERROR: &[u8] =
+        b"fatal: mismatched algorithms: client sha1; server sha256";
+    const SAMPLE_OBJECT_FORMAT_MISMATCH_V0_ERROR: &[u8] =
+        br###"fatal: Server does not support this repository's object format
+fatal: the remote end hung up unexpectedly
+"###;
     const SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT: &[u8] = b"To origin
 *\tdeadbeef:refs/heads/bookmark1\t[new branch]
 +\tdeadbeef:refs/heads/bookmark2\tabcd..dead
@@ -1088,6 +1107,22 @@ Done";
     }
 
     #[test]
+    fn test_parse_object_format_mismatch() {
+        assert_matches!(
+            parse_object_format_mismatch(SAMPLE_OBJECT_FORMAT_MISMATCH_ERROR),
+            Some(GitSubprocessError::ObjectFormatMismatch)
+        );
+        assert_matches!(
+            parse_object_format_mismatch(SAMPLE_OBJECT_FORMAT_MISMATCH_V0_ERROR),
+            Some(GitSubprocessError::ObjectFormatMismatch)
+        );
+        assert!(parse_object_format_mismatch(SAMPLE_NO_SUCH_REPOSITORY_ERROR).is_none());
+        assert!(parse_object_format_mismatch(SAMPLE_NO_REMOTE_REF_ERROR).is_none());
+        assert!(parse_object_format_mismatch(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).is_none());
+        assert!(parse_object_format_mismatch(SAMPLE_OK_STDERR).is_none());
+    }
+
+    #[test]
     fn test_parse_no_remote_tracking_branch() {
         assert_eq!(
             parse_no_remote_tracking_branch(SAMPLE_NO_SUCH_REPOSITORY_ERROR),
@@ -1124,6 +1159,19 @@ Done";
             parse_git_fetch_output(&output),
             Ok(GitFetchStatus::Updates(updates))
                 if updates.updated.is_empty() && updates.rejected.len() == 1
+        );
+    }
+
+    #[test]
+    fn test_parse_git_fetch_output_object_format_mismatch() {
+        let output = Output {
+            status: exit_status_from_code(128),
+            stdout: b"".to_vec(),
+            stderr: SAMPLE_OBJECT_FORMAT_MISMATCH_ERROR.to_vec(),
+        };
+        assert_matches!(
+            parse_git_fetch_output(&output),
+            Err(GitSubprocessError::ObjectFormatMismatch)
         );
     }
 
