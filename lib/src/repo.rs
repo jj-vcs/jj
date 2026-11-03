@@ -94,6 +94,7 @@ use tracing::instrument;
 
 use crate::commit_builder::CommitBuilder;
 use crate::commit_builder::DetachedCommitBuilder;
+use crate::graph_scc::strongly_connected_components;
 use crate::op_heads_store;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
@@ -1426,6 +1427,20 @@ impl MutableRepo {
         Ok(num_reparented)
     }
 
+    /// Remove cyclic rewrite dependencies, which may be introduced by merging
+    /// concurrent operations.
+    async fn resolve_rewrite_cycles(&mut self) -> BackendResult<()> {
+        if self.parent_mapping.is_empty() {
+            return Ok(());
+        }
+        let roots = self.parent_mapping.keys().cloned().collect();
+        let to_visit = self
+            .find_descendants_for_rebase(roots, &RevsetExpression::none())
+            .await?;
+        remove_rewrite_cycles(&mut self.parent_mapping, &to_visit);
+        Ok(())
+    }
+
     /// Sets the working-copy commit of the workspace `name`. Returns an error
     /// if `commit_id` is the root commit.
     pub fn set_wc_commit(
@@ -1865,6 +1880,7 @@ impl MutableRepo {
         self.normalize_heads().await?;
 
         self.merge_view(&base_repo.view, &other_repo.view).await?;
+        self.resolve_rewrite_cycles().await?;
         Ok(())
     }
 
@@ -2065,6 +2081,74 @@ impl Repo for MutableRepo {
     }
 }
 
+/// Remove cyclic rewrite dependencies from `parent_mapping`.
+///
+/// A rewrite dependency can form a cycle together with ordinary parent edges.
+/// This function drops rewrite targets inside cyclic components, keeping the
+/// actual parent edges. This approach may remove more edges than necessary.
+fn remove_rewrite_cycles(parent_mapping: &mut HashMap<CommitId, Rewrite>, to_visit: &[Commit]) {
+    // Build dependency graph similar to order_commits_for_rebase()
+    let to_visit_set: HashSet<&CommitId> = to_visit.iter().map(|commit| commit.id()).collect();
+    let mut dependencies_by_commit: HashMap<&CommitId, Vec<&CommitId>> = HashMap::new();
+    for commit in to_visit {
+        let deps = dependencies_by_commit.entry(commit.id()).or_default();
+        for parent_id in commit.parent_ids() {
+            if to_visit_set.contains(parent_id) {
+                deps.push(parent_id);
+            }
+            if let Some(rewrite) = parent_mapping.get(parent_id) {
+                deps.extend(
+                    rewrite
+                        .new_parent_ids()
+                        .iter()
+                        .filter(|&target| to_visit_set.contains(target)),
+                );
+            }
+        }
+    }
+
+    // Split dependency graph into cycle components
+    let cycle_components =
+        strongly_connected_components(to_visit.iter().map(|commit| commit.id()), |id| {
+            let deps = dependencies_by_commit.get(id);
+            deps.into_iter().flatten().copied()
+        });
+    let component_by_commit: HashMap<CommitId, usize> = cycle_components
+        .iter()
+        .enumerate()
+        // Assume that a singleton cannot have a rewrite self-loop
+        .filter(|(_, commit_ids)| commit_ids.len() > 1)
+        .flat_map(|(i, commit_ids)| commit_ids.iter().map(move |&id| (id.clone(), i)))
+        .collect();
+    if component_by_commit.is_empty() {
+        return;
+    }
+
+    // Remove rewrite edges that belong to the same cycle component
+    for commit in to_visit {
+        let Some(component) = component_by_commit.get(commit.id()) else {
+            continue;
+        };
+        for parent_id in commit.parent_ids() {
+            let Some(rewrite) = parent_mapping.get_mut(parent_id) else {
+                continue;
+            };
+            let emptied = match rewrite {
+                Rewrite::Rewritten(new_parent_id) => {
+                    component_by_commit.get(new_parent_id) == Some(component)
+                }
+                Rewrite::Divergent(new_parent_ids) | Rewrite::Abandoned(new_parent_ids) => {
+                    new_parent_ids.retain(|id| component_by_commit.get(id) != Some(component));
+                    new_parent_ids.is_empty()
+                }
+            };
+            if emptied {
+                parent_mapping.remove(parent_id);
+            }
+        }
+    }
+}
+
 /// Error from attempts to check out the root commit for editing
 #[derive(Debug, Error)]
 #[error("Cannot rewrite the root commit")]
@@ -2096,4 +2180,155 @@ pub enum CheckOutCommitError {
     /// Failed to edit the new working-copy commit.
     #[error("Failed to edit commit")]
     EditCommit(#[from] EditCommitError),
+}
+
+#[cfg(test)]
+mod tests {
+    use jj_core::backend::make_root_commit;
+    use jj_core::files::FileMergeHunkLevel;
+    use jj_core::files::MergeOptions;
+    use maplit::hashmap;
+
+    use super::*;
+    use crate::simple_backend::SimpleBackend;
+    use crate::tests::new_temp_dir;
+
+    fn new_store(store_path: &Path) -> Arc<Store> {
+        let merge_options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Accept,
+        };
+        Store::new(
+            Box::new(SimpleBackend::init(store_path)),
+            Signer::new(None, vec![]),
+            merge_options,
+        )
+    }
+
+    /// Creates a commit object with the given id and parents. The commit isn't
+    /// written to the store.
+    fn make_commit(store: &Arc<Store>, id: &'static str, parents: Vec<CommitId>) -> Commit {
+        let mut data = make_root_commit(
+            store.root_change_id().clone(),
+            store.empty_tree_id().clone(),
+        );
+        data.parents = parents;
+        Commit::new(store.clone(), CommitId::from_hex(id), Arc::new(data))
+    }
+
+    #[test]
+    fn test_remove_rewrite_cycles_preserves_unrelated_rewrites() {
+        let temp_dir = new_temp_dir();
+        let store = new_store(temp_dir.path());
+        // Y
+        // |
+        // X  B
+        // |  |
+        // P  A  T
+        //
+        // X -> Y -> X through a rewrite of P; B -> T is unrelated.
+        let commit_p = make_commit(&store, "01", vec![]);
+        let commit_x = make_commit(&store, "02", vec![commit_p.id().clone()]);
+        let commit_y = make_commit(&store, "03", vec![commit_x.id().clone()]);
+        let commit_a = make_commit(&store, "04", vec![]);
+        let commit_b = make_commit(&store, "05", vec![commit_a.id().clone()]);
+        let commit_t = make_commit(&store, "06", vec![]);
+        let to_visit = vec![commit_x, commit_y.clone(), commit_b, commit_t.clone()];
+
+        for unrelated in [
+            Rewrite::Rewritten(commit_t.id().clone()),
+            Rewrite::Divergent(vec![commit_t.id().clone()]),
+            Rewrite::Abandoned(vec![commit_t.id().clone()]),
+        ] {
+            let mut mapping = hashmap! {
+                commit_p.id().clone() => Rewrite::Rewritten(commit_y.id().clone()),
+                commit_a.id().clone() => unrelated.clone(),
+            };
+            remove_rewrite_cycles(&mut mapping, &to_visit);
+            assert!(!mapping.contains_key(commit_p.id()));
+            assert_eq!(mapping.get(commit_a.id()), Some(&unrelated));
+        }
+
+        let mut mapping = hashmap! {
+            commit_p.id().clone() => Rewrite::Divergent(vec![
+                commit_y.id().clone(),
+                commit_t.id().clone(),
+            ]),
+        };
+        remove_rewrite_cycles(&mut mapping, &to_visit);
+        assert_eq!(
+            mapping.get(commit_p.id()),
+            Some(&Rewrite::Divergent(vec![commit_t.id().clone()]))
+        );
+
+        let mut mapping = hashmap! {
+            commit_p.id().clone() => Rewrite::Abandoned(vec![
+                commit_y.id().clone(),
+                commit_t.id().clone(),
+            ]),
+        };
+        remove_rewrite_cycles(&mut mapping, &to_visit);
+        assert_eq!(
+            mapping.get(commit_p.id()),
+            Some(&Rewrite::Abandoned(vec![commit_t.id().clone()]))
+        );
+    }
+
+    #[test]
+    fn test_remove_rewrite_cycles_acyclic() {
+        let temp_dir = new_temp_dir();
+        let store = new_store(temp_dir.path());
+        // B
+        // |
+        // A  T     U (outside the visited set)
+        let commit_a = make_commit(&store, "01", vec![]);
+        let commit_b = make_commit(&store, "02", vec![commit_a.id().clone()]);
+        let commit_t = make_commit(&store, "03", vec![]);
+        let commit_u = make_commit(&store, "04", vec![]);
+        let expected = hashmap! {
+            commit_a.id().clone() => Rewrite::Abandoned(vec![
+                commit_t.id().clone(),
+                commit_u.id().clone(),
+            ]),
+        };
+        let mut mapping = expected.clone();
+        remove_rewrite_cycles(&mut mapping, &[commit_b, commit_t]);
+        assert_eq!(mapping, expected);
+    }
+
+    #[test]
+    fn test_remove_rewrite_cycles_separate_components() {
+        let temp_dir = new_temp_dir();
+        let store = new_store(temp_dir.path());
+        // Y  D
+        // |  |
+        // X  C
+        // |  |
+        // P  Q
+        //
+        // P -> Y and Q -> D create separate cycles. P -> D is between them.
+        let commit_p = make_commit(&store, "01", vec![]);
+        let commit_x = make_commit(&store, "02", vec![commit_p.id().clone()]);
+        let commit_y = make_commit(&store, "03", vec![commit_x.id().clone()]);
+        let commit_q = make_commit(&store, "04", vec![]);
+        let commit_c = make_commit(&store, "05", vec![commit_q.id().clone()]);
+        let commit_d = make_commit(&store, "06", vec![commit_c.id().clone()]);
+        let mut mapping = hashmap! {
+            commit_p.id().clone() => Rewrite::Divergent(vec![
+                commit_y.id().clone(),
+                commit_d.id().clone(),
+            ]),
+            commit_q.id().clone() => Rewrite::Rewritten(commit_d.id().clone()),
+        };
+        remove_rewrite_cycles(
+            &mut mapping,
+            &[commit_x, commit_y, commit_c, commit_d.clone()],
+        );
+        assert_eq!(
+            mapping,
+            hashmap! {
+                commit_p.id().clone() => Rewrite::Divergent(vec![commit_d.id().clone()]),
+            }
+        );
+    }
 }
