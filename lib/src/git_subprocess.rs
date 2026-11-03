@@ -417,7 +417,9 @@ fn parse_no_remote_ref(stderr: &[u8]) -> Option<String> {
 fn parse_object_format_mismatch(stderr: &[u8]) -> Option<GitSubprocessError> {
     let first_line = stderr.lines().next()?;
     (first_line.starts_with(b"fatal: mismatched algorithms: ")
-        || first_line == b"fatal: Server does not support this repository's object format")
+        || first_line == b"fatal: Server does not support this repository's object format"
+        || first_line
+            == b"fatal: the receiving end does not support this repository's hash algorithm")
         .then_some(GitSubprocessError::ObjectFormatMismatch)
 }
 
@@ -722,6 +724,10 @@ fn parse_git_push_output(output: Output) -> Result<GitPushStats, GitSubprocessEr
         return Err(GitSubprocessError::NoSuchRepository(remote));
     }
 
+    if let Some(err) = parse_object_format_mismatch(&output.stderr) {
+        return Err(err);
+    }
+
     if output
         .stderr
         .lines()
@@ -1005,6 +1011,10 @@ and the repository exists. "###;
         br###"fatal: Server does not support this repository's object format
 fatal: the remote end hung up unexpectedly
 "###;
+    const SAMPLE_PUSH_OBJECT_FORMAT_MISMATCH_ERROR: &[u8] =
+        br###"fatal: the receiving end does not support this repository's hash algorithm
+fatal: the remote end hung up unexpectedly
+"###;
     const SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT: &[u8] = b"To origin
 *\tdeadbeef:refs/heads/bookmark1\t[new branch]
 +\tdeadbeef:refs/heads/bookmark2\tabcd..dead
@@ -1116,6 +1126,10 @@ Done";
             parse_object_format_mismatch(SAMPLE_OBJECT_FORMAT_MISMATCH_V0_ERROR),
             Some(GitSubprocessError::ObjectFormatMismatch)
         );
+        assert_matches!(
+            parse_object_format_mismatch(SAMPLE_PUSH_OBJECT_FORMAT_MISMATCH_ERROR),
+            Some(GitSubprocessError::ObjectFormatMismatch)
+        );
         assert!(parse_object_format_mismatch(SAMPLE_NO_SUCH_REPOSITORY_ERROR).is_none());
         assert!(parse_object_format_mismatch(SAMPLE_NO_REMOTE_REF_ERROR).is_none());
         assert!(parse_object_format_mismatch(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).is_none());
@@ -1159,6 +1173,19 @@ Done";
             parse_git_fetch_output(&output),
             Ok(GitFetchStatus::Updates(updates))
                 if updates.updated.is_empty() && updates.rejected.len() == 1
+        );
+    }
+
+    #[test]
+    fn test_parse_git_push_output_object_format_mismatch() {
+        let output = Output {
+            status: exit_status_from_code(128),
+            stdout: b"".to_vec(),
+            stderr: SAMPLE_PUSH_OBJECT_FORMAT_MISMATCH_ERROR.to_vec(),
+        };
+        assert_matches!(
+            parse_git_push_output(output),
+            Err(GitSubprocessError::ObjectFormatMismatch)
         );
     }
 
