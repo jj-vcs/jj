@@ -1526,7 +1526,8 @@ fn export_refs_to_git(
         }
     }
 
-    // TODO: batch updates similarly to deletes
+    let mut edits = Vec::with_capacity(refs.to_update.len());
+    let mut to_update = Vec::with_capacity(refs.to_update.len());
     for (symbol, (old_commit_oid, new_commit_oid)) in refs.to_update {
         let Some(git_ref_name) = to_git_ref_name(kind, symbol.as_ref()) else {
             failed.push((symbol, FailedRefExportReason::InvalidGitName));
@@ -1550,18 +1551,32 @@ fn export_refs_to_git(
                 )
             }
         };
-        if let Err(reason) = update_git_ref(
-            git_repo,
-            git_full_name,
+        let new_oid = new_ref_oid.unwrap_or(new_commit_oid);
+        edits.push(ref_edit_for_update(git_full_name, old_commit_oid, new_oid));
+        to_update.push((
+            symbol,
+            git_ref_name,
             old_commit_oid,
             new_commit_oid,
             new_ref_oid,
-        ) {
-            failed.push((symbol, reason));
-        } else {
-            let new_target = RefTarget::normal(CommitId::from_bytes(new_commit_oid.as_bytes()));
-            mut_repo.set_git_ref_target(&git_ref_name, new_target);
+        ));
+    }
+    let bulk_edited = git_repo
+        .edit_references(edits)
+        .inspect_err(|err| tracing::warn!(?err, "failed to update multiple refs"))
+        .is_ok();
+    for (symbol, git_ref_name, old_commit_oid, new_commit_oid, new_ref_oid) in to_update {
+        if !bulk_edited {
+            let name = git_ref_name.as_str().try_into().expect("validated above");
+            if let Err(reason) =
+                update_git_ref(git_repo, name, old_commit_oid, new_commit_oid, new_ref_oid)
+            {
+                failed.push((symbol, reason));
+                continue;
+            }
         }
+        let new_target = RefTarget::normal(CommitId::from_bytes(new_commit_oid.as_bytes()));
+        mut_repo.set_git_ref_target(&git_ref_name, new_target);
     }
 
     // Stabilize output, allow binary search.
