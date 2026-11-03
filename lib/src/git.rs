@@ -1532,6 +1532,10 @@ fn export_refs_to_git(
             failed.push((symbol, FailedRefExportReason::InvalidGitName));
             continue;
         };
+        let Ok(git_full_name) = git_ref_name.as_str().try_into() else {
+            failed.push((symbol, FailedRefExportReason::InvalidGitName));
+            continue;
+        };
         let new_ref_oid = match kind {
             GitRefKind::Bookmark => None,
             // Copy existing tag ref, which may point to annotated tag object.
@@ -1548,7 +1552,7 @@ fn export_refs_to_git(
         };
         if let Err(reason) = update_git_ref(
             git_repo,
-            &git_ref_name,
+            git_full_name,
             old_commit_oid,
             new_commit_oid,
             new_ref_oid,
@@ -1756,6 +1760,19 @@ fn find_git_tag_oid_to_copy(
         .find_map(|git_ref| git_ref.inner.target.try_into_id().ok())
 }
 
+/// Returns an edit for creating or moving the ref to `new_oid`.
+fn ref_edit_for_update(
+    name: &gix::refs::FullNameRef,
+    old_oid: Option<gix::ObjectId>,
+    new_oid: gix::ObjectId,
+) -> gix::refs::transaction::RefEdit {
+    let constraint = match old_oid {
+        Some(oid) => gix::refs::transaction::PreviousValue::MustExistAndMatch(oid.into()),
+        None => gix::refs::transaction::PreviousValue::MustNotExist,
+    };
+    gix::refs::transaction::RefEdit::update(name.into(), new_oid, constraint, "export from jj")
+}
+
 struct EditsForDelete {
     failed: Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>,
     to_apply: Vec<(RemoteRefSymbolBuf, GitRefNameBuf, Option<RefEdit>)>,
@@ -1804,20 +1821,17 @@ fn delete_git_refs(
 /// Creates new ref pointing to `new_ref_oid` or (peeled) `new_commit_oid`.
 fn create_git_ref(
     git_repo: &gix::Repository,
-    git_ref_name: &GitRefName,
+    name: &gix::refs::FullNameRef,
     new_commit_oid: gix::ObjectId,
     new_ref_oid: Option<gix::ObjectId>,
 ) -> Result<(), FailedRefExportReason> {
     let new_oid = new_ref_oid.unwrap_or(new_commit_oid);
-    let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
-    let Err(set_err) =
-        git_repo.reference(git_ref_name.as_str(), new_oid, constraint, "export from jj")
-    else {
-        // The ref was added in jj but still doesn't exist in git
+    let edit = ref_edit_for_update(name, None, new_oid);
+    let Err(set_err) = git_repo.edit_reference(edit) else {
         return Ok(());
     };
     let Some(git_ref) = git_repo
-        .try_find_reference(git_ref_name.as_str())
+        .try_find_reference(name)
         .map_err(FailedRefExportReason::FailedToSet)?
     else {
         return Err(FailedRefExportReason::FailedToSet(set_err));
@@ -1834,23 +1848,19 @@ fn create_git_ref(
 /// Updates existing ref to point to `new_ref_oid` or (peeled) `new_commit_oid`.
 fn move_git_ref(
     git_repo: &gix::Repository,
-    git_ref_name: &GitRefName,
+    name: &gix::refs::FullNameRef,
     old_commit_oid: gix::ObjectId,
     new_commit_oid: gix::ObjectId,
     new_ref_oid: Option<gix::ObjectId>,
 ) -> Result<(), FailedRefExportReason> {
     let new_oid = new_ref_oid.unwrap_or(new_commit_oid);
-    let constraint =
-        gix::refs::transaction::PreviousValue::MustExistAndMatch(old_commit_oid.into());
-    let Err(set_err) =
-        git_repo.reference(git_ref_name.as_str(), new_oid, constraint, "export from jj")
-    else {
-        // Successfully updated from old_oid to new_oid (unchanged in git)
+    let edit = ref_edit_for_update(name, Some(old_commit_oid), new_oid);
+    let Err(set_err) = git_repo.edit_reference(edit) else {
         return Ok(());
     };
     // The reference was probably updated in git
     let Some(git_ref) = git_repo
-        .try_find_reference(git_ref_name.as_str())
+        .try_find_reference(name)
         .map_err(FailedRefExportReason::FailedToSet)?
     else {
         // The reference was deleted in git and moved in jj
@@ -1865,7 +1875,7 @@ fn move_git_ref(
         let constraint =
             gix::refs::transaction::PreviousValue::MustExistAndMatch(git_ref.inner.target);
         git_repo
-            .reference(git_ref_name.as_str(), new_oid, constraint, "export from jj")
+            .reference(name, new_oid, constraint, "export from jj")
             .map_err(FailedRefExportReason::FailedToSet)?;
         Ok(())
     } else {
@@ -1875,14 +1885,14 @@ fn move_git_ref(
 
 fn update_git_ref(
     git_repo: &gix::Repository,
-    git_ref_name: &GitRefName,
+    name: &gix::refs::FullNameRef,
     old_commit_oid: Option<gix::ObjectId>,
     new_commit_oid: gix::ObjectId,
     new_ref_oid: Option<gix::ObjectId>,
 ) -> Result<(), FailedRefExportReason> {
     match old_commit_oid {
-        None => create_git_ref(git_repo, git_ref_name, new_commit_oid, new_ref_oid),
-        Some(old_oid) => move_git_ref(git_repo, git_ref_name, old_oid, new_commit_oid, new_ref_oid),
+        None => create_git_ref(git_repo, name, new_commit_oid, new_ref_oid),
+        Some(old_oid) => move_git_ref(git_repo, name, old_oid, new_commit_oid, new_ref_oid),
     }
 }
 
