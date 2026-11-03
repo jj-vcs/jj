@@ -130,9 +130,9 @@ pub struct GitInitArgs {
     /// case.
     ///
     /// If the specified `--git-repo` path is outside of the given
-    /// `DESTINATION`, then the Jujutsa workspace will store a reference to the
+    /// `DESTINATION`, then the Jujutsu workspace will store a reference to the
     /// external Git repository (not a colocated workspace). This option is
-    /// mutually exclusive with `--collate`.
+    /// mutually exclusive with `--colocate`.
     ///
     /// [colocated workspace]:
     ///     https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces
