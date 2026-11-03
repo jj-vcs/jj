@@ -333,7 +333,10 @@ fn test_git_head_race_condition() -> TestResult {
                     cmd.env(key, value);
                 }
                 let output = cmd.output().expect("Failed to spawn jj");
-                assert!(output.status.success(), "jj debug snapshot failed");
+                assert!(
+                    output.status.success(),
+                    "jj debug snapshot failed:\n{output:?}"
+                );
             }
         });
 
@@ -349,7 +352,10 @@ fn test_git_head_race_condition() -> TestResult {
                     cmd.env(key, value);
                 }
                 let output = cmd.output().expect("Failed to spawn jj");
-                assert!(output.status.success(), "jj {direction} failed");
+                assert!(
+                    output.status.success(),
+                    "jj {direction} failed:\n{output:?}"
+                );
                 count += 1;
             }
         });
