@@ -96,6 +96,42 @@ fn test_concurrent_operations_auto_rebase() {
 }
 
 #[test]
+fn test_concurrent_rebases_form_rewrite_cycle() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Y
+    // |
+    // X  Z
+    work_dir.run_jj(["new", "root()", "-mX"]).success();
+    work_dir.run_jj(["new", "-mY"]).success();
+    work_dir.run_jj(["new", "root()", "-mZ"]).success();
+
+    // Y'
+    // |
+    // X' Z'
+    // |  |
+    // Z  Y
+    work_dir
+        .run_jj(["rebase", "-ssubject(X)", "-osubject(Z)"])
+        .success();
+    work_dir
+        .run_jj(["rebase", "--at-op=@-", "-ssubject(Z)", "-osubject(Y)"])
+        .success();
+
+    let output = get_log_output(&work_dir);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Internal error: Failed to load the repo
+    Caused by: Cycle in rebase dependencies involving 7f3a5be96112b04342d98f6e04a73dab53ed3cbe
+    [EOF]
+    [exit status: 255]
+    ");
+}
+
+#[test]
 fn test_concurrent_operations_wc_modified() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
