@@ -31,12 +31,15 @@ use jj_lib::repo::Repo;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use pollster::FutureExt as _;
+use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
+use testutils::TestRepoBackend;
 use testutils::TestResult;
 use testutils::create_tree;
 use testutils::read_file;
 use testutils::repo_path;
+use testutils::test_backend::TestBackend;
 
 fn create_commit_fn(
     mut_repo: &mut MutableRepo,
@@ -111,9 +114,10 @@ fn format_annotation(annotation: &FileAnnotation) -> String {
     output
 }
 
-#[test]
-fn test_annotate_linear() -> TestResult {
-    let test_repo = TestRepo::init();
+#[test_case(TestRepoBackend::Test; "concurrent")]
+#[test_case(TestRepoBackend::Git; "no concurrent")]
+fn test_annotate_linear(backend: TestRepoBackend) -> TestResult {
+    let test_repo = TestRepo::init_with_backend(backend);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -133,25 +137,34 @@ fn test_annotate_linear() -> TestResult {
     let commit4 = create_commit("commit4", &[commit3.id()], tree3); // empty commit
     drop(create_commit);
 
-    insta::assert_snapshot!(annotate(tx.repo(), &commit1, file_path), @"");
-    insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path), @"
-    commit2:1 : 2a
-    commit2:2 : 2b
-    ");
-    insta::assert_snapshot!(annotate(tx.repo(), &commit3, file_path), @"
-    commit2:2 : 2b
-    commit3:2 : 3
-    ");
-    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @"
-    commit2:2 : 2b
-    commit3:2 : 3
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate(tx.repo(), &commit1, file_path), @"");
+    }
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path), @"
+        commit2:1 : 2a
+        commit2:2 : 2b
+        ");
+    }
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate(tx.repo(), &commit3, file_path), @"
+        commit2:2 : 2b
+        commit3:2 : 3
+        ");
+    }
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @"
+        commit2:2 : 2b
+        commit3:2 : 3
+        ");
+    }
     Ok(())
 }
 
-#[test]
-fn test_annotate_merge_simple() -> TestResult {
-    let test_repo = TestRepo::init();
+#[test_case(TestRepoBackend::Test; "concurrent")]
+#[test_case(TestRepoBackend::Git; "no concurrent")]
+fn test_annotate_merge_simple(backend: TestRepoBackend) -> TestResult {
+    let test_repo = TestRepo::init_with_backend(backend);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -180,56 +193,68 @@ fn test_annotate_merge_simple() -> TestResult {
     let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4);
     drop(create_commit);
 
-    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @"
-    commit2:1 : 2
-    commit1:1 : 1
-    commit3:2 : 3
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @"
+        commit2:1 : 2
+        commit1:1 : 1
+        commit3:2 : 3
+        ");
+    }
 
     // Exclude the fork commit and its ancestors.
     let domain = RevsetExpression::commit(commit1.id().clone())
         .ancestors()
         .negated();
-    insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @"
-    commit2:1 : 2
-    commit1:1*: 1
-    commit3:2 : 3
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @"
+        commit2:1 : 2
+        commit1:1*: 1
+        commit3:2 : 3
+        ");
+    }
 
     // Exclude one side of the merge and its ancestors.
     let domain = RevsetExpression::commit(commit2.id().clone())
         .ancestors()
         .negated();
-    insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @"
-    commit2:1*: 2
-    commit2:2*: 1
-    commit3:2 : 3
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @"
+        commit2:1*: 2
+        commit2:2*: 1
+        commit3:2 : 3
+        ");
+    }
 
     // Exclude both sides of the merge and their ancestors.
     let domain = RevsetExpression::commit(commit4.id().clone());
-    insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @"
-    commit2:1*: 2
-    commit2:2*: 1
-    commit3:2*: 3
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @"
+        commit2:1*: 2
+        commit2:2*: 1
+        commit3:2*: 3
+        ");
+    }
 
     // Exclude intermediate commit, which is useless but works.
     let domain = RevsetExpression::commit(commit3.id().clone()).negated();
-    insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @"
-    commit2:1 : 2
-    commit1:1 : 1
-    commit4:3 : 3
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @"
+        commit2:1 : 2
+        commit1:1 : 1
+        commit4:3 : 3
+        ");
+    }
 
     // Calculate incrementally
     let mut annotator = FileAnnotator::from_commit(&commit4, file_path).block_on()?;
     assert_eq!(annotator.pending_commits().collect_vec(), [commit4.id()]);
-    insta::assert_snapshot!(format_annotation(&annotator.to_annotation()), @"
-    commit4:1*: 2
-    commit4:2*: 1
-    commit4:3*: 3
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(format_annotation(&annotator.to_annotation()), @"
+        commit4:1*: 2
+        commit4:2*: 1
+        commit4:3*: 3
+        ");
+    }
     annotator
         .compute(
             tx.repo(),
@@ -241,11 +266,13 @@ fn test_annotate_merge_simple() -> TestResult {
         )
         .block_on()?;
     assert_eq!(annotator.pending_commits().collect_vec(), [commit1.id()]);
-    insta::assert_snapshot!(format_annotation(&annotator.to_annotation()), @"
-    commit2:1 : 2
-    commit1:1*: 1
-    commit3:2 : 3
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(format_annotation(&annotator.to_annotation()), @"
+        commit2:1 : 2
+        commit1:1*: 1
+        commit3:2 : 3
+        ");
+    }
     annotator
         .compute(
             tx.repo(),
@@ -253,17 +280,114 @@ fn test_annotate_merge_simple() -> TestResult {
         )
         .block_on()?;
     assert!(annotator.pending_commits().next().is_none());
-    insta::assert_snapshot!(format_annotation(&annotator.to_annotation()), @"
-    commit2:1 : 2
-    commit1:1 : 1
-    commit3:2 : 3
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(format_annotation(&annotator.to_annotation()), @"
+        commit2:1 : 2
+        commit1:1 : 1
+        commit3:2 : 3
+        ");
+    }
     Ok(())
 }
 
 #[test]
-fn test_annotate_merge_split() -> TestResult {
+fn test_annotate_merge_loads_shared_parent_once() -> TestResult {
     let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
+
+    let root_commit_id = repo.store().root_commit_id();
+    let file_path = repo_path("file");
+
+    // 4    "a b c"
+    // |\
+    // 2 3  "a", "a"
+    // |/
+    // 1    "a b"
+    //
+    // Both sides make the same change, so the merge's parent tree resolves
+    // without reading file contents.
+    let mut tx = repo.start_transaction();
+    let mut create_commit = create_commit_fn(tx.repo_mut());
+    let tree1 = create_tree(repo, &[(file_path, "a\nb\n")]);
+    let tree2 = create_tree(repo, &[(file_path, "a\n")]);
+    let tree4 = create_tree(repo, &[(file_path, "a\nb\nc\n")]);
+    let commit1 = create_commit("commit1", &[root_commit_id], tree1);
+    let commit2 = create_commit("commit2", &[commit1.id()], tree2.clone());
+    let commit3 = create_commit("commit3", &[commit1.id()], tree2);
+    let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4);
+    drop(create_commit);
+
+    let num_file_reads_before = test_backend.num_file_reads();
+    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @"
+    commit1:1 : a
+    commit4:2 : b
+    commit4:3 : c
+    ");
+    // commit1 is a parent of both commit2 and commit3, but its contents are
+    // loaded only once even though the loads are started ahead of time.
+    assert_eq!(test_backend.num_file_reads() - num_file_reads_before, 4);
+    Ok(())
+}
+
+#[test]
+fn test_annotate_merge_does_not_load_ancestors_of_unused_side() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
+
+    let root_commit_id = repo.store().root_commit_id();
+    let file_path = repo_path("file");
+
+    // merge      "a b"
+    // |\
+    // | side2    "a b"
+    // | |
+    // | chain    (many commits, each rewriting the file)
+    // side1 |    "a b"
+    // |/
+    // base       "a"
+    //
+    // Both sides have the same contents, so all lines are propagated to side1
+    // and none to side2. The long chain below side2 shouldn't be loaded.
+    let mut tx = repo.start_transaction();
+    let mut create_commit = create_commit_fn(tx.repo_mut());
+    let tree_base = create_tree(repo, &[(file_path, "a\n")]);
+    let tree_side = create_tree(repo, &[(file_path, "a\nb\n")]);
+    let commit_base = create_commit("base", &[root_commit_id], tree_base);
+    let commit_side1 = create_commit("side1", &[commit_base.id()], tree_side.clone());
+    let concurrency = repo.store().concurrency();
+    let chain_len = 3 * concurrency;
+    let mut parent_id = commit_base.id().clone();
+    for i in 0..chain_len {
+        let tree = create_tree(repo, &[(file_path, format!("chain{i}\n").as_str())]);
+        parent_id = create_commit(&format!("chain{i}"), &[&parent_id], tree)
+            .id()
+            .clone();
+    }
+    let commit_side2 = create_commit("side2", &[&parent_id], tree_side.clone());
+    let commit_merge = create_commit("merge", &[commit_side1.id(), commit_side2.id()], tree_side);
+    drop(create_commit);
+
+    let num_file_reads_before = test_backend.num_file_reads();
+    insta::assert_snapshot!(annotate(tx.repo(), &commit_merge, file_path), @"
+    base:1 : a
+    side1:2 : b
+    ");
+    // merge, side1, side2, and base need to be loaded. Loads are started
+    // ahead of time, so up to `concurrency` commits in the chain may also
+    // have been loaded before it was known that side2 gets no lines, but the
+    // rest of the chain must not be.
+    let num_file_reads = test_backend.num_file_reads() - num_file_reads_before;
+    assert!(num_file_reads >= 4, "{num_file_reads}");
+    assert!(num_file_reads <= 4 + concurrency, "{num_file_reads}");
+    Ok(())
+}
+
+#[test_case(TestRepoBackend::Test; "concurrent")]
+#[test_case(TestRepoBackend::Git; "no concurrent")]
+fn test_annotate_merge_split(backend: TestRepoBackend) -> TestResult {
+    let test_repo = TestRepo::init_with_backend(backend);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -292,19 +416,22 @@ fn test_annotate_merge_split() -> TestResult {
     let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4);
     drop(create_commit);
 
-    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @"
-    commit2:1 : 2
-    commit1:1 : 1a
-    commit1:2 : 1b
-    commit3:2 : 3
-    commit4:5 : 4
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @"
+        commit2:1 : 2
+        commit1:1 : 1a
+        commit1:2 : 1b
+        commit3:2 : 3
+        commit4:5 : 4
+        ");
+    }
     Ok(())
 }
 
-#[test]
-fn test_annotate_merge_split_interleaved() -> TestResult {
-    let test_repo = TestRepo::init();
+#[test_case(TestRepoBackend::Test; "concurrent")]
+#[test_case(TestRepoBackend::Git; "no concurrent")]
+fn test_annotate_merge_split_interleaved(backend: TestRepoBackend) -> TestResult {
+    let test_repo = TestRepo::init_with_backend(backend);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -343,21 +470,24 @@ fn test_annotate_merge_split_interleaved() -> TestResult {
     let commit6 = create_commit("commit6", &[commit4.id(), commit5.id()], tree6);
     drop(create_commit);
 
-    insta::assert_snapshot!(annotate(tx.repo(), &commit6, file_path), @"
-    commit1:1 : 1a
-    commit4:2 : 4
-    commit1:2 : 1b
-    commit6:4 : 6
-    commit2:1 : 2a
-    commit5:2 : 5
-    commit2:2 : 2b
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate(tx.repo(), &commit6, file_path), @"
+        commit1:1 : 1a
+        commit4:2 : 4
+        commit1:2 : 1b
+        commit6:4 : 6
+        commit2:1 : 2a
+        commit5:2 : 5
+        commit2:2 : 2b
+        ");
+    }
     Ok(())
 }
 
-#[test]
-fn test_annotate_merge_dup() -> TestResult {
-    let test_repo = TestRepo::init();
+#[test_case(TestRepoBackend::Test; "concurrent")]
+#[test_case(TestRepoBackend::Git; "no concurrent")]
+fn test_annotate_merge_dup(backend: TestRepoBackend) -> TestResult {
+    let test_repo = TestRepo::init_with_backend(backend);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -389,28 +519,33 @@ fn test_annotate_merge_dup() -> TestResult {
     // Both "1"s can be propagated to commit1 through commit2 and commit3.
     // Alternatively, it's also good to interpret that one of the "1"s was
     // produced at commit2, commit3, or commit4.
-    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @"
-    commit2:1 : 2
-    commit1:1 : 1
-    commit1:1 : 1
-    commit3:2 : 3
-    commit4:5 : 4
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @"
+        commit2:1 : 2
+        commit1:1 : 1
+        commit1:1 : 1
+        commit3:2 : 3
+        commit4:5 : 4
+        ");
+    }
 
     // For example, the parent tree of commit4 doesn't contain multiple "1"s.
     // If annotation were computed compared to the parent tree, not trees of the
     // parent commits, "1" would be inserted at commit4.
-    insta::assert_snapshot!(annotate_parent_tree(tx.repo(), &commit4, file_path), @"
-    commit2:1 : 2
-    commit1:1 : 1
-    commit3:2 : 3
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate_parent_tree(tx.repo(), &commit4, file_path), @"
+        commit2:1 : 2
+        commit1:1 : 1
+        commit3:2 : 3
+        ");
+    }
     Ok(())
 }
 
-#[test]
-fn test_annotate_file_directory_transition() -> TestResult {
-    let test_repo = TestRepo::init();
+#[test_case(TestRepoBackend::Test; "concurrent")]
+#[test_case(TestRepoBackend::Git; "no concurrent")]
+fn test_annotate_file_directory_transition(backend: TestRepoBackend) -> TestResult {
+    let test_repo = TestRepo::init_with_backend(backend);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -425,6 +560,8 @@ fn test_annotate_file_directory_transition() -> TestResult {
     let commit2 = create_commit("commit2", &[commit1.id()], tree2);
     drop(create_commit);
 
-    insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path2), @"commit2:1 : 2");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path2), @"commit2:1 : 2");
+    }
     Ok(())
 }
