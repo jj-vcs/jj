@@ -1939,7 +1939,7 @@ If the setting `git.colocate` has the value `false`, then new repositories will 
 
    If the specified `--git-repo` path is the same as `DESTINATION`, then a [colocated workspace] will be created, and both `jj` and `git` commands will work on the repo. The `git.colocate` setting is ignored in this case.
 
-   If the specified `--git-repo` path is outside of the given `DESTINATION`, then the Jujutsa workspace will store a reference to the external Git repository (not a colocated workspace). This option is mutually exclusive with `--collate`.
+   If the specified `--git-repo` path is outside of the given `DESTINATION`, then the Jujutsu workspace will store a reference to the external Git repository (not a colocated workspace). This option is mutually exclusive with `--colocate`.
 
    [colocated workspace]: https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces
 
