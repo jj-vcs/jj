@@ -952,8 +952,8 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> AnyTemplateProperty<'a> for Expression<
 
 /// Environment (locals and self) in a stack frame.
 pub struct BuildContext<'i, P> {
-    /// Map of functions to create `L::Property`.
-    local_variables: HashMap<&'i str, &'i dyn Fn() -> P>,
+    /// Map of functions to create `Expression<L::Property>`.
+    local_variables: HashMap<&'i str, &'i dyn Fn() -> Expression<P>>,
     /// Function to create `L::Property` representing `self`.
     ///
     /// This could be `local_variables["self"]`, but keyword lookup shouldn't be
@@ -2215,7 +2215,7 @@ where
             build_lambda_expression(
                 build_ctx,
                 lambda,
-                &[&|| item_placeholder.clone().into_dyn_wrapped()],
+                &[&|| Expression::unlabeled(item_placeholder.clone().into_dyn_wrapped())],
                 |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
             )
         })?;
@@ -2258,7 +2258,7 @@ where
             build_lambda_expression(
                 build_ctx,
                 lambda,
-                &[&|| item_placeholder.clone().into_dyn_wrapped()],
+                &[&|| Expression::unlabeled(item_placeholder.clone().into_dyn_wrapped())],
                 |build_ctx, body| expect_any_expression(language, diagnostics, build_ctx, body),
             )
         })?;
@@ -2290,7 +2290,7 @@ where
             build_lambda_expression(
                 build_ctx,
                 lambda,
-                &[&|| item_placeholder.clone().into_dyn_wrapped()],
+                &[&|| Expression::unlabeled(item_placeholder.clone().into_dyn_wrapped())],
                 |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
             )
         })?;
@@ -2328,7 +2328,7 @@ where
             build_lambda_expression(
                 build_ctx,
                 lambda,
-                &[&|| item_placeholder.clone().into_dyn_wrapped()],
+                &[&|| Expression::unlabeled(item_placeholder.clone().into_dyn_wrapped())],
                 |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
             )
         })?;
@@ -2347,7 +2347,7 @@ where
 fn build_lambda_expression<'i, P, T>(
     build_ctx: &BuildContext<'i, P>,
     lambda: &LambdaNode<'i>,
-    arg_fns: &[&'i dyn Fn() -> P],
+    arg_fns: &[&'i dyn Fn() -> Expression<P>],
     build_body: impl FnOnce(&BuildContext<'i, P>, &ExpressionNode<'i>) -> TemplateParseResult<T>,
 ) -> TemplateParseResult<T> {
     if lambda.params.len() != arg_fns.len() {
@@ -2528,7 +2528,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
                 build_lambda_expression(
                     build_ctx,
                     lambda,
-                    &[&|| captures_placeholder.clone().into_dyn_wrapped()],
+                    &[&|| Expression::unlabeled(captures_placeholder.clone().into_dyn_wrapped())],
                     |build_ctx, body| {
                         expect_template_expression(language, diagnostics, build_ctx, body)
                     },
@@ -2792,8 +2792,8 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     template_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
         ExpressionKind::Identifier(name) => {
             if let Some(make) = build_ctx.local_variables.get(name) {
-                // Don't label a local variable with its name
-                Ok(Expression::unlabeled(make()))
+                // Don't label a local variable. The closure can apply other labels if needed.
+                Ok(make())
             } else if *name == "self" {
                 // "self" is a special variable, so don't label it
                 let make = build_ctx.self_variable;
