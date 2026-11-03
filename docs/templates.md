@@ -124,6 +124,11 @@ The following functions are defined.
 * `try(expr: Any, fallback: Any...) -> Any`: Evaluates each expression in order
   and returns the first successful result. Suppresses preceding runtime errors,
   but lets parsing errors (such as type errors) pass through.
+* `with(values..., |names...| body) -> Any`: Binds each value expression to its
+  respective lambda parameter, returning the lambda evaluated with the new name
+  bindings. The expressions are re-evaluated at every use of bound names, so
+  this is effectively the same as defining temporary template aliases with local
+  scoping rules.
 * `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
   content.
 * `concat(content: Template...) -> Template`:
