@@ -357,6 +357,13 @@ pub trait ExpressionFolder<'i, T: FoldableExpression<'i>> {
         Ok(ExpressionNode { kind, span })
     }
 
+    /// Transforms the expression `node` with `params` shadowing outer aliases.
+    fn fold_scoped_expression(
+        &mut self,
+        node: ExpressionNode<'i, T>,
+        params: &[&'i str],
+    ) -> Result<ExpressionNode<'i, T>, Self::Error>;
+
     /// Transforms identifier.
     fn fold_identifier(&mut self, name: &'i str, span: pest::Span<'i>) -> Result<T, Self::Error>;
 
@@ -857,11 +864,11 @@ pub trait AliasExpandError: Sized {
 
 /// Expands aliases recursively in tree of `T`.
 #[derive(Debug)]
-struct AliasExpander<'i, 'a, T, P> {
+struct AliasExpander<'i, T, P> {
     /// Alias symbols and functions that are globally available.
     aliases_map: &'i AliasesMap<P, String>,
     /// Local variables set in the outermost scope.
-    locals: &'a HashMap<&'i str, ExpressionNode<'i, T>>,
+    locals: HashMap<&'i str, LocalBinding<'i, T>>,
     /// Stack of aliases and local parameters currently expanding.
     states: Vec<AliasExpandingState<'i, T>>,
 }
@@ -869,25 +876,42 @@ struct AliasExpander<'i, 'a, T, P> {
 #[derive(Debug)]
 struct AliasExpandingState<'i, T> {
     id: AliasId<'i>,
-    locals: HashMap<&'i str, ExpressionNode<'i, T>>,
+    locals: HashMap<&'i str, LocalBinding<'i, T>>,
 }
 
-impl<'i, T, P, E> AliasExpander<'i, '_, T, P>
+/// Local variable or formal parameter in an alias expansion scope.
+#[derive(Clone, Debug)]
+enum LocalBinding<'i, T> {
+    /// Local variable or alias parameter to be substituted with the given expression node.
+    Subst(ExpressionNode<'i, T>),
+    /// Formal parameter (e.g., a lambda parameter) in an inner expression scope that shadows outer
+    /// local variables and symbol aliases.
+    Shadowed,
+}
+
+impl<'i, T, P, E> AliasExpander<'i, T, P>
 where
     T: AliasExpandableExpression<'i> + Clone,
     P: AliasDefinitionParser<Output<'i> = T, Error = E>,
     E: AliasExpandError,
 {
     /// Local variables available to the current scope.
-    fn current_locals(&self) -> &HashMap<&'i str, ExpressionNode<'i, T>> {
-        self.states.last().map_or(self.locals, |s| &s.locals)
+    fn current_locals(&self) -> &HashMap<&'i str, LocalBinding<'i, T>> {
+        self.states.last().map_or(&self.locals, |s| &s.locals)
+    }
+
+    /// Mutable reference to local variables in the current scope.
+    fn current_locals_mut(&mut self) -> &mut HashMap<&'i str, LocalBinding<'i, T>> {
+        self.states
+            .last_mut()
+            .map_or(&mut self.locals, |s| &mut s.locals)
     }
 
     fn expand_defn(
         &mut self,
         id: AliasId<'i>,
         defn: &'i str,
-        locals: HashMap<&'i str, ExpressionNode<'i, T>>,
+        locals: HashMap<&'i str, LocalBinding<'i, T>>,
         span: pest::Span<'i>,
     ) -> Result<T, E> {
         // The stack should be short, so let's simply do linear search.
@@ -908,7 +932,7 @@ where
     }
 }
 
-impl<'i, T, P, E> ExpressionFolder<'i, T> for AliasExpander<'i, '_, T, P>
+impl<'i, T, P, E> ExpressionFolder<'i, T> for AliasExpander<'i, T, P>
 where
     T: AliasExpandableExpression<'i> + Clone,
     P: AliasDefinitionParser<Output<'i> = T, Error = E>,
@@ -916,10 +940,31 @@ where
 {
     type Error = E;
 
+    fn fold_scoped_expression(
+        &mut self,
+        node: ExpressionNode<'i, T>,
+        params: &[&'i str],
+    ) -> Result<ExpressionNode<'i, T>, Self::Error> {
+        // The given `params` will shadow any outer local variables in the current scope.
+        let orig_locals = self.current_locals().clone();
+        self.current_locals_mut()
+            .extend(params.iter().map(|&name| (name, LocalBinding::Shadowed)));
+        let result = self.fold_expression(node);
+        // Restore the original local variables.
+        *self.current_locals_mut() = orig_locals;
+        result
+    }
+
     fn fold_identifier(&mut self, name: &'i str, span: pest::Span<'i>) -> Result<T, Self::Error> {
-        if let Some(subst) = self.current_locals().get(name) {
-            let id = AliasId::Parameter(name);
-            Ok(T::alias_expanded(id, Box::new(subst.clone())))
+        if let Some(binding) = self.current_locals().get(name) {
+            match binding {
+                LocalBinding::Subst(subst) => {
+                    let id = AliasId::Parameter(name);
+                    Ok(T::alias_expanded(id, Box::new(subst.clone())))
+                }
+                // Keep shadowed identifiers so they resolve to the scoped parameter.
+                LocalBinding::Shadowed => Ok(T::identifier(name)),
+            }
         } else if let Some((id, defn, _doc)) = self.aliases_map.get_symbol(name) {
             let locals = HashMap::new(); // Don't spill out the current scope
             self.expand_defn(id, defn, locals, span)
@@ -937,7 +982,7 @@ where
             // Resolve argument in the current scope, and pass it in to the
             // alias expansion scope.
             let arg = self.fold_expression(pattern.value)?;
-            let locals = HashMap::from([(param, arg)]);
+            let locals = HashMap::from([(param, LocalBinding::Subst(arg))]);
             self.expand_defn(id, defn, locals, span)
         } else {
             let pattern = Box::new(fold_pattern_value(self, *pattern)?);
@@ -970,7 +1015,11 @@ where
             // Resolve arguments in the current scope, and pass them in to the alias
             // expansion scope.
             let args = fold_expression_nodes(self, function.args)?;
-            let locals = params.iter().map(|s| s.as_str()).zip(args).collect();
+            let locals = params
+                .iter()
+                .map(|s| s.as_str())
+                .zip(args.into_iter().map(LocalBinding::Subst))
+                .collect();
             self.expand_defn(id, defn, locals, span)
         } else {
             let function = Box::new(fold_function_call_args(self, *function)?);
@@ -1008,7 +1057,10 @@ where
 {
     let mut expander = AliasExpander {
         aliases_map,
-        locals,
+        locals: locals
+            .iter()
+            .map(|(&name, subst)| (name, LocalBinding::Subst(subst.clone())))
+            .collect(),
         states: Vec::new(),
     };
     expander.fold_expression(node)
