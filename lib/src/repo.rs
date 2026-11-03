@@ -1247,7 +1247,11 @@ impl MutableRepo {
                 }
                 dependents
             },
-            |_| panic!("graph has cycle"),
+            |commit| {
+                BackendError::Other(
+                    format!("Cycle in rebase dependencies involving {}", commit.id()).into(),
+                )
+            },
         )
         .await
     }
@@ -1634,7 +1638,11 @@ impl MutableRepo {
                     .collect::<Vec<_>>()
                     .await
             },
-            |_| panic!("graph has cycle"),
+            |CommitByCommitterTimestamp(commit)| {
+                BackendError::Other(
+                    format!("Cycle in commit ancestors involving {}", commit.id()).into(),
+                )
+            },
         )
         .await?;
         for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
