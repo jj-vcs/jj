@@ -71,6 +71,7 @@ pub struct TestBackendData {
     files: HashMap<RepoPathBuf, HashMap<FileId, Vec<u8>>>,
     symlinks: HashMap<RepoPathBuf, HashMap<SymlinkId, String>>,
     copies: HashMap<CopyId, CopyHistory>,
+    num_file_reads: usize,
 }
 
 #[derive(Clone, Default)]
@@ -150,6 +151,12 @@ impl TestBackend {
         self.locked_data().commits.remove(id);
     }
 
+    /// Number of `read_file()` calls made so far, across all backends sharing
+    /// the same data.
+    pub fn num_file_reads(&self) -> usize {
+        self.locked_data().num_file_reads
+    }
+
     async fn run_async<R: Send + 'static>(
         &self,
         process: impl FnOnce(MutexGuard<TestBackendData>) -> R + Send + 'static,
@@ -206,7 +213,8 @@ impl Backend for TestBackend {
     ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         let path = path.to_owned();
         let id = id.clone();
-        self.run_async(move |data| {
+        self.run_async(move |mut data| {
+            data.num_file_reads += 1;
             match data
                 .files
                 .get(&path)

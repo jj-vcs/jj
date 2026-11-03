@@ -19,6 +19,8 @@
 //! Like commit metadata and more.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::collections::hash_map;
 use std::iter;
 use std::ops::Range;
@@ -26,7 +28,11 @@ use std::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
+use futures::FutureExt as _;
+use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
 use itertools::Itertools as _;
 use jj_core::backend::BackendError;
 use jj_core::backend::BackendResult;
@@ -42,6 +48,7 @@ use jj_core::diff::DiffHunkKind;
 use jj_core::files::FileMergeHunkLevel;
 use jj_core::files::MergeOptions;
 use jj_core::graph::GraphEdge;
+use jj_core::graph::GraphNode;
 use jj_core::merge::SameChange;
 use jj_core::merged_tree::MergedTree;
 use jj_core::repo_path::RepoPath;
@@ -255,6 +262,15 @@ struct AnnotationState {
     num_empty_sources: usize,
 }
 
+impl AnnotationState {
+    /// Whether `commit_id` has lines to propagate to its parents.
+    fn has_lines(&self, commit_id: &CommitId) -> bool {
+        self.commit_source_map
+            .get(commit_id)
+            .is_some_and(|source| !source.line_map.is_empty())
+    }
+}
+
 /// Line mapping and file content at a certain commit.
 #[derive(Clone, Debug)]
 struct Source {
@@ -301,6 +317,107 @@ pub struct LineOrigin {
     pub line_number: usize,
 }
 
+/// Loads file contents at commits before they're needed, so that loads from
+/// slow backends overlap.
+struct ContentPrefetcher {
+    store: Arc<Store>,
+    file_path: RepoPathBuf,
+    /// Loads that haven't completed yet.
+    pending: FuturesUnordered<BoxFuture<'static, BackendResult<Source>>>,
+    /// Commits with a load in `pending`. A load dropped by `retain()` keeps
+    /// running, so this avoids starting a second load if the commit is
+    /// requested again before the first one completes.
+    in_flight: HashSet<CommitId>,
+    /// Commits whose contents are still needed. Loaded contents of other
+    /// commits are dropped.
+    wanted: HashSet<CommitId>,
+    /// Completed loads that haven't been taken yet.
+    loaded: HashMap<CommitId, Source>,
+}
+
+impl ContentPrefetcher {
+    fn new(store: &Arc<Store>, file_path: &RepoPath) -> Self {
+        Self {
+            store: store.clone(),
+            file_path: file_path.to_owned(),
+            pending: FuturesUnordered::new(),
+            in_flight: HashSet::new(),
+            wanted: HashSet::new(),
+            loaded: HashMap::new(),
+        }
+    }
+
+    /// Number of commits whose contents have been requested but not taken.
+    fn num_wanted(&self) -> usize {
+        self.wanted.len()
+    }
+
+    /// Starts loading the contents at `commit_id` unless already started.
+    fn prefetch(&mut self, commit_id: &CommitId) {
+        if !self.wanted.insert(commit_id.clone()) || self.in_flight.contains(commit_id) {
+            return;
+        }
+        self.in_flight.insert(commit_id.clone());
+        let store = self.store.clone();
+        let file_path = self.file_path.clone();
+        let commit_id = commit_id.clone();
+        self.pending.push(
+            async move {
+                let commit = store.get_commit_async(&commit_id).await?;
+                Source::load(commit, &file_path).await
+            }
+            .boxed(),
+        );
+    }
+
+    /// Returns the contents at `commit_id`, loading them if they weren't
+    /// prefetched. Other loads that complete while waiting are kept for later.
+    async fn take(&mut self, commit_id: &CommitId) -> BackendResult<Source> {
+        self.prefetch(commit_id);
+        while !self.loaded.contains_key(commit_id) {
+            let source = self
+                .pending
+                .next()
+                .await
+                .expect("wanted commit should be in flight")?;
+            let id = source.commit.id();
+            self.in_flight.remove(id);
+            if self.wanted.contains(id) {
+                self.loaded.insert(id.clone(), source);
+            }
+        }
+        self.wanted.remove(commit_id);
+        Ok(self.loaded.remove(commit_id).unwrap())
+    }
+
+    /// Drops the contents of commits for which `keep` returns false. Loads
+    /// that are still in flight can't be canceled, but their results are
+    /// dropped when they complete.
+    fn retain(&mut self, mut keep: impl FnMut(&CommitId) -> bool) {
+        self.wanted.retain(|id| keep(id));
+        self.loaded.retain(|id, _| keep(id));
+    }
+}
+
+/// Parents of nodes in `lookahead` that may still get lines propagated to them.
+///
+/// A node propagates lines to its parents if it has lines when it's processed.
+/// That's the case if it has lines now, or if it may get lines from a child
+/// that hasn't been processed yet. Since children come before parents in
+/// `lookahead`, a single pass finds the latter.
+fn reachable_parents(
+    state: &AnnotationState,
+    lookahead: &VecDeque<GraphNode<CommitId>>,
+) -> HashSet<CommitId> {
+    let mut reachable = HashSet::new();
+    for (commit_id, edges) in lookahead {
+        if state.has_lines(commit_id) || reachable.contains(commit_id) {
+            reachable.extend(edges.iter().map(|edge| edge.target.clone()));
+        }
+    }
+    reachable
+}
+
 /// Starting from the source commits, compute changes at that commit relative to
 /// its direct parents, updating the mappings as we go.
 async fn process_commits(
@@ -321,9 +438,35 @@ async fn process_commits(
         .evaluate(repo)?;
 
     state.num_unresolved_roots = 0;
-    let mut nodes = revset.stream_graph();
-    while let Some((commit_id, edge_list)) = nodes.try_next().await? {
-        process_commit(repo, file_name, state, &commit_id, &edge_list).await?;
+    let concurrency = repo.store().concurrency();
+    let mut prefetcher = ContentPrefetcher::new(repo.store(), file_name);
+    let mut nodes = revset.stream_graph().fuse();
+    // Nodes read ahead of the one being processed, so the contents at their
+    // parents can be loaded concurrently.
+    let mut lookahead: VecDeque<GraphNode<CommitId>> = VecDeque::new();
+    let mut reachable = HashSet::new();
+    loop {
+        while lookahead.is_empty()
+            || (lookahead.len() < concurrency && prefetcher.num_wanted() < concurrency)
+        {
+            let Some((commit_id, edges)) = nodes.try_next().await? else {
+                break;
+            };
+            if state.has_lines(&commit_id) || reachable.contains(&commit_id) {
+                for edge in &edges {
+                    reachable.insert(edge.target.clone());
+                    // Parents already in the map don't need to be loaded.
+                    if !state.commit_source_map.contains_key(&edge.target) {
+                        prefetcher.prefetch(&edge.target);
+                    }
+                }
+            }
+            lookahead.push_back((commit_id, edges));
+        }
+        let Some((commit_id, edge_list)) = lookahead.pop_front() else {
+            break;
+        };
+        process_commit(&mut prefetcher, state, &commit_id, &edge_list).await?;
         debug_assert_eq!(
             state.num_empty_sources,
             state
@@ -336,6 +479,11 @@ async fn process_commits(
             // No more lines to propagate to ancestors.
             break;
         }
+        // Parents that got no lines from the commit no longer need to be
+        // loaded, and neither do their ancestors (unless reachable from
+        // another node with lines).
+        reachable = reachable_parents(state, &lookahead);
+        prefetcher.retain(|id| reachable.contains(id));
     }
     Ok(())
 }
@@ -344,8 +492,7 @@ async fn process_commits(
 /// tree with the current version, updating the mappings for any lines in
 /// common. If the parent doesn't have the file, we skip it.
 async fn process_commit(
-    repo: &dyn Repo,
-    file_name: &RepoPath,
+    prefetcher: &mut ContentPrefetcher,
     state: &mut AnnotationState,
     current_commit_id: &CommitId,
     edges: &[GraphEdge<CommitId>],
@@ -364,8 +511,7 @@ async fn process_commit(
         let parent_source = match state.commit_source_map.entry(parent_commit_id.clone()) {
             hash_map::Entry::Occupied(entry) => entry.into_mut(),
             hash_map::Entry::Vacant(entry) => {
-                let commit = repo.store().get_commit_async(entry.key()).await?;
-                let source = Source::load(commit, file_name).await?;
+                let source = prefetcher.take(entry.key()).await?;
                 state.num_empty_sources += 1;
                 entry.insert(source)
             }
