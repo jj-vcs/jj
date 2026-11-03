@@ -770,8 +770,16 @@ graph.style = "square"
 The symbols used to represent commits or operations can be customized via
 templates.
 
-- `templates.log_node` for commits (with `Option<Commit>` keywords)
-- `templates.op_log_node` for operations (with `Operation` keywords)
+- `templates.log_node` for commits. `self` is an
+  [`Option<Commit>`][template-type-commit] object, where an unset value (see
+  [`Option` type][template-type-option]) corresponds to the node of an
+  `(elided revisions)` line.
+- `templates.op_log_node` for operations. `self` is an
+  [`Operation`][template-type-operation] object.
+
+[template-type-commit]: templates.md#commit-type
+[template-type-operation]: templates.md#operation-type
+[template-type-option]: templates.md#option-type
 
 For example:
 
@@ -782,7 +790,9 @@ coalesce(
   if(!self, "🮀"),
   if(current_working_copy, "@"),
   if(root, "┴"),
-  if(immutable, "●", "○"),
+  if(immutable, "●"),
+  if(empty, "◌"),
+  "○",
 )
 '''
 op_log_node = 'if(current_operation, "@", "○")'
