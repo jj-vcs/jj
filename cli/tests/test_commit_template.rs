@@ -2044,6 +2044,88 @@ fn test_log_revset() {
 }
 
 #[test]
+fn test_log_common_ancestor_distance() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Build a branch where y is 2 commits away from x via n, but 3 via o.
+    work_dir.run_jj(["new", "root()", "-m", "x"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "x", "-r", "@"])
+        .success();
+    work_dir.run_jj(["new", "-m", "m"]).success();
+    work_dir.run_jj(["new", "-m", "o"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "o", "-r", "@"])
+        .success();
+    work_dir.run_jj(["new", "x", "-m", "n"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "n", "-r", "@"])
+        .success();
+    work_dir.run_jj(["new", "o", "n", "-m", "y"]).success();
+
+    let render = |revset: &str, template: &str| {
+        work_dir.run_jj(["log", "-r", revset, "--no-graph", "-T", template])
+    };
+    insta::assert_snapshot!(
+        render("@", r#"common_ancestor_distance("x", "@")"#),
+        @"2[EOF]"
+    );
+    insta::assert_snapshot!(
+        render("@", r#"common_ancestor_distance("@", "x")"#),
+        @"2[EOF]"
+    );
+    insta::assert_snapshot!(
+        render("x", r#"common_ancestor_distance("x", "x")"#),
+        @"0[EOF]"
+    );
+    // Nearest bookmark, e.g. for a shell prompt.
+    insta::assert_snapshot!(
+        render("@", r#"common_ancestor_distance("bookmarks()", "@")"#),
+        @"1[EOF]"
+    );
+
+    // Sibling commits have a common ancestor but neither is an ancestor of the
+    // other.
+    work_dir.run_jj(["new", "x", "-m", "sibling-a"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "sibling-a", "-r", "@"])
+        .success();
+    work_dir.run_jj(["new", "x", "-m", "sibling-b"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "sibling-b", "-r", "@"])
+        .success();
+    insta::assert_snapshot!(
+        render("@", r#"common_ancestor_distance("sibling-a", "sibling-b")"#),
+        @"2[EOF]"
+    );
+    // The closest pair is used when a revset contains multiple commits.
+    insta::assert_snapshot!(
+        render("@", r#"common_ancestor_distance("x | sibling-a", "sibling-b")"#),
+        @"1[EOF]"
+    );
+
+    insta::assert_snapshot!(
+        render("@", r#"common_ancestor_distance("none()", "x")"#),
+        @r#"
+    ------- stderr -------
+    Error: Failed to parse template: Failed to compute distance
+    Caused by:
+    1:  --> 1:26
+      |
+    1 | common_ancestor_distance("none()", "x")
+      |                          ^-----------^
+      |
+      = Failed to compute distance
+    2: Distance cannot be computed for an empty revset
+    [EOF]
+    [exit status: 1]
+    "#
+    );
+}
+
+#[test]
 fn test_log_git_web_url() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

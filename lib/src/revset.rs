@@ -16,6 +16,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::collections::hash_map;
 use std::convert::Infallible;
 use std::fmt;
@@ -2543,6 +2544,50 @@ pub fn walk_revs(
     RevsetExpression::commits(unwanted.to_vec())
         .range(&RevsetExpression::commits(wanted.to_vec()))
         .evaluate(repo)
+}
+
+/// Computes the shortest distance between two sets of commits.
+///
+/// The distance is the minimum over common ancestors `c` of the number of
+/// parent edges from a commit in `from_ids` to `c` plus the number of parent
+/// edges from a commit in `to_ids` to `c`.
+pub fn common_ancestor_distance(
+    repo: &dyn Repo,
+    from_ids: &[CommitId],
+    to_ids: &[CommitId],
+) -> Result<usize, RevsetEvaluationError> {
+    if from_ids.is_empty() || to_ids.is_empty() {
+        return Err(RevsetEvaluationError::Other(
+            "Distance cannot be computed for an empty revset".into(),
+        ));
+    }
+    let from_distances = ancestor_distances(repo, from_ids)?;
+    let to_distances = ancestor_distances(repo, to_ids)?;
+    from_distances
+        .iter()
+        .filter_map(|(id, from_depth)| to_distances.get(id).map(|to_depth| from_depth + to_depth))
+        .min()
+        .ok_or_else(|| RevsetEvaluationError::Other("Commits have no common ancestor".into()))
+}
+
+fn ancestor_distances(
+    repo: &dyn Repo,
+    starts: &[CommitId],
+) -> Result<HashMap<CommitId, usize>, RevsetEvaluationError> {
+    let mut distances = HashMap::new();
+    let mut queue: VecDeque<(CommitId, usize)> = starts.iter().map(|id| (id.clone(), 0)).collect();
+    while let Some((id, depth)) = queue.pop_front() {
+        if distances.contains_key(&id) {
+            continue;
+        }
+        distances.insert(id.clone(), depth);
+
+        let commit = repo.store().get_commit(&id)?;
+        for parent_id in commit.parent_ids() {
+            queue.push_back((parent_id.clone(), depth + 1));
+        }
+    }
+    Ok(distances)
 }
 
 fn reload_repo_at_operation(

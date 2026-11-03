@@ -61,6 +61,9 @@ and this project adheres to
 * Templates now have a top-level `revset(revset: Stringify) -> List<Commit>`
   function for evaluating revsets during templating.
 
+* Templates now have a `common_ancestor_distance()` function for measuring the
+  shortest distance between commits or revsets through a common ancestor.
+
 * `jj config gc` now also cleans up workspace configs whose paths no longer
   exist.
 

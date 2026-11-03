@@ -141,6 +141,19 @@ The following functions are defined.
   The revset is evaluated once during template parsing if its value evaluates to
   a constant string. Queries built from values that aren't yet known during
   parsing, for example `self.change_id()`, are evaluated per call at runtime.
+* `common_ancestor_distance(from: StringLiteral, to: StringLiteral) -> Integer`:
+  Computes the shortest distance between any commit in the `from` revset and any
+  commit in the `to` revset through a common ancestor. The result is the minimum
+  over common ancestors `c` of the number of parent edges from a commit to `c`
+  plus the number of parent edges from the other commit to `c`. A commit has
+  distance 0 from itself and distance 1 from each parent or child. The result is
+  unsigned and symmetric. Both arguments must be string literals containing
+  revsets, for example `common_ancestor_distance("main", "@")`.
+
+  This is not an ahead/behind count and not the size of `from..to`. It only
+  follows parent edges upward to a common ancestor; it does not use merge
+  descendants. For a merge commit `m` with parents `p1` and `p2`,
+  `common_ancestor_distance("p1", "p2")` does not count the path through `m`.
 * `git_web_url([remote: String]) -> String`: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
   empty string on failure. SSH host alias resolution is currently unsupported.
