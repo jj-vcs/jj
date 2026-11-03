@@ -42,7 +42,6 @@ use bstr::BString;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream;
-use gix::refs::transaction::RefEdit;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
 use jj_core::backend::BackendError;
@@ -1497,33 +1496,30 @@ fn export_refs_to_git(
 ) -> Vec<(RemoteRefSymbolBuf, FailedRefExportReason)> {
     let mut failed = refs.failed;
 
-    let to_delete = delete_git_refs(git_repo, kind, refs.to_delete);
-    failed.extend(to_delete.failed);
-
-    {
-        let edits = to_delete
-            .to_apply
-            .iter()
-            .filter_map(|(.., edit)| edit.clone());
-        if git_repo.edit_references(edits).is_ok() {
-            for (_, git_ref_name, _) in &to_delete.to_apply {
-                mut_repo.set_git_ref_target(git_ref_name, RefTarget::absent());
-            }
-        } else {
-            // Fall back to deleting one by one
-            for (symbol, git_ref_name, edit) in &to_delete.to_apply {
-                if let Some(edit) = edit
-                    && let Err(reason) = git_repo.edit_reference(edit.clone())
-                {
-                    failed.push((
-                        symbol.clone(),
-                        FailedRefExportReason::FailedToDelete(reason),
-                    ));
-                } else {
-                    mut_repo.set_git_ref_target(git_ref_name, RefTarget::absent());
-                }
+    let mut edits = Vec::with_capacity(refs.to_delete.len());
+    let mut to_delete = Vec::with_capacity(refs.to_delete.len());
+    for (symbol, old_oid) in refs.to_delete {
+        let Some(git_ref_name) = to_git_ref_name(kind, symbol.as_ref()) else {
+            failed.push((symbol, FailedRefExportReason::InvalidGitName));
+            continue;
+        };
+        let Ok(git_full_name) = git_ref_name.as_str().try_into() else {
+            failed.push((symbol, FailedRefExportReason::InvalidGitName));
+            continue;
+        };
+        edits.push(ref_edit_for_delete(git_full_name, old_oid));
+        to_delete.push((symbol, git_ref_name, old_oid));
+    }
+    let bulk_edited = git_repo.edit_references(edits).is_ok();
+    for (symbol, git_ref_name, old_oid) in to_delete {
+        if !bulk_edited {
+            let name = git_ref_name.as_str().try_into().expect("validated above");
+            if let Err(reason) = delete_git_ref(git_repo, name, old_oid) {
+                failed.push((symbol, reason));
+                continue;
             }
         }
+        mut_repo.set_git_ref_target(&git_ref_name, RefTarget::absent());
     }
 
     let mut edits = Vec::with_capacity(refs.to_update.len());
@@ -1775,6 +1771,15 @@ fn find_git_tag_oid_to_copy(
         .find_map(|git_ref| git_ref.inner.target.try_into_id().ok())
 }
 
+/// Returns an edit for deleting the ref.
+fn ref_edit_for_delete(
+    name: &gix::refs::FullNameRef,
+    old_oid: gix::ObjectId,
+) -> gix::refs::transaction::RefEdit {
+    let constraint = gix::refs::transaction::PreviousValue::MustExistAndMatch(old_oid.into());
+    gix::refs::transaction::RefEdit::delete(name.into(), constraint)
+}
+
 /// Returns an edit for creating or moving the ref to `new_oid`.
 fn ref_edit_for_update(
     name: &gix::refs::FullNameRef,
@@ -1788,49 +1793,33 @@ fn ref_edit_for_update(
     gix::refs::transaction::RefEdit::update(name.into(), new_oid, constraint, "export from jj")
 }
 
-struct EditsForDelete {
-    failed: Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>,
-    to_apply: Vec<(RemoteRefSymbolBuf, GitRefNameBuf, Option<RefEdit>)>,
-}
-
-/// Gather [`RefEdit`]s to delete.
-fn delete_git_refs(
+/// Deletes an existing ref pointing to `old_oid` or the peeled oid.
+fn delete_git_ref(
     git_repo: &gix::Repository,
-    kind: GitRefKind,
-    refs: Vec<(RemoteRefSymbolBuf, gix::ObjectId)>,
-) -> EditsForDelete {
-    let mut failed = vec![];
-
-    let mut to_apply = vec![];
-
-    for (symbol, old_oid) in refs {
-        let Some(git_ref_name) = to_git_ref_name(kind, symbol.as_ref()) else {
-            failed.push((symbol, FailedRefExportReason::InvalidGitName));
-            continue;
-        };
-        let git_ref = match git_repo.try_find_reference(git_ref_name.as_str()) {
-            Err(err) => {
-                failed.push((symbol, FailedRefExportReason::FailedToDelete(err)));
-                continue;
-            }
-            Ok(None) => {
-                // The ref is already deleted in git
-                to_apply.push((symbol, git_ref_name, None));
-                continue;
-            }
-            Ok(Some(git_ref)) => git_ref,
-        };
-        if resolve_git_ref_to_commit_id(&git_ref, Some(&old_oid)).as_deref() == Some(&old_oid) {
-            // The ref has not been updated by git, so go ahead and delete it
-            let edit = remove_ref(git_ref.clone());
-            to_apply.push((symbol, git_ref_name, Some(edit)));
-        } else {
-            // The ref was updated by git
-            failed.push((symbol, FailedRefExportReason::DeletedInJjModifiedInGit));
-        }
+    name: &gix::refs::FullNameRef,
+    old_oid: gix::ObjectId,
+) -> Result<(), FailedRefExportReason> {
+    let edit = ref_edit_for_delete(name, old_oid);
+    if git_repo.edit_reference(edit).is_ok() {
+        return Ok(());
     }
-
-    EditsForDelete { failed, to_apply }
+    let Some(git_ref) = git_repo
+        .try_find_reference(name)
+        .map_err(FailedRefExportReason::FailedToDelete)?
+    else {
+        // The ref is already deleted
+        return Ok(());
+    };
+    let git_commit_oid = resolve_git_ref_to_commit_id(&git_ref, Some(&old_oid));
+    if git_commit_oid == Some(old_oid) {
+        // The reference would point to annotated tag, try again
+        git_ref
+            .delete()
+            .map_err(FailedRefExportReason::FailedToDelete)
+    } else {
+        // The ref was updated by git
+        Err(FailedRefExportReason::DeletedInJjModifiedInGit)
+    }
 }
 
 /// Creates new ref pointing to `new_ref_oid` or (peeled) `new_commit_oid`.
