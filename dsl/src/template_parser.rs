@@ -1815,10 +1815,11 @@ mod tests {
             with_aliases([("A", "a ++ b")]).parse_normalized("|A| A"),
             parse_normalized("|A| A"),
         );
-        // Formal parameter shouldn't be expanded in symbol alias.
+        // Formal parameter shouldn't shadow symbol alias in another expanded alias. During alias
+        // expansion, other aliases are also expanded without regard for the callsite's scope.
         assert_eq!(
-            with_aliases([("A", "x ++ a")]).parse_normalized("|x| x ++ A"),
-            parse_normalized("|x| x ++ (x ++ a)"),
+            with_aliases([("A", "x ++ a"), ("x", "b")]).parse_normalized("|x| x ++ A"),
+            parse_normalized("|x| x ++ (b ++ a)"),
         );
         // Outer formal parameter shouldn't be shadowed outside inner lambda.
         assert_eq!(
@@ -1909,6 +1910,11 @@ mod tests {
             with_aliases([("P:x", "(|x| x) ++ x")]).parse_normalized("P:a"),
             parse_normalized("(|x| x) ++ a"),
         );
+        // Outer formal parameter shouldn't shadow symbol alias in expanded pattern alias.
+        assert_eq!(
+            with_aliases([("P:x", "x ++ y"), ("y", "b")]).parse_normalized("|y| y ++ P:a"),
+            parse_normalized("|y| y ++ (a ++ b)"),
+        );
 
         // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
         assert_eq!(
@@ -1993,6 +1999,11 @@ mod tests {
         assert_eq!(
             with_aliases([("F(x)", "(|x| (|x| x) ++ x) ++ x")]).parse_normalized("F(a ++ b)"),
             parse_normalized("(|x| (|x| x) ++ x) ++ (a ++ b)"),
+        );
+        // Outer formal parameter shouldn't shadow symbol alias in expanded function alias.
+        assert_eq!(
+            with_aliases([("F(x)", "x ++ y"), ("y", "b")]).parse_normalized("|y| y ++ F(a)"),
+            parse_normalized("|y| y ++ (a ++ b)"),
         );
 
         // Invalid number of arguments.

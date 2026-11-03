@@ -919,7 +919,11 @@ aliases, by using any combination of the predefined keywords/functions and other
 aliases.
 
 Alias functions can be overloaded by the number of parameters. However, builtin
-functions will be shadowed by name, and can't co-exist with aliases.
+functions will be completely shadowed by name, and can't co-exist with aliases.
+
+Template aliases act like macros and are substituted where they are used. This
+means aliases may use symbols from their callsites, such as
+[0-argument keywords](#keywords) or lambda parameters.
 
 For example:
 

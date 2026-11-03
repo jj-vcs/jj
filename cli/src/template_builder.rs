@@ -4197,11 +4197,29 @@ mod tests {
         env.add_alias("identity", "|x| x");
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().map(identity)"#), @"a b c");
 
-        // Lambda parameter shadows symbol alias and function alias parameter.
+        // Lambda parameter shadows symbol alias and function alias parameter in the lambda body,
+        // but does not affect how other aliases expand symbol aliases in their own definitions.
         env.add_alias("sym", "'alias'");
+        env.add_alias("use_sym", "sym");
         env.add_alias("map_sym(sym)", r#""a\nb\nc".lines().map(|sym| sym) ++ sym"#);
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().map(|sym| sym) ++ sym"#), @"a b calias");
+        // The expanded `use_sym` never sees the `sym` binding from the lambda because it expanded
+        // other aliases first.
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().map(|sym| use_sym)"#), @"alias alias alias");
         insta::assert_snapshot!(env.render_ok(r#"map_sym("arg")"#), @"a b carg");
+
+        // Template aliases act like macros and can reference unaliased lambda parameters from the
+        // caller's scope unless shadowed by its own parameters.
+        env.add_alias("use_x", "x");
+        env.add_alias("use_x_fn(a)", "x ++ a");
+        env.add_alias("override_x_fn(x)", "x");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().map(|x| use_x)"#), @"a b c");
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nb\nc".lines().map(|x| use_x_fn("!"))"#),
+            @"a! b! c!");
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nb\nc".lines().map(|x| override_x_fn("arg"))"#),
+            @"arg arg arg");
 
         // Not a lambda expression
         insta::assert_snapshot!(env.parse_err(r#""a".lines().map(empty)"#), @r#"
