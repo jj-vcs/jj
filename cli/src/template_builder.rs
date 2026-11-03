@@ -2574,6 +2574,47 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             .try_collect()?;
         Ok(L::Property::wrap_any(Box::new(TryList::new(properties))))
     });
+    map.insert("with", |language, diagnostics, build_ctx, function| {
+        let ([_, _], _) = function.expect_some_arguments()?;
+        let (lambda_node, value_nodes) = function.args.split_last().unwrap();
+        // Eagerly validate each argument expression once so errors/diagnostics are reported, even
+        // if the corresponding name binding is unused. Do not pass diagnostics to the arg closures
+        // so that multiple usages don't duplicate any diagnostics.
+        for value_node in value_nodes {
+            drop(build_expression(
+                language,
+                diagnostics,
+                build_ctx,
+                value_node,
+            )?);
+        }
+        let arg_closures = value_nodes
+            .iter()
+            .map(|value_node| {
+                move || {
+                    build_expression(
+                        language,
+                        &mut TemplateDiagnostics::new(),
+                        build_ctx,
+                        value_node,
+                    )
+                    .unwrap()
+                }
+            })
+            .collect_vec();
+        let arg_fns = arg_closures
+            .iter()
+            .map(|f| f as &dyn Fn() -> Expression<L::Property>)
+            .collect_vec();
+        let body =
+            template_parser::catch_aliases(diagnostics, lambda_node, |diagnostics, node| {
+                let lambda = template_parser::expect_lambda(node)?;
+                build_lambda_expression(build_ctx, lambda, &arg_fns, |build_ctx, body| {
+                    expect_any_expression(language, diagnostics, build_ctx, body)
+                })
+            })?;
+        Ok(L::Property::wrap_any(body))
+    });
     map.insert("coalesce", |language, diagnostics, build_ctx, function| {
         let ([], content_nodes) = function.expect_some_arguments()?;
         let contents = content_nodes
@@ -6084,6 +6125,261 @@ mod tests {
           |      ^----------------------------^
           |
           = Expected expression of type `Serialize`, but actual type is `AnyList`
+        "#);
+    }
+
+    #[test]
+    fn test_with_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("author", || {
+            literal(new_signature("Test Author", "author@example.com"))
+        });
+        env.add_keyword("committer", || {
+            literal(new_signature("Test Committer", "committer@example.com"))
+        });
+        env.add_keyword("words", || {
+            literal(vec!["foo".to_owned(), "bar".to_owned()])
+        });
+        env.add_color("author email", crossterm::style::Color::Cyan);
+        env.add_color("author email local", crossterm::style::Color::Blue);
+        env.add_color("committer email", crossterm::style::Color::Magenta);
+
+        // Single binding.
+        insta::assert_snapshot!(env.render_ok("with(1 + 2, |x| x * 3)"), @"9");
+
+        // Multiple bindings.
+        insta::assert_snapshot!(
+            env.render_ok(r#"with("hello", "world", |a, b| a ++ " " ++ b)"#),
+            @"hello world");
+
+        // Preserves static type and color labels of bound variables.
+        insta::assert_snapshot!(
+            env.render_ok(r#"with(author, |a| a.name() ++ " <" ++ a.email().local() ++ ">")"#),
+            @"Test Author <[38;5;12mauthor[39m>");
+        insta::assert_snapshot!(
+            env.render_ok("with(author.email().local(), |l| l)"),
+            @"[38;5;12mauthor[39m");
+        insta::assert_snapshot!(
+            env.render_ok(
+                r#"with(author.email(), committer.email(), |author_email, committer_email|
+                    if(author_email == committer_email,
+                        author_email,
+                        author_email ++ " / " ++ committer_email
+                    )
+                )"#),
+            @"[38;5;12mauthor[38;5;14m@example.com[39m / [38;5;13mcommitter@example.com[39m");
+
+        // Nested `with`.
+        insta::assert_snapshot!(
+            env.render_ok(r#"with("hello", |a| with(a.upper(), |b| a ++ " " ++ b))"#),
+            @"hello HELLO");
+        // Names in inner `with` shadow any outer ones.
+        insta::assert_snapshot!(
+            env.render_ok("with(1, |x| with(x + 1, |x| with(x * 10, |x| x)))"),
+            @"20");
+        insta::assert_snapshot!(
+            env.render_ok("with(1, |x| with(5, |x| x) ++ x)"),
+            @"51");
+
+        // Binding names do not collide with function names.
+        insta::assert_snapshot!(env.render_ok("with(1, |with| with)"), @"1");
+        insta::assert_snapshot!(
+            env.render_ok("with(1, |with| with(5, |a| with ++ a))"),
+            @"15");
+        insta::assert_snapshot!(
+            env.render_ok("with(1, |json| json ++ json(1))"),
+            @"11");
+
+        // Binding names shadow template aliases.
+        env.add_alias("aliased_name", "author");
+        insta::assert_snapshot!(
+            env.render_ok(r#"with(1, |aliased_name| aliased_name) ++ " " ++ aliased_name.name()"#),
+            @"1 Test Author");
+        insta::assert_snapshot!(
+            env.render_ok("with(aliased_name.name(), |aliased_name| aliased_name)"),
+            @"Test Author");
+
+        // Interaction with template aliases.
+        env.add_alias("add_one(n)", "n + 1");
+        env.add_alias("use_x", "x * 2");
+        env.add_alias("double_lambda", "|x| x * 2");
+        insta::assert_snapshot!(
+            env.render_ok("with(5, |x| add_one(x))"),
+            @"6");
+        insta::assert_snapshot!(
+            env.render_ok("with(5, |x| use_x)"),
+            @"10");
+        insta::assert_snapshot!(
+            env.render_ok("with(5, double_lambda)"),
+            @"10");
+
+        // Interaction with `.map()` lambdas.
+        insta::assert_snapshot!(
+            env.render_ok(r#"with(":", |sep| words.map(|w| w ++ sep ++ w).join(", "))"#),
+            @"foo:foo, bar:bar");
+        insta::assert_snapshot!(
+            env.render_ok(r#"words.map(|w| with(w.upper(), |u| w ++ "=" ++ u)).join(", ")"#),
+            @"foo=FOO, bar=BAR");
+        insta::assert_snapshot!(
+            env.render_ok(r#"words.map(|w| with(1, |w| w)).join(", ")"#),
+            @"1, 1");
+
+        // Works with `Template`, `Any`, `AnyList`, and `json()` serialization.
+        insta::assert_snapshot!(
+            env.render_ok(r#"with("a" ++ "b", |t| t ++ " " ++ t)"#),
+            @"ab ab");
+        insta::assert_snapshot!(
+            env.render_ok(r#"with(if(true, "yes", "no"), |v| v)"#),
+            @"yes");
+        insta::assert_snapshot!(
+            env.render_ok(r#"with(words.map(|w| w.upper()), |list| list.join("-"))"#),
+            @"FOO-BAR");
+        insta::assert_snapshot!(
+            env.render_ok(r#"with(author.name(), |n| json({"name" => n}))"#),
+            @r#"{"name":"Test Author"}"#);
+        insta::assert_snapshot!(
+            env.render_ok(r#"json(with(author.name(), |n| n))"#),
+            @r#""Test Author""#);
+
+        // Unused bindings are still type-checked.
+        insta::assert_snapshot!(env.parse_err("with(unknown_keyword, |unused| 1)"), @r#"
+         --> 1:6
+          |
+        1 | with(unknown_keyword, |unused| 1)
+          |      ^-------------^
+          |
+          = Keyword `unknown_keyword` doesn't exist
+        "#);
+
+        // Lambdas cannot be bound to variables, and variables cannot be called as functions.
+        env.add_alias("id_lambda", "|y| y");
+        insta::assert_snapshot!(env.parse_err("with(|y| y, |x| words.map(x))"), @r#"
+         --> 1:6
+          |
+        1 | with(|y| y, |x| words.map(x))
+          |      ^---^
+          |
+          = Lambda cannot be defined here
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(id_lambda, |x| words.map(x))"), @r#"
+         --> 1:6
+          |
+        1 | with(id_lambda, |x| words.map(x))
+          |      ^-------^
+          |
+          = In alias `id_lambda`
+         --> 1:1
+          |
+        1 | |y| y
+          | ^---^
+          |
+          = Lambda cannot be defined here
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(1, |x| x(2))"), @r#"
+         --> 1:13
+          |
+        1 | with(1, |x| x(2))
+          |             ^
+          |
+          = Function `x` doesn't exist
+        "#);
+
+        // Error cases.
+        insta::assert_snapshot!(env.parse_err("with()"), @r#"
+         --> 1:6
+          |
+        1 | with()
+          |      ^
+          |
+          = Function `with`: Expected at least 2 arguments
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(|| 1)"), @r#"
+         --> 1:6
+          |
+        1 | with(|| 1)
+          |      ^--^
+          |
+          = Function `with`: Expected at least 2 arguments
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(1)"), @r#"
+         --> 1:6
+          |
+        1 | with(1)
+          |      ^
+          |
+          = Function `with`: Expected at least 2 arguments
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(1, 2)"), @r#"
+         --> 1:9
+          |
+        1 | with(1, 2)
+          |         ^
+          |
+          = Expected lambda expression
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(1, || 2)"), @r#"
+         --> 1:10
+          |
+        1 | with(1, || 2)
+          |          ^
+          |
+          = Expected 1 lambda parameters
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(1, 2, |x| x)"), @r#"
+         --> 1:13
+          |
+        1 | with(1, 2, |x| x)
+          |             ^
+          |
+          = Expected 2 lambda parameters
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(1, |x, y| x)"), @r#"
+         --> 1:10
+          |
+        1 | with(1, |x, y| x)
+          |          ^--^
+          |
+          = Expected 1 lambda parameters
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(1, 2, |x, x| x)"), @r#"
+         --> 1:13
+          |
+        1 | with(1, 2, |x, x| x)
+          |             ^--^
+          |
+          = Redefinition of function parameter
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(x, |x| x)"), @r#"
+         --> 1:6
+          |
+        1 | with(x, |x| x)
+          |      ^
+          |
+          = Keyword `x` doesn't exist
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(1, x, |x, y| x + y)"), @r#"
+         --> 1:9
+          |
+        1 | with(1, x, |x, y| x + y)
+          |         ^
+          |
+          = Keyword `x` doesn't exist
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(1, |x| x) ++ x"), @r#"
+         --> 1:19
+          |
+        1 | with(1, |x| x) ++ x
+          |                   ^
+          |
+          = Keyword `x` doesn't exist
+        "#);
+        insta::assert_snapshot!(env.parse_err("with(1, body=|x| x)"), @r#"
+         --> 1:9
+          |
+        1 | with(1, body=|x| x)
+          |         ^--------^
+          |
+          = Function `with`: Unexpected keyword arguments
         "#);
     }
 }
