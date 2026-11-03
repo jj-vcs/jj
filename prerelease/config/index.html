@@ -5622,8 +5622,12 @@ your config:</p>
 <p>The symbols used to represent commits or operations can be customized via
 templates.</p>
 <ul>
-<li><code>templates.log_node</code> for commits (with <code>Option&lt;Commit&gt;</code> keywords)</li>
-<li><code>templates.op_log_node</code> for operations (with <code>Operation</code> keywords)</li>
+<li><code>templates.log_node</code> for commits. <code>self</code> is an
+  <a href="../templates/#commit-type"><code>Option&lt;Commit&gt;</code></a> object, where an unset value (see
+  <a href="../templates/#option-type"><code>Option</code> type</a>) corresponds to the node of an
+  <code>(elided revisions)</code> line.</li>
+<li><code>templates.op_log_node</code> for operations. <code>self</code> is an
+  <a href="../templates/#operation-type"><code>Operation</code></a> object.</li>
 </ul>
 <p>For example:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
@@ -5632,7 +5636,9 @@ templates.</p>
 <span class="s1">  if(!self, &quot;🮀&quot;),</span>
 <span class="s1">  if(current_working_copy, &quot;@&quot;),</span>
 <span class="s1">  if(root, &quot;┴&quot;),</span>
-<span class="s1">  if(immutable, &quot;●&quot;, &quot;○&quot;),</span>
+<span class="s1">  if(immutable, &quot;●&quot;),</span>
+<span class="s1">  if(empty, &quot;◌&quot;),</span>
+<span class="s1">  &quot;○&quot;,</span>
 <span class="s1">)</span>
 <span class="s1">&#39;&#39;&#39;</span>
 <span class="n">op_log_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;if(current_operation, &quot;@&quot;, &quot;○&quot;)&#39;</span>
