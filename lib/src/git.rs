@@ -1495,8 +1495,8 @@ fn export_refs_to_git(
     refs: RefsToExport,
 ) -> Vec<(RemoteRefSymbolBuf, FailedRefExportReason)> {
     let mut failed = refs.failed;
+    let mut edits = Vec::with_capacity(refs.to_delete.len() + refs.to_update.len());
 
-    let mut edits = Vec::with_capacity(refs.to_delete.len());
     let mut to_delete = Vec::with_capacity(refs.to_delete.len());
     for (symbol, old_oid) in refs.to_delete {
         let Some(git_ref_name) = to_git_ref_name(kind, symbol.as_ref()) else {
@@ -1510,19 +1510,7 @@ fn export_refs_to_git(
         edits.push(ref_edit_for_delete(git_full_name, old_oid));
         to_delete.push((symbol, git_ref_name, old_oid));
     }
-    let bulk_edited = git_repo.edit_references(edits).is_ok();
-    for (symbol, git_ref_name, old_oid) in to_delete {
-        if !bulk_edited {
-            let name = git_ref_name.as_str().try_into().expect("validated above");
-            if let Err(reason) = delete_git_ref(git_repo, name, old_oid) {
-                failed.push((symbol, reason));
-                continue;
-            }
-        }
-        mut_repo.set_git_ref_target(&git_ref_name, RefTarget::absent());
-    }
 
-    let mut edits = Vec::with_capacity(refs.to_update.len());
     let mut to_update = Vec::with_capacity(refs.to_update.len());
     for (symbol, (old_commit_oid, new_commit_oid)) in refs.to_update {
         let Some(git_ref_name) = to_git_ref_name(kind, symbol.as_ref()) else {
@@ -1557,10 +1545,21 @@ fn export_refs_to_git(
             new_ref_oid,
         ));
     }
+
     let bulk_edited = git_repo
         .edit_references(edits)
         .inspect_err(|err| tracing::warn!(?err, "failed to update multiple refs"))
         .is_ok();
+    for (symbol, git_ref_name, old_oid) in to_delete {
+        if !bulk_edited {
+            let name = git_ref_name.as_str().try_into().expect("validated above");
+            if let Err(reason) = delete_git_ref(git_repo, name, old_oid) {
+                failed.push((symbol, reason));
+                continue;
+            }
+        }
+        mut_repo.set_git_ref_target(&git_ref_name, RefTarget::absent());
+    }
     for (symbol, git_ref_name, old_commit_oid, new_commit_oid, new_ref_oid) in to_update {
         if !bulk_edited {
             let name = git_ref_name.as_str().try_into().expect("validated above");
