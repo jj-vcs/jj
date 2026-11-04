@@ -942,6 +942,50 @@ fn test_rebase_descendants_abandon_and_replace() {
     );
 }
 
+#[test_case(1; "one abandoned source")]
+#[test_case(2; "two abandoned sources")]
+fn test_rebase_descendants_abandon_and_replace_transitive(abandoned_count: usize) {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let mut tx = repo.start_transaction();
+    let ancestor = write_random_commit(tx.repo_mut());
+    let source = write_random_commit_with_parents(tx.repo_mut(), &[&ancestor]);
+    let mut parent = source.clone();
+    let mut abandoned = Vec::new();
+    for _ in 0..abandoned_count {
+        parent = write_random_commit_with_parents(tx.repo_mut(), &[&parent]);
+        abandoned.push(parent.clone());
+    }
+    let child = write_random_commit_with_parents(tx.repo_mut(), &[&parent]);
+
+    let new_ancestor = tx
+        .repo_mut()
+        .rewrite_commit(&ancestor)
+        .set_description("rewritten ancestor")
+        .write_unwrap();
+    // Like a partially squashed source, this still has the old ancestor as parent.
+    let new_source = tx
+        .repo_mut()
+        .rewrite_commit(&source)
+        .set_description("rewritten source")
+        .write_unwrap();
+    for commit in &abandoned {
+        tx.repo_mut().record_abandoned_commit(commit);
+    }
+
+    let rebase_map =
+        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    let final_source = assert_rebased_onto(
+        tx.repo_mut(),
+        &rebase_map,
+        &new_source,
+        &[new_ancestor.id()],
+    );
+    let new_child = assert_rebased_onto(tx.repo_mut(), &rebase_map, &child, &[final_source.id()]);
+    assert_eq!(rebase_map.len(), 2);
+    assert_eq!(*tx.repo().view().heads(), hashset! {new_child.id().clone()});
+}
+
 #[test]
 fn test_rebase_descendants_abandon_degenerate_merge_simplify() {
     let test_repo = TestRepo::init();

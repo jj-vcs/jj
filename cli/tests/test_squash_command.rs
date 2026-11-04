@@ -446,6 +446,126 @@ fn test_squash_revision_flag_exactly_one_errors() {
 }
 
 #[test]
+fn test_squash_from_descendants_abandon_intermediate() {
+    insta::allow_duplicates! {
+        for (keep_emptied, non_empty_target) in [(false, false), (true, false), (false, true)] {
+            let test_env = TestEnvironment::default();
+            test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+            let work_dir = test_env.work_dir("repo");
+            work_dir.write_file("src/base", "base\n");
+            work_dir.run_jj(["describe", "-m", "base"]).success();
+            work_dir.run_jj(["new", "-m", "target"]).success();
+            work_dir.run_jj(["bookmark", "create", "target"]).success();
+            if non_empty_target {
+                work_dir.write_file("src/target", "target\n");
+            }
+            work_dir.run_jj(["new", "-m", "mixed"]).success();
+            work_dir.run_jj(["bookmark", "create", "mixed"]).success();
+            work_dir.write_file("docs/one", "one\n");
+            work_dir.write_file("src/mixed", "mixed\n");
+            work_dir.run_jj(["new", "-m", "docs-only"]).success();
+            work_dir.write_file("docs/two", "two\n");
+            work_dir.run_jj(["new", "-m", "child"]).success();
+            work_dir.run_jj(["bookmark", "create", "child"]).success();
+            work_dir.write_file("src/child", "child\n");
+            work_dir.run_jj(["edit", "target"]).success();
+
+            let mut args = vec!["squash", "--from", "@:: ~ @", "--into", "@", "-u", "docs/"];
+            if keep_emptied {
+                args.push("--keep-emptied");
+            }
+            work_dir.run_jj(args).success();
+            let output = work_dir
+                .run_jj([
+                    "log",
+                    "-r",
+                    "divergent()",
+                    "--no-graph",
+                    "-T",
+                    "description.first_line() ++ '\n'",
+                ])
+                .success();
+            insta::assert_snapshot!(output.stdout, @"");
+
+            let output = work_dir
+                .run_jj([
+                    "log",
+                    "-r",
+                    "all() ~ root()",
+                    "--no-graph",
+                    "-T",
+                    "description.first_line() ++ ' -> [' ++ parents.map(|p| \
+                     p.description().first_line()).join(',') ++ ']\n'",
+                ])
+                .success();
+            if keep_emptied {
+                insta::assert_snapshot!(output.stdout, @"
+                child -> [docs-only]
+                docs-only -> [mixed]
+                mixed -> [target]
+                target -> [base]
+                base -> []
+                [EOF]
+                ");
+                assert_eq!(
+                    work_dir
+                        .run_jj([
+                            "log",
+                            "-r",
+                            "empty() & subject('docs-only')",
+                            "--no-graph",
+                            "-T",
+                            "description.first_line()"
+                        ])
+                        .success()
+                        .stdout
+                        .raw(),
+                    "docs-only"
+                );
+            } else {
+                insta::assert_snapshot!(output.stdout, @"
+                child -> [mixed]
+                mixed -> [target]
+                target -> [base]
+                base -> []
+                [EOF]
+                ");
+            }
+            insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r", "target", "docs/one"]).success().stdout, @"
+            one
+            [EOF]
+            ");
+            insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r", "target", "docs/two"]).success().stdout, @"
+            two
+            [EOF]
+            ");
+            if non_empty_target {
+                insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r", "target", "src/target"]).success().stdout, @"
+                target
+                [EOF]
+                ");
+            }
+            insta::assert_snapshot!(work_dir.run_jj(["diff", "--summary", "-r", "mixed"]).success().stdout.normalize_backslash(), @"
+            A src/mixed
+            [EOF]
+            ");
+            insta::assert_snapshot!(work_dir.run_jj(["diff", "--summary", "-r", "child"]).success().stdout.normalize_backslash(), @"
+            A src/child
+            [EOF]
+            ");
+            insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r", "child", "src/mixed"]).success().stdout, @"
+            mixed
+            [EOF]
+            ");
+            insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r", "child", "src/child"]).success().stdout, @"
+            child
+            [EOF]
+            ");
+        }
+    }
+}
+
+#[test]
 fn test_squash_keep_emptied() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
