@@ -87,6 +87,11 @@ and this project adheres to
   stdout. Use `--binary-as-text` to force text treatment, or `--skip-binary` to
   skip binary files entirely.
 
+* New `with(values..., |names...| body)` templating function which allows you to
+  assign expressions to name bindings in a lambda. Expressions are re-evaluated
+  for each use, so this is effectively the same as defining global template
+  aliases for each expression and has no performance benefit.
+
 ### Fixed bugs
 
 * `jj git push` no longer validates (e.g. for empty descriptions) commits that
