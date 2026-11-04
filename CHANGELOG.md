@@ -12,6 +12,25 @@ and this project adheres to
 
 ### Breaking changes
 
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.47.0] - 2026-11-04
+
+### Release highlights
+
+* Templates now have a top-level `revset(revset: Stringify) -> List<Commit>`
+  function for evaluating revsets during templating.
+
+* In colocated workspaces, `jj describe -r@`, `jj restore --into=@`, etc. no
+  longer reset the staging area, just as snapshotting doesn't. `jj new @-` still
+  resets it.
+
+### Breaking changes
+
 * In non-colocated workspaces, `jj git fetch` and `push` no longer update
   remote-tracking Git refs. Use `jj git export` to export remote bookmarks to
   Git.
@@ -41,12 +60,10 @@ and this project adheres to
   bookmarks and tags. The `.removed_targets()` and `.added_targets()` template
   methods now return `List<Option<Commit>>`.
 
-### Deprecations
-
 ### New features
 
 * `jj git push` with `git.sign-on-push` enabled now signs commits in a
-  separate transaction before the push, so commits stay signed if the push
+  separate operation before the push, so commits stay signed if the push
   fails and a new push doesn't have to sign them again.
 
 * Diff hunk headers now include symbol context even for unsupported languages.
@@ -55,14 +72,14 @@ and this project adheres to
   file with conflict markers in your text editor. Unlike the other merge tools,
   it supports conflicts with more than two sides.
 
+* `jj config gc` now also cleans up workspace configs whose paths no longer
+  exist.
+
 * `Commit.contained_in()` now accepts a `Stringify` instead of a `StringLiteral`.
   This enables dynamic query building during templating.
 
 * Templates now have a top-level `revset(revset: Stringify) -> List<Commit>`
   function for evaluating revsets during templating.
-
-* `jj config gc` now also cleans up workspace configs whose paths no longer
-  exist.
 
 * The `TreeEntry` template type now has `.removed_values() -> List<Option<TreeValue>>`
   and `.added_values() -> List<Option<TreeValue>>` methods, and `TreeValue` now
@@ -92,10 +109,10 @@ and this project adheres to
 * `jj git push` no longer validates (e.g. for empty descriptions) commits that
   are already on the remote as a tag.
 
-* In graph output, an elided edge that passes through a merge or fork line is
-  now drawn as elided (`╷`) before reaching the node, instead of looking like a
-  direct edge. Consecutive unconnected nodes, such as in the `jj op show`
-  graph, are now separated by a blank line so they don't look connected.
+* `jj git fetch` no longer creates additional refs based on non-standard Git
+  `remote.<name>.fetch` configuration.
+
+* `jj gerrit upload` no longer rejects uploading empty merge commits.
 
 * The operations created by `jj workspace add` are now attributed to the
   workspace the command was run in, so `jj undo` there undoes them instead of
@@ -104,16 +121,8 @@ and this project adheres to
 * `jj workspace add -r` with an invalid revision no longer leaves a
   half-created workspace behind.
 
-* Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
-  correct UTC offset on days with a daylight savings transition. Previously,
-  the offset from the start of the day was used, so times after were off
-  by an hour. Likely a niche bug fix, but a bug fix nonetheless!
-
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
-
-* `jj git fetch` no longer creates additional refs based on non-standard Git
-  `remote.<name>.fetch` configuration.
 
 * Fixed tag deletion with `jj git fetch --tag=NAME`.
 
@@ -145,10 +154,6 @@ and this project adheres to
   of always using the `snapshot` style.
   [#10390](https://github.com/jj-vcs/jj/issues/10390)
 
-* Deeply nested revset, fileset, and template expressions are now rejected
-  instead of causing a crash.
-  [#10071](https://github.com/jj-vcs/jj/issues/10071)
-
 * The Git backend now leaves out the root commit as a parent of a merge commit
   instead of failing. This fixes abandoning a child of the root commit that is a
   parent of a merge commit, including when a Git import abandons it.
@@ -161,16 +166,62 @@ and this project adheres to
   save wins; changes from other concurrent invocations may be lost.
   [#10350](https://github.com/jj-vcs/jj/issues/10350)
 
+* Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
+  correct UTC offset on days with a daylight savings transition. Previously,
+  the offset from the start of the day was used, so times after were off
+  by an hour. Likely a niche bug fix, but a bug fix nonetheless!
+
+* Deeply nested revset, fileset, and template expressions are now rejected
+  instead of causing a crash.
+  [#10071](https://github.com/jj-vcs/jj/issues/10071)
+
+* In graph output, an elided edge that passes through a merge or fork line is
+  now drawn as elided (`╷`) before reaching the node, instead of looking like a
+  direct edge. Consecutive unconnected nodes, such as in the `jj op show`
+  graph, are now separated by a blank line so they don't look connected.
+
 * `jj log` no longer draws a commit as a merge with two elided edges to the
   same commit when there's a merge between them whose parents both lead to
   that commit.
-
-* `jj gerrit upload` no longer rejects uploading empty merge commits.
 
 * The "Did you mean" hint for a mistyped bookmark, revision, or function no
   longer lists every similar name. It now shows the 5 most similar ones,
   most similar first, followed by e.g. `or 20 others`.
   [#8017](https://github.com/jj-vcs/jj/issues/8017)
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Aaron Sood (@arsood)
+* abdoul-kader keita (@kkeita)
+* abgox (@abgox)
+* Alexey Sokolov (@alexey-arista)
+* ase (@adamse)
+* Brice Figureau (@masterzen)
+* Bryan O'Sullivan (@bos)
+* Byron (@Byron)
+* Caleb White (@calebdw)
+* David Barsky (@davidbarsky)
+* David Rieber (@drieber)
+* Eyüp Can Akman (@eyupcanakman)
+* Greg Falcon (@vslashg)
+* JamBalaya56562 (@JamBalaya56562)
+* Jonas Natten (@jnatten)
+* Joseph Lou (@josephlou5)
+* Josh McKinney (@joshka)
+* Kevin Liao (@kevincliao)
+* Martin von Zweigbergk (@martinvonz)
+* Marukome0743 (@Marukome0743)
+* Matt Stark (@matts1)
+* Nitzan Raz (@BackSlasher)
+* Philip Metzger (@PhilipMetzger)
+* Rebecca Turner (@9999years)
+* Sami Hiltunen (@SamiHiltunen)
+* Shardul Natu (@kiranani)
+* Siva Mahadevan (@svmhdvn)
+* xuanchangfeng (@xuanchangfeng)
+* Yuya Nishihara (@yuja)
 
 ## [0.46.0] - 2026-10-07
 
@@ -5904,7 +5955,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.46.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.47.0...HEAD
+[0.47.0]: https://github.com/jj-vcs/jj/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/jj-vcs/jj/compare/v0.45.1...v0.46.0
 [0.45.1]: https://github.com/jj-vcs/jj/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/jj-vcs/jj/compare/v0.44.0...v0.45.0
