@@ -855,7 +855,7 @@
                         "properties": {
                             "enabled": {
                                 "type": "boolean",
-                                "description": "Whether this alias is enabled",
+                                "description": "Whether this alias is enabled.",
                                 "default": true
                             },
                             "definition": {
@@ -866,19 +866,6 @@
                             },
                             "doc": {
                                 "type": "string"
-                            }
-                        },
-                        "required": [
-                            "definition"
-                        ]
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "enabled": {
-                                "type": "boolean",
-                                "const": false,
-                                "description": "Disable this alias."
                             }
                         }
                     }
