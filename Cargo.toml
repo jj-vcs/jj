@@ -17,7 +17,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.47.0"
+version = "0.47.1"
 license = "Apache-2.0"
 rust-version = "1.97.1" # NOTE: remember to update CI, mise.toml, contributing.md, changelog.md, and install-and-setup.md
 edition = "2024"
@@ -147,14 +147,14 @@ winreg = "0.56"
 
 # put all inter-workspace libraries, i.e. those that use 'path = ...' here in
 # their own (alphabetically sorted) block
-jj-core = { path = "core", version = "0.47.0" }
-jj-core-proc-macros = { path = "core/proc-macros", version = "0.47.0" }
-jj-default-index = { path = "default-index", version = "0.47.0" }
-jj-dsl = { path = "dsl", version = "0.47.0" }
-jj-frontend = { path = "frontend", version = "0.47.0" }
-jj-git-backend = { path = "git-backend", version = "0.47.0" }
-jj-lib = { path = "lib", version = "0.47.0", default-features = false }
-jj-local-util = { path = "local-util", version = "0.47.0" }
+jj-core = { path = "core", version = "0.47.1" }
+jj-core-proc-macros = { path = "core/proc-macros", version = "0.47.1" }
+jj-default-index = { path = "default-index", version = "0.47.1" }
+jj-dsl = { path = "dsl", version = "0.47.1" }
+jj-frontend = { path = "frontend", version = "0.47.1" }
+jj-git-backend = { path = "git-backend", version = "0.47.1" }
+jj-lib = { path = "lib", version = "0.47.1", default-features = false }
+jj-local-util = { path = "local-util", version = "0.47.1" }
 testutils = { path = "lib/testutils" }
 
 [workspace.lints.clippy]
