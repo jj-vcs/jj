@@ -1220,6 +1220,7 @@ impl WorkspaceCommandEnvironment {
 
 fn print_runner_event(ui: &Ui, event: &RunnerEvent) -> io::Result<()> {
     match event {
+        RunnerEvent::NothingChanged => writeln!(ui.status(), "Nothing changed."),
         RunnerEvent::DescendantsRebased {
             num_rebased,
             reason,
@@ -2423,12 +2424,18 @@ to the current parents may contain changes from multiple commits.
 
     /// Finishes a transaction: rebases descendants of rewritten commits,
     /// exports to Git, commits the operation, and updates the working copy.
+    /// If the transaction has no changes, nothing is committed.
     async fn finish_transaction(
         &mut self,
         ui: &Ui,
         mut tx: Transaction,
         description: impl Into<String>,
     ) -> Result<(), RunnerError> {
+        if !tx.repo().has_changes() {
+            print_runner_event(ui, &RunnerEvent::NothingChanged)
+                .map_err(RunnerError::event_sink)?;
+            return Ok(());
+        }
         let num_rebased =
             rebase_mutable_descendants(&self.env, &self.runner.options, &mut tx).await?;
         if num_rebased > 0 {
@@ -3051,10 +3058,6 @@ impl WorkspaceCommandTransaction<'_> {
 
     pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
         let Self { helper, tx, .. } = self;
-        if !tx.repo().has_changes() {
-            writeln!(ui.status(), "Nothing changed.")?;
-            return Ok(());
-        }
         helper.finish_transaction(ui, tx, description).await?;
         Ok(())
     }
