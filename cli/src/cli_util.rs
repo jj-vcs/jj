@@ -73,7 +73,9 @@ use jj_lib::config::ConfigMigrationRule;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::try_materialize_file_conflict_value;
 use jj_lib::default_backend_factories::default_backend_factories;
 use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_workspace_loader_factory;
@@ -2941,7 +2943,13 @@ impl WorkspaceReporter<'_> {
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"
             )?;
-            print_conflicted_paths(conflicts, formatter.as_mut(), self.env.path_converter())?;
+            print_conflicted_paths(
+                repo.store(),
+                conflicts,
+                formatter.as_mut(),
+                self.env.path_converter(),
+            )
+            .await?;
         }
         Ok(())
     }
@@ -3489,7 +3497,8 @@ pub fn print_updated_commits<'a>(
 }
 
 #[instrument(skip_all)]
-pub fn print_conflicted_paths(
+pub async fn print_conflicted_paths(
+    store: &Store,
     conflicts: Vec<(RepoPathBuf, BackendResult<MergedTreeValue>)>,
     formatter: &mut dyn Formatter,
     path_converter: &RepoPathUiConverter,
@@ -3503,12 +3512,42 @@ pub fn print_conflicted_paths(
         .into_iter()
         .map(|p| format!("{:width$}", p, width = max_path_len.min(32) + 3));
 
-    for ((_, conflict), formatted_path) in std::iter::zip(conflicts, formatted_paths) {
+    for ((repo_path, conflict), formatted_path) in std::iter::zip(conflicts, formatted_paths) {
         // TODO: Display the error for the path instead of failing the whole command if
         // `conflict` is an error?
-        let conflict = conflict?.simplify();
-        let sides = conflict.num_sides();
-        let n_adds = conflict.adds().flatten().count();
+        let conflict = conflict?;
+        let simplified_conflict = conflict.simplify();
+
+        let (sides, n_adds) = if simplified_conflict.num_sides() > 2
+            && let Some(file) = try_materialize_file_conflict_value(
+                store,
+                &repo_path,
+                &conflict,
+                &ConflictLabels::unlabeled(),
+            )
+            .await?
+            && let merge_result = file.merge_contents(store.merge_options())
+            // It's possible that the file contents could be fully resolved, but
+            // the file is still conflicted due to the executable bit. In that
+            // case, we want to avoid showing "1-sided conflict".
+            && merge_result.num_sides() > 1
+        {
+            // For file conflicts, we may have resolved some hunks, which could
+            // change the number of sides in the conflict.
+            let terms_after_merge = file
+                .ids
+                .apply_simplified_mapping(&merge_result.simplified_to_merged_mapping);
+            (
+                terms_after_merge.num_sides(),
+                terms_after_merge.adds().flatten().count(),
+            )
+        } else {
+            (
+                simplified_conflict.num_sides(),
+                simplified_conflict.adds().flatten().count(),
+            )
+        };
+
         let deletions = sides - n_adds;
 
         let mut seen_objects = BTreeMap::new(); // Sort for consistency and easier testing
@@ -3525,7 +3564,9 @@ pub fn print_conflicted_paths(
         // TODO: We might decide it's OK for `jj resolve` to ignore special files in the
         // `removes` of a conflict (see e.g. https://github.com/jj-vcs/jj/pull/978). In
         // that case, `conflict.removes` should be removed below.
-        for term in itertools::chain(conflict.removes(), conflict.adds()).flatten() {
+        for term in
+            itertools::chain(simplified_conflict.removes(), simplified_conflict.adds()).flatten()
+        {
             seen_objects.insert(
                 match term {
                     TreeValue::File {

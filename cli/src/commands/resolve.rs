@@ -104,10 +104,12 @@ pub(crate) async fn cmd_resolve(
     }
     if args.list {
         return print_conflicted_paths(
+            tree.store(),
             conflicts,
             ui.stdout_formatter().as_mut(),
             workspace_command.path_converter(),
-        );
+        )
+        .await;
     }
 
     let repo_paths = conflicts
@@ -145,10 +147,12 @@ pub(crate) async fn cmd_resolve(
             "After this operation, some files at this revision still have conflicts:"
         )?;
         print_conflicted_paths(
+            new_tree.store(),
             new_conflicts,
             formatter.as_mut(),
             workspace_command.path_converter(),
-        )?;
+        )
+        .await?;
     }
 
     if let Some(err) = partial_resolution_error {
