@@ -46,9 +46,9 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
+use jj_lib::conflicts::MaterializedMergeResult;
 use jj_lib::conflicts::MaterializedTreeDiffEntry;
 use jj_lib::conflicts::MaterializedTreeValue;
-use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::materialized_diff_stream;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
@@ -454,7 +454,6 @@ impl<'a> DiffRenderer<'a> {
     ) -> Self {
         let materialize_options = ConflictMaterializeOptions {
             marker_style,
-            marker_len: None,
             merge: repo.store().merge_options().clone(),
         };
         Self {
@@ -878,7 +877,8 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     match options.conflict {
         ConflictDiffMethod::Materialize => {
             let contents = contents.zip(conflict_labels).map(|(side, labels)| {
-                materialize_merge_result_to_bytes(side, labels, materialize_options)
+                MaterializedMergeResult::new(side, labels.clone(), &materialize_options.merge)
+                    .materialize_to_bytes(materialize_options.marker_style)
             });
             show_color_words_resolved_hunks(
                 formatter,
@@ -1419,7 +1419,8 @@ async fn diff_content(
         value,
         |content| content,
         |contents, labels| {
-            materialize_merge_result_to_bytes(&contents, &labels, materialize_options)
+            MaterializedMergeResult::new(&contents, labels, &materialize_options.merge)
+                .materialize_to_bytes(materialize_options.marker_style)
         },
     )
     .await
@@ -2027,11 +2028,14 @@ fn show_git_diff_texts<T: AsRef<[u8]>>(
     }
     let contents = contents.map(|content| match content.as_resolved() {
         Some(text) => Cow::Borrowed(BStr::new(text)),
-        None => Cow::Owned(materialize_merge_result_to_bytes(
-            content,
-            &ConflictLabels::unlabeled(),
-            materialize_options,
-        )),
+        None => Cow::Owned(
+            MaterializedMergeResult::new(
+                content,
+                ConflictLabels::unlabeled(),
+                &materialize_options.merge,
+            )
+            .materialize_to_bytes(materialize_options.marker_style),
+        ),
     });
     show_unified_diff_hunks(formatter, None, contents.as_ref().map(Cow::as_ref), options)
 }

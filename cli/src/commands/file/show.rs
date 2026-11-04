@@ -23,9 +23,7 @@ use futures::TryStreamExt as _;
 use futures::stream;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::MergedTreeValueExt as _;
-use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MaterializedTreeValue;
-use jj_lib::conflicts::materialize_merge_result;
 use jj_lib::conflicts::materialize_tree_value;
 use jj_lib::file_util::copy_async_to_sync;
 use jj_lib::fileset::FilePattern;
@@ -181,17 +179,11 @@ async fn write_tree_entries(
                 copy_async_to_sync(file.reader, ui.stdout_formatter().as_mut()).await?;
             }
             MaterializedTreeValue::FileConflict(file) => {
-                let options = ConflictMaterializeOptions {
-                    marker_style: workspace_command.env().conflict_marker_style(),
-                    marker_len: None,
-                    merge: repo.store().merge_options().clone(),
-                };
-                materialize_merge_result(
-                    &file.contents,
-                    &file.labels,
-                    &mut ui.stdout_formatter(),
-                    &options,
-                )?;
+                file.merge_contents(repo.store().merge_options())
+                    .materialize(
+                        &mut ui.stdout_formatter(),
+                        workspace_command.env().conflict_marker_style(),
+                    )?;
             }
             MaterializedTreeValue::OtherConflict { id, labels } => {
                 ui.stdout_formatter()

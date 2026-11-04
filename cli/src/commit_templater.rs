@@ -200,7 +200,6 @@ impl<'repo> CommitTemplateLanguage<'repo> {
     fn conflict_materialize_options(&self) -> ConflictMaterializeOptions {
         ConflictMaterializeOptions {
             marker_style: self.conflict_marker_style,
-            marker_len: None,
             merge: self.repo.store().merge_options().clone(),
         }
     }

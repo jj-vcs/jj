@@ -204,6 +204,12 @@ pub struct MaterializedFileConflictValue {
     pub copy_id: Option<CopyId>,
 }
 
+impl MaterializedFileConflictValue {
+    pub fn merge_contents(&self, merge_options: &MergeOptions) -> MaterializedMergeResult {
+        MaterializedMergeResult::new(&self.contents, self.labels.clone(), merge_options)
+    }
+}
+
 /// Reads the data associated with a `MergedTreeValue` so it can be written to
 /// e.g. the working copy or diff.
 pub async fn materialize_tree_value(
@@ -327,7 +333,6 @@ impl ConflictMarkerStyle {
 #[derive(Clone, Debug)]
 pub struct ConflictMaterializeOptions {
     pub marker_style: ConflictMarkerStyle,
-    pub marker_len: Option<usize>,
     pub merge: MergeOptions,
 }
 
@@ -449,54 +454,71 @@ fn detect_eol(single_hunk: &Merge<impl AsRef<[u8]>>) -> &'static BStr {
     }
 }
 
-pub fn materialize_merge_result<T: AsRef<[u8]>>(
-    single_hunk: &Merge<T>,
-    labels: &ConflictLabels,
-    output: &mut dyn Write,
-    options: &ConflictMaterializeOptions,
-) -> io::Result<()> {
-    let merge_result = files::merge_hunks(single_hunk, &options.merge);
-    match merge_result {
-        MergeResult::Resolved(content) => output.write_all(&content),
-        MergeResult::Conflict(hunks) => {
-            let marker_len = options
-                .marker_len
-                .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
-            materialize_conflict_hunks(
-                hunks,
-                options.marker_style,
-                marker_len,
-                labels,
-                output,
-                detect_eol(single_hunk),
-            )
-        }
-    }
+/// Represents a conflict which is ready to be written to a file.
+pub struct MaterializedMergeResult {
+    /// The merge result after simplifying.
+    pub merge_result: MergeResult,
+    /// The conflict labels after simplifying.
+    pub labels: ConflictLabels,
+    /// The length of the conflict markers to be materialized.
+    ///
+    /// To select a different conflict marker length, override this field before materializing.
+    pub marker_len: usize,
+    /// The EOL marker to be used in this file.
+    pub eol: &'static BStr,
 }
 
-pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
-    single_hunk: &Merge<T>,
-    labels: &ConflictLabels,
-    options: &ConflictMaterializeOptions,
-) -> BString {
-    let merge_result = files::merge_hunks(single_hunk, &options.merge);
-    match merge_result {
-        MergeResult::Resolved(content) => content,
-        MergeResult::Conflict(hunks) => {
-            let marker_len = options
-                .marker_len
-                .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
-            let mut output = Vec::new();
-            materialize_conflict_hunks(
+impl MaterializedMergeResult {
+    pub fn new<T: AsRef<[u8]>>(
+        contents: &Merge<T>,
+        labels: ConflictLabels,
+        merge_options: &MergeOptions,
+    ) -> Self {
+        let merge_result = files::merge_hunks(contents, merge_options);
+        let marker_len = choose_materialized_conflict_marker_len(contents);
+        let eol = detect_eol(contents);
+        Self {
+            merge_result,
+            labels,
+            marker_len,
+            eol,
+        }
+    }
+
+    pub fn materialize(
+        self,
+        output: &mut dyn Write,
+        marker_style: ConflictMarkerStyle,
+    ) -> io::Result<()> {
+        match self.merge_result {
+            MergeResult::Resolved(content) => output.write_all(&content),
+            MergeResult::Conflict(hunks) => materialize_conflict_hunks(
                 hunks,
-                options.marker_style,
-                marker_len,
-                labels,
-                &mut output,
-                detect_eol(single_hunk),
-            )
-            .expect("writing to an in-memory buffer should never fail");
-            output.into()
+                marker_style,
+                self.marker_len,
+                &self.labels,
+                output,
+                self.eol,
+            ),
+        }
+    }
+
+    pub fn materialize_to_bytes(self, marker_style: ConflictMarkerStyle) -> BString {
+        match self.merge_result {
+            MergeResult::Resolved(content) => content,
+            MergeResult::Conflict(hunks) => {
+                let mut output = Vec::new();
+                materialize_conflict_hunks(
+                    hunks,
+                    marker_style,
+                    self.marker_len,
+                    &self.labels,
+                    &mut output,
+                    self.eol,
+                )
+                .expect("writing to an in-memory buffer should never fail");
+                output.into()
+            }
         }
     }
 }
@@ -1366,16 +1388,13 @@ mod tests {
         let side1 = format!("\n{side1}{side1_ending_eol}").replace('\n', eol);
         let side2 = format!("\n{side2}{side2_ending_eol}").replace('\n', eol);
         let merge = Merge::from_vec(vec![side2.as_str(), base.as_str(), side1.as_str()]);
-        let options = ConflictMaterializeOptions {
-            marker_style: style,
-            marker_len: None,
-            merge: MergeOptions {
-                hunk_level: FileMergeHunkLevel::Line,
-                same_change: SameChange::Accept,
-            },
+        let merge_options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Accept,
         };
         let actual_contents = String::from_utf8(
-            materialize_merge_result_to_bytes(&merge, &ConflictLabels::unlabeled(), &options)
+            MaterializedMergeResult::new(&merge, ConflictLabels::unlabeled(), &merge_options)
+                .materialize_to_bytes(style)
                 .into(),
         )
         .unwrap();
@@ -1427,20 +1446,17 @@ mod tests {
         "right\r\n",
     ]); "crlf")]
     fn test_materialize_conflict_trailing_cr(merge: Merge<&str>) {
+        let merge_options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Keep,
+        };
         // A side ending with a CR but no ending EOL must survive the round trip.
         // The only EOL parsing may strip is the separator the materialization
         // added, not one the content already carried.
-        let options = ConflictMaterializeOptions {
-            marker_style: ConflictMarkerStyle::Git,
-            marker_len: None,
-            merge: MergeOptions {
-                hunk_level: FileMergeHunkLevel::Line,
-                same_change: SameChange::Keep,
-            },
-        };
         let merge = merge.map(|content| BString::from(*content));
         let materialized =
-            materialize_merge_result_to_bytes(&merge, &ConflictLabels::unlabeled(), &options);
+            MaterializedMergeResult::new(&merge, ConflictLabels::unlabeled(), &merge_options)
+                .materialize_to_bytes(ConflictMarkerStyle::Git);
         let hunks = parse_conflict(&materialized, 2, 7).unwrap();
         assert_eq!(hunks, vec![merge]);
     }

@@ -20,12 +20,10 @@ use jj_core::backend::MergedTreeValueExt as _;
 use jj_core::backend::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::conflicts::ConflictMarkerStyle;
-use jj_core::conflicts::ConflictMaterializeOptions;
 use jj_core::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_core::conflicts::MaterializedTreeValue;
 use jj_core::conflicts::choose_materialized_conflict_marker_len;
 use jj_core::conflicts::extract_as_single_hunk;
-use jj_core::conflicts::materialize_merge_result_to_bytes;
 use jj_core::conflicts::materialize_tree_value;
 use jj_core::conflicts::parse_conflict;
 use jj_core::conflicts::update_from_content;
@@ -36,6 +34,7 @@ use jj_core::merge::SameChange;
 use jj_core::merged_tree::MergedTree;
 use jj_core::repo_path::RepoPath;
 use jj_core::store::Store;
+use jj_lib::conflicts::MaterializedMergeResult;
 use jj_lib::repo::Repo as _;
 use pollster::FutureExt as _;
 use test_case::test_case;
@@ -2621,16 +2620,14 @@ fn materialize_conflict_string_with_labels(
     let contents = extract_as_single_hunk(conflict, store, path)
         .block_on()
         .unwrap();
-    let options = ConflictMaterializeOptions {
-        marker_style,
-        marker_len: None,
-        merge: MergeOptions {
-            hunk_level: FileMergeHunkLevel::Line,
-            same_change: SameChange::Accept,
-        },
+    let merge_options = MergeOptions {
+        hunk_level: FileMergeHunkLevel::Line,
+        same_change: SameChange::Accept,
     };
     String::from_utf8(
-        materialize_merge_result_to_bytes(&contents, conflict_labels, &options).into(),
+        MaterializedMergeResult::new(&contents, conflict_labels.clone(), &merge_options)
+            .materialize_to_bytes(marker_style)
+            .into(),
     )
     .unwrap()
 }

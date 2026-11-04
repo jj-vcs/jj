@@ -64,11 +64,8 @@ use jj_core::commit::Commit;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::conflicts;
 use jj_core::conflicts::ConflictMarkerStyle;
-use jj_core::conflicts::ConflictMaterializeOptions;
 use jj_core::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_core::conflicts::MaterializedTreeValue;
-use jj_core::conflicts::choose_materialized_conflict_marker_len;
-use jj_core::conflicts::materialize_merge_result_to_bytes;
 use jj_core::conflicts::materialize_tree_value;
 use jj_core::matchers::DifferenceMatcher;
 use jj_core::matchers::EverythingMatcher;
@@ -2567,20 +2564,14 @@ impl TreeState {
                     panic!("unexpected tree entry in diff at {path:?}");
                 }
                 MaterializedTreeValue::FileConflict(file) => {
-                    let conflict_marker_len =
-                        choose_materialized_conflict_marker_len(&file.contents);
-                    let options = ConflictMaterializeOptions {
-                        marker_style: self.conflict_marker_style,
-                        marker_len: Some(conflict_marker_len),
-                        merge: self.store.merge_options().clone(),
-                    };
+                    let merge_result = file.merge_contents(self.store.merge_options());
+                    let conflict_marker_len = merge_result.marker_len;
                     let exec_bit = ExecBit::new_from_repo(
                         file.executable.unwrap_or(false),
                         self.exec_policy,
                         get_prev_exec,
                     );
-                    let contents =
-                        materialize_merge_result_to_bytes(&file.contents, &file.labels, &options);
+                    let contents = merge_result.materialize_to_bytes(self.conflict_marker_style);
                     let mut file_state =
                         self.write_conflict(&disk_path, &contents, exec_bit).await?;
                     file_state.materialized_conflict_data = Some(MaterializedConflictData {

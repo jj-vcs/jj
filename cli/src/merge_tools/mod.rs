@@ -31,10 +31,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
-use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MaterializedFileConflictValue;
-use jj_lib::conflicts::choose_materialized_conflict_marker_len;
-use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::try_materialize_file_conflict_value;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
@@ -603,13 +600,9 @@ async fn edit_conflict_markers_in_text_editor(
         repo_path, file, ..
     } = merge_tool_file;
 
-    let conflict_marker_len = choose_materialized_conflict_marker_len(&file.contents);
-    let options = ConflictMaterializeOptions {
-        marker_style: conflict_marker_style,
-        marker_len: Some(conflict_marker_len),
-        merge: store.merge_options().clone(),
-    };
-    let initial_content = materialize_merge_result_to_bytes(&file.contents, &file.labels, &options);
+    let merge_result = file.merge_contents(store.merge_options());
+    let conflict_marker_len = merge_result.marker_len;
+    let initial_content = merge_result.materialize_to_bytes(conflict_marker_style);
 
     // Name the temporary file after the conflicted file so the editor can pick
     // the right syntax highlighting.

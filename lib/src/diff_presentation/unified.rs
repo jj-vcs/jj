@@ -22,7 +22,6 @@ use jj_core::backend::BackendError;
 use jj_core::backend::MergedTreeValueExt as _;
 use jj_core::conflicts::ConflictMaterializeOptions;
 use jj_core::conflicts::MaterializedTreeValue;
-use jj_core::conflicts::materialize_merge_result_to_bytes;
 use jj_core::diff::ContentDiff;
 use jj_core::diff::DiffHunkKind;
 use jj_core::merge::Diff;
@@ -126,11 +125,9 @@ pub async fn git_diff_part(
             hash = DUMMY_HASH.to_owned();
             content = FileContent {
                 is_binary: false, // TODO: are we sure this is never binary?
-                contents: materialize_merge_result_to_bytes(
-                    &file.contents,
-                    &file.labels,
-                    materialize_options,
-                ),
+                contents: file
+                    .merge_contents(&materialize_options.merge)
+                    .materialize_to_bytes(materialize_options.marker_style),
             };
         }
         MaterializedTreeValue::OtherConflict { id, labels } => {

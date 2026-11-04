@@ -39,9 +39,7 @@ use jj_core::backend::BackendResult;
 use jj_core::backend::CommitId;
 use jj_core::commit::Commit;
 use jj_core::conflicts::ConflictMarkerStyle;
-use jj_core::conflicts::ConflictMaterializeOptions;
 use jj_core::conflicts::MaterializedTreeValue;
-use jj_core::conflicts::materialize_merge_result_to_bytes;
 use jj_core::conflicts::materialize_tree_value;
 use jj_core::diff::ContentDiff;
 use jj_core::diff::DiffHunkKind;
@@ -632,19 +630,13 @@ async fn get_file_contents(
         MaterializedTreeValue::File(mut file) => Ok(file.read_all(path).await?.into()),
         MaterializedTreeValue::FileConflict(file) => {
             // TODO: track line origins without materializing
-            let options = ConflictMaterializeOptions {
-                marker_style: ConflictMarkerStyle::Diff,
-                marker_len: None,
-                merge: MergeOptions {
-                    hunk_level: FileMergeHunkLevel::Line,
-                    same_change: SameChange::Accept,
-                },
+            let merge_options = MergeOptions {
+                hunk_level: FileMergeHunkLevel::Line,
+                same_change: SameChange::Accept,
             };
-            Ok(materialize_merge_result_to_bytes(
-                &file.contents,
-                &file.labels,
-                &options,
-            ))
+            Ok(file
+                .merge_contents(&merge_options)
+                .materialize_to_bytes(ConflictMarkerStyle::Diff))
         }
         _ => Ok(BString::default()),
     }

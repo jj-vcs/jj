@@ -34,7 +34,6 @@ use itertools::Itertools as _;
 use jj_core::backend::CopyId;
 use jj_core::backend::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
-use jj_core::conflicts::ConflictMaterializeOptions;
 use jj_core::files::FileMergeHunkLevel;
 use jj_core::files::MergeOptions;
 use jj_core::matchers::FilesMatcher;
@@ -1354,18 +1353,17 @@ fn test_snapshot_modified_materialized_conflict(
     let hunks = get_new_merge_hunks(hunks);
     let mut new_contents = vec![];
     for hunk in hunks {
-        jj_core::conflicts::materialize_merge_result(
+        jj_core::conflicts::MaterializedMergeResult::new(
             &hunk,
-            &ConflictLabels::unlabeled(),
-            &mut new_contents,
-            &ConflictMaterializeOptions {
-                marker_style: jj_core::conflicts::ConflictMarkerStyle::Diff,
-                marker_len: None,
-                merge: MergeOptions {
-                    hunk_level: FileMergeHunkLevel::Line,
-                    same_change: SameChange::Accept,
-                },
+            ConflictLabels::unlabeled(),
+            &MergeOptions {
+                hunk_level: FileMergeHunkLevel::Line,
+                same_change: SameChange::Accept,
             },
+        )
+        .materialize(
+            &mut new_contents,
+            jj_core::conflicts::ConflictMarkerStyle::Diff,
         )?;
     }
     std::fs::write(&file_disk_path, new_contents)?;

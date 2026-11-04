@@ -16,7 +16,6 @@ use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_lib::conflicts::MaterializedTreeValue;
-use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::materialized_diff_stream;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopyRecords;
@@ -181,12 +180,10 @@ async fn read_file_contents(
             // Since scm_record doesn't support diffs of conflicts, file
             // conflicts are compared in materialized form. The UI would look
             // scary, but it can at least allow squashing resolved hunks.
-            let buf = materialize_merge_result_to_bytes(
-                &file.contents,
-                &file.labels,
-                materialize_options,
-            )
-            .into();
+            let buf = file
+                .merge_contents(&materialize_options.merge)
+                .materialize_to_bytes(materialize_options.marker_style)
+                .into();
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, buf);
             Ok(FileInfo {
@@ -280,7 +277,6 @@ async fn make_diff_files(
 ) -> Result<(Vec<RepoPathBuf>, Vec<scm_record::File<'static>>), BuiltinToolError> {
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
-        marker_len: None,
         merge: store.merge_options().clone(),
     };
     let conflict_labels = trees.map(MergedTree::labels);

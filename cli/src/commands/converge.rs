@@ -28,8 +28,7 @@ use jj_lib::backend::Signature;
 use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMarkerStyle;
-use jj_lib::conflicts::ConflictMaterializeOptions;
-use jj_lib::conflicts::materialize_merge_result_to_bytes;
+use jj_lib::conflicts::MaterializedMergeResult;
 use jj_lib::converge::CommitsByChangeId;
 use jj_lib::converge::ConvergedAttribute;
 use jj_lib::converge::TruncatedEvolutionGraph;
@@ -628,15 +627,13 @@ fn materialize_conflicted_description(
         }
         (merge_builder.build(), ConflictLabels::from_vec(labels))
     };
-    let options = ConflictMaterializeOptions {
-        marker_style: ConflictMarkerStyle::Diff,
-        marker_len: None,
-        merge: MergeOptions {
-            hunk_level: FileMergeHunkLevel::Line,
-            same_change: SameChange::Accept,
-        },
+    let merge_options = MergeOptions {
+        hunk_level: FileMergeHunkLevel::Line,
+        same_change: SameChange::Accept,
     };
-    materialize_merge_result_to_bytes(&description_merge, &conflict_labels, &options).to_string()
+    MaterializedMergeResult::new(&description_merge, conflict_labels, &merge_options)
+        .materialize_to_bytes(ConflictMarkerStyle::Diff)
+        .to_string()
 }
 
 fn report_divergent_changes(

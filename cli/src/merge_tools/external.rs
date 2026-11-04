@@ -12,10 +12,8 @@ use bstr::BString;
 use itertools::Itertools as _;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
-use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_lib::conflicts::choose_materialized_conflict_marker_len;
-use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
@@ -192,28 +190,23 @@ async fn run_mergetool_external_single_file(
         repo_path, file, ..
     } = merge_tool_file;
 
-    let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
-
-    // If the merge tool doesn't get conflict markers pre-populated in the output
-    // file and doesn't accept "$marker_length", then we should default to accepting
-    // MIN_CONFLICT_MARKER_LEN since the merge tool can't know about our rules for
-    // conflict marker length.
-    let conflict_marker_len = if editor.merge_tool_edits_conflict_markers || uses_marker_length {
-        choose_materialized_conflict_marker_len(&file.contents)
+    let (initial_output_content, conflict_marker_len) = if editor.merge_tool_edits_conflict_markers
+    {
+        let merge_result = file.merge_contents(store.merge_options());
+        let marker_len = merge_result.marker_len;
+        let marker_style = editor
+            .conflict_marker_style
+            .unwrap_or(default_conflict_marker_style);
+        (merge_result.materialize_to_bytes(marker_style), marker_len)
+    } else if find_all_variables(&editor.merge_args).contains(&"marker_length") {
+        let marker_len = choose_materialized_conflict_marker_len(&file.contents);
+        (BString::default(), marker_len)
     } else {
-        MIN_CONFLICT_MARKER_LEN
-    };
-    let initial_output_content = if editor.merge_tool_edits_conflict_markers {
-        let options = ConflictMaterializeOptions {
-            marker_style: editor
-                .conflict_marker_style
-                .unwrap_or(default_conflict_marker_style),
-            marker_len: Some(conflict_marker_len),
-            merge: store.merge_options().clone(),
-        };
-        materialize_merge_result_to_bytes(&file.contents, &file.labels, &options)
-    } else {
-        BString::default()
+        // If the merge tool doesn't get conflict markers pre-populated in the output
+        // file and doesn't accept "$marker_length", then we should default to accepting
+        // MIN_CONFLICT_MARKER_LEN since the merge tool can't know about our rules for
+        // conflict marker length.
+        (BString::default(), MIN_CONFLICT_MARKER_LEN)
     };
     assert_eq!(file.contents.num_sides(), 2);
     let files: HashMap<&str, &[u8]> = maplit::hashmap! {

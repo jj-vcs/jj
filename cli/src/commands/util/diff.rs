@@ -57,7 +57,6 @@ pub async fn cmd_util_diff(
     let formats = diff_util::diff_formats_for(command.settings(), &args.format)?;
     let materialize_options = ConflictMaterializeOptions {
         marker_style: command.settings().get("ui.conflict-marker-style")?,
-        marker_len: None,
         merge: command.settings().merge_options()?,
     };
 
