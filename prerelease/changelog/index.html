@@ -9429,7 +9429,18 @@ and this project adheres to
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The <code>git.sign-on-push</code> boolean option is deprecated in favor of the
+  <code>revsets.git-sign-on-push</code> revset. The default value is <code>none()</code>. If
+  <code>git.sign-on-push</code> was previously set to <code>true</code>, it will be migrated to
+  <code>revsets.git-sign-on-push = "~signed() &amp; mine()"</code>.</li>
+</ul>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
+<ul>
+<li>New <code>revsets.git-sign-on-push</code> config option containing the revset of
+  commits to be signed when <code>jj git push</code> is run. It replaces the
+  <code>git.sign-on-push</code> boolean option.</li>
+</ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <h2 id="0470-2026-11-04"><a href="https://github.com/jj-vcs/jj/compare/v0.46.0...v0.47.0">0.47.0</a> - 2026-11-04<a class="headerlink" href="#0470-2026-11-04" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights_1">Release highlights<a class="headerlink" href="#release-highlights_1" title="Permanent link">&para;</a></h3>
