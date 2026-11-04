@@ -76,6 +76,7 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo::RepoLoader;
 use jj_lib::repo::RepoLoaderError;
+use jj_lib::repo_factory::repo_from_path_and_settings;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
@@ -341,7 +342,7 @@ impl TestRepo {
         let repo_dir = env.root().join("repo");
         fs::create_dir(&repo_dir).unwrap();
 
-        let repo = ReadonlyRepo::init(
+        let repo = repo_from_path_and_settings(
             settings,
             &repo_dir,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
