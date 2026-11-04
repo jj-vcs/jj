@@ -150,6 +150,8 @@ impl RunnerOptions {
 /// importing from or exporting to Git, or finishing a transaction.
 #[derive(Debug)]
 pub enum RunnerEvent {
+    /// A transaction was not committed because it had no changes.
+    NothingChanged,
     /// Descendants of rewritten commits were rebased.
     DescendantsRebased {
         /// Number of rebased commits.
