@@ -11703,7 +11703,7 @@ upload</code> does:
 <li>
 <p><code>--git-repo &lt;GIT_REPO&gt;</code> — Specifies a path to an <strong>existing</strong> git repository to be used as the backing git repo for the newly created <code>jj</code> repo.</p>
 <p>If the specified <code>--git-repo</code> path is the same as <code>DESTINATION</code>, then a <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces">colocated workspace</a> will be created, and both <code>jj</code> and <code>git</code> commands will work on the repo. The <code>git.colocate</code> setting is ignored in this case.</p>
-<p>If the specified <code>--git-repo</code> path is outside of the given <code>DESTINATION</code>, then the Jujutsa workspace will store a reference to the external Git repository (not a colocated workspace). This option is mutually exclusive with <code>--collate</code>.</p>
+<p>If the specified <code>--git-repo</code> path is outside of the given <code>DESTINATION</code>, then the Jujutsu workspace will store a reference to the external Git repository (not a colocated workspace). This option is mutually exclusive with <code>--colocate</code>.</p>
 </li>
 </ul>
 <h2 id="jj-git-push"><code>jj git push</code><a class="headerlink" href="#jj-git-push" title="Permanent link">&para;</a></h2>
