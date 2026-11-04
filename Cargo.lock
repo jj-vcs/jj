@@ -2874,6 +2874,7 @@ dependencies = [
  "jj-dsl",
  "jj-git-backend",
  "jj-local-util",
+ "jj-simple-op-heads-store",
  "maplit",
  "memchr",
  "nix 0.31.3",
@@ -2921,6 +2922,19 @@ dependencies = [
  "tracing",
  "windows-sys",
  "winreg",
+]
+
+[[package]]
+name = "jj-simple-op-heads-store"
+version = "0.46.0"
+dependencies = [
+ "async-trait",
+ "eyre",
+ "jj-core",
+ "jj-local-util",
+ "pollster",
+ "tempfile",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

@@ -20,6 +20,8 @@ use jj_core::backend::Timestamp;
 use jj_core::index::IndexError;
 use jj_core::index::ReadonlyIndex;
 use jj_core::index_store::IndexStoreError;
+use jj_core::op_heads_store::OpHeadsStore;
+use jj_core::op_heads_store::OpHeadsStoreError;
 use jj_core::op_store;
 use jj_core::op_store::OpStoreError;
 use jj_core::op_store::OperationMetadata;
@@ -29,8 +31,6 @@ use jj_core::ref_name::WorkspaceName;
 use jj_core::view::View;
 use thiserror::Error;
 
-use crate::op_heads_store::OpHeadsStore;
-use crate::op_heads_store::OpHeadsStoreError;
 use crate::repo::MutableRepo;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;

@@ -16,6 +16,7 @@
 //! (if the `git` feature is enabled), `SimpleOpStore`, `LocalWorkingCopy`, etc.
 
 use jj_default_index::DefaultIndexStore;
+use jj_simple_op_heads_store::simple_op_heads_store::SimpleOpHeadsStore;
 
 use crate::default_submodule_store::DefaultSubmoduleStore;
 use crate::local_working_copy::LocalWorkingCopy;
@@ -27,7 +28,6 @@ use crate::repo::StoreFactories;
 use crate::repo::SubmoduleStoreInitializer;
 use crate::repo::WorkspaceStoreInitializer;
 use crate::simple_backend::SimpleBackend;
-use crate::simple_op_heads_store::SimpleOpHeadsStore;
 use crate::simple_op_store::SimpleOpStore;
 use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::working_copy::WorkingCopyFactory;

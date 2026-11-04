@@ -44,6 +44,7 @@ jj-default-index = { workspace = true }
 jj-dsl = { workspace = true }
 jj-git-backend = { workspace = true, optional = true }
 jj-local-util = { workspace = true }
+jj-simple-op-heads-store = { workspace = true }
 maplit = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }

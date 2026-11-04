@@ -1,0 +1,33 @@
+[package]
+name = "jj-simple-op-heads-store"
+description = "Simple file-based operation heads store for Jujutsu - an experimental version control system"
+
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+include = [
+    "/LICENSE",
+    "/src/",
+]
+
+[dependencies]
+async-trait = { workspace = true }
+jj-core = { workspace = true }
+jj-local-util = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+eyre = { workspace = true }
+pollster = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

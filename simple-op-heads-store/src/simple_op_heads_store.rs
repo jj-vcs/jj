@@ -25,15 +25,14 @@ use async_trait::async_trait;
 use jj_core::backend::BackendInitError;
 use jj_core::hex_util;
 use jj_core::object_id::ObjectId as _;
+use jj_core::op_heads_store::OpHeadsStore;
+use jj_core::op_heads_store::OpHeadsStoreError;
+use jj_core::op_heads_store::OpHeadsStoreLock;
 use jj_core::op_store::OperationId;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
 use jj_local_util::lock::FileLock;
 use thiserror::Error;
-
-use crate::op_heads_store::OpHeadsStore;
-use crate::op_heads_store::OpHeadsStoreError;
-use crate::op_heads_store::OpHeadsStoreLock;
 
 /// Error that may occur during [`SimpleOpHeadsStore`] initialization.
 #[derive(Debug, Error)]
