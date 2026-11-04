@@ -172,6 +172,11 @@ and this project adheres to
   most similar first, followed by e.g. `or 20 others`.
   [#8017](https://github.com/jj-vcs/jj/issues/8017)
 
+* Lambda parameters in the templating language now shadow template aliases.
+  Previously, if you had `template-aliases.x = 'abc'`, then `|x| x` would have
+  silently expanded to `|x| abc`, which would then fail with a "keyword doesn't
+  exist" error.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
