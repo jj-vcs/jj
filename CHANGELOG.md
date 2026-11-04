@@ -14,6 +14,17 @@ and this project adheres to
 
 ### Deprecations
 
+### New features
+
+### Fixed bugs
+
+## [0.47.1] - 2026-11-04
+
+This release fixes a dependency error that broke Linux builds in the 0.47.0
+release.
+
+### Deprecations
+
 * The `git.sign-on-push` boolean option is deprecated in favor of the
   `revsets.git-sign-on-push` revset. The default value is `none()`. If
   `git.sign-on-push` was previously set to `true`, it will be migrated to
@@ -25,7 +36,11 @@ and this project adheres to
   commits to be signed when `jj git push` is run. It replaces the
   `git.sign-on-push` boolean option.
 
-### Fixed bugs
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Philippe Daouadi (@blastrock)
 
 ## [0.47.0] - 2026-11-04
 
@@ -5964,7 +5979,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.47.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.47.1...HEAD
+[0.47.1]: https://github.com/jj-vcs/jj/compare/v0.47.0...v0.47.1
 [0.47.0]: https://github.com/jj-vcs/jj/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/jj-vcs/jj/compare/v0.45.1...v0.46.0
 [0.45.1]: https://github.com/jj-vcs/jj/compare/v0.45.0...v0.45.1

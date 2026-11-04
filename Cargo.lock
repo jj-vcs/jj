@@ -1393,7 +1393,7 @@ dependencies = [
 
 [[package]]
 name = "gen-protos"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "itertools 0.15.0",
  "prost-build",
@@ -2660,7 +2660,7 @@ dependencies = [
 
 [[package]]
 name = "jj-cli"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "ansi-to-tui",
  "anstream",
@@ -2731,7 +2731,7 @@ dependencies = [
 
 [[package]]
 name = "jj-core"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "async-trait",
  "blake2",
@@ -2765,7 +2765,7 @@ dependencies = [
 
 [[package]]
 name = "jj-core-proc-macros"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2774,7 +2774,7 @@ dependencies = [
 
 [[package]]
 name = "jj-default-index"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "async-trait",
  "blake2",
@@ -2801,7 +2801,7 @@ dependencies = [
 
 [[package]]
 name = "jj-dsl"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "eyre",
  "insta",
@@ -2815,7 +2815,7 @@ dependencies = [
 
 [[package]]
 name = "jj-frontend"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "jiff",
  "jj-lib",
@@ -2825,7 +2825,7 @@ dependencies = [
 
 [[package]]
 name = "jj-git-backend"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "async-trait",
  "blake2",
@@ -2851,7 +2851,7 @@ dependencies = [
 
 [[package]]
 name = "jj-lib"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "async-trait",
  "blake2",
@@ -2903,7 +2903,7 @@ dependencies = [
 
 [[package]]
 name = "jj-local-util"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "blake2",
  "eyre",
@@ -4813,7 +4813,7 @@ dependencies = [
 
 [[package]]
 name = "testutils"
-version = "0.47.0"
+version = "0.47.1"
 dependencies = [
  "async-trait",
  "bstr",
