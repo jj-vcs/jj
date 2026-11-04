@@ -18,7 +18,9 @@ mod external;
 
 use std::sync::Arc;
 
+use bstr::BString;
 use bstr::ByteSlice as _;
+use bstr::ByteVec as _;
 use futures::future::try_join_all;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CopyId;
@@ -32,7 +34,9 @@ use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::MaterializedFileConflictValue;
+use jj_lib::conflicts::MaterializedMergeResult;
 use jj_lib::conflicts::try_materialize_file_conflict_value;
+use jj_lib::files::MergeResult;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
@@ -351,6 +355,7 @@ struct MergeToolFile {
     repo_path: RepoPathBuf,
     conflict: MergedTreeValue,
     file: MaterializedFileConflictValue,
+    merge_result: MaterializedMergeResult,
 }
 
 impl MergeToolFile {
@@ -376,17 +381,19 @@ impl MergeToolFile {
                 summary: conflict.describe(tree.labels()),
             });
         }
+        let merge_result = file.merge_contents(tree.store().merge_options());
         Ok(Self {
             repo_path: repo_path.to_owned(),
             conflict,
             file,
+            merge_result,
         })
     }
 
     /// Returns an error if the conflict has more than two sides, since most
     /// merge tools only support 3-way merges.
     fn check_two_sided(&self) -> Result<(), ConflictResolveError> {
-        let sides = self.file.ids.num_sides();
+        let sides = self.merge_result.num_sides();
         if sides > 2 {
             return Err(ConflictResolveError::ConflictTooComplicated {
                 path: self.repo_path.clone(),
@@ -395,22 +402,26 @@ impl MergeToolFile {
         }
         Ok(())
     }
+}
 
-    /// Builds the tree value to store for this file given the file ids
-    /// produced by a merge tool. If the file is still conflicted, the
-    /// executable bits are left unchanged.
-    fn new_tree_value(&self, new_file_ids: Merge<Option<FileId>>) -> MergedTreeValue {
-        match new_file_ids.into_resolved() {
-            Ok(file_id) => {
-                let executable = self.file.executable.expect("should have been resolved");
-                Merge::resolved(file_id.map(|id| TreeValue::File {
-                    id,
-                    executable,
-                    copy_id: CopyId::placeholder(),
-                }))
-            }
-            Err(file_ids) => self.conflict.with_new_file_ids(&file_ids),
+/// Builds the tree value to store for this file given the file ids
+/// produced by a merge tool. If the file is still conflicted, the
+/// executable bits are left unchanged.
+fn new_tree_value(
+    conflict: &MergedTreeValue,
+    file: &MaterializedFileConflictValue,
+    new_file_ids: Merge<Option<FileId>>,
+) -> MergedTreeValue {
+    match new_file_ids.into_resolved() {
+        Ok(file_id) => {
+            let executable = file.executable.expect("should have been resolved");
+            Merge::resolved(file_id.map(|id| TreeValue::File {
+                id,
+                executable,
+                copy_id: CopyId::placeholder(),
+            }))
         }
+        Err(file_ids) => conflict.with_new_file_ids(&file_ids),
     }
 }
 
@@ -495,7 +506,7 @@ impl MergeEditor {
 
         match &self.tool {
             MergeTool::Builtin => {
-                let tree = edit_merge_builtin(tree, &merge_tool_files)
+                let tree = edit_merge_builtin(tree, merge_tool_files)
                     .await
                     .map_err(Box::new)?;
                 Ok((tree, None))
@@ -505,7 +516,7 @@ impl MergeEditor {
                     ui,
                     &self.path_converter,
                     tree,
-                    &merge_tool_files,
+                    merge_tool_files,
                     async |merge_tool_file, tree_builder| {
                         edit_conflict_markers_in_text_editor(
                             editor,
@@ -533,7 +544,7 @@ impl MergeEditor {
                     &self.path_converter,
                     editor,
                     tree,
-                    &merge_tool_files,
+                    merge_tool_files,
                     self.conflict_marker_style,
                 )
                 .await
@@ -551,15 +562,15 @@ async fn resolve_files_one_by_one(
     ui: &Ui,
     path_converter: &RepoPathUiConverter,
     tree: &MergedTree,
-    merge_tool_files: &[MergeToolFile],
+    merge_tool_files: Vec<MergeToolFile>,
     resolve_file: impl AsyncFn(
-        &MergeToolFile,
+        MergeToolFile,
         &mut MergedTreeBuilder,
     ) -> Result<(), ConflictResolveError>,
 ) -> Result<(MergedTree, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
     let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     let mut partial_resolution_error = None;
-    for (i, merge_tool_file) in merge_tool_files.iter().enumerate() {
+    for (i, merge_tool_file) in merge_tool_files.into_iter().enumerate() {
         writeln!(
             ui.status(),
             "Resolving conflicts in: {}",
@@ -592,15 +603,17 @@ async fn resolve_files_one_by_one(
 async fn edit_conflict_markers_in_text_editor(
     editor: &TextEditor,
     store: &Store,
-    merge_tool_file: &MergeToolFile,
+    merge_tool_file: MergeToolFile,
     conflict_marker_style: ConflictMarkerStyle,
     tree_builder: &mut MergedTreeBuilder,
 ) -> Result<(), ConflictResolveError> {
     let MergeToolFile {
-        repo_path, file, ..
+        repo_path,
+        conflict,
+        file,
+        merge_result,
     } = merge_tool_file;
 
-    let merge_result = file.merge_contents(store.merge_options());
     let conflict_marker_len = merge_result.marker_len;
     let initial_content = merge_result.materialize_to_bytes(conflict_marker_style);
 
@@ -611,7 +624,7 @@ async fn edit_conflict_markers_in_text_editor(
         .tempdir()
         .map_err(ExternalToolError::SetUpDir)?;
     let file_name = match repo_path.components().next_back() {
-        Some(name) => name.to_fs_name().map_err(|err| err.with_path(repo_path))?,
+        Some(name) => name.to_fs_name().map_err(|err| err.with_path(&repo_path))?,
         None => "output",
     };
     let temp_path = temp_dir.path().join(file_name);
@@ -640,15 +653,15 @@ async fn edit_conflict_markers_in_text_editor(
     let new_file_ids = conflicts::update_from_content(
         &file.unsimplified_ids,
         store,
-        repo_path,
+        &repo_path,
         &new_content,
         conflict_marker_len,
     )
     .await?;
     tree_builder
         .set_or_remove_merge(
-            repo_path.to_owned(),
-            merge_tool_file.new_tree_value(new_file_ids),
+            repo_path.clone(),
+            new_tree_value(&conflict, &file, new_file_ids),
         )
         .unwrap();
     Ok(())
@@ -661,12 +674,53 @@ async fn pick_conflict_side(
 ) -> Result<MergedTree, BackendError> {
     let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     for merge_tool_file in merge_tool_files {
+        let MergeToolFile {
+            repo_path,
+            conflict,
+            file,
+            merge_result,
+        } = merge_tool_file;
+
+        // We need to use `MergeResult` to ensure that this merge tool sees the
+        // same number of sides as other merge tools.
+        let new_content = match &merge_result.merge_result {
+            MergeResult::Resolved(content) => content.clone(),
+            MergeResult::Conflict(hunks) => {
+                let mut content = BString::default();
+                for hunk in hunks {
+                    if let Some(resolved) = hunk.as_resolved() {
+                        content.push_str(resolved);
+                    } else {
+                        let selected_side = hunk.get_add(add_index).unwrap();
+                        content.push_str(selected_side);
+                    }
+                }
+                content
+            }
+        };
+
+        let original_file_id_add_index = merge_tool_file
+            .merge_result
+            .simplified_to_merged_mapping
+            .get_old_add_index(add_index);
+        let original_file_id = file.ids.get_add(original_file_id_add_index);
+
+        // If the original file was deleted, then this file should be deleted too.
+        let new_file_id = if new_content.is_empty() && original_file_id.is_none() {
+            None
+        } else {
+            let new_file_id = tree
+                .store()
+                .write_file(repo_path, &mut new_content.as_slice())
+                .await?;
+            Some(new_file_id)
+        };
+
         // We use file IDs here to match the logic for the other external merge tools.
         // This ensures that the behavior is consistent.
-        let file_id = merge_tool_file.file.ids.get_add(add_index).unwrap();
-        let new_tree_value = merge_tool_file.new_tree_value(Merge::resolved(file_id.clone()));
+        let new_tree_value = new_tree_value(conflict, file, Merge::resolved(new_file_id));
         tree_builder
-            .set_or_remove_merge(merge_tool_file.repo_path.clone(), new_tree_value)
+            .set_or_remove_merge(repo_path.clone(), new_tree_value)
             .unwrap();
     }
     tree_builder.write_tree().await

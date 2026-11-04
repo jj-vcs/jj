@@ -524,6 +524,10 @@ impl MaterializedMergeResult {
         }
     }
 
+    pub fn num_sides(&self) -> usize {
+        self.simplified_to_merged_mapping.new_num_sides()
+    }
+
     pub fn materialize(
         self,
         output: &mut dyn Write,

@@ -567,6 +567,16 @@ impl SimplifiedMapping {
         self.new_to_old_indices.len() / 2 + 1
     }
 
+    /// Maps an added term's index in the new merge back to the index in the old merge.
+    pub fn get_old_add_index(&self, new_add_index: usize) -> usize {
+        self.new_to_old_indices[new_add_index * 2] / 2
+    }
+
+    /// Maps a removed term's index in the new merge back to the index in the old merge.
+    pub fn get_old_remove_index(&self, new_remove_index: usize) -> usize {
+        self.new_to_old_indices[new_remove_index * 2 + 1] / 2
+    }
+
     /// Returns a mapping which is equivalent to applying `self`, then applying `other`.
     pub fn then(&self, other: &Self) -> Self {
         assert_eq!(self.new_to_old_indices.len(), other.old_len);

@@ -37,6 +37,7 @@ use super::resolve_files_one_by_one;
 use crate::config::CommandNameAndArgs;
 use crate::config::find_all_variables;
 use crate::config::interpolate_variables;
+use crate::merge_tools;
 use crate::ui::Ui;
 
 /// Merge/diff tool loaded from the settings.
@@ -182,24 +183,29 @@ pub enum ExternalToolError {
 async fn run_mergetool_external_single_file(
     editor: &ExternalMergeTool,
     store: &Store,
-    merge_tool_file: &MergeToolFile,
+    merge_tool_file: MergeToolFile,
     default_conflict_marker_style: ConflictMarkerStyle,
     tree_builder: &mut MergedTreeBuilder,
 ) -> Result<(), ConflictResolveError> {
     let MergeToolFile {
-        repo_path, file, ..
+        repo_path,
+        conflict,
+        file,
+        merge_result,
     } = merge_tool_file;
+
+    // Use the merged content to match the materialized conflict markers.
+    let merged_content = merge_result.merge_result.to_merge();
 
     let (initial_output_content, conflict_marker_len) = if editor.merge_tool_edits_conflict_markers
     {
-        let merge_result = file.merge_contents(store.merge_options());
         let marker_len = merge_result.marker_len;
         let marker_style = editor
             .conflict_marker_style
             .unwrap_or(default_conflict_marker_style);
         (merge_result.materialize_to_bytes(marker_style), marker_len)
     } else if find_all_variables(&editor.merge_args).contains(&"marker_length") {
-        let marker_len = choose_materialized_conflict_marker_len(&file.contents);
+        let marker_len = choose_materialized_conflict_marker_len(&merged_content);
         (BString::default(), marker_len)
     } else {
         // If the merge tool doesn't get conflict markers pre-populated in the output
@@ -208,11 +214,11 @@ async fn run_mergetool_external_single_file(
         // conflict marker length.
         (BString::default(), MIN_CONFLICT_MARKER_LEN)
     };
-    assert_eq!(file.contents.num_sides(), 2);
+    assert_eq!(merged_content.num_sides(), 2);
     let files: HashMap<&str, &[u8]> = maplit::hashmap! {
-        "base" => file.contents.get_remove(0).unwrap().as_slice(),
-        "left" => file.contents.get_add(0).unwrap().as_slice(),
-        "right" => file.contents.get_add(1).unwrap().as_slice(),
+        "base" => merged_content.get_remove(0).unwrap().as_slice(),
+        "left" => merged_content.get_add(0).unwrap().as_slice(),
+        "right" => merged_content.get_add(1).unwrap().as_slice(),
         "output" => initial_output_content.as_slice(),
     };
 
@@ -223,7 +229,7 @@ async fn run_mergetool_external_single_file(
     let suffix = if let Some(filename) = repo_path.components().next_back() {
         let name = filename
             .to_fs_name()
-            .map_err(|err| err.with_path(repo_path))?;
+            .map_err(|err| err.with_path(&repo_path))?;
         format!("_{name}")
     } else {
         // This should never actually trigger, but we support it just in case
@@ -283,14 +289,14 @@ async fn run_mergetool_external_single_file(
         conflicts::update_from_content(
             &file.unsimplified_ids,
             store,
-            repo_path,
+            &repo_path,
             output_file_contents.as_slice(),
             conflict_marker_len,
         )
         .await?
     } else {
         let new_file_id = store
-            .write_file(repo_path, &mut output_file_contents.as_slice())
+            .write_file(&repo_path, &mut output_file_contents.as_slice())
             .await?;
         Merge::normal(new_file_id)
     };
@@ -307,8 +313,8 @@ async fn run_mergetool_external_single_file(
 
     tree_builder
         .set_or_remove_merge(
-            repo_path.to_owned(),
-            merge_tool_file.new_tree_value(new_file_ids),
+            repo_path.clone(),
+            merge_tools::new_tree_value(&conflict, &file, new_file_ids),
         )
         .unwrap();
     Ok(())
@@ -319,7 +325,7 @@ pub async fn run_mergetool_external(
     path_converter: &RepoPathUiConverter,
     editor: &ExternalMergeTool,
     tree: &MergedTree,
-    merge_tool_files: &[MergeToolFile],
+    merge_tool_files: Vec<MergeToolFile>,
     default_conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<(MergedTree, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
     // TODO: add support for "dir" invocation mode, similar to the

@@ -21,8 +21,6 @@ use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopyRecords;
 use jj_lib::diff::ContentDiff;
 use jj_lib::diff::DiffHunkKind;
-use jj_lib::files;
-use jj_lib::files::MergeOptions;
 use jj_lib::files::MergeResult;
 use jj_lib::matchers::FilesMatcher;
 use jj_lib::matchers::Matcher;
@@ -709,8 +707,7 @@ fn make_merge_sections(
 }
 
 fn make_merge_file(
-    merge_tool_file: &MergeToolFile,
-    options: &MergeOptions,
+    merge_tool_file: MergeToolFile,
 ) -> Result<scm_record::File<'static>, BuiltinToolError> {
     let file = &merge_tool_file.file;
     let file_mode = if file.executable.expect("should have been resolved") {
@@ -720,8 +717,7 @@ fn make_merge_file(
     };
     // TODO: Maybe we should test binary contents here, and generate per-file
     // Binary section to select either "our" or "their" file.
-    let merge_result = files::merge_hunks(&file.contents, options);
-    let sections = make_merge_sections(merge_result)?;
+    let sections = make_merge_sections(merge_tool_file.merge_result.merge_result)?;
     Ok(scm_record::File {
         old_path: None,
         // Path for displaying purposes, not for file access.
@@ -737,33 +733,30 @@ fn make_merge_file(
 
 pub async fn edit_merge_builtin(
     tree: &MergedTree,
-    merge_tool_files: &[MergeToolFile],
+    merge_tool_files: Vec<MergeToolFile>,
 ) -> Result<MergedTree, BuiltinToolError> {
     let store = tree.store();
     let mut input = scm_record::helpers::CrosstermInput;
+    let paths = merge_tool_files
+        .iter()
+        .map(|file| file.repo_path.clone())
+        .collect_vec();
+    let files = merge_tool_files
+        .into_iter()
+        .map(make_merge_file)
+        .try_collect()?;
     let recorder = scm_record::Recorder::new(
         scm_record::RecordState {
             is_read_only: false,
-            files: merge_tool_files
-                .iter()
-                .map(|f| make_merge_file(f, store.merge_options()))
-                .try_collect()?,
+            files,
             commits: Default::default(),
         },
         &mut input,
     );
     let state = recorder.run()?;
-    apply_merge_builtin(
-        store,
-        tree,
-        merge_tool_files
-            .iter()
-            .map(|file| file.repo_path.clone())
-            .collect_vec(),
-        &state.files,
-    )
-    .await
-    .map_err(BuiltinToolError::BackendError)
+    apply_merge_builtin(store, tree, paths, &state.files)
+        .await
+        .map_err(BuiltinToolError::BackendError)
 }
 
 async fn apply_merge_builtin(
@@ -1240,7 +1233,7 @@ mod tests {
         let tree = tree_builder.write_merged_tree();
 
         let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path).block_on()?;
-        let merge_file = make_merge_file(&merge_tool_file, store.merge_options())?;
+        let merge_file = make_merge_file(merge_tool_file)?;
         let tree = apply_merge_builtin(store, &tree, vec![file_path.to_owned()], &[merge_file])
             .block_on()?;
 
