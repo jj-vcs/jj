@@ -1616,7 +1616,7 @@ impl WorkspaceOperationRunner {
                 // copy became stale. The result wouldn't be ideal, but there
                 // should be no data loss at least.
                 let fresh_stats = runner
-                    .snapshot_impl(event_handler, config, git_import_export_lock)
+                    .snapshot(event_handler, config, git_import_export_lock)
                     .await?;
                 let merged_stats = {
                     let SnapshotStats {
@@ -1768,7 +1768,7 @@ to the current parents may contain changes from multiple commits.
         locked_ws.finish(repo.op_id().clone()).await?;
         self.user_repo = ReadonlyUserRepo::new(repo, self.env.new_id_prefix_context());
 
-        self.snapshot_impl(event_handler, config, git_import_export_lock)
+        self.snapshot(event_handler, config, git_import_export_lock)
             .await
     }
 
@@ -1801,17 +1801,26 @@ to the current parents may contain changes from multiple commits.
         self.env.lock_git_import_export(&self.workspace)
     }
 
+    /// Returns an error if the working copy may not be snapshotted.
+    ///
     /// Note that unless you have a good reason not to do so, you should always
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
     #[instrument(skip_all)]
-    async fn snapshot_impl(
+    async fn snapshot(
         &mut self,
         event_handler: &mut dyn RunnerEventHandler,
         config: &SnapshotConfig,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, RunnerError> {
-        assert!(self.may_snapshot_working_copy);
+        if !self.may_snapshot_working_copy {
+            let reason = if self.options.ignore_working_copy {
+                WorkingCopyNotWritableReason::IgnoringWorkingCopy
+            } else {
+                WorkingCopyNotWritableReason::NotAtHeadOperation
+            };
+            return Err(RunnerError::WorkingCopyNotWritable(reason));
+        }
         #[cfg(feature = "git")]
         if self.env.working_copy_shared_with_git() {
             self.import_git_head(event_handler, git_import_export_lock)
@@ -2338,7 +2347,7 @@ impl WorkspaceCommandHelper {
     }
 
     /// Snapshots the working copy and imports from Git, printing events to
-    /// `ui`. See [`WorkspaceOperationRunner::snapshot_impl()`].
+    /// `ui`. See [`WorkspaceOperationRunner::snapshot()`].
     async fn snapshot_impl(
         &mut self,
         ui: &Ui,
@@ -2347,7 +2356,7 @@ impl WorkspaceCommandHelper {
     ) -> Result<SnapshotStats, RunnerError> {
         let mut event_handler = CliRunnerEventHandler::new(ui, &self.env);
         self.runner
-            .snapshot_impl(&mut event_handler, config, git_import_export_lock)
+            .snapshot(&mut event_handler, config, git_import_export_lock)
             .await
     }
 
