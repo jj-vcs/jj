@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Signing backends using GPG (OpenPGP) and GPGSM (X.509).
 
 use std::ffi::OsString;
 use std::fmt::Debug;
@@ -137,6 +137,7 @@ fn write_temp_file(prefix: &str, content: &[u8]) -> io::Result<tempfile::TempPat
     Ok(file.into_temp_path())
 }
 
+/// [`SigningBackend`] that signs and verifies using `gpg`.
 #[derive(Debug)]
 pub struct GpgBackend {
     program: OsString,
@@ -145,13 +146,18 @@ pub struct GpgBackend {
     default_key: String,
 }
 
+/// Error from the GPG or GPGSM signing backend.
 #[derive(Debug, Error)]
 pub enum GpgError {
+    /// The GPG command exited unsuccessfully.
     #[error("GPG failed with {exit_status}:\n{stderr}")]
     Command {
+        /// Exit status of the command.
         exit_status: ExitStatus,
+        /// Standard error output of the command.
         stderr: String,
     },
+    /// Failed to run the GPG command.
     #[error("Failed to run GPG")]
     Io(#[from] std::io::Error),
 }
@@ -163,6 +169,8 @@ impl From<GpgError> for SignError {
 }
 
 impl GpgBackend {
+    /// Creates a backend that runs `program`, signing with `default_key` unless
+    /// another key is specified.
     pub fn new(program: OsString, allow_expired_keys: bool, default_key: String) -> Self {
         Self {
             program,
@@ -178,6 +186,7 @@ impl GpgBackend {
         self
     }
 
+    /// Creates a backend configured from the `signing.*` settings.
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let program = settings.get_string("signing.backends.gpg.program")?;
         let allow_expired_keys = settings.get_bool("signing.backends.gpg.allow-expired-keys")?;
@@ -231,6 +240,7 @@ impl SigningBackend for GpgBackend {
     }
 }
 
+/// [`SigningBackend`] that signs and verifies using `gpgsm`.
 #[derive(Debug)]
 pub struct GpgsmBackend {
     program: OsString,
@@ -240,6 +250,8 @@ pub struct GpgsmBackend {
 }
 
 impl GpgsmBackend {
+    /// Creates a backend that runs `program`, signing with `default_key` unless
+    /// another key is specified.
     pub fn new(program: OsString, allow_expired_keys: bool, default_key: String) -> Self {
         Self {
             program,
@@ -255,6 +267,7 @@ impl GpgsmBackend {
         self
     }
 
+    /// Creates a backend configured from the `signing.*` settings.
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let program = settings.get_string("signing.backends.gpgsm.program")?;
         let allow_expired_keys = settings.get_bool("signing.backends.gpgsm.allow-expired-keys")?;
