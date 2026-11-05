@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Revset expressions: parsing, resolution, and evaluation.
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -95,32 +95,51 @@ use crate::ui_path::RepoPathUiConverter;
 /// Error occurred during symbol resolution.
 #[derive(Debug, Error)]
 pub enum RevsetResolutionError {
+    /// The symbol didn't resolve to any revision.
     #[error("Revision `{name}` doesn't exist")]
     NoSuchRevision {
+        /// The unresolved symbol.
         name: String,
+        /// Similar symbols that exist, for suggestions.
         candidates: Vec<String>,
     },
+    /// The workspace has no working-copy commit.
     #[error("Workspace `{}` doesn't have a working-copy commit", name.as_symbol())]
-    WorkspaceMissingWorkingCopy { name: WorkspaceNameBuf },
+    WorkspaceMissingWorkingCopy {
+        /// Name of the workspace.
+        name: WorkspaceNameBuf,
+    },
+    /// An empty string was used as a symbol.
     #[error("An empty string is not a valid revision")]
     EmptyString,
+    /// The commit ID prefix matches multiple commits.
     #[error("Commit ID prefix `{0}` is ambiguous")]
     AmbiguousCommitIdPrefix(String),
+    /// The change ID prefix matches multiple changes.
     #[error("Change ID prefix `{0}` is ambiguous")]
     AmbiguousChangeIdPrefix(String),
+    /// The change ID has multiple visible commits.
     #[error("Change ID `{symbol}` is divergent")]
     DivergentChangeId {
+        /// The change ID symbol.
         symbol: String,
+        /// Visible commits of the change, with their change offsets.
         visible_targets: Vec<(usize, CommitId)>,
     },
+    /// The bookmark or tag name points to multiple commits.
     #[error("Name `{symbol}` is conflicted")]
     ConflictedRef {
+        /// Kind of the ref (e.g. "bookmark" or "tag").
         kind: &'static str,
+        /// The ref symbol.
         symbol: String,
+        /// Commits the conflicted ref points to.
         targets: Vec<CommitId>,
     },
+    /// Error from the commit backend.
     #[error("Unexpected error from commit backend")]
     Backend(#[source] BackendError),
+    /// Other error, e.g. from a symbol resolver extension.
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
@@ -128,20 +147,34 @@ pub enum RevsetResolutionError {
 /// Symbol or function to be resolved to `CommitId`s.
 #[derive(Clone, Debug)]
 pub enum RevsetCommitRef {
+    /// Working-copy commit of the named workspace.
     WorkingCopy(WorkspaceNameBuf),
+    /// Working-copy commits of all workspaces.
     WorkingCopies,
+    /// Symbol such as a bookmark, tag, or commit/change ID prefix.
     Symbol(String),
+    /// Remote bookmark or tag symbol (`name@remote`).
     RemoteSymbol(RemoteRefSymbolBuf),
+    /// Change ID prefix, as in `change_id(prefix)`.
     ChangeId(HexPrefix),
+    /// Commit ID prefix, as in `commit_id(prefix)`.
     CommitId(HexPrefix),
+    /// Local bookmarks matching the expression.
     Bookmarks(StringExpression),
+    /// Remote bookmarks matching the expression.
     RemoteBookmarks {
+        /// Bookmark and remote names to match.
         symbol: RemoteRefSymbolExpression,
+        /// If set, only matches remote bookmarks in this state.
         remote_ref_state: Option<RemoteRefState>,
     },
+    /// Local tags matching the expression.
     Tags(StringExpression),
+    /// Remote tags matching the expression.
     RemoteTags {
+        /// Tag and remote names to match.
         symbol: RemoteRefSymbolExpression,
+        /// If set, only matches remote tags in this state.
         remote_ref_state: Option<RemoteRefState>,
     },
 }
@@ -195,77 +228,123 @@ pub type ResolvedRevsetExpression = RevsetExpression<ResolvedExpressionState>;
 /// expression of that state.
 #[derive(Clone, Debug)]
 pub enum RevsetExpression<St: ExpressionState> {
+    /// The empty set.
     None,
+    /// Ancestors of visible heads and all referenced commits within the
+    /// current expression scope.
     All,
+    /// Visible heads.
     VisibleHeads,
     /// Visible heads and all referenced commits within the current expression
     /// scope. Used as the default of `Range`/`DagRange` heads.
     VisibleHeadsOrReferenced,
+    /// The root commit.
     Root,
+    /// The given commits.
     Commits(Vec<CommitId>),
+    /// Symbol or function to be resolved to commits.
     CommitRef(St::CommitRef),
+    /// Ancestors of `heads` within the `generation` range.
     Ancestors {
+        /// Commits to start traversal from.
         heads: Arc<Self>,
+        /// Range of generations to include, relative to `heads`.
         generation: Range<u64>,
+        /// Range of parent indices to traverse (e.g. `0..1` for first
+        /// parents only).
         parents_range: Range<u32>,
     },
+    /// Descendants of `roots` within the `generation` range.
     Descendants {
+        /// Commits to start traversal from.
         roots: Arc<Self>,
+        /// Range of generations to include, relative to `roots`.
         generation: Range<u64>,
     },
-    // Commits that are ancestors of "heads" but not ancestors of "roots"
+    /// Commits that are ancestors of `heads` but not ancestors of `roots`.
     Range {
+        /// Commits whose ancestors are excluded.
         roots: Arc<Self>,
+        /// Commits whose ancestors are included.
         heads: Arc<Self>,
+        /// Range of generations to include, relative to `heads`.
         generation: Range<u64>,
-        // Parents range is only used for traversing heads, not roots
+        /// Range of parent indices to traverse. Only used for traversing
+        /// from heads, not from roots.
         parents_range: Range<u32>,
     },
-    // Commits that are descendants of "roots" and ancestors of "heads"
+    /// Commits that are descendants of `roots` and ancestors of `heads`.
     DagRange {
+        /// Commits whose descendants are included.
         roots: Arc<Self>,
+        /// Commits whose ancestors are included.
         heads: Arc<Self>,
         // TODO: maybe add generation_from_roots/heads?
     },
-    // Commits reachable from "sources" within "domain"
+    /// Commits reachable from `sources` within `domain`.
     Reachable {
+        /// Commits to start traversal from.
         sources: Arc<Self>,
+        /// Commits that may be traversed.
         domain: Arc<Self>,
     },
+    /// Commits in the set that don't have descendants in the set.
     Heads(Arc<Self>),
     /// Heads of the set of commits which are ancestors of `heads` but are not
     /// ancestors of `roots`, and which also are contained in `filter`.
     HeadsRange {
+        /// Commits whose ancestors are excluded.
         roots: Arc<Self>,
+        /// Commits whose ancestors are included.
         heads: Arc<Self>,
+        /// Range of parent indices to traverse from `heads`.
         parents_range: Range<u32>,
+        /// Commits that the heads must be contained in.
         filter: Arc<Self>,
     },
+    /// Commits in the set that don't have ancestors in the set.
     Roots(Arc<Self>),
+    /// Commits that have more than one child.
     Forks,
+    /// Fork point (closest common ancestors) of the set.
     ForkPoint(Arc<Self>),
+    /// Merge point (closest common descendants) of the set.
     MergePoint(Arc<Self>),
+    /// Commits with ~half of the descendants in the set.
     Bisect(Arc<Self>),
+    /// The `candidates` set, or an error if it doesn't have exactly `count`
+    /// commits.
     HasSize {
+        /// Commits to count.
         candidates: Arc<Self>,
+        /// Expected number of commits.
         count: usize,
     },
+    /// The `count` commits in `candidates` with the latest committer
+    /// timestamps.
     Latest {
+        /// Commits to select from.
         candidates: Arc<Self>,
+        /// Maximum number of commits to select.
         count: usize,
     },
+    /// Commits matching the filter predicate.
     Filter(RevsetFilterPredicate),
     /// Marker for subtree that should be intersected as filter.
     AsFilter(Arc<Self>),
+    /// Commits whose change ID has multiple visible commits.
     Divergent,
     /// Resolves symbols and visibility at the specified operation.
     AtOperation {
+        /// The operation to evaluate `candidates` at.
         operation: St::Operation,
+        /// Expression to evaluate at the operation.
         candidates: Arc<Self>,
     },
     /// Makes `All` include the commits and their ancestors in addition to the
     /// visible heads.
     WithinReference {
+        /// Expression to evaluate within the scope.
         candidates: Arc<Self>,
         /// Commits explicitly referenced within the scope.
         commits: Vec<CommitId>,
@@ -274,21 +353,29 @@ pub enum RevsetExpression<St: ExpressionState> {
     ///
     /// Commits referenced by the `candidates` expression are also scoped.
     WithinVisibility {
+        /// Expression to evaluate within the repo state.
         candidates: Arc<Self>,
         /// Copy of `repo.view().heads()` at the operation.
         visible_heads: Vec<CommitId>,
     },
+    /// The first set if it's non-empty, otherwise the second set.
     Coalesce(Arc<Self>, Arc<Self>),
+    /// The set, or the empty set if any symbol in it fails to resolve.
     Present(Arc<Self>),
+    /// Commits not in the set.
     NotIn(Arc<Self>),
+    /// Commits in either set.
     Union(Arc<Self>, Arc<Self>),
+    /// Commits in both sets.
     Intersection(Arc<Self>, Arc<Self>),
+    /// Commits in the first set but not in the second.
     Difference(Arc<Self>, Arc<Self>),
 }
 
-// Leaf expression that never contains unresolved commit refs, which can be
-// either user or resolved expression
+/// Leaf expression that never contains unresolved commit refs, which can be
+/// either user or resolved expression
 impl<St: ExpressionState> RevsetExpression<St> {
+    /// The empty set.
     pub fn none() -> Arc<Self> {
         Arc::new(Self::None)
     }
@@ -299,6 +386,7 @@ impl<St: ExpressionState> RevsetExpression<St> {
         Arc::new(Self::All)
     }
 
+    /// Visible heads.
     pub fn visible_heads() -> Arc<Self> {
         Arc::new(Self::VisibleHeads)
     }
@@ -307,26 +395,32 @@ impl<St: ExpressionState> RevsetExpression<St> {
         Arc::new(Self::VisibleHeadsOrReferenced)
     }
 
+    /// The root commit.
     pub fn root() -> Arc<Self> {
         Arc::new(Self::Root)
     }
 
+    /// Commits that have more than one child.
     pub fn forks() -> Arc<Self> {
         Arc::new(Self::Forks)
     }
 
+    /// The given commit.
     pub fn commit(commit_id: CommitId) -> Arc<Self> {
         Self::commits(vec![commit_id])
     }
 
+    /// The given commits.
     pub fn commits(commit_ids: Vec<CommitId>) -> Arc<Self> {
         Arc::new(Self::Commits(commit_ids))
     }
 
+    /// Commits matching the `predicate`.
     pub fn filter(predicate: RevsetFilterPredicate) -> Arc<Self> {
         Arc::new(Self::Filter(predicate))
     }
 
+    /// Commits whose change ID has multiple visible commits.
     pub fn divergent() -> Arc<Self> {
         Arc::new(Self::AsFilter(Arc::new(Self::Divergent)))
     }
@@ -339,37 +433,46 @@ impl<St: ExpressionState> RevsetExpression<St> {
 
 // Leaf expression that represents unresolved commit refs
 impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
+    /// Working-copy commit of the named workspace.
     pub fn working_copy(name: WorkspaceNameBuf) -> Arc<Self> {
         Arc::new(Self::CommitRef(RevsetCommitRef::WorkingCopy(name)))
     }
 
+    /// Working-copy commits of all workspaces.
     pub fn working_copies() -> Arc<Self> {
         Arc::new(Self::CommitRef(RevsetCommitRef::WorkingCopies))
     }
 
+    /// Commits referred to by the unresolved symbol.
     pub fn symbol(value: String) -> Arc<Self> {
         Arc::new(Self::CommitRef(RevsetCommitRef::Symbol(value)))
     }
 
+    /// Commit referred to by the `name@remote` symbol.
     pub fn remote_symbol(value: RemoteRefSymbolBuf) -> Arc<Self> {
         let commit_ref = RevsetCommitRef::RemoteSymbol(value);
         Arc::new(Self::CommitRef(commit_ref))
     }
 
+    /// Commits whose change ID matches the `prefix`.
     pub fn change_id_prefix(prefix: HexPrefix) -> Arc<Self> {
         let commit_ref = RevsetCommitRef::ChangeId(prefix);
         Arc::new(Self::CommitRef(commit_ref))
     }
 
+    /// Commit whose ID matches the `prefix`.
     pub fn commit_id_prefix(prefix: HexPrefix) -> Arc<Self> {
         let commit_ref = RevsetCommitRef::CommitId(prefix);
         Arc::new(Self::CommitRef(commit_ref))
     }
 
+    /// Targets of local bookmarks matching the `expression`.
     pub fn bookmarks(expression: StringExpression) -> Arc<Self> {
         Arc::new(Self::CommitRef(RevsetCommitRef::Bookmarks(expression)))
     }
 
+    /// Targets of remote bookmarks matching the `symbol`, optionally only those
+    /// in the given `remote_ref_state`.
     pub fn remote_bookmarks(
         symbol: RemoteRefSymbolExpression,
         remote_ref_state: Option<RemoteRefState>,
@@ -380,10 +483,13 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
         }))
     }
 
+    /// Targets of local tags matching the `expression`.
     pub fn tags(expression: StringExpression) -> Arc<Self> {
         Arc::new(Self::CommitRef(RevsetCommitRef::Tags(expression)))
     }
 
+    /// Targets of remote tags matching the `symbol`, optionally only those in
+    /// the given `remote_ref_state`.
     pub fn remote_tags(
         symbol: RemoteRefSymbolExpression,
         remote_ref_state: Option<RemoteRefState>,
@@ -397,6 +503,7 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 
 // Compound expression
 impl<St: ExpressionState> RevsetExpression<St> {
+    /// The `count` commits in `self` with the latest committer timestamps.
     pub fn latest(self: &Arc<Self>, count: usize) -> Arc<Self> {
         Arc::new(Self::Latest {
             candidates: self.clone(),
@@ -738,6 +845,7 @@ impl ResolvedRevsetExpression {
     }
 }
 
+/// Function that lowers a revset function call to an expression.
 pub type RevsetFunction = fn(
     &mut RevsetDiagnostics,
     &FunctionCallNode,
@@ -1241,6 +1349,8 @@ pub fn expect_string_expression(
     })
 }
 
+/// Parses the `node` as a date pattern such as `after:"2024-01-01"`, relative
+/// to `current_time`.
 pub fn expect_date_pattern(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
@@ -1367,6 +1477,8 @@ pub fn lower_expression(
     })
 }
 
+/// Parses and lowers the revset string into an unresolved expression, expanding
+/// aliases defined in the `context`.
 pub fn parse(
     diagnostics: &mut RevsetDiagnostics,
     revset_str: &str,
@@ -2532,6 +2644,8 @@ pub fn optimize<St: ExpressionState>(
     fold_not_in_ancestors(&expression).unwrap_or(expression)
 }
 
+/// Evaluates the commits that are ancestors of `wanted` but not ancestors of
+/// `unwanted`.
 // TODO: find better place to host this function (or add compile-time revset
 // parsing and resolution like
 // `revset!("{unwanted}..{wanted}").evaluate(repo)`?)
@@ -2632,6 +2746,8 @@ fn make_no_such_symbol_error(repo: &dyn Repo, name: String) -> RevsetResolutionE
 ///
 /// Returns None if it cannot handle the symbol.
 pub trait PartialSymbolResolver {
+    /// Resolves the `symbol` to a commit, or returns `None` if this resolver
+    /// doesn't handle it.
     fn resolve_symbol(
         &self,
         repo: &dyn Repo,
@@ -2828,6 +2944,8 @@ impl<'a> SymbolResolver<'a> {
         }
     }
 
+    /// Sets the context used to disambiguate short commit and change ID
+    /// prefixes.
     pub fn with_id_prefix_context(mut self, id_prefix_context: &'a IdPrefixContext) -> Self {
         self.commit_id_resolver.context = Some(id_prefix_context);
         self.change_id_resolver.context = Some(id_prefix_context);
@@ -3358,6 +3476,7 @@ impl Default for RevsetExtensions {
 }
 
 impl RevsetExtensions {
+    /// Creates extensions with only the built-in revset functions.
     pub fn new() -> Self {
         Self {
             symbol_resolvers: vec![],
@@ -3365,14 +3484,19 @@ impl RevsetExtensions {
         }
     }
 
+    /// Returns the registered symbol resolver extensions.
     pub fn symbol_resolvers(&self) -> &[Box<dyn SymbolResolverExtension>] {
         &self.symbol_resolvers
     }
 
+    /// Registers a symbol resolver extension.
     pub fn add_symbol_resolver(&mut self, symbol_resolver: Box<dyn SymbolResolverExtension>) {
         self.symbol_resolvers.push(symbol_resolver);
     }
 
+    /// Registers a custom revset function.
+    ///
+    /// Panics if a function with the same `name` is already registered.
     pub fn add_custom_function(&mut self, name: &'static str, func: RevsetFunction) {
         match self.function_map.entry(name) {
             hash_map::Entry::Occupied(_) => {
@@ -3386,14 +3510,21 @@ impl RevsetExtensions {
 /// Information needed to parse revset expression.
 #[derive(Clone)]
 pub struct RevsetParseContext<'a> {
+    /// Revset aliases to expand.
     pub aliases_map: &'a RevsetAliasesMap,
+    /// Local variables to substitute, keyed by name.
     pub local_variables: HashMap<&'a str, ExpressionNode<'a>>,
+    /// Email address of the current user, used by e.g. `mine()`.
     pub user_email: &'a str,
+    /// Current time, used to resolve relative date patterns.
     pub current_time: Zoned,
     /// Special remote that should be ignored by default. (e.g. "git")
     pub default_ignored_remote: Option<&'a RemoteName>,
+    /// Fileset aliases to expand in file arguments.
     pub fileset_aliases_map: &'a FilesetAliasesMap,
+    /// Custom functions and symbol resolvers.
     pub extensions: &'a RevsetExtensions,
+    /// Workspace information, if the revset is evaluated within a workspace.
     pub workspace: Option<RevsetWorkspaceContext<'a>>,
 }
 
@@ -3432,14 +3563,18 @@ pub struct LoweringContext<'a> {
 }
 
 impl<'a> LoweringContext<'a> {
+    /// Returns the email address of the current user.
     pub fn user_email(&self) -> &'a str {
         self.user_email
     }
 
+    /// Returns the current time, used to resolve relative date patterns.
     pub fn current_time(&self) -> &Zoned {
         &self.current_time
     }
 
+    /// Returns the context for parsing fileset arguments, or `None` if not in a
+    /// workspace.
     pub fn fileset_parse_context(&self) -> Option<FilesetParseContext<'_>> {
         Some(FilesetParseContext {
             aliases_map: self.fileset_aliases_map,
@@ -3447,6 +3582,7 @@ impl<'a> LoweringContext<'a> {
         })
     }
 
+    /// Returns the registered symbol resolver extensions.
     pub fn symbol_resolvers(&self) -> &'a [impl AsRef<dyn SymbolResolverExtension> + use<>] {
         self.extensions.symbol_resolvers()
     }
@@ -3455,7 +3591,9 @@ impl<'a> LoweringContext<'a> {
 /// Workspace information needed to parse revset expression.
 #[derive(Clone, Copy, Debug)]
 pub struct RevsetWorkspaceContext<'a> {
+    /// Converts user-provided paths to repo paths.
     pub path_converter: &'a RepoPathUiConverter,
+    /// Name of the current workspace.
     pub workspace_name: &'a WorkspaceName,
 }
 
