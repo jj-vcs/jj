@@ -6460,24 +6460,26 @@ to do with signing commits on modification of a change (e.g., rebasing or edits)
   author.</li>
 </ul>
 <p>To sign commits only when pushing, set <code>signing.behavior = "drop"</code> and
-<code>git.sign-on-push = true</code>:</p>
+<code>revsets.git-sign-on-push</code> to a revset of commits to sign:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Configure signing backend as before, but lazily signing only on push.</span>
 <span class="k">[signing]</span>
+<span class="c1"># Avoid doing any signing on commit creation</span>
 <span class="n">behavior</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;drop&quot;</span>
 <span class="n">backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;ssh&quot;</span>
 <span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52avUqw5h&quot;</span>
 
-<span class="k">[git]</span>
-<span class="n">sign-on-push</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="k">[revsets]</span>
+<span class="c1"># Sign all non-signed commits on push</span>
+<span class="c1"># Could be &quot;~signed()&quot;, or any other revset</span>
+<span class="n">git-sign-on-push</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;~signed() &amp; mine()&quot;</span>
 </code></pre></div>
 <p>With this setup, commits are not signed when they are created or rewritten. At
-push time, <code>git.sign-on-push</code> only signs commits that are not yet signed (that
-are mutable and authored by you, behaving like <code>own</code> even though write-time
-signing uses <code>drop</code>).</p>
+push time, <code>revsets.git-sign-on-push</code> is evaluated and all matching mutable
+commits to be pushed will be signed beforehand.</p>
 <p>This is useful when the signing backend requires user interaction or is slow,
 because the signing work is deferred to push time. If <code>signing.behavior</code> is set
 to <code>own</code> or <code>force</code>, commits may already be signed when written, and
-<code>git.sign-on-push</code> would have little or nothing left to sign.</p>
+<code>revsets.git-sign-on-push</code> would have little or nothing left to sign.</p>
 <p>The commits are signed in their own transaction which is committed before
 the push starts. If the push fails, the commits stay signed and retrying
 does not have to sign them again. If nothing needs signing, no extra
