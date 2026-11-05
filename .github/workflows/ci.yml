@@ -19,11 +19,17 @@ jobs:
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
-        build: [linux-x86_64-gnu, linux-aarch64-gnu, macos-x86_64, macos-aarch64, windows-x86_64, windows-aarch64]
+        build: [linux-x86_64-gnu, linux-x86_64-gnu-sha256, linux-aarch64-gnu, macos-x86_64, macos-aarch64, windows-x86_64, windows-aarch64]
         include:
         - build: linux-x86_64-gnu
           os: ubuntu-24.04
           cargo_flags: "--all-features"
+        # Run the jj-lib tests again with SHA-256 Git repositories.
+        - build: linux-x86_64-gnu-sha256
+          os: ubuntu-24.04
+          cargo_flags: "--all-features"
+          test_scope: "--package jj-lib"
+          git_object_hash: sha256
         - build: linux-aarch64-gnu
           os: ubuntu-24.04-arm
           cargo_flags: "--all-features"
@@ -87,7 +93,7 @@ jobs:
       run: >-
         cargo build
         --config .cargo/config-ci.toml
-        --workspace
+        ${{ matrix.test_scope || '--workspace' }}
         --all-targets
         --verbose
         ${{ matrix.cargo_flags }}
@@ -95,12 +101,13 @@ jobs:
       run: >-
         cargo nextest run
         --config .cargo/config-ci.toml
-        --workspace
+        ${{ matrix.test_scope || '--workspace' }}
         --all-targets
         --verbose
         --profile ci
         ${{ matrix.cargo_flags }}
       env:
+        JJ_TEST_GIT_OBJECT_HASH: ${{ matrix.git_object_hash }}
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always
 
