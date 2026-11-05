@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Matching of paths against `.gitignore` patterns.
 
 use std::fs;
 use std::io;
@@ -25,10 +25,17 @@ use jj_core::repo_path::RepoPath;
 use jj_core::repo_path::RepoPathBuf;
 use thiserror::Error;
 
+/// Error when loading `.gitignore` patterns.
 #[derive(Debug, Error)]
 pub enum GitIgnoreError {
+    /// Failed to read an ignore file.
     #[error("Failed to read ignore patterns from file {path}")]
-    ReadFile { path: PathBuf, source: io::Error },
+    ReadFile {
+        /// Path to the ignore file.
+        path: PathBuf,
+        /// Underlying I/O error.
+        source: io::Error,
+    },
 }
 
 /// Models the effective contents of multiple .gitignore files.
@@ -40,6 +47,7 @@ pub struct GitIgnoreFile {
 }
 
 impl GitIgnoreFile {
+    /// Creates an instance with no patterns, which ignores nothing.
     pub fn empty() -> Arc<Self> {
         Arc::new(Self {
             parent: None,
