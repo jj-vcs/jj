@@ -363,6 +363,11 @@ pub enum RunnerError {
     /// The working copy was changed concurrently.
     #[error("Concurrent working copy operation. Try again.")]
     ConcurrentWorkingCopyOperation,
+    /// The transaction passed to
+    /// [`WorkspaceOperationRunner::finish_transaction()`] wasn't started on the
+    /// runner's current repo.
+    #[error("Transaction wasn't started on the runner's current repo")]
+    UnrelatedTransaction,
     /// The lock for importing from and exporting to Git couldn't be taken.
     #[error("Failed to take lock for Git import/export")]
     GitImportExportLock(#[source] FileLockError),
@@ -649,12 +654,19 @@ impl WorkspaceOperationRunner {
     /// rebases descendants of rewritten commits, exports to Git, commits the
     /// operation, and updates the working copy. If the transaction has no
     /// changes, nothing is committed.
+    ///
+    /// Returns [`RunnerError::UnrelatedTransaction`] if `tx` wasn't started on
+    /// the runner's current repo, such as when it was started by another
+    /// runner or before the runner moved to a new operation.
     pub async fn finish_transaction(
         &mut self,
         event_handler: &mut dyn RunnerEventHandler,
         mut tx: Transaction,
         description: impl Into<String>,
     ) -> Result<(), RunnerError> {
+        if !Arc::ptr_eq(tx.base_repo(), self.repo()) {
+            return Err(RunnerError::UnrelatedTransaction);
+        }
         if !tx.repo().has_changes() {
             event_handler
                 .event(RunnerEvent::NothingChanged)
