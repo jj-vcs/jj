@@ -57,10 +57,26 @@ rebased to head without resolving conflicts and still not get messy recursive
 conflicts.
 
 As another example, let's go through what happens when you back out a conflicted
-commit. Let's say we have the usual `E = C+(B-A)` conflict on top of
-non-conflict state `C`. We then revert that change. Reverting a change means
-applying its reverse diff `-(E-C)`, so the result is `E+(C-E) =
-(C+(B-A))+(C-(C+(B-A)))`, which we can simplify to just `C` (i.e. no conflict).
+commit. Let's say we have the usual `E = C+(B-A)` conflict on top of non-conflict
+state C. We then revert that change. The diff of the conflicted commit is then
+`E-C = (C+(B-A))-C` which conceptually[^conceptually] simplifies to `B-A`. Reverting
+a change means applying its reverse diff, `A-B` in this case. The result is
+`(C+(B-A))+(A-B)`, which we can simplify to just `C` (i.e. no conflict).
+
+  [^conceptually]: As implemented, `jj` would not simplify the diff at this
+    point. Instead, it would reverse the diff `E-C = (C+(B-A))-C` unsimplified
+    to get `C-E = C-(C+(B-A))`. Then, applying that to the conflicted commit
+    would result in `C + (B-A) + (C-(C+(B-A))) = C + (B-A) + (C-C) + (A-B)`. At
+    this point, `jj` would finally simplify the conflict to just `C`.
+
+    This distinction of when the simplification happens would not matter if `jj`
+    only applied the simplification rules described so far. However, in practice
+    `jj` does apply additional simplifications, some of which do not perfectly
+    fit into the theory we described (TODO: add a section about these). For
+    example, if `A` and `C` modify solely disjoint and non-adjacent sections of
+    lines in the same file from `B`, `jj` is able to simplify the conflict
+    `C+(A-B)` to a new unconflicted commit `D` by merging these changes
+    hunk-by-hunk. This simplification goes beyond the theory we described.
 
 ## Same-change rule
 
