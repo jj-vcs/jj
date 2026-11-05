@@ -155,6 +155,9 @@ impl RunnerOptions {
 pub enum RunnerEvent {
     /// A transaction was not committed because it had no changes.
     NothingChanged,
+    /// The working copy was concurrently checked out by another process, so this
+    /// operation's checkout was skipped.
+    ConcurrentCheckout,
     /// Descendants of rewritten commits were rebased.
     DescendantsRebased {
         /// Number of rebased commits.
