@@ -38,25 +38,37 @@ use super::diff_by_line;
 use super::file_content_for_diff;
 use super::unzip_diff_hunks_to_lines;
 
+/// One side of a Git-style diff of a file.
 #[derive(Clone, Debug)]
 pub struct GitDiffPart {
     /// Octal mode string or `None` if the file is absent.
     pub mode: Option<&'static str>,
+    /// Abbreviated object hash, or zeros if the file is absent or conflicted.
     pub hash: String,
+    /// File contents to diff.
     pub content: FileContent<BString>,
 }
 
+/// Error from preparing a unified diff.
 #[derive(Debug, Error)]
 pub enum UnifiedDiffError {
+    /// Error from the commit backend.
     #[error(transparent)]
     Backend(#[from] BackendError),
+    /// Access to the file was denied.
     #[error("Access denied to {path}")]
     AccessDenied {
+        /// Path of the file.
         path: String,
+        /// Underlying error.
         source: Box<dyn std::error::Error + Send + Sync>,
     },
 }
 
+/// Converts a materialized tree value at `path` into a [`GitDiffPart`].
+///
+/// Conflicts are materialized using `materialize_options`. Panics if `value`
+/// is a tree.
 pub async fn git_diff_part(
     path: &RepoPath,
     value: MaterializedTreeValue,
@@ -141,16 +153,24 @@ pub async fn git_diff_part(
     })
 }
 
+/// Type of a line in a unified diff hunk.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DiffLineType {
+    /// Unchanged line shown for context.
     Context,
+    /// Line present only on the left side.
     Removed,
+    /// Line present only on the right side.
     Added,
 }
 
+/// Hunk of a unified diff.
 pub struct UnifiedDiffHunk<'content> {
+    /// 0-based range of lines on the left side covered by this hunk.
     pub left_line_range: Range<usize>,
+    /// 0-based range of lines on the right side covered by this hunk.
     pub right_line_range: Range<usize>,
+    /// Lines in this hunk, each split into tokens.
     pub lines: Vec<(DiffLineType, DiffTokenVec<'content>)>,
 }
 
@@ -180,6 +200,8 @@ impl<'content> UnifiedDiffHunk<'content> {
     }
 }
 
+/// Computes unified diff hunks between the two sides of `contents`, with
+/// `context` lines of context around each change.
 pub fn unified_diff_hunks(
     contents: Diff<&BStr>,
     context: usize,

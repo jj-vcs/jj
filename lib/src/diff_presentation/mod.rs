@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Utilities to present file diffs to the user
-
-#![expect(missing_docs)]
+//! Utilities to present file diffs to the user.
 
 use std::borrow::Borrow;
 use std::mem;
@@ -34,25 +32,34 @@ use jj_core::merge::Diff;
 use jj_core::repo_path::RepoPath;
 use jj_local_util::file_util;
 
+/// Unified (Git-style) diffs.
 pub mod unified;
 // TODO: colored_diffs utils should also be moved from `jj_cli::diff_utils` to
 // here.
 
+/// Whether a diff token is unchanged or changed between the sides.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DiffTokenType {
+    /// The token is the same on both sides.
     Matching,
+    /// The token differs between the sides.
     Different,
 }
 
 type DiffTokenVec<'content> = Vec<(DiffTokenType, &'content [u8])>;
 
+/// File contents prepared for diffing.
 #[derive(Clone, Debug)]
 pub struct FileContent<T> {
-    /// false if this file is likely text; true if it is likely binary.
+    /// Whether the file is likely binary.
     pub is_binary: bool,
+    /// The file contents.
     pub contents: T,
 }
 
+/// Reads the contents of `file` and detects whether it's binary.
+///
+/// The contents are converted by `map_resolved`.
 pub async fn file_content_for_diff<T>(
     path: &RepoPath,
     file: &mut MaterializedFileValue,
@@ -68,6 +75,7 @@ pub async fn file_content_for_diff<T>(
     })
 }
 
+/// How lines are compared when diffing.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum LineCompareMode {
     /// Compares lines literally.
@@ -79,6 +87,8 @@ pub enum LineCompareMode {
     IgnoreSpaceChange,
 }
 
+/// Computes a line-by-line diff of `inputs`, comparing lines as specified by
+/// `options`.
 pub fn diff_by_line<'input, T: AsRef<[u8]> + ?Sized + 'input>(
     inputs: impl IntoIterator<Item = &'input T>,
     options: &LineCompareMode,
