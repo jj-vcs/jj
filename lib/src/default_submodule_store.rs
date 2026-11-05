@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Default implementation of [`SubmoduleStore`].
 
 use std::path::Path;
 use std::path::PathBuf;
 
 use crate::submodule_store::SubmoduleStore;
 
+/// Default [`SubmoduleStore`] implementation, which stores nothing yet.
 #[derive(Debug)]
 pub struct DefaultSubmoduleStore {
     #[expect(dead_code)]
@@ -26,6 +27,7 @@ pub struct DefaultSubmoduleStore {
 }
 
 impl DefaultSubmoduleStore {
+    /// Name of this submodule store type.
     pub const NAME: &str = "default";
 
     /// Load an existing SubmoduleStore
@@ -35,6 +37,7 @@ impl DefaultSubmoduleStore {
         }
     }
 
+    /// Initializes a new submodule store at `store_path`.
     pub fn init(store_path: &Path) -> Self {
         Self {
             path: store_path.to_path_buf(),
