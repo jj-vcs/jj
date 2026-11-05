@@ -34,6 +34,11 @@ and this project adheres to
   squashed into a single revision first.
   [#8281](https://github.com/jj-vcs/jj/issues/8281)
 
+* `jj git clone` now uses the object format (SHA-1 or SHA-256) of the remote
+  repository, unless `--object-hash` is given. The format of an empty remote
+  can't be detected yet, so `git.object-hash` is still used in that case.
+  [#3813](https://github.com/jj-vcs/jj/issues/3813)
+
 ### Fixed bugs
 
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
