@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Functions for rewriting commits, e.g. rebasing, duplicating, and squashing.
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -121,6 +121,7 @@ pub async fn restore_tree(
     .await
 }
 
+/// Rebases `old_commit` onto `new_parents`.
 pub async fn rebase_commit(
     mut_repo: &mut MutableRepo,
     old_commit: Commit,
@@ -326,12 +327,20 @@ impl<'repo> CommitRewriter<'repo> {
     }
 }
 
+/// Result of rebasing a commit with [`rebase_commit_with_options()`].
 #[derive(Debug)]
 pub enum RebasedCommit {
+    /// The commit was rewritten into this new commit.
     Rewritten(Commit),
-    Abandoned { parent_id: CommitId },
+    /// The commit was abandoned because it became empty.
+    Abandoned {
+        /// The (single) new parent of the abandoned commit.
+        parent_id: CommitId,
+    },
 }
 
+/// Rebases the commit in `rewriter` according to `options`, abandoning it if
+/// it becomes empty as requested by [`RebaseOptions::empty`].
 pub async fn rebase_commit_with_options(
     mut rewriter: CommitRewriter<'_>,
     options: &RebaseOptions,
@@ -403,18 +412,19 @@ pub async fn rebase_to_dest_parent(
     .await
 }
 
+/// Determines which commits become abandoned for being empty when rebased.
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
 pub enum EmptyBehavior {
     /// Always keep empty commits
     #[default]
     Keep,
-    /// Skips commits that would be empty after the rebase, but that were not
+    /// Abandons commits that would be empty after the rebase, but that were not
     /// originally empty.
-    /// Will never skip merge commits with multiple non-empty parents.
+    /// Will never abandon merge commits with multiple non-empty parents.
     AbandonNewlyEmpty,
-    /// Skips all empty commits, including ones that were empty before the
+    /// Abandons all empty commits, including ones that were empty before the
     /// rebase.
-    /// Will never skip merge commits with multiple non-empty parents.
+    /// Will never abandon merge commits with multiple non-empty parents.
     AbandonAllEmpty,
 }
 
@@ -426,7 +436,9 @@ pub enum EmptyBehavior {
 // plumb it in.
 #[derive(Clone, Debug, Default)]
 pub struct RebaseOptions {
+    /// Which empty commits to abandon.
     pub empty: EmptyBehavior,
+    /// Options for updating references to rewritten commits.
     pub rewrite_refs: RewriteRefsOptions,
     /// If a merge commit would end up with one parent being an ancestor of the
     /// other, then filter out the ancestor.
@@ -443,6 +455,7 @@ pub struct RewriteRefsOptions {
     pub delete_abandoned_bookmarks: bool,
 }
 
+/// Statistics about commits moved by [`move_commits()`].
 #[derive(Debug)]
 pub struct MoveCommitsStats {
     /// The number of commits in the target set which were rebased.
@@ -461,11 +474,15 @@ pub struct MoveCommitsStats {
 /// Target and destination commits to be rebased by [`move_commits()`].
 #[derive(Clone, Debug)]
 pub struct MoveCommitsLocation {
+    /// Parents that the target commits should be rebased onto.
     pub new_parent_ids: Vec<CommitId>,
+    /// Children that should be rebased onto the heads of the target commits.
     pub new_child_ids: Vec<CommitId>,
+    /// The commits to move.
     pub target: MoveCommitsTarget,
 }
 
+/// Specifies which commits should be moved by [`move_commits()`].
 #[derive(Clone, Debug)]
 pub enum MoveCommitsTarget {
     /// The commits to be moved. Commits should be mutable and in reverse
@@ -475,6 +492,8 @@ pub enum MoveCommitsTarget {
     Roots(Vec<CommitId>),
 }
 
+/// Commit moves computed by [`compute_move_commits()`], to be applied with
+/// [`ComputedMoveCommits::apply()`].
 #[derive(Clone, Debug)]
 pub struct ComputedMoveCommits {
     target_commit_ids: IndexSet<CommitId>,
@@ -503,6 +522,7 @@ impl ComputedMoveCommits {
         self.to_abandon.extend(commit_ids);
     }
 
+    /// Rebases the commits as computed and returns statistics about the move.
     pub async fn apply(
         self,
         mut_repo: &mut MutableRepo,
@@ -531,6 +551,8 @@ pub async fn move_commits(
         .await
 }
 
+/// Computes how commits would be moved by [`move_commits()`] without rewriting
+/// anything.
 pub async fn compute_move_commits(
     repo: &MutableRepo,
     loc: &MoveCommitsLocation,
@@ -896,6 +918,8 @@ async fn apply_move_commits(
     })
 }
 
+/// Statistics about commits duplicated by [`duplicate_commits()`] or
+/// [`duplicate_commits_onto_parents()`].
 #[derive(Debug, Default)]
 pub struct DuplicateCommitsStats {
     /// Map of original commit ID to newly duplicated commit.
@@ -1170,10 +1194,14 @@ fn compute_commits_heads(
         .collect_vec()
 }
 
+/// A commit together with a selected subset of its changes.
 #[derive(Debug)]
 pub struct CommitWithSelection {
+    /// The commit the changes were selected from.
     pub commit: Commit,
+    /// The tree with the selected changes applied on top of `parent_tree`.
     pub selected_tree: MergedTree,
+    /// The tree of the commit's parents.
     pub parent_tree: MergedTree,
 }
 
