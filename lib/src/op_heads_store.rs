@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Interface for tracking the heads of the operation log.
 
 use std::any::Any;
 use std::collections::HashSet;
@@ -29,24 +29,32 @@ use jj_core::op_store::OperationId;
 use jj_core::operation::Operation;
 use thiserror::Error;
 
+/// Error from an [`OpHeadsStore`].
 #[derive(Debug, Error)]
 pub enum OpHeadsStoreError {
+    /// Failed to read the operation heads.
     #[error("Failed to read operation heads")]
     Read(#[source] Box<dyn std::error::Error + Send + Sync>),
+    /// Failed to record a new operation head.
     #[error("Failed to record operation head {new_op_id}")]
     Write {
+        /// ID of the operation that was to be recorded as a head.
         new_op_id: OperationId,
+        /// Underlying error.
         source: Box<dyn std::error::Error + Send + Sync>,
     },
+    /// Failed to lock the operation heads store.
     #[error("Failed to lock operation heads store")]
     Lock(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// Lock on an [`OpHeadsStore`], held until dropped.
 pub trait OpHeadsStoreLock {}
 
 /// Manages the set of current heads of the operation log.
 #[async_trait]
 pub trait OpHeadsStore: Any + Send + Sync + Debug {
+    /// Returns the name of this op heads store implementation.
     fn name(&self) -> &str;
 
     /// Remove the old op heads and add the new one.
@@ -77,10 +85,14 @@ impl dyn OpHeadsStore {
     }
 }
 
-// Given an OpHeadsStore, fetch and resolve its op heads down to one under a
-// lock.
-//
-// This routine is defined outside the trait because it must support generics.
+/// Fetches the op heads from the given [`OpHeadsStore`] and resolves them
+/// down to one operation while holding a lock.
+///
+/// Heads that are ancestors of other heads are removed. If multiple heads
+/// remain, `resolver` is called to merge them into a single operation, which
+/// then replaces its parents as op head.
+///
+/// This routine is defined outside the trait because it must support generics.
 pub async fn resolve_op_heads<E>(
     op_heads_store: &dyn OpHeadsStore,
     op_store: &Arc<dyn OpStore>,
