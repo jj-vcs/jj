@@ -67,8 +67,10 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    pub fn new(mut_repo: MutableRepo, user_settings: &UserSettings) -> Self {
-        let parent_ops = vec![mut_repo.base_repo().operation().clone()];
+    pub fn new(repo: &Arc<ReadonlyRepo>) -> Self {
+        let mut_repo = MutableRepo::new(repo.clone(), repo.readonly_index(), repo.view());
+        let parent_ops = vec![repo.operation().clone()];
+        let user_settings = repo.settings();
         let op_metadata = create_op_metadata(user_settings, "".to_string(), false);
         let end_time = user_settings.operation_timestamp();
         Self {

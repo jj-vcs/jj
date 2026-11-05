@@ -321,8 +321,7 @@ impl ReadonlyRepo {
     }
 
     pub fn start_transaction(self: &Arc<Self>) -> Transaction {
-        let mut_repo = MutableRepo::new(self.clone(), self.readonly_index(), &self.view);
-        Transaction::new(mut_repo, self.settings())
+        Transaction::new(self)
     }
 
     pub async fn reload_at_head(
