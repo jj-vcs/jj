@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Disambiguation of commit and change ID prefixes.
 
 use std::iter;
 use std::marker::PhantomData;
@@ -40,10 +40,13 @@ use crate::revset::SymbolResolver;
 use crate::revset::SymbolResolverExtension;
 use crate::revset::UserRevsetExpression;
 
+/// Error from loading an [`IdPrefixIndex`].
 #[derive(Debug, Error)]
 pub enum IdPrefixIndexLoadError {
+    /// Failed to resolve the disambiguation revset.
     #[error("Failed to resolve short-prefixes disambiguation revset")]
     Resolution(#[from] RevsetResolutionError),
+    /// Failed to evaluate the disambiguation revset.
     #[error("Failed to evaluate short-prefixes disambiguation revset")]
     Evaluation(#[from] RevsetEvaluationError),
 }
@@ -119,6 +122,7 @@ pub struct IdPrefixContext {
 }
 
 impl IdPrefixContext {
+    /// Creates a context that resolves prefixes within the entire repo.
     pub fn new(extensions: Arc<RevsetExtensions>) -> Self {
         Self {
             disambiguation: None,
@@ -126,6 +130,8 @@ impl IdPrefixContext {
         }
     }
 
+    /// Makes prefixes of commits in `expression` resolve to them in preference
+    /// to other commits, allowing those prefixes to be shorter.
     pub fn disambiguate_within(mut self, expression: Arc<UserRevsetExpression>) -> Self {
         self.disambiguation = Some(DisambiguationData {
             expression,
@@ -203,6 +209,9 @@ impl IdPrefixIndex<'_> {
         ))
     }
 
+    /// Returns the shortest length of a prefix of `commit_id` that can still be
+    /// resolved by `resolve_commit_prefix()`, without considering conflicts
+    /// with other symbols such as bookmarks and tags.
     pub fn shortest_commit_prefix_len_exact(
         &self,
         repo: &dyn Repo,
@@ -322,17 +331,21 @@ pub struct IdIndex<K, P, const N: usize> {
 
 /// Source table for `IdIndex` to map pointer of type `P` to entry.
 pub trait IdIndexSource<P> {
+    /// Type of entries in the table.
     type Entry;
 
+    /// Returns the entry at `pointer`.
     fn entry_at(&self, pointer: &P) -> Self::Entry;
 }
 
 /// Source table entry of `IdIndex`, which is conceptually a `(key, value)`
 /// pair.
 pub trait IdIndexSourceEntry<K> {
+    /// Returns the key of this entry.
     fn to_key(&self) -> K;
 }
 
+/// Builder of [`IdIndex`].
 #[derive(Clone, Debug)]
 pub struct IdIndexBuilder<K, P, const N: usize> {
     unsorted_index: Vec<([u8; N], P)>,
@@ -349,6 +362,7 @@ where
         self.unsorted_index.push((*short_key, pointer));
     }
 
+    /// Builds the index from the inserted entries.
     pub fn build(self) -> IdIndex<K, P, N> {
         let mut index = self.unsorted_index;
         index.sort_unstable_by_key(|(s, _)| *s);
@@ -361,6 +375,7 @@ impl<K, P, const N: usize> IdIndex<K, P, N>
 where
     K: ObjectId + Ord,
 {
+    /// Creates an empty index builder.
     pub fn builder() -> IdIndexBuilder<K, P, N> {
         IdIndexBuilder {
             unsorted_index: Vec::new(),
@@ -368,6 +383,7 @@ where
         }
     }
 
+    /// Creates an empty index builder with space for `capacity` entries.
     pub fn with_capacity(capacity: usize) -> IdIndexBuilder<K, P, N> {
         IdIndexBuilder {
             unsorted_index: Vec::with_capacity(capacity),
@@ -506,6 +522,7 @@ where
     }
 }
 
+/// Result of looking up a key in an [`IdIndex`].
 #[derive(Clone, Copy, Debug)]
 pub struct IdIndexLookup<'i, 'q, K, P, S, const N: usize> {
     index: &'i Vec<([u8; N], P)>,
@@ -528,6 +545,8 @@ where
             .any(|(_, p)| self.source.entry_at(p).to_key() == *self.key)
     }
 
+    /// Returns the smallest number of leading hex digits from the key that are needed to make it
+    /// unique in the index. Returns at least 1.
     pub fn shortest_unique_prefix_len(&self) -> usize {
         // Since entries having the same short key aren't sorted by the full-length key,
         // we need to scan all entries in the current chunk, plus left/right neighbors.
