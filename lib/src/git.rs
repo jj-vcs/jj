@@ -3133,6 +3133,17 @@ pub enum GitFetchError {
     Subprocess(#[from] GitSubprocessError),
 }
 
+impl GitFetchError {
+    /// Returns true if the fetch failed because the remote repository uses a
+    /// different object format.
+    pub fn is_object_format_mismatch(&self) -> bool {
+        matches!(
+            self,
+            Self::Subprocess(GitSubprocessError::ObjectFormatMismatch)
+        )
+    }
+}
+
 /// Error from [`load_default_fetch_bookmarks()`].
 #[derive(Error, Debug)]
 pub enum GitDefaultRefspecError {

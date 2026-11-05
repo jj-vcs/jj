@@ -128,6 +128,11 @@ Thanks to the people who made this release happen!
   stdout. Use `--binary-as-text` to force text treatment, or `--skip-binary` to
   skip binary files entirely.
 
+* `jj git clone` now uses the object format (SHA-1 or SHA-256) of the remote
+  repository, unless `--object-hash` is given. The format of an empty remote
+  can't be detected yet, so `git.object-hash` is still used in that case.
+  [#3813](https://github.com/jj-vcs/jj/issues/3813)
+
 ### Fixed bugs
 
 * `jj git push` no longer validates (e.g. for empty descriptions) commits that

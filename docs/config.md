@@ -1881,7 +1881,8 @@ namely SHA-256.
 
 Currently, the object hash function can only be set when initializing a new Git
 repository. The setting `git.object-hash` controls the default choice for that
-purpose. It can take the values `sha1` (default) and `sha256`.
+purpose. It can take the values `sha1` (default) and `sha256`. `jj git clone`
+uses the object hash function of the remote repository instead.
 
 Note that at the moment there is no interopability between the formats, and not
 all code forges support SHA-256 repositories yet.

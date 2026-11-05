@@ -1772,7 +1772,9 @@ Create a new repo backed by a clone of a Git repo
    [logical operators]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 * `--object-hash <OBJECT_HASH>` — Object hash algorithm for the local Git repository.
 
-   *Must* match the remote's hash algorithm, otherwise the operation will fail. Most existing repositories today still use the classic SHA-1 format, which is also the default if not configured otherwise by the [git.object-hash config].
+   If not given, the remote's hash algorithm is used. Git can't report the hash algorithm of an empty remote yet, so in that case the [git.object-hash config] is used, which defaults to SHA-1.
+
+   If given, it must match the remote's hash algorithm, or the clone fails.
 
    See also Git's [hash-function-transition] document for an in-depth explanation of the migration towards stronger hash functions.
 
