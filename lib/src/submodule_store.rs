@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Interface for storing submodule data.
 
 use std::fmt::Debug;
 
+/// Storage for submodule data.
 pub trait SubmoduleStore: Send + Sync + Debug {
+    /// Returns the name of this submodule store implementation.
     fn name(&self) -> &str;
 }
