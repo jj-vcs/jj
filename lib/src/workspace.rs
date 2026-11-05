@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Workspaces, which combine a repo with a working copy.
 
 use std::collections::HashMap;
 use std::fs;
@@ -70,42 +70,60 @@ use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
 
+/// Error from initializing a workspace.
 #[derive(Error, Debug)]
 pub enum WorkspaceInitError {
+    /// The `.jj/` directory already exists.
     #[error("The destination repo ({0}) already exists")]
     DestinationExists(PathBuf),
+    /// The path to the repo could not be encoded.
     #[error("Repo path could not be encoded")]
     EncodeRepoPath(#[source] BadPathEncoding),
+    /// Failed to check out the root commit in the new workspace.
     #[error(transparent)]
     CheckOutCommit(#[from] CheckOutCommitError),
+    /// Error from the working copy state.
     #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
+    /// Error from a file system operation.
     #[error(transparent)]
     Path(#[from] PathError),
+    /// Error from the operation heads store.
     #[error(transparent)]
     OpHeadsStore(OpHeadsStoreError),
+    /// Error from the workspace store.
     #[error(transparent)]
     WorkspaceStore(#[from] WorkspaceStoreError),
+    /// Error from initializing the commit backend.
     #[error(transparent)]
     Backend(#[from] BackendInitError),
+    /// Error from initializing the signing backend.
     #[error(transparent)]
     SignInit(#[from] SignInitError),
+    /// Failed to commit the transaction adding the workspace.
     #[error(transparent)]
     TransactionCommit(#[from] TransactionCommitError),
 }
 
+/// Error from loading a workspace.
 #[derive(Error, Debug)]
 pub enum WorkspaceLoadError {
+    /// The repo the workspace points to does not exist.
     #[error("The repo appears to no longer be at {0}")]
     RepoDoesNotExist(PathBuf),
+    /// There is no `.jj/` directory in the given path.
     #[error("There is no Jujutsu repo in {0}")]
     NoWorkspaceHere(PathBuf),
+    /// Error from loading the repo's stores.
     #[error("Cannot read the repo")]
     StoreLoadError(#[from] StoreLoadError),
+    /// The path to the repo could not be decoded.
     #[error("Repo path could not be decoded")]
     DecodeRepoPath(#[source] BadPathEncoding),
+    /// Error from the working copy state.
     #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
+    /// Error from a file system operation.
     #[error(transparent)]
     Path(#[from] PathError),
 }
@@ -174,6 +192,7 @@ async fn init_working_copy(
 }
 
 impl Workspace {
+    /// Creates a workspace from its parts, canonicalizing `workspace_root`.
     pub fn new(
         workspace_root: &Path,
         repo_path: PathBuf,
@@ -189,6 +208,8 @@ impl Workspace {
         ))
     }
 
+    /// Creates a workspace from its parts without canonicalizing
+    /// `workspace_root`.
     pub fn new_no_canonicalize(
         workspace_root: PathBuf,
         repo_path: PathBuf,
@@ -203,6 +224,7 @@ impl Workspace {
         }
     }
 
+    /// Initializes a workspace with a new repo using the [`SimpleBackend`].
     pub async fn init_simple(
         user_settings: &UserSettings,
         workspace_root: &Path,
@@ -347,6 +369,8 @@ impl Workspace {
         .await
     }
 
+    /// Initializes a workspace with a new repo, using the given backend and
+    /// store initializers and working-copy factory.
     #[expect(clippy::too_many_arguments)]
     pub async fn init_with_factories(
         user_settings: &UserSettings,
@@ -405,6 +429,8 @@ impl Workspace {
         })
     }
 
+    /// Initializes a workspace with a new repo using the given backend and the
+    /// default stores and working copy.
     pub async fn init_with_backend(
         user_settings: &UserSettings,
         workspace_root: &Path,
@@ -428,6 +454,8 @@ impl Workspace {
         .await
     }
 
+    /// Initializes a new workspace at `workspace_root` that shares the existing
+    /// repo at `repo_path`.
     pub async fn init_workspace_with_existing_repo(
         workspace_root: &Path,
         repo_path: &Path,
@@ -471,18 +499,22 @@ impl Workspace {
         Ok((workspace, repo))
     }
 
+    /// Returns the root of the workspace, where the working-copy files live.
     pub fn workspace_root(&self) -> &Path {
         &self.workspace_root
     }
 
+    /// Returns the name of this workspace.
     pub fn workspace_name(&self) -> &WorkspaceName {
         self.working_copy.workspace_name()
     }
 
+    /// Returns the path to the repo directory (typically `.jj/repo/`).
     pub fn repo_path(&self) -> &Path {
         &self.repo_path
     }
 
+    /// Returns the loader for the repo.
     pub fn repo_loader(&self) -> &RepoLoader {
         &self.repo_loader
     }
@@ -492,20 +524,24 @@ impl Workspace {
         self.repo_loader.settings()
     }
 
+    /// Returns the working copy.
     pub fn working_copy(&self) -> &dyn WorkingCopy {
         self.working_copy.as_ref()
     }
 
+    /// Loads the repo at the current operation head(s).
     pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         self.repo_loader()
             .load_at_head(Some(self.workspace_name()))
             .await
     }
 
+    /// Loads the repo at the given operation.
     pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         self.repo_loader().load_at(op).await
     }
 
+    /// Locks the working copy and returns a [`LockedWorkspace`] for mutating it.
     pub async fn start_working_copy_mutation(
         &mut self,
     ) -> Result<LockedWorkspace<'_>, WorkingCopyStateError> {
@@ -516,6 +552,11 @@ impl Workspace {
         })
     }
 
+    /// Checks out `commit` in the working copy and records `operation_id` as
+    /// the working copy's operation.
+    ///
+    /// If `old_tree` is given and doesn't match the tree currently recorded
+    /// in the working copy, [`CheckoutError::ConcurrentCheckout`] is returned.
     pub async fn check_out(
         &mut self,
         operation_id: OperationId,
@@ -545,16 +586,19 @@ impl Workspace {
     }
 }
 
+/// A [`Workspace`] whose working copy is locked for mutation.
 pub struct LockedWorkspace<'a> {
     base: &'a mut Workspace,
     locked_wc: Box<dyn LockedWorkingCopy>,
 }
 
 impl LockedWorkspace<'_> {
+    /// Returns the locked working copy.
     pub fn locked_wc(&mut self) -> &mut dyn LockedWorkingCopy {
         self.locked_wc.as_mut()
     }
 
+    /// Saves the working copy state with `operation_id` and releases the lock.
     pub async fn finish(self, operation_id: OperationId) -> Result<(), WorkingCopyStateError> {
         let new_wc = self.locked_wc.finish(operation_id).await?;
         self.base.working_copy = new_wc;
@@ -562,12 +606,14 @@ impl LockedWorkspace<'_> {
     }
 }
 
-// Factory trait to build WorkspaceLoaders given the workspace root.
+/// Factory for building [`WorkspaceLoader`]s given the workspace root.
 pub trait WorkspaceLoaderFactory {
+    /// Creates a [`WorkspaceLoader`] for the workspace at `workspace_root`.
     fn create(&self, workspace_root: &Path)
     -> Result<Box<dyn WorkspaceLoader>, WorkspaceLoadError>;
 }
 
+/// Returns the factory for the working-copy type used by the workspace.
 pub fn get_working_copy_factory<'a>(
     workspace_loader: &dyn WorkspaceLoader,
     working_copy_factories: &'a WorkingCopyFactories,
@@ -584,16 +630,16 @@ pub fn get_working_copy_factory<'a>(
     }
 }
 
-// Loader assigned to a specific workspace root that knows how to load a
-// Workspace object for that path.
+/// Loader assigned to a specific workspace root that knows how to load a
+/// [`Workspace`] object for that path.
 pub trait WorkspaceLoader {
-    // The root of the Workspace to be loaded.
+    /// Returns the root of the workspace to be loaded.
     fn workspace_root(&self) -> &Path;
 
-    // The path to the repo/ dir for this Workspace.
+    /// Returns the path to the `repo/` directory for this workspace.
     fn repo_path(&self) -> &Path;
 
-    // Loads the specified Workspace with the provided factories.
+    /// Loads the workspace with the provided factories.
     fn load(
         &self,
         user_settings: &UserSettings,
@@ -601,10 +647,11 @@ pub trait WorkspaceLoader {
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Workspace, WorkspaceLoadError>;
 
-    // Returns the type identifier for the WorkingCopy trait in this Workspace.
+    /// Returns the type identifier of the [`WorkingCopy`] in this workspace.
     fn get_working_copy_type(&self) -> Result<String, StoreLoadError>;
 }
 
+/// Creates loaders for workspaces stored in the default on-disk format.
 pub struct DefaultWorkspaceLoaderFactory;
 
 impl WorkspaceLoaderFactory for DefaultWorkspaceLoaderFactory {
@@ -625,6 +672,7 @@ struct DefaultWorkspaceLoader {
     working_copy_state_path: PathBuf,
 }
 
+/// Map from working-copy type names to their factories.
 pub type WorkingCopyFactories = HashMap<String, Box<dyn WorkingCopyFactory>>;
 
 impl DefaultWorkspaceLoader {
