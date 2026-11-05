@@ -1622,6 +1622,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#redacted-log-output-for-bug-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Redacted log output for bug reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#color-labels" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3291,6 +3302,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#redacted-log-output-for-bug-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Redacted log output for bug reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#color-labels" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4144,6 +4166,20 @@ ID. The following methods are defined.</p>
 workspace root paths.</p>
 </li>
 </ul>
+<h2 id="redacted-log-output-for-bug-reports">Redacted log output for bug reports<a class="headerlink" href="#redacted-log-output-for-bug-reports" title="Permanent link">&para;</a></h2>
+<p>Two built-in templates are useful for sharing log output in bug reports or
+support requests:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span>builtin_log_redacted
+jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span>builtin_op_log_redacted
+</code></pre></div>
+<p><code>builtin_log_redacted</code> keeps the commit graph, change IDs, commit IDs,
+timestamps, and structural labels such as empty, immutable, or conflicted, but
+replaces commit descriptions with <code>(redacted)</code>. User, bookmark, tag, and
+workspace names are replaced with stable hashed labels such as <code>user-0a1b</code> or
+<code>workspace-0a1b@</code>.</p>
+<p><code>builtin_op_log_redacted</code> keeps the operation graph, operation IDs, operation
+descriptions, and timestamps. User and workspace names are replaced with stable
+hashed labels, and operation attributes are replaced with <code>(redacted)</code>.</p>
 <h2 id="color-labels">Color labels<a class="headerlink" href="#color-labels" title="Permanent link">&para;</a></h2>
 <p>You can <a href="../config/#custom-colors-and-styles">customize the output colors</a> by using color labels. <code>jj</code>
 adds some labels automatically; they can also be added manually.</p>
