@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Readonly and mutable repos and their loading and initialization.
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -120,22 +120,29 @@ use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionCommitError;
 
+/// Common interface for [`ReadonlyRepo`] and [`MutableRepo`].
 #[async_trait(?Send)]
 pub trait Repo {
     /// Base repository that contains all committed data. Returns `self` if this
     /// is a `ReadonlyRepo`,
     fn base_repo(&self) -> &ReadonlyRepo;
 
+    /// Returns the commit store.
     fn store(&self) -> &Arc<Store>;
 
+    /// Returns the operation store.
     fn op_store(&self) -> &Arc<dyn OpStore>;
 
+    /// Returns the commit index.
     fn index(&self) -> &dyn Index;
 
+    /// Returns the view, i.e. the heads, bookmarks, tags, working-copy commits, etc.
     fn view(&self) -> &View;
 
+    /// Returns the submodule store.
     fn submodule_store(&self) -> &Arc<dyn SubmoduleStore>;
 
+    /// Looks up the commits associated with the given full `change_id`.
     async fn resolve_change_id(
         &self,
         change_id: &ChangeId,
@@ -149,17 +156,22 @@ pub trait Repo {
         }
     }
 
+    /// Resolves a change ID prefix to the commits associated with the matching
+    /// change.
     async fn resolve_change_id_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>>;
 
+    /// Returns the length of the shortest unique prefix of the given change ID.
     async fn shortest_unique_change_id_prefix_len(
         &self,
         target_id_bytes: &ChangeId,
     ) -> IndexResult<usize>;
 }
 
+/// A repo at a specific operation. Cannot be modified directly; use
+/// [`ReadonlyRepo::start_transaction()`] to make changes.
 pub struct ReadonlyRepo {
     loader: RepoLoader,
     operation: Operation,
@@ -177,17 +189,24 @@ impl Debug for ReadonlyRepo {
     }
 }
 
+/// Error from initializing a repo.
 #[derive(Error, Debug)]
 pub enum RepoInitError {
+    /// Failed to initialize the commit backend.
     #[error(transparent)]
     Backend(#[from] BackendInitError),
+    /// Failed to initialize the operation heads store.
     #[error(transparent)]
     OpHeadsStore(#[from] OpHeadsStoreError),
+    /// Failed to create or write a file in the repo directory.
     #[error(transparent)]
     Path(#[from] PathError),
 }
 
 impl ReadonlyRepo {
+    /// Creates a new repo at `repo_path` (which must exist), initializing each
+    /// store with the given initializers, and returns the repo at its root
+    /// operation.
     #[expect(clippy::too_many_arguments)]
     pub async fn init(
         settings: &UserSettings,
@@ -283,22 +302,27 @@ impl ReadonlyRepo {
         }))
     }
 
+    /// Returns the [`RepoLoader`] this repo was loaded with.
     pub fn loader(&self) -> &RepoLoader {
         &self.loader
     }
 
+    /// Returns the ID of the operation this repo was loaded at.
     pub fn op_id(&self) -> &OperationId {
         self.operation.id()
     }
 
+    /// Returns the operation this repo was loaded at.
     pub fn operation(&self) -> &Operation {
         &self.operation
     }
 
+    /// Returns the view at this repo's operation.
     pub fn view(&self) -> &View {
         &self.view
     }
 
+    /// Returns the index at this repo's operation.
     pub fn readonly_index(&self) -> &dyn ReadonlyIndex {
         self.index.as_ref()
     }
@@ -312,22 +336,28 @@ impl ReadonlyRepo {
             .map(AsRef::as_ref)
     }
 
+    /// Returns the operation heads store.
     pub fn op_heads_store(&self) -> &Arc<dyn OpHeadsStore> {
         self.loader.op_heads_store()
     }
 
+    /// Returns the index store.
     pub fn index_store(&self) -> &Arc<dyn IndexStore> {
         self.loader.index_store()
     }
 
+    /// Returns the user settings this repo was loaded with.
     pub fn settings(&self) -> &UserSettings {
         self.loader.settings()
     }
 
+    /// Starts a new transaction on top of this repo.
     pub fn start_transaction(self: &Arc<Self>) -> Transaction {
         Transaction::new(self)
     }
 
+    /// Loads the repo at the current head operation, merging divergent
+    /// operations if needed.
     pub async fn reload_at_head(
         &self,
         workspace_name: Option<&WorkspaceName>,
@@ -335,6 +365,7 @@ impl ReadonlyRepo {
         self.loader().load_at_head(workspace_name).await
     }
 
+    /// Loads the repo at the given operation.
     #[instrument]
     pub async fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
         self.loader().load_at(operation).await
@@ -384,18 +415,25 @@ impl Repo for ReadonlyRepo {
     }
 }
 
+/// Error from loading a repo.
 #[derive(Debug, Error)]
 pub enum RepoLoaderError {
+    /// Error from the commit backend.
     #[error(transparent)]
     Backend(#[from] BackendError),
+    /// Error from the index.
     #[error(transparent)]
     Index(#[from] IndexError),
+    /// Error from the index store.
     #[error(transparent)]
     IndexStore(#[from] IndexStoreError),
+    /// Error from the operation heads store.
     #[error(transparent)]
     OpHeadsStoreError(#[from] OpHeadsStoreError),
+    /// Error from the operation store.
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
+    /// Failed to commit the transaction merging divergent operations.
     #[error(transparent)]
     TransactionCommit(#[from] TransactionCommitError),
 }
@@ -414,6 +452,7 @@ pub struct RepoLoader {
 }
 
 impl RepoLoader {
+    /// Creates a `RepoLoader` from already-loaded stores.
     pub fn new(
         settings: UserSettings,
         store: Arc<Store>,
@@ -477,34 +516,44 @@ impl RepoLoader {
         ))
     }
 
+    /// Returns the user settings.
     pub fn settings(&self) -> &UserSettings {
         &self.settings
     }
 
+    /// Returns the workspace store.
     pub fn workspace_store(&self) -> &Arc<dyn WorkspaceStore> {
         &self.workspace_store
     }
 
+    /// Returns the commit store.
     pub fn store(&self) -> &Arc<Store> {
         &self.store
     }
 
+    /// Returns the index store.
     pub fn index_store(&self) -> &Arc<dyn IndexStore> {
         &self.index_store
     }
 
+    /// Returns the operation store.
     pub fn op_store(&self) -> &Arc<dyn OpStore> {
         &self.op_store
     }
 
+    /// Returns the operation heads store.
     pub fn op_heads_store(&self) -> &Arc<dyn OpHeadsStore> {
         &self.op_heads_store
     }
 
+    /// Returns the submodule store.
     pub fn submodule_store(&self) -> &Arc<dyn SubmoduleStore> {
         &self.submodule_store
     }
 
+    /// Loads the repo at the current head operation. If there are multiple
+    /// operation heads, they are merged in a new operation, which is attributed
+    /// to `workspace_name` if given.
     pub async fn load_at_head(
         &self,
         workspace_name: Option<&WorkspaceName>,
@@ -532,12 +581,15 @@ impl RepoLoader {
         self.finish_load(op, view).await
     }
 
+    /// Loads the repo at the given operation.
     #[instrument(skip(self))]
     pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let view = op.view().await?;
         self.finish_load(op.clone(), view).await
     }
 
+    /// Creates a repo at the given operation from an already-loaded view and
+    /// index.
     pub fn create_from(
         &self,
         operation: Operation,
@@ -735,6 +787,7 @@ impl Rewrite {
     }
 }
 
+/// A repo that is being modified in a [`Transaction`].
 pub struct MutableRepo {
     base_repo: Arc<ReadonlyRepo>,
     index: Box<dyn MutableIndex>,
@@ -756,6 +809,8 @@ pub struct MutableRepo {
 }
 
 impl MutableRepo {
+    /// Creates a mutable repo on top of `base_repo` with the given index and
+    /// view as the starting state.
     pub fn new(base_repo: Arc<ReadonlyRepo>, index: &dyn ReadonlyIndex, view: &View) -> Self {
         let mut_index = index.start_modification();
         Self {
@@ -767,10 +822,12 @@ impl MutableRepo {
         }
     }
 
+    /// Returns the repo this mutable repo was created from.
     pub fn base_repo(&self) -> &Arc<ReadonlyRepo> {
         &self.base_repo
     }
 
+    /// Returns the index being modified.
     pub fn mutable_index(&self) -> &dyn MutableIndex {
         self.index.as_ref()
     }
@@ -779,12 +836,16 @@ impl MutableRepo {
         self.index.downcast_ref::<DefaultMutableIndex>().is_some()
     }
 
+    /// Returns true if any commits, rewrites, or view changes have been
+    /// recorded.
     pub fn has_changes(&self) -> bool {
         !(self.commit_predecessors.is_empty()
             && self.parent_mapping.is_empty()
             && self.view() == &self.base_repo.view)
     }
 
+    /// Normalizes the heads and returns the mutable index, the view, and the
+    /// mapping from new commits to their predecessors.
     pub async fn consume(
         mut self,
     ) -> IndexResult<(
@@ -880,6 +941,8 @@ impl MutableRepo {
         );
     }
 
+    /// Returns true if any rewritten or abandoned commits have been recorded
+    /// since the last [`MutableRepo::rebase_descendants()`].
     pub fn has_rewrites(&self) -> bool {
         !self.parent_mapping.is_empty()
     }
@@ -1359,6 +1422,8 @@ impl MutableRepo {
         Ok(num_reparented)
     }
 
+    /// Sets the working-copy commit of the workspace `name`. Returns an error
+    /// if `commit_id` is the root commit.
     pub fn set_wc_commit(
         &mut self,
         name: WorkspaceNameBuf,
@@ -1371,6 +1436,8 @@ impl MutableRepo {
         Ok(())
     }
 
+    /// Removes the workspace `name` from the view, abandoning its working-copy
+    /// commit if it's discardable.
     pub async fn remove_workspace(&mut self, name: &WorkspaceName) -> Result<(), EditCommitError> {
         self.maybe_abandon_wc_commit(name).await?;
         self.view.remove_workspace(name);
@@ -1406,6 +1473,7 @@ impl MutableRepo {
         }
     }
 
+    /// Renames the workspace `old_name` to `new_name`.
     pub fn rename_workspace(
         &mut self,
         old_name: &WorkspaceName,
@@ -1414,6 +1482,8 @@ impl MutableRepo {
         self.view.rename_workspace(old_name, new_name)
     }
 
+    /// Creates a new working-copy commit on top of `commit` for workspace
+    /// `name` and returns it.
     pub async fn check_out(
         &mut self,
         name: WorkspaceNameBuf,
@@ -1427,6 +1497,9 @@ impl MutableRepo {
         Ok(wc_commit)
     }
 
+    /// Sets `commit` as the working-copy commit of workspace `name`. The
+    /// previous working-copy commit is abandoned if it's discardable, a head,
+    /// and not referenced by bookmarks, tags, or other workspaces.
     pub async fn edit(
         &mut self,
         name: WorkspaceNameBuf,
@@ -1522,6 +1595,7 @@ impl MutableRepo {
         Ok(())
     }
 
+    /// Removes `head` from the set of visible heads.
     pub fn remove_head(&mut self, head: &CommitId) {
         self.view.remove_head(head);
     }
@@ -1576,10 +1650,13 @@ impl MutableRepo {
         Ok(indexed_commits)
     }
 
+    /// Returns the target of the local bookmark `name`.
     pub fn get_local_bookmark(&self, name: &RefName) -> &RefTarget {
         self.view.get_local_bookmark(name)
     }
 
+    /// Sets the target of the local bookmark `name`, adding the target commits
+    /// as heads.
     pub fn set_local_bookmark_target(&mut self, name: &RefName, target: RefTarget) {
         for id in target.present_adds() {
             self.view.add_head(id);
@@ -1587,6 +1664,8 @@ impl MutableRepo {
         self.view.set_local_bookmark_target(name, target);
     }
 
+    /// Merges the local bookmark `name` with the change from `base_target` to
+    /// `other_target`.
     pub async fn merge_local_bookmark(
         &mut self,
         name: &RefName,
@@ -1600,10 +1679,12 @@ impl MutableRepo {
         Ok(())
     }
 
+    /// Returns the remote bookmark `symbol`.
     pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> &RemoteRef {
         self.view.get_remote_bookmark(symbol)
     }
 
+    /// Sets the remote bookmark `symbol` to `remote_ref`.
     pub fn set_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
         self.view.set_remote_bookmark(symbol, remote_ref);
     }
@@ -1640,26 +1721,33 @@ impl MutableRepo {
         self.set_remote_bookmark(symbol, remote_ref);
     }
 
+    /// Adds the remote `remote_name` to the view if it doesn't exist.
     pub fn ensure_remote(&mut self, remote_name: &RemoteName) {
         self.view.ensure_remote(remote_name);
     }
 
+    /// Removes the remote `remote_name` along with its remote bookmarks and tags.
     pub fn remove_remote(&mut self, remote_name: &RemoteName) {
         self.view.remove_remote(remote_name);
     }
 
+    /// Renames the remote `old` to `new`.
     pub fn rename_remote(&mut self, old: &RemoteName, new: &RemoteName) {
         self.view.rename_remote(old, new);
     }
 
+    /// Returns the target of the local tag `name`.
     pub fn get_local_tag(&self, name: &RefName) -> &RefTarget {
         self.view.get_local_tag(name)
     }
 
+    /// Sets the target of the local tag `name`.
     pub fn set_local_tag_target(&mut self, name: &RefName, target: RefTarget) {
         self.view.set_local_tag_target(name, target);
     }
 
+    /// Merges the local tag `name` with the change from `base_target` to
+    /// `other_target`.
     pub async fn merge_local_tag(
         &mut self,
         name: &RefName,
@@ -1673,10 +1761,12 @@ impl MutableRepo {
         Ok(())
     }
 
+    /// Returns the remote tag `symbol`.
     pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> &RemoteRef {
         self.view.get_remote_tag(symbol)
     }
 
+    /// Sets the remote tag `symbol` to `remote_ref`.
     pub fn set_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
         self.view.set_remote_tag(symbol, remote_ref);
     }
@@ -1712,10 +1802,12 @@ impl MutableRepo {
         self.set_remote_tag(symbol, remote_ref);
     }
 
+    /// Returns the target of the Git ref `name`.
     pub fn get_git_ref(&self, name: &GitRefName) -> &RefTarget {
         self.view.get_git_ref(name)
     }
 
+    /// Sets the target of the Git ref `name`.
     pub fn set_git_ref_target(&mut self, name: &GitRefName, target: RefTarget) {
         self.view.set_git_ref_target(name, target);
     }
@@ -1733,19 +1825,23 @@ impl MutableRepo {
         Ok(())
     }
 
+    /// Returns the Git HEAD target for `workspace`.
     pub fn git_head(&self, workspace: &WorkspaceName) -> &RefTarget {
         self.view.git_head(workspace)
     }
 
+    /// Sets the Git HEAD target for `workspace`.
     pub fn set_git_head_target(&mut self, workspace: &WorkspaceName, target: RefTarget) {
         self.view.set_git_head_target(workspace, target);
     }
 
+    /// Replaces the view with `data`.
     pub fn set_view(&mut self, data: op_store::View) {
         let head_normalized = false;
         self.view.set_view(data, head_normalized);
     }
 
+    /// Merges the changes from `base_repo` to `other_repo` into this repo.
     pub async fn merge(
         &mut self,
         base_repo: &ReadonlyRepo,
@@ -1764,6 +1860,7 @@ impl MutableRepo {
         Ok(())
     }
 
+    /// Merges the index of `other_repo` into this repo's index.
     pub fn merge_index(&mut self, other_repo: &ReadonlyRepo) -> IndexResult<()> {
         self.index.merge_in(other_repo.readonly_index())
     }
@@ -1968,12 +2065,16 @@ pub struct RewriteRootCommit;
 /// Error from attempts to edit a commit
 #[derive(Debug, Error)]
 pub enum EditCommitError {
+    /// The current working-copy commit could not be read.
     #[error("Current working-copy commit not found")]
     WorkingCopyCommitNotFound(#[source] BackendError),
+    /// Attempted to edit the root commit.
     #[error(transparent)]
     RewriteRootCommit(#[from] RewriteRootCommit),
+    /// Error from the commit backend.
     #[error(transparent)]
     BackendError(#[from] BackendError),
+    /// Error from the index.
     #[error(transparent)]
     IndexError(#[from] IndexError),
 }
@@ -1981,8 +2082,10 @@ pub enum EditCommitError {
 /// Error from attempts to check out a commit
 #[derive(Debug, Error)]
 pub enum CheckOutCommitError {
+    /// Failed to create the new working-copy commit.
     #[error("Failed to create new working-copy commit")]
     CreateCommit(#[from] BackendError),
+    /// Failed to edit the new working-copy commit.
     #[error("Failed to edit commit")]
     EditCommit(#[from] EditCommitError),
 }
