@@ -2583,6 +2583,23 @@ using a <code>Link</code> trailer in the format of <code>&lt;review-url&gt;/id/I
 only documented in the <a href="https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html">commit-msg hook documentation</a>. Jujutsu's
 <code>jj gerrit upload</code> will do the same if you set
 <code>jj config set --repo gerrit.review-url &lt;review-url&gt;</code>.</p>
+<p>As with <code>Change-Id</code> trailer there is also the option of using <code>commit_trailers</code>
+template to automatically add the <code>Link</code> trailer to all change descriptions.
+Since the <code>format_gerrit_link_trailer</code> template will expand to nothing if
+<code>gerrit.review-url</code> isn't configured it is also possible to write a simple
+template which will use either <code>Link</code> or <code>Change-Id</code> trailer based on
+<code>gerrit.review-url</code> value, similar to what Gerrit's <code>commit-msg</code> git hook does.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
+<span class="n">commit_trailers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">if(</span>
+<span class="s1">  !trailers.contains_key(&quot;Change-Id&quot;) &amp;&amp; !trailers.contains_key(&quot;Link&quot;),</span>
+<span class="s1">  coalesce(</span>
+<span class="s1">    format_gerrit_link_trailer(self),</span>
+<span class="s1">    format_gerrit_change_id_trailer(self),</span>
+<span class="s1">  )</span>
+<span class="s1">)</span>
+<span class="s1">&#39;&#39;&#39;</span>
+</code></pre></div>
 
 
 
