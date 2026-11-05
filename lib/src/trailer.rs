@@ -30,13 +30,18 @@ pub struct Trailer {
     pub value: String,
 }
 
-#[expect(missing_docs)]
+/// Error from parsing trailers.
 #[derive(Error, Debug)]
 pub enum TrailerParseError {
+    /// The trailer paragraph contains a blank line.
     #[error("The trailer paragraph can't contain a blank line")]
     BlankLine,
+    /// A line in the trailer paragraph is not a valid trailer.
     #[error("Invalid trailer line: {line}")]
-    NonTrailerLine { line: String },
+    NonTrailerLine {
+        /// The invalid line.
+        line: String,
+    },
 }
 
 /// Parse the trailers from a commit message; these are simple key-value
