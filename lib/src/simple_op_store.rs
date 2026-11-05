@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Simple file-based implementation of [`OpStore`].
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -80,6 +80,7 @@ impl From<SimpleOpStoreInitError> for BackendInitError {
     }
 }
 
+/// [`OpStore`] that stores operations and views as protobuf files on disk.
 #[derive(Debug)]
 pub struct SimpleOpStore {
     path: PathBuf,
@@ -89,6 +90,7 @@ pub struct SimpleOpStore {
 }
 
 impl SimpleOpStore {
+    /// Name of this op store type.
     pub const NAME: &str = "simple_op_store";
 
     /// Creates an empty OpStore. Returns error if it already exists.
