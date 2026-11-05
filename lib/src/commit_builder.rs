@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Builders for creating new commits and rewriting existing ones.
 
 use std::sync::Arc;
 
@@ -38,6 +38,9 @@ use crate::settings::SignBehavior;
 use crate::settings::SignSettings;
 use crate::settings::UserSettings;
 
+/// Builder for a new or rewritten commit in a [`MutableRepo`].
+///
+/// Created by [`MutableRepo::new_commit()`] or [`MutableRepo::rewrite_commit()`].
 #[must_use]
 pub struct CommitBuilder<'repo> {
     mut_repo: &'repo mut MutableRepo,
@@ -59,32 +62,39 @@ impl CommitBuilder<'_> {
         self
     }
 
+    /// Returns the parents of the new commit.
     pub fn parents(&self) -> &[CommitId] {
         self.inner.parents()
     }
 
+    /// Sets the parents of the new commit. Panics if `parents` is empty.
     pub fn set_parents(mut self, parents: Vec<CommitId>) -> Self {
         self.inner.set_parents(parents);
         self
     }
 
+    /// Returns the predecessors of the new commit.
     pub fn predecessors(&self) -> &[CommitId] {
         self.inner.predecessors()
     }
 
+    /// Sets the predecessors of the new commit.
     pub fn set_predecessors(mut self, predecessors: Vec<CommitId>) -> Self {
         self.inner.set_predecessors(predecessors);
         self
     }
 
+    /// Returns the tree of the new commit.
     pub fn tree(&self) -> MergedTree {
         self.inner.tree()
     }
 
+    /// Returns the root tree ids of the new commit.
     pub fn tree_ids(&self) -> &Merge<TreeId> {
         self.inner.tree_ids()
     }
 
+    /// Sets the tree of the new commit.
     pub fn set_tree(mut self, tree: MergedTree) -> Self {
         self.inner.set_tree(tree);
         self
@@ -95,42 +105,51 @@ impl CommitBuilder<'_> {
         self.inner.is_empty(self.mut_repo).await
     }
 
+    /// Returns the change id of the new commit.
     pub fn change_id(&self) -> &ChangeId {
         self.inner.change_id()
     }
 
+    /// Sets the change id of the new commit.
     pub fn set_change_id(mut self, change_id: ChangeId) -> Self {
         self.inner.set_change_id(change_id);
         self
     }
 
+    /// Assigns a new random change id to the new commit.
     pub fn generate_new_change_id(mut self) -> Self {
         self.inner.generate_new_change_id();
         self
     }
 
+    /// Returns the commit description.
     pub fn description(&self) -> &str {
         self.inner.description()
     }
 
+    /// Sets the commit description.
     pub fn set_description(mut self, description: impl Into<String>) -> Self {
         self.inner.set_description(description);
         self
     }
 
+    /// Returns the commit author.
     pub fn author(&self) -> &Signature {
         self.inner.author()
     }
 
+    /// Sets the commit author.
     pub fn set_author(mut self, author: Signature) -> Self {
         self.inner.set_author(author);
         self
     }
 
+    /// Returns the commit committer.
     pub fn committer(&self) -> &Signature {
         self.inner.committer()
     }
 
+    /// Sets the commit committer.
     pub fn set_committer(mut self, committer: Signature) -> Self {
         self.inner.set_committer(committer);
         self
@@ -141,25 +160,30 @@ impl CommitBuilder<'_> {
         self.inner.is_discardable(self.mut_repo).await
     }
 
+    /// Returns the signing settings.
     pub fn sign_settings(&self) -> &SignSettings {
         self.inner.sign_settings()
     }
 
+    /// Sets whether and when the new commit should be signed.
     pub fn set_sign_behavior(mut self, sign_behavior: SignBehavior) -> Self {
         self.inner.set_sign_behavior(sign_behavior);
         self
     }
 
+    /// Sets the key to sign the new commit with, overriding the configured key.
     pub fn set_sign_key_override(mut self, sign_key: String) -> Self {
         self.inner.set_sign_key_override(sign_key);
         self
     }
 
+    /// Clears the signing key override so the configured key is used.
     pub fn clear_sign_key_override(mut self) -> Self {
         self.inner.clear_sign_key_override();
         self
     }
 
+    /// Writes the new commit and makes it visible in the repo.
     pub async fn write(self) -> BackendResult<Commit> {
         self.inner.write(self.mut_repo).await
     }
@@ -288,25 +312,30 @@ impl DetachedCommitBuilder {
         self.rewrite_source = None;
     }
 
+    /// Returns the parents of the new commit.
     pub fn parents(&self) -> &[CommitId] {
         &self.commit.parents
     }
 
+    /// Sets the parents of the new commit. Panics if `parents` is empty.
     pub fn set_parents(&mut self, parents: Vec<CommitId>) -> &mut Self {
         assert!(!parents.is_empty());
         self.commit.parents = parents;
         self
     }
 
+    /// Returns the predecessors of the new commit.
     pub fn predecessors(&self) -> &[CommitId] {
         &self.predecessors
     }
 
+    /// Sets the predecessors of the new commit.
     pub fn set_predecessors(&mut self, predecessors: Vec<CommitId>) -> &mut Self {
         self.predecessors = predecessors;
         self
     }
 
+    /// Returns the tree of the new commit.
     pub fn tree(&self) -> MergedTree {
         MergedTree::new(
             self.store.clone(),
@@ -315,10 +344,12 @@ impl DetachedCommitBuilder {
         )
     }
 
+    /// Returns the root tree ids of the new commit.
     pub fn tree_ids(&self) -> &Merge<TreeId> {
         &self.commit.root_tree
     }
 
+    /// Sets the tree of the new commit.
     pub fn set_tree(&mut self, tree: MergedTree) -> &mut Self {
         assert!(Arc::ptr_eq(tree.store(), &self.store));
         let (root_tree, conflict_labels) = tree.into_tree_ids_and_labels();
@@ -332,42 +363,51 @@ impl DetachedCommitBuilder {
         is_backend_commit_empty(repo.index(), &self.store, &self.commit).await
     }
 
+    /// Returns the change id of the new commit.
     pub fn change_id(&self) -> &ChangeId {
         &self.commit.change_id
     }
 
+    /// Sets the change id of the new commit.
     pub fn set_change_id(&mut self, change_id: ChangeId) -> &mut Self {
         self.commit.change_id = change_id;
         self
     }
 
+    /// Assigns a new random change id to the new commit.
     pub fn generate_new_change_id(&mut self) -> &mut Self {
         self.commit.change_id = self.rng.new_change_id(self.store.change_id_length());
         self
     }
 
+    /// Returns the commit description.
     pub fn description(&self) -> &str {
         &self.commit.description
     }
 
+    /// Sets the commit description.
     pub fn set_description(&mut self, description: impl Into<String>) -> &mut Self {
         self.commit.description = description.into();
         self
     }
 
+    /// Returns the commit author.
     pub fn author(&self) -> &Signature {
         &self.commit.author
     }
 
+    /// Sets the commit author.
     pub fn set_author(&mut self, author: Signature) -> &mut Self {
         self.commit.author = author;
         self
     }
 
+    /// Returns the commit committer.
     pub fn committer(&self) -> &Signature {
         &self.commit.committer
     }
 
+    /// Sets the commit committer.
     pub fn set_committer(&mut self, committer: Signature) -> &mut Self {
         self.commit.committer = committer;
         self
@@ -378,26 +418,30 @@ impl DetachedCommitBuilder {
         Ok(self.description().is_empty() && self.is_empty(repo).await?)
     }
 
+    /// Returns the signing settings.
     pub fn sign_settings(&self) -> &SignSettings {
         &self.sign_settings
     }
 
+    /// Sets whether and when the new commit should be signed.
     pub fn set_sign_behavior(&mut self, sign_behavior: SignBehavior) -> &mut Self {
         self.sign_settings.behavior = sign_behavior;
         self
     }
 
+    /// Sets the key to sign the new commit with, overriding the configured key.
     pub fn set_sign_key_override(&mut self, sign_key: String) -> &mut Self {
         self.sign_key_override = Some(sign_key);
         self
     }
 
+    /// Clears the signing key override so the configured key is used.
     pub fn clear_sign_key_override(&mut self) -> &mut Self {
         self.sign_key_override = None;
         self
     }
 
-    /// Writes new commit and makes it visible in the `mut_repo`.
+    /// Writes the new commit and makes it visible in the `mut_repo`.
     pub async fn write(mut self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
         if self.record_predecessors_in_commit {
             self.commit.predecessors = self.predecessors.clone();
@@ -433,7 +477,7 @@ impl DetachedCommitBuilder {
         Ok(commit)
     }
 
-    /// Writes new commit without making it visible in the repo.
+    /// Writes the new commit without making it visible in the repo.
     ///
     /// This does not consume the builder, so you can reuse the current
     /// configuration to create another commit later.
