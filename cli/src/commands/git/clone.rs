@@ -219,7 +219,7 @@ pub async fn cmd_git_clone(
     let canonical_wc_path = dunce::canonicalize(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
-    let clone_result: Result<_, CommandError> = async {
+    let clone = async |object_hash: ObjectHash| -> Result<_, CommandError> {
         let (workspace_command, config_env) = init_workspace(
             ui,
             command,
@@ -238,8 +238,8 @@ pub async fn cmd_git_clone(
         } else {
             StringExpression::all()
         };
-        let tag = if let Some(expr) = specific_tag_expr {
-            expr
+        let tag = if let Some(expr) = &specific_tag_expr {
+            expr.clone()
         } else if let Some(expr) = parse_remote_fetch_tags(ui, &remote_settings, remote_name)? {
             expr
         } else {
@@ -257,18 +257,23 @@ pub async fn cmd_git_clone(
         )
         .await?;
         Ok((workspace_command, default_branch, config_env))
-    }
-    .await;
+    };
+    let remove_repo_dirs = || -> io::Result<()> {
+        let sub_dirs = [Some(".jj"), colocate.then_some(".git")];
+        for &name in sub_dirs.iter().flatten() {
+            let dir = canonical_wc_path.join(name);
+            fs::remove_dir_all(&dir).or_else(|err| match err.kind() {
+                io::ErrorKind::NotFound => Ok(()),
+                _ => Err(err),
+            })?;
+        }
+        Ok(())
+    };
+
+    let clone_result = clone(object_hash).await;
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
-            let sub_dirs = [Some(".jj"), colocate.then_some(".git")];
-            for &name in sub_dirs.iter().flatten() {
-                let dir = canonical_wc_path.join(name);
-                fs::remove_dir_all(&dir).or_else(|err| match err.kind() {
-                    io::ErrorKind::NotFound => Ok(()),
-                    _ => Err(err),
-                })?;
-            }
+            remove_repo_dirs()?;
             if !wc_path_existed {
                 fs::remove_dir(&canonical_wc_path)?;
             }
