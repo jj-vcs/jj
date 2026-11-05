@@ -342,6 +342,7 @@ impl From<RunnerError> for CommandError {
             RunnerError::NothingCheckedOut | RunnerError::ConcurrentWorkingCopyOperation => {
                 user_error(err)
             }
+            RunnerError::UnrelatedTransaction => internal_error(err),
             RunnerError::GitImportExportLock(_) => user_error(err),
             RunnerError::InvalidImmutableHeads(_) => config_error(err),
             RunnerError::CheckOut { .. } => internal_error(err),

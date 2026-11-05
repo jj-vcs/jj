@@ -34,6 +34,7 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::RevsetExtensions;
 use jj_lib::working_copy::SnapshotProgress;
 use pollster::FutureExt as _;
+use testutils::CommitBuilderExt as _;
 use testutils::TestEnvironment;
 use testutils::TestWorkspace;
 
@@ -179,6 +180,36 @@ fn test_snapshot_and_finish_transaction_without_cli() {
     assert_eq!(runner.get_wc_commit_id(), Some(new_wc_commit.id()));
     assert_eq!(new_wc_commit.parent_ids(), [snapshot_commit.id().clone()]);
     assert!(workspace_root.join("file").is_file());
+}
+
+#[test]
+fn test_finish_transaction_rejects_stale_transaction() {
+    let mut event_handler = RecordingEventHandler::default();
+    let (_test_env, mut runner, _) = load_runner(&mut event_handler, "", test_options());
+    let root_commit = runner.repo().store().root_commit();
+
+    let mut tx1 = runner.start_transaction();
+    let mut tx2 = runner.start_transaction();
+    tx1.repo_mut()
+        .new_commit(vec![root_commit.id().clone()], root_commit.tree())
+        .write_unwrap();
+    tx2.repo_mut()
+        .new_commit(vec![root_commit.id().clone()], root_commit.tree())
+        .write_unwrap();
+    runner
+        .finish_transaction(&mut event_handler, tx1, "first")
+        .block_on()
+        .unwrap();
+    let op_id = runner.repo().op_id().clone();
+
+    // tx2 was started before the runner moved to the operation from tx1
+    assert_matches!(
+        runner
+            .finish_transaction(&mut event_handler, tx2, "second")
+            .block_on(),
+        Err(RunnerError::UnrelatedTransaction)
+    );
+    assert_eq!(runner.repo().op_id(), &op_id);
 }
 
 #[test]
