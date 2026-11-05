@@ -1059,6 +1059,54 @@ fn test_git_clone_with_depth() {
 }
 
 #[test]
+fn test_git_clone_object_format() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    let git_repo = gix::ThreadSafeRepository::init_opts(
+        test_env.env_root().join("source"),
+        gix::create::Kind::WithWorktree,
+        gix::create::Options {
+            object_hash: Some(gix::hash::Kind::Sha256),
+            ..Default::default()
+        },
+        gix::open::Options::isolated(),
+    )
+    .unwrap()
+    .to_thread_local();
+    set_up_non_empty_git_repo(&git_repo);
+
+    // The remote's object format is used by default. Colocate to check that the
+    // .git directory of the first attempt is removed too.
+    let output = root_dir.run_jj(["git", "clone", "--colocate", "source", "clone"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    Remote repository uses the sha256 object format. Retrying with it.
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`.
+    Working copy  (@) now at: zutuyxnq a5baa198 (empty) (no description set)
+    Parent commit (@-)      : tppoysxx 3964b98d main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    let clone_repo = git::open(test_env.env_root().join("clone"));
+    assert_eq!(clone_repo.object_hash(), gix::hash::Kind::Sha256);
+
+    // An explicit --object-hash must match the remote's
+    let output = root_dir.run_jj(["git", "clone", "--object-hash=sha1", "source", "failed"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/failed"
+    Error: The remote repository uses a different object format
+    Hint: Remove `--object-hash` to clone with the remote's object format.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(!test_env.env_root().join("failed").exists());
+}
+
+#[test]
 fn test_git_clone_invalid_immutable_heads() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");

@@ -22,6 +22,7 @@ use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
+use jj_lib::git::GitFetchError;
 use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitSettings;
@@ -143,10 +144,11 @@ pub struct GitCloneArgs {
 
     /// Object hash algorithm for the local Git repository.
     ///
-    /// *Must* match the remote's hash algorithm, otherwise the operation will
-    /// fail. Most existing repositories today still use the classic SHA-1
-    /// format, which is also the default if not configured otherwise by the
-    /// [git.object-hash config].
+    /// If not given, the remote's hash algorithm is used. Git can't report the
+    /// hash algorithm of an empty remote yet, so in that case the
+    /// [git.object-hash config] is used, which defaults to SHA-1.
+    ///
+    /// If given, it must match the remote's hash algorithm, or the clone fails.
     ///
     /// See also Git's [hash-function-transition] document for an in-depth
     /// explanation of the migration towards stronger hash functions.
@@ -270,7 +272,30 @@ pub async fn cmd_git_clone(
         Ok(())
     };
 
-    let clone_result = clone(object_hash).await;
+    let clone_result = match clone(object_hash).await {
+        Err(mut err) if is_object_format_mismatch(&err) => {
+            if args.object_hash.is_some() {
+                err.add_hint("Remove `--object-hash` to clone with the remote's object format.");
+                Err(err)
+            } else if remove_repo_dirs().is_err() {
+                Err(err)
+            } else {
+                // There are only two object formats, so the remote uses the other one.
+                let remote_object_hash = match object_hash {
+                    ObjectHash::Sha1 => ObjectHash::Sha256,
+                    ObjectHash::Sha256 => ObjectHash::Sha1,
+                };
+                let name = gix::hash::Kind::from(remote_object_hash);
+                writeln!(
+                    ui.status(),
+                    "Remote repository uses the {name} object format. Retrying with it."
+                )
+                .ok();
+                clone(remote_object_hash).await
+            }
+        }
+        result => result,
+    };
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
             remove_repo_dirs()?;
@@ -326,6 +351,11 @@ pub async fn cmd_git_clone(
     }
 
     Ok(())
+}
+
+fn is_object_format_mismatch(err: &CommandError) -> bool {
+    let fetch_err = err.error.downcast_ref::<GitFetchError>();
+    fetch_err.is_some_and(GitFetchError::is_object_format_mismatch)
 }
 
 async fn init_workspace(
