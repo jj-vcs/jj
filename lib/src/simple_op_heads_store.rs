@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Simple file-based implementation of [`OpHeadsStore`].
 
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -46,6 +46,8 @@ impl From<SimpleOpHeadsStoreInitError> for BackendInitError {
     }
 }
 
+/// [`OpHeadsStore`] that stores each op head as an empty file named by the
+/// operation ID.
 pub struct SimpleOpHeadsStore {
     dir: PathBuf,
 }
@@ -59,8 +61,11 @@ impl Debug for SimpleOpHeadsStore {
 }
 
 impl SimpleOpHeadsStore {
+    /// Name of this op heads store type.
     pub const NAME: &str = "simple_op_heads_store";
 
+    /// Initializes a new op heads store in `dir` with `root_op_id` as the only
+    /// head.
     pub fn init(dir: &Path, root_op_id: &OperationId) -> Result<Self, SimpleOpHeadsStoreInitError> {
         let op_heads_dir = dir.join("heads");
         fs::create_dir(&op_heads_dir).context(&op_heads_dir)?;
@@ -69,6 +74,7 @@ impl SimpleOpHeadsStore {
         Ok(store)
     }
 
+    /// Loads an existing op heads store from `dir`.
     pub fn load(dir: &Path) -> Self {
         let op_heads_dir = dir.join("heads");
         Self { dir: op_heads_dir }
