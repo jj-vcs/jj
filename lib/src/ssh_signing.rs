@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Signing backend using SSH keys via `ssh-keygen`.
 
 use std::ffi::OsStr;
 use std::ffi::OsString;
@@ -35,6 +35,7 @@ use crate::config::ConfigGetError;
 use crate::config::ConfigGetResultExt as _;
 use crate::settings::UserSettings;
 
+/// [`SigningBackend`] that signs and verifies using `ssh-keygen`.
 #[derive(Debug)]
 pub struct SshBackend {
     program: OsString,
@@ -43,17 +44,24 @@ pub struct SshBackend {
     default_key: Option<OsString>,
 }
 
+/// Error from the SSH signing backend.
 #[derive(Debug, Error)]
 pub enum SshError {
+    /// The SSH program exited unsuccessfully.
     #[error("SSH sign failed with {exit_status}:\n{stderr}")]
     Command {
+        /// Exit status of the command.
         exit_status: ExitStatus,
+        /// Standard error output of the command.
         stderr: String,
     },
+    /// The output of the SSH program could not be parsed.
     #[error("Failed to parse ssh program response")]
     BadResult,
+    /// Failed to run the SSH program.
     #[error("Failed to run ssh-keygen")]
     Io(#[from] std::io::Error),
+    /// No signing key was specified or configured.
     #[error("Signing key required")]
     MissingKey,
 }
@@ -127,6 +135,11 @@ fn parse_fingerprint(output: &[u8]) -> SshResult<String> {
 }
 
 impl SshBackend {
+    /// Creates a backend that runs `program`.
+    ///
+    /// `allowed_signers` and `revocation_list` are paths to files used for
+    /// verification. `default_key` is used for signing unless another key is
+    /// specified.
     pub fn new(
         program: OsString,
         allowed_signers: Option<OsString>,
@@ -141,6 +154,7 @@ impl SshBackend {
         }
     }
 
+    /// Creates a backend configured from the `signing.*` settings.
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let program = settings.get_string("signing.backends.ssh.program")?;
         let allowed_signers = settings
