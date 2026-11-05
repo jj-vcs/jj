@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Simple file-based commit backend, mainly used for testing.
 
 use std::fmt::Debug;
 use std::fs;
@@ -89,6 +89,8 @@ fn to_other_err(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Bac
     BackendError::Other(err.into())
 }
 
+/// Commit backend that stores objects as protobuf files on disk, mainly used
+/// for testing.
 #[derive(Debug)]
 pub struct SimpleBackend {
     path: PathBuf,
@@ -98,8 +100,10 @@ pub struct SimpleBackend {
 }
 
 impl SimpleBackend {
+    /// Name of this backend type.
     pub const NAME: &str = "Simple";
 
+    /// Initializes a new backend at `store_path`.
     pub fn init(store_path: &Path) -> Self {
         fs::create_dir(store_path.join("commits")).unwrap();
         fs::create_dir(store_path.join("trees")).unwrap();
@@ -115,6 +119,7 @@ impl SimpleBackend {
         backend
     }
 
+    /// Loads an existing backend from `store_path`.
     pub fn load(store_path: &Path) -> Self {
         let root_commit_id = CommitId::from_bytes(&[0; COMMIT_ID_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
@@ -349,6 +354,7 @@ impl Backend for SimpleBackend {
     }
 }
 
+/// Converts a [`Commit`] into its protobuf representation.
 #[expect(clippy::assigning_clones)]
 pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
     let mut proto = crate::protos::simple_store::Commit::default();
