@@ -303,20 +303,26 @@ impl TestRepoBackend {
         store_path: &Path,
     ) -> Result<Box<dyn Backend>, BackendInitError> {
         match self {
-            Self::Git => {
-                let git_settings = settings
-                    .git_backend_settings()
-                    .map_err(BackendInitError::new)?;
-                Ok(Box::new(GitBackend::init_internal(
-                    &git_settings,
-                    store_path,
-                    git::object_hash(),
-                )?))
-            }
+            Self::Git => init_git_backend(settings, store_path, git::object_hash()),
             Self::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
             Self::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
         }
     }
+}
+
+fn init_git_backend(
+    settings: &UserSettings,
+    store_path: &Path,
+    object_hash: gix::hash::Kind,
+) -> Result<Box<dyn Backend>, BackendInitError> {
+    let git_settings = settings
+        .git_backend_settings()
+        .map_err(BackendInitError::new)?;
+    Ok(Box::new(GitBackend::init_internal(
+        &git_settings,
+        store_path,
+        object_hash,
+    )?))
 }
 
 impl TestRepo {
