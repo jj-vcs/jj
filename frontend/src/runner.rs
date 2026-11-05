@@ -292,23 +292,19 @@ impl SnapshotConfig {
 /// Error from snapshotting the working copy, importing from or exporting to
 /// Git, or finishing a transaction.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum RunnerError {
-    /// The working copy needs to be updated, but it can't be.
     #[error("The working copy can't be updated")]
     WorkingCopyNotWritable(WorkingCopyNotWritableReason),
-    /// There's no working-copy commit for the workspace.
     #[error("Nothing checked out in this workspace")]
     NothingCheckedOut,
-    /// The working copy was changed concurrently.
     #[error("Concurrent working copy operation. Try again.")]
     ConcurrentWorkingCopyOperation,
-    /// The lock for importing from and exporting to Git couldn't be taken.
     #[error("Failed to take lock for Git import/export")]
     GitImportExportLock(#[source] FileLockError),
     /// The configured `immutable_heads()` couldn't be resolved.
     #[error("Invalid `revset-aliases.immutable_heads()`")]
     InvalidImmutableHeads(#[source] RevsetResolutionError),
-    /// A commit couldn't be checked out in the working copy.
     #[error("Failed to check out commit {}", commit_id.hex())]
     CheckOut {
         /// The commit that was being checked out.
@@ -373,6 +369,7 @@ pub enum RunnerError {
 /// The working copy can't be snapshotted because it's not at the repo's
 /// operation.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum StaleWorkingCopyError {
     /// The working copy was last updated at an operation that's older than the
     /// repo's operation.
@@ -396,7 +393,6 @@ pub enum StaleWorkingCopyError {
         /// The operation the working copy was last updated at.
         wc_op_id: OperationId,
     },
-    /// The working copy's operation couldn't be found.
     #[error("Could not read working copy's operation")]
     OperationNotFound(#[source] OpStoreError),
 }

@@ -1035,8 +1035,8 @@ pub struct TreeState {
 
 /// Error when reading or writing the [`TreeState`].
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum TreeStateError {
-    /// Failed to read the `tree_state` file.
     #[error("Reading tree state from {path}")]
     ReadTreeState {
         /// Path to the `tree_state` file.
@@ -1044,7 +1044,6 @@ pub enum TreeStateError {
         /// Underlying I/O error.
         source: io::Error,
     },
-    /// Failed to decode the `tree_state` file.
     #[error("Decoding tree state from {path}")]
     DecodeTreeState {
         /// Path to the `tree_state` file.
@@ -1052,7 +1051,6 @@ pub enum TreeStateError {
         /// Underlying decoding error.
         source: prost::DecodeError,
     },
-    /// Failed to write the tree state to a temporary file.
     #[error("Writing tree state to temporary file {path}")]
     WriteTreeState {
         /// Path to the state directory.
@@ -1068,7 +1066,6 @@ pub enum TreeStateError {
         /// Underlying I/O error.
         source: io::Error,
     },
-    /// Error from the filesystem monitor.
     #[error("Filesystem monitor error")]
     Fsmonitor(#[source] Box<dyn Error + Send + Sync>),
 }

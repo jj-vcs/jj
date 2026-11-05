@@ -71,6 +71,7 @@ impl CommitEvolutionEntry {
 
 /// Error from [`walk_predecessors()`].
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum WalkPredecessorsError {
     /// Error from the commit backend.
     #[error(transparent)]
@@ -78,7 +79,6 @@ pub enum WalkPredecessorsError {
     /// Error from the operation store.
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
-    /// The predecessor graph contains a cycle involving the given commit.
     #[error("Predecessors cycle detected around commit {0}")]
     CycleDetected(CommitId),
 }

@@ -293,6 +293,7 @@ impl BackendLoadError {
 
 /// Commit-backend error that may occur after the backend is loaded.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum BackendError {
     /// The caller attempted to read an object by specifying an ID with an
     /// invalid hash length for this backend.
@@ -324,7 +325,6 @@ pub enum BackendError {
         /// The source error.
         source: std::str::Utf8Error,
     },
-    /// The caller attempted to read an object that doesn't exist.
     #[error("Object {hash} of type {object_type} not found")]
     ObjectNotFound {
         /// The type of the object that we attempted to read, e.g. "commit" or
@@ -346,8 +346,6 @@ pub enum BackendError {
         /// The source error.
         source: Box<dyn std::error::Error + Send + Sync>,
     },
-    /// The caller attempted to read an object but doesn't have permission to
-    /// read it.
     #[error("Access denied to read object {hash} of type {object_type}")]
     ReadAccessDenied {
         /// The type of the object that we attempted to read, e.g. "commit" or

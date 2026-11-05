@@ -2064,8 +2064,8 @@ pub struct RewriteRootCommit;
 
 /// Error from attempts to edit a commit
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum EditCommitError {
-    /// The current working-copy commit could not be read.
     #[error("Current working-copy commit not found")]
     WorkingCopyCommitNotFound(#[source] BackendError),
     /// Attempted to edit the root commit.
@@ -2081,8 +2081,8 @@ pub enum EditCommitError {
 
 /// Error from attempts to check out a commit
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum CheckOutCommitError {
-    /// Failed to create the new working-copy commit.
     #[error("Failed to create new working-copy commit")]
     CreateCommit(#[from] BackendError),
     /// Failed to edit the new working-copy commit.

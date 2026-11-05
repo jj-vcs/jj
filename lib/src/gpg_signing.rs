@@ -148,8 +148,8 @@ pub struct GpgBackend {
 
 /// Error from the GPG or GPGSM signing backend.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum GpgError {
-    /// The GPG command exited unsuccessfully.
     #[error("GPG failed with {exit_status}:\n{stderr}")]
     Command {
         /// Exit status of the command.
@@ -157,7 +157,6 @@ pub enum GpgError {
         /// Standard error output of the command.
         stderr: String,
     },
-    /// Failed to run the GPG command.
     #[error("Failed to run GPG")]
     Io(#[from] std::io::Error),
 }

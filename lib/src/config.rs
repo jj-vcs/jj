@@ -57,11 +57,10 @@ pub type ConfigValue = toml_edit::Value;
 
 /// Error that can occur when parsing or loading config variables.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum ConfigLoadError {
-    /// Config file or directory cannot be read.
     #[error("Failed to read configuration file")]
     Read(#[source] PathError),
-    /// TOML file or text cannot be parsed.
     #[error("Configuration cannot be parsed as TOML document")]
     Parse {
         /// Source error.
@@ -79,14 +78,13 @@ pub struct ConfigFileSaveError(#[source] pub PathError);
 
 /// Error that can occur when looking up config variable.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum ConfigGetError {
-    /// Config value is not set.
     #[error("Value not found for {name}")]
     NotFound {
         /// Dotted config name path.
         name: String,
     },
-    /// Config value cannot be converted to the expected type.
     #[error("Invalid type or value for {name}")]
     Type {
         /// Dotted config name path.

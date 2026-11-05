@@ -42,11 +42,10 @@ use crate::revset::UserRevsetExpression;
 
 /// Error from loading an [`IdPrefixIndex`].
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum IdPrefixIndexLoadError {
-    /// Failed to resolve the disambiguation revset.
     #[error("Failed to resolve short-prefixes disambiguation revset")]
     Resolution(#[from] RevsetResolutionError),
-    /// Failed to evaluate the disambiguation revset.
     #[error("Failed to evaluate short-prefixes disambiguation revset")]
     Evaluation(#[from] RevsetEvaluationError),
 }

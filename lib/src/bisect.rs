@@ -36,11 +36,10 @@ use crate::revset::RevsetExpression;
 
 /// An error that occurred while bisecting
 #[derive(Error, Debug)]
+#[expect(missing_docs)]
 pub enum BisectionError {
-    /// Failed to read data from the backend
     #[error("Failed to read data from the backend involved in bisection")]
     BackendError(#[from] BackendError),
-    /// Failed to evaluate a revset
     #[error("Failed to evaluate a revset involved in bisection")]
     RevsetEvaluationError(#[from] RevsetEvaluationError),
 }

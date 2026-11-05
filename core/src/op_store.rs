@@ -381,8 +381,8 @@ pub struct RootOperationData {
 
 /// Error while reading or writing operation store objects.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum OpStoreError {
-    /// The requested object does not exist.
     #[error("Object {hash} of type {object_type} not found")]
     ObjectNotFound {
         /// Type of the object.
@@ -392,7 +392,6 @@ pub enum OpStoreError {
         /// Underlying error.
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
-    /// Object could not be read.
     #[error("Error when reading object {hash} of type {object_type}")]
     ReadObject {
         /// Type of the object.
@@ -402,7 +401,6 @@ pub enum OpStoreError {
         /// Underlying error.
         source: Box<dyn std::error::Error + Send + Sync>,
     },
-    /// Object could not be written.
     #[error("Could not write object of type {object_type}")]
     WriteObject {
         /// Type of the object.

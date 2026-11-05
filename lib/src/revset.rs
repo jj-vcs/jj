@@ -94,8 +94,8 @@ use crate::ui_path::RepoPathUiConverter;
 
 /// Error occurred during symbol resolution.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum RevsetResolutionError {
-    /// The symbol didn't resolve to any revision.
     #[error("Revision `{name}` doesn't exist")]
     NoSuchRevision {
         /// The unresolved symbol.
@@ -103,19 +103,15 @@ pub enum RevsetResolutionError {
         /// Similar symbols that exist, for suggestions.
         candidates: Vec<String>,
     },
-    /// The workspace has no working-copy commit.
     #[error("Workspace `{}` doesn't have a working-copy commit", name.as_symbol())]
     WorkspaceMissingWorkingCopy {
         /// Name of the workspace.
         name: WorkspaceNameBuf,
     },
-    /// An empty string was used as a symbol.
     #[error("An empty string is not a valid revision")]
     EmptyString,
-    /// The commit ID prefix matches multiple commits.
     #[error("Commit ID prefix `{0}` is ambiguous")]
     AmbiguousCommitIdPrefix(String),
-    /// The change ID prefix matches multiple changes.
     #[error("Change ID prefix `{0}` is ambiguous")]
     AmbiguousChangeIdPrefix(String),
     /// The change ID has multiple visible commits.
@@ -136,7 +132,6 @@ pub enum RevsetResolutionError {
         /// Commits the conflicted ref points to.
         targets: Vec<CommitId>,
     },
-    /// Error from the commit backend.
     #[error("Unexpected error from commit backend")]
     Backend(#[source] BackendError),
     /// Other error, e.g. from a symbol resolver extension.

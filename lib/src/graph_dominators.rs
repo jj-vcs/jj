@@ -174,14 +174,12 @@ pub struct DominatorFinder<'a, N> {
 
 /// Errors that can occur while finding dominators.
 #[derive(Debug, Error, PartialEq)]
+#[expect(missing_docs)]
 pub enum DominatorFinderError {
-    /// The flow graph is invalid.
     #[error("The flow graph is invalid: some nodes are unreachable from the start node")]
     UnreachableNodesInFlowGraph,
-    /// The target set is empty.
     #[error("Target set must not be empty")]
     EmptyTargetSet,
-    /// The target set is invalid.
     #[error("Target set contains a node which is not in the flow graph")]
     UnknownNodeInTargetSet,
 }

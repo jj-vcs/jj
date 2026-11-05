@@ -27,8 +27,8 @@ use thiserror::Error;
 
 /// Error when loading `.gitignore` patterns.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum GitIgnoreError {
-    /// Failed to read an ignore file.
     #[error("Failed to read ignore patterns from file {path}")]
     ReadFile {
         /// Path to the ignore file.

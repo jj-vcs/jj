@@ -51,11 +51,11 @@ pub struct GitDiffPart {
 
 /// Error from preparing a unified diff.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum UnifiedDiffError {
     /// Error from the commit backend.
     #[error(transparent)]
     Backend(#[from] BackendError),
-    /// Access to the file was denied.
     #[error("Access denied to {path}")]
     AccessDenied {
         /// Path of the file.

@@ -32,11 +32,10 @@ pub struct Trailer {
 
 /// Error from parsing trailers.
 #[derive(Error, Debug)]
+#[expect(missing_docs)]
 pub enum TrailerParseError {
-    /// The trailer paragraph contains a blank line.
     #[error("The trailer paragraph can't contain a blank line")]
     BlankLine,
-    /// A line in the trailer paragraph is not a valid trailer.
     #[error("Invalid trailer line: {line}")]
     NonTrailerLine {
         /// The invalid line.

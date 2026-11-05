@@ -43,8 +43,8 @@ use crate::ui_path::UiPathParseError;
 
 /// Error occurred during file pattern parsing.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum FilePatternParseError {
-    /// Unknown pattern kind is specified.
     #[error("Invalid file pattern kind `{0}:`")]
     InvalidKind(String),
     /// Failed to parse input UI path.

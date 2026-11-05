@@ -41,8 +41,8 @@ use crate::time_util::DatePattern;
 
 /// Error occurred during revset evaluation.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum RevsetEvaluationError {
-    /// Error from the commit backend.
     #[error("Unexpected error from commit backend")]
     Backend(#[from] BackendError),
     /// Any other error.

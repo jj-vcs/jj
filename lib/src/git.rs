@@ -177,6 +177,7 @@ impl GitSubprocessOptions {
 
 /// Error indicating that a Git remote name is not usable by jj.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum GitRemoteNameError {
     /// The name is reserved for the backing Git repo.
     #[error(
@@ -184,10 +185,8 @@ pub enum GitRemoteNameError {
         name = REMOTE_NAME_FOR_LOCAL_GIT_REPO.as_symbol()
     )]
     ReservedForLocalGitRepo,
-    /// The name contains a slash.
     #[error("Git remotes with slashes are incompatible with jj: {}", .0.as_symbol())]
     WithSlash(RemoteNameBuf),
-    /// The name is not a valid Git remote name.
     #[error("Invalid Git remote name")]
     InvalidName(#[from] gix::Error),
 }
@@ -519,8 +518,8 @@ fn resolve_git_ref_to_commit_id(
 
 /// Error from importing Git refs.
 #[derive(Error, Debug)]
+#[expect(missing_docs)]
 pub enum GitImportError {
-    /// Failed to read the commit pointed to by Git HEAD.
     #[error("Failed to read Git HEAD target commit {id}")]
     MissingHeadTarget {
         /// ID of the commit Git HEAD points to.
@@ -529,7 +528,6 @@ pub enum GitImportError {
         #[source]
         err: BackendError,
     },
-    /// Failed to read an ancestor of an imported ref.
     #[error("Ancestor of Git ref {symbol} is missing")]
     MissingRefAncestor {
         /// Ref whose ancestor is missing.
@@ -1329,8 +1327,8 @@ impl GitExportError {
 
 /// The reason we failed to export a ref to Git.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum FailedRefExportReason {
-    /// The name is not allowed in Git.
     #[error("Name is not allowed in Git")]
     InvalidGitName,
     /// The ref was in a conflicted state from the last import. A re-import
@@ -1340,13 +1338,10 @@ pub enum FailedRefExportReason {
     /// The ref points to the root commit, which Git doesn't have.
     #[error("Ref cannot point to the root commit in Git")]
     OnRootCommit,
-    /// We wanted to delete it, but it had been modified in Git.
     #[error("Deleted ref had been modified in Git")]
     DeletedInJjModifiedInGit,
-    /// We wanted to add it, but Git had added it with a different target
     #[error("Added ref had been added with a different target in Git")]
     AddedInJjAddedInGit,
-    /// We wanted to modify it, but Git had deleted it
     #[error("Modified ref had been deleted in Git")]
     ModifiedInJjDeletedInGit,
     /// Failed to delete the ref from the Git repo
@@ -1929,20 +1924,17 @@ fn update_git_head(
 
 /// Error from [`create_worktree()`].
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum GitCreateWorktreeError {
     /// Error from the Git subprocess.
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
-    /// Failed to inspect the destination directory.
     #[error("Failed to inspect the Git worktree destination")]
     Destination(#[source] PathError),
-    /// Failed to create a temporary directory.
     #[error("Failed to create temporary directory for Git worktree")]
     TempDir(#[source] std::io::Error),
-    /// The destination already contains a `.git` file or directory.
     #[error("A .git file or directory already exists in the Git worktree destination")]
     ExistingGitLink,
-    /// Failed to move the `.git` gitlink file into place.
     #[error("Failed to move .git gitlink file into place")]
     MoveGitLink(#[source] PathError),
     /// Error from the Git repo.
@@ -2045,8 +2037,8 @@ fn add_worktree_to_populated_dir(
 
 /// Error from [`unlink_worktree()`].
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum GitUnlinkWorktreeError {
-    /// Failed to remove the `.git` gitlink file.
     #[error("Failed to remove .git gitlink file")]
     RemoveGitLink(#[source] PathError),
     /// Error from the Git subprocess.
@@ -2094,6 +2086,7 @@ pub fn unlink_worktree(
 
 /// Error from resetting Git HEAD and index.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum GitResetHeadError {
     /// Error from the commit backend.
     #[error(transparent)]
@@ -2101,7 +2094,6 @@ pub enum GitResetHeadError {
     /// Error from the Git repo.
     #[error(transparent)]
     Git(Box<dyn std::error::Error + Send + Sync>),
-    /// Failed to update the Git HEAD ref.
     #[error("Failed to update Git HEAD ref")]
     UpdateHeadRef(#[source] gix::Error),
     /// The repo is not backed by a [`GitBackend`].
@@ -2573,11 +2565,10 @@ async fn update_intent_to_add_impl(
 
 /// Error from adding, removing, or modifying Git remotes.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum GitRemoteManagementError {
-    /// No remote with the given name exists.
     #[error("No git remote named '{}'", .0.as_symbol())]
     NoSuchRemote(RemoteNameBuf),
-    /// A remote with the given name already exists.
     #[error("Git remote named '{}' already exists", .0.as_symbol())]
     RemoteAlreadyExists(RemoteNameBuf),
     /// The remote name is not usable by jj.
@@ -2586,10 +2577,8 @@ pub enum GitRemoteManagementError {
     /// The remote has configuration that jj cannot update.
     #[error("Git remote named '{}' has nonstandard configuration", .0.as_symbol())]
     NonstandardConfiguration(RemoteNameBuf),
-    /// Failed to save the Git config.
     #[error("Error saving Git configuration")]
     GitConfigSaveError(#[source] std::io::Error),
-    /// Unexpected error from the Git repo.
     #[error("Unexpected Git error when managing remotes")]
     InternalGitError(#[from] gix::Error),
     /// The repo is not backed by a [`GitBackend`].
@@ -3112,8 +3101,8 @@ const INVALID_REFSPEC_CHARS: [char; 5] = [':', '^', '?', '[', ']'];
 
 /// Error from [`GitFetch`].
 #[derive(Error, Debug)]
+#[expect(missing_docs)]
 pub enum GitFetchError {
-    /// No remote with the given name exists.
     #[error("No git remote named '{}'", .0.as_symbol())]
     NoSuchRemote(RemoteNameBuf),
     /// The remote name is not usable by jj.
@@ -3122,10 +3111,8 @@ pub enum GitFetchError {
     /// Failed to expand ref patterns to refspecs.
     #[error(transparent)]
     RefExpansion(#[from] GitRefExpansionError),
-    /// Git rejected updates of the listed refs.
     #[error("Failed to update refs: {}", .0.iter().map(|n| n.as_symbol()).join(", "))]
     RejectedUpdates(Vec<GitRefNameBuf>),
-    /// Failed to delete stale refs.
     #[error("Failed to prune stale refs")]
     FailedToPrune(#[source] gix::Error),
     /// Error from the Git subprocess.
@@ -3135,11 +3122,10 @@ pub enum GitFetchError {
 
 /// Error from [`load_default_fetch_bookmarks()`].
 #[derive(Error, Debug)]
+#[expect(missing_docs)]
 pub enum GitDefaultRefspecError {
-    /// No remote with the given name exists.
     #[error("No git remote named '{}'", .0.as_symbol())]
     NoSuchRemote(RemoteNameBuf),
-    /// The remote's configuration is invalid.
     #[error("Invalid configuration for remote `{}`", .0.as_symbol())]
     InvalidRemoteConfiguration(RemoteNameBuf, #[source] gix::Error),
 }
@@ -3240,14 +3226,12 @@ fn pattern_to_refspec_glob(pattern: &StringPattern) -> Result<Cow<'_, str>, GitR
 
 /// Error indicating that a string expression cannot be expressed as Git refspecs.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum GitRefExpressionError {
-    /// `~` was used in a sub-expression.
     #[error("Cannot use `~` in sub expression")]
     NestedNotIn,
-    /// `&` was used in a sub-expression.
     #[error("Cannot use `&` in sub expression")]
     NestedIntersection,
-    /// `&` was used between positive expressions.
     #[error("Cannot use `&` for positive expressions")]
     PositiveIntersection,
 }
@@ -3618,8 +3602,8 @@ impl<'a> GitFetch<'a> {
 
 /// Error from pushing to a Git remote.
 #[derive(Error, Debug)]
+#[expect(missing_docs)]
 pub enum GitPushError {
-    /// No remote with the given name exists.
     #[error("No git remote named '{}'", .0.as_symbol())]
     NoSuchRemote(RemoteNameBuf),
     /// The remote name is not usable by jj.

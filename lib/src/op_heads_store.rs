@@ -31,11 +31,10 @@ use thiserror::Error;
 
 /// Error from an [`OpHeadsStore`].
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum OpHeadsStoreError {
-    /// Failed to read the operation heads.
     #[error("Failed to read operation heads")]
     Read(#[source] Box<dyn std::error::Error + Send + Sync>),
-    /// Failed to record a new operation head.
     #[error("Failed to record operation head {new_op_id}")]
     Write {
         /// ID of the operation that was to be recorded as a head.
@@ -43,7 +42,6 @@ pub enum OpHeadsStoreError {
         /// Underlying error.
         source: Box<dyn std::error::Error + Send + Sync>,
     },
-    /// Failed to lock the operation heads store.
     #[error("Failed to lock operation heads store")]
     Lock(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

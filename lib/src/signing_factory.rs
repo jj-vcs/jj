@@ -28,11 +28,10 @@ use crate::test_signing_backend::TestSigningBackend;
 
 /// An error type for the signing backend initialization.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum SignInitError {
-    /// If the backend name specified in the config is not known.
     #[error("Unknown signing backend configured: {0}")]
     UnknownBackend(String),
-    /// Failed to load backend configuration.
     #[error("Failed to configure signing backend")]
     BackendConfig(#[source] ConfigGetError),
 }

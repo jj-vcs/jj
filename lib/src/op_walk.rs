@@ -58,10 +58,10 @@ pub enum OpsetEvaluationError {
 /// Error that may occur during parsing and resolution of operation set
 /// expression.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum OpsetResolutionError {
     // TODO: Maybe empty/multiple operations should be allowed, and rejected by
     // caller as needed.
-    /// Expression resolved to multiple operations.
     #[error(r#"The "{expr}" expression resolved to more than one operation"#)]
     MultipleOperations {
         /// Source expression.
@@ -69,16 +69,12 @@ pub enum OpsetResolutionError {
         /// Matched operation ids.
         candidates: Vec<OperationId>,
     },
-    /// Expression resolved to no operations.
     #[error(r#"The "{0}" expression resolved to no operations"#)]
     EmptyOperations(String),
-    /// Invalid symbol as an operation ID.
     #[error(r#"Operation ID "{0}" is not a valid hexadecimal prefix"#)]
     InvalidIdPrefix(String),
-    /// Operation ID not found.
     #[error(r#"No operation ID matching "{0}""#)]
     NoSuchOperation(String),
-    /// Operation ID prefix matches multiple operations.
     #[error(r#"Operation ID prefix "{0}" is ambiguous"#)]
     AmbiguousIdPrefix(String),
 }

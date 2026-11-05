@@ -43,11 +43,11 @@ use crate::protos::simple_workspace_store;
 
 /// Errors specific to the `SimpleWorkspaceStore` implementation.
 #[derive(Error, Debug)]
+#[expect(missing_docs)]
 pub enum SimpleWorkspaceStoreError {
     /// An I/O error related to a file path.
     #[error(transparent)]
     Path(#[from] PathError),
-    /// An error occurred while trying to lock the workspace store.
     #[error("Failed to lock workspace store")]
     Lock(#[from] FileLockError),
     /// An error occurred while decoding Protobuf data.

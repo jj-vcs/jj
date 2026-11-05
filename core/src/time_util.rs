@@ -27,8 +27,8 @@ use crate::backend::Timestamp;
 
 /// Error occurred during date pattern parsing.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum DatePatternParseError {
-    /// Unknown pattern kind is specified.
     #[error("Invalid date pattern kind `{0}:`")]
     InvalidKind(String),
     /// Failed to parse timestamp.
@@ -117,14 +117,13 @@ pub fn parse_from_rfc3339(s: &str) -> Result<Timestamp, TimestampParseError> {
 /// Error occurred while parsing a date-time with [`parse_datetime()`] or
 /// [`parse_from_rfc3339()`].
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum TimestampParseError {
     /// The input is not a valid date-time, or is out of range.
     #[error(transparent)]
     Invalid(#[from] jiff::Error),
-    /// The date-time has no time of day.
     #[error("Missing time of day")]
     MissingTime,
-    /// The date-time has no offset from UTC.
     #[error("Missing offset from UTC")]
     MissingOffset,
 }

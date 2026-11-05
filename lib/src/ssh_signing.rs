@@ -46,8 +46,8 @@ pub struct SshBackend {
 
 /// Error from the SSH signing backend.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum SshError {
-    /// The SSH program exited unsuccessfully.
     #[error("SSH sign failed with {exit_status}:\n{stderr}")]
     Command {
         /// Exit status of the command.
@@ -55,10 +55,8 @@ pub enum SshError {
         /// Standard error output of the command.
         stderr: String,
     },
-    /// The output of the SSH program could not be parsed.
     #[error("Failed to parse ssh program response")]
     BadResult,
-    /// Failed to run the SSH program.
     #[error("Failed to run ssh-keygen")]
     Io(#[from] std::io::Error),
     /// No signing key was specified or configured.

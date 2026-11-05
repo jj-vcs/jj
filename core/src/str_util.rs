@@ -30,8 +30,8 @@ use thiserror::Error;
 
 /// Error occurred during pattern string parsing.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum StringPatternParseError {
-    /// Unknown pattern kind is specified.
     #[error("Invalid string pattern kind `{0}:`")]
     InvalidKind(String),
     /// Failed to parse glob pattern.

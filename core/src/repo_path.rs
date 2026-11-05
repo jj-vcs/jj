@@ -626,8 +626,8 @@ impl InvalidRepoPathComponentError {
 
 /// An error which occurs during relative path parsing.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[expect(missing_docs)]
 pub enum RelativePathParseError {
-    /// An invalid component was seen.
     #[error(r#"Invalid component "{component}" in repo-relative path "{path}""#)]
     InvalidComponent {
         /// The invalid component.
@@ -635,7 +635,6 @@ pub enum RelativePathParseError {
         /// The path it was a component of.
         path: Box<Path>,
     },
-    /// The path was not UTF-8.
     #[error(r#"Not valid UTF-8 path "{path}""#)]
     InvalidUtf8 {
         /// The path which did not contain UTF-8 characters.

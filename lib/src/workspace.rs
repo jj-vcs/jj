@@ -72,11 +72,11 @@ use crate::working_copy::WorkingCopyStateError;
 
 /// Error from initializing a workspace.
 #[derive(Error, Debug)]
+#[expect(missing_docs)]
 pub enum WorkspaceInitError {
     /// The `.jj/` directory already exists.
     #[error("The destination repo ({0}) already exists")]
     DestinationExists(PathBuf),
-    /// The path to the repo could not be encoded.
     #[error("Repo path could not be encoded")]
     EncodeRepoPath(#[source] BadPathEncoding),
     /// Failed to check out the root commit in the new workspace.
@@ -107,6 +107,7 @@ pub enum WorkspaceInitError {
 
 /// Error from loading a workspace.
 #[derive(Error, Debug)]
+#[expect(missing_docs)]
 pub enum WorkspaceLoadError {
     /// The repo the workspace points to does not exist.
     #[error("The repo appears to no longer be at {0}")]
@@ -117,7 +118,6 @@ pub enum WorkspaceLoadError {
     /// Error from loading the repo's stores.
     #[error("Cannot read the repo")]
     StoreLoadError(#[from] StoreLoadError),
-    /// The path to the repo could not be decoded.
     #[error("Repo path could not be decoded")]
     DecodeRepoPath(#[source] BadPathEncoding),
     /// Error from the working copy state.

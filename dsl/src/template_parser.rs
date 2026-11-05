@@ -202,11 +202,10 @@ pub struct TemplateParseError {
 
 /// Which type of error occurred.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[expect(missing_docs)]
 pub enum TemplateParseErrorKind {
-    /// A syntax error.
     #[error("Syntax error")]
     SyntaxError,
-    /// No such keyword was found.
     #[error("Keyword `{name}` doesn't exist")]
     NoSuchKeyword {
         /// The unknown name.
@@ -214,7 +213,6 @@ pub enum TemplateParseErrorKind {
         /// Similar keyword and alias names to suggest.
         candidates: Vec<String>,
     },
-    /// Unknown function.
     #[error("Function `{name}` doesn't exist")]
     NoSuchFunction {
         /// The unknown name.
@@ -258,7 +256,6 @@ pub enum TemplateParseErrorKind {
     /// function alias parameter.
     #[error("In function parameter `{0}`")]
     InParameterExpansion(String),
-    /// A recursive alias was detected.
     #[error("Alias `{0}` expanded recursively")]
     RecursiveAlias(String),
 }

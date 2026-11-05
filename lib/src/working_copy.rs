@@ -169,11 +169,11 @@ impl dyn LockedWorkingCopy {
 
 /// An error while snapshotting the working copy.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum SnapshotError {
     /// A tracked path contained invalid component such as `..`.
     #[error(transparent)]
     InvalidRepoPath(#[from] InvalidRepoPathError),
-    /// A symlink target in the working copy was not valid UTF-8.
     #[error("Symlink {path} target is not valid UTF-8")]
     InvalidUtf8SymlinkTarget {
         /// The path of the symlink that has a target that's not valid UTF-8.
@@ -402,6 +402,7 @@ impl WorkingCopyFreshness {
 
 /// An error while recovering a stale working copy.
 #[derive(Debug, Error)]
+#[expect(missing_docs)]
 pub enum RecoverWorkspaceError {
     /// Backend error.
     #[error(transparent)]
@@ -415,7 +416,6 @@ pub enum RecoverWorkspaceError {
     /// Error during transaction.
     #[error(transparent)]
     TransactionCommit(#[from] TransactionCommitError),
-    /// Working copy commit is missing.
     #[error(r#""{}" doesn't have a working-copy commit"#, .0.as_symbol())]
     WorkspaceMissingWorkingCopy(WorkspaceNameBuf),
 }
