@@ -146,21 +146,26 @@ pub mod watchman {
         }
     }
 
-    #[expect(missing_docs)]
+    /// Error from the Watchman filesystem monitor.
     #[derive(Debug, Error)]
     pub enum Error {
+        /// Failed to connect to the Watchman server.
         #[error("Could not connect to Watchman")]
         WatchmanConnectError(#[source] watchman_client::Error),
 
+        /// Failed to canonicalize the working copy root path.
         #[error("Could not canonicalize working copy root path")]
         CanonicalizeRootError(#[source] std::io::Error),
 
+        /// Watchman failed to resolve the working copy root path.
         #[error("Watchman failed to resolve the working copy root path")]
         ResolveRootError(#[source] watchman_client::Error),
 
+        /// A Watchman query failed.
         #[error("Failed to query Watchman")]
         WatchmanQueryError(#[source] watchman_client::Error),
 
+        /// Failed to register a Watchman trigger.
         #[error("Failed to register Watchman trigger")]
         WatchmanTriggerError(#[source] watchman_client::Error),
     }
