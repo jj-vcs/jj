@@ -90,7 +90,7 @@ fn test_new_merge() {
         .run_jj(["new", "root()", "-m", "add file2"])
         .success();
     work_dir.write_file("file2", "b");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     let setup_opid = work_dir.current_operation_id();
 
     // Create a merge commit

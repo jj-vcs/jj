@@ -32,7 +32,7 @@ fn test_diffedit() -> TestResult {
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "b\n");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     let setup_opid = work_dir.current_operation_id();
 
     // Test the setup; nothing happens if we make no changes
@@ -253,7 +253,7 @@ fn test_diffedit_file_by_file() -> TestResult {
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "b\n");
     work_dir.write_file("file3", "c\n");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
 
     // The editor should be invoked once per changed file, with file paths
     // rather than directory paths. The fake editor prints the file basenames
@@ -304,7 +304,7 @@ fn test_diffedit_new_file() -> TestResult {
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "b\n");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     let setup_opid = work_dir.current_operation_id();
 
     // Test the setup; nothing happens if we make no changes
@@ -585,7 +585,7 @@ fn test_diffedit_3pane() -> TestResult {
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "b\n");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     let setup_opid = work_dir.current_operation_id();
 
     // 2 configs for a 3-pane setup. In the first, "$right" is passed to what the
@@ -765,7 +765,7 @@ fn test_diffedit_old_restore_interactive_tests() -> TestResult {
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "b\n");
     work_dir.write_file("file3", "b\n");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     let setup_opid = work_dir.current_operation_id();
 
     // Nothing happens if we make no changes

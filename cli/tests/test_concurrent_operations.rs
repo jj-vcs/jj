@@ -269,7 +269,7 @@ fn test_git_export_after_reconcile() -> TestResult {
 fn test_git_head_race_condition() -> TestResult {
     // Test for race condition where concurrent jj processes create divergent
     // operations when importing/exporting Git HEAD. This test spawns two
-    // processes in parallel: one running `jj debug snapshot` repeatedly
+    // processes in parallel: one running `jj util snapshot` repeatedly
     // (which imports Git HEAD) and another running `jj next/prev` repeatedly
     // (which exports Git HEAD). Without the fix, this would create divergent
     // operations.
@@ -328,14 +328,14 @@ fn test_git_head_race_condition() -> TestResult {
                 // Snapshot repeatedly without delay
                 let mut cmd = std::process::Command::new(&jj_bin);
                 cmd.current_dir(repo_path);
-                cmd.args(["debug", "snapshot"]);
+                cmd.args(["util", "snapshot"]);
                 for (key, value) in &base_env {
                     cmd.env(key, value);
                 }
                 let output = cmd.output().expect("Failed to spawn jj");
                 assert!(
                     output.status.success(),
-                    "jj debug snapshot failed:\n{output:?}"
+                    "jj util snapshot failed:\n{output:?}"
                 );
             }
         });
