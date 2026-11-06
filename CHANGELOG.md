@@ -23,6 +23,10 @@ and this project adheres to
 
 ### Fixed bugs
 
+* Fixed `jj squash` creating divergent commits when squashing selected paths
+  from descendants into an ancestor and abandoning an emptied source.
+  [#9785](https://github.com/jj-vcs/jj/issues/9785)
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
