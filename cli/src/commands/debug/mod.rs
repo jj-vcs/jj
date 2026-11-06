@@ -21,7 +21,6 @@ mod local_working_copy;
 mod object;
 mod reindex;
 mod revset;
-mod snapshot;
 mod stacked_table;
 mod template;
 mod tree;
@@ -50,8 +49,6 @@ use self::reindex::DebugReindexArgs;
 use self::reindex::cmd_debug_reindex;
 use self::revset::DebugRevsetArgs;
 use self::revset::cmd_debug_revset;
-use self::snapshot::DebugSnapshotArgs;
-use self::snapshot::cmd_debug_snapshot;
 use self::stacked_table::DebugStackedTableArgs;
 use self::stacked_table::cmd_debug_stacked_table;
 use self::template::DebugTemplateArgs;
@@ -81,7 +78,6 @@ pub enum DebugCommand {
     Object(DebugObjectArgs),
     Reindex(DebugReindexArgs),
     Revset(DebugRevsetArgs),
-    Snapshot(DebugSnapshotArgs),
     StackedTable(DebugStackedTableArgs),
     Template(DebugTemplateArgs),
     Tree(DebugTreeArgs),
@@ -109,7 +105,6 @@ pub async fn cmd_debug(
         DebugCommand::Object(args) => cmd_debug_object(ui, command, args).await,
         DebugCommand::Reindex(args) => cmd_debug_reindex(ui, command, args).await,
         DebugCommand::Revset(args) => cmd_debug_revset(ui, command, args).await,
-        DebugCommand::Snapshot(args) => cmd_debug_snapshot(ui, command, args).await,
         DebugCommand::StackedTable(args) => cmd_debug_stacked_table(ui, command, args).await,
         DebugCommand::Template(args) => cmd_debug_template(ui, command, args).await,
         DebugCommand::Tree(args) => cmd_debug_tree(ui, command, args).await,

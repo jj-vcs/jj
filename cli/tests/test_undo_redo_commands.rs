@@ -93,7 +93,7 @@ fn test_jump_over_old_undo_stack() {
     // create a few normal operations
     for state in 'A'..='D' {
         work_dir.write_file("state", state.to_string());
-        work_dir.run_jj(["debug", "snapshot"]).success();
+        work_dir.run_jj(["util", "snapshot"]).success();
     }
     assert_eq!(work_dir.read_file("state"), "D");
 
@@ -105,9 +105,9 @@ fn test_jump_over_old_undo_stack() {
 
     // create operations E and F
     work_dir.write_file("state", "E");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     work_dir.write_file("state", "F");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     assert_eq!(work_dir.read_file("state"), "F");
 
     // undo operations F, E and B, restoring the state of A while skipping the
@@ -128,9 +128,9 @@ fn test_undo_ignores_op_revert() {
 
     // create a few normal operations
     work_dir.write_file("state", "A");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     work_dir.write_file("state", "B");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     assert_eq!(work_dir.read_file("state"), "B");
 
     // `op revert` works the same way as `undo` initially, but running `undo`
@@ -248,7 +248,7 @@ fn test_jump_over_old_redo_stack() {
     // create a few normal operations
     for state in 'A'..='D' {
         work_dir.write_file("state", state.to_string());
-        work_dir.run_jj(["debug", "snapshot"]).success();
+        work_dir.run_jj(["util", "snapshot"]).success();
     }
     assert_eq!(work_dir.read_file("state"), "D");
 

@@ -575,7 +575,7 @@ fn test_relative_tool_path_from_subdirectory() -> TestResult {
     work_dir.write_file("test.txt", "hello world\n");
     let sub_dir = work_dir.create_dir("subdir");
     work_dir.write_file("subdir/nested.txt", "nested content\n");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     let setup_opid = work_dir.current_operation_id();
 
     // Run fix from workspace root

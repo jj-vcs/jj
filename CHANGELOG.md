@@ -17,6 +17,9 @@ and this project adheres to
   (`git.private-commits`). Commits that are already on the remote being pushed
   to are still not checked.
 
+* Deleted `jj debug snapshot`. It was deprecated in 0.39.0. Use `jj util snapshot`
+  instead.
+
 ### Deprecations
 
 ### New features

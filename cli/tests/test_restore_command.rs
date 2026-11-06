@@ -32,7 +32,7 @@ fn test_restore() {
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "c\n");
     work_dir.write_file("file3", "c\n");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     let setup_opid = work_dir.current_operation_id();
 
     // There is no `-r` argument

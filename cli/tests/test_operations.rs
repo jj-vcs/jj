@@ -479,7 +479,7 @@ fn test_op_log_word_wrap() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     work_dir.write_file("file1", "foo\n".repeat(100));
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
 
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
         let word_wrap = to_toml_value(word_wrap);
@@ -492,22 +492,22 @@ fn test_op_log_word_wrap() {
 
     // ui.log-word-wrap option works
     insta::assert_snapshot!(render(&["op", "log"], 40, false), @"
-    @  2c5632322012 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    @  9f793904665f test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  snapshot working copy
-    │  args: jj debug snapshot
+    │  args: jj util snapshot
     ○  f63ee16f9553 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
     ");
     insta::assert_snapshot!(render(&["op", "log"], 40, true), @"
-    @  2c5632322012
+    @  9f793904665f
     │  test-username@host.example.com
     │  default@ 2001-02-03 04:05:08.000
     │  +07:00 - 2001-02-03 04:05:08.000
     │  +07:00
     │  snapshot working copy
-    │  args: jj debug snapshot
+    │  args: jj util snapshot
     ○  f63ee16f9553
     │  test-username@host.example.com
     │  2001-02-03 04:05:07.000 +07:00 -
@@ -519,13 +519,13 @@ fn test_op_log_word_wrap() {
 
     // Nested graph should be wrapped
     insta::assert_snapshot!(render(&["op", "log", "--op-diff"], 40, true), @"
-    @  2c5632322012
+    @  9f793904665f
     │  test-username@host.example.com
     │  default@ 2001-02-03 04:05:08.000
     │  +07:00 - 2001-02-03 04:05:08.000
     │  +07:00
     │  snapshot working copy
-    │  args: jj debug snapshot
+    │  args: jj util snapshot
     │
     │  Changed commits:
     │  ○  + qpvuntsm 79f0968d (no
@@ -558,13 +558,13 @@ fn test_op_log_word_wrap() {
 
     // Nested diff stat shouldn't exceed the terminal width
     insta::assert_snapshot!(render(&["op", "log", "-n1", "--stat"], 40, true), @"
-    @  2c5632322012
+    @  9f793904665f
     │  test-username@host.example.com
     │  default@ 2001-02-03 04:05:08.000
     │  +07:00 - 2001-02-03 04:05:08.000
     │  +07:00
     │  snapshot working copy
-    │  args: jj debug snapshot
+    │  args: jj util snapshot
     │
     │  Changed commits:
     │  ○  + qpvuntsm 79f0968d (no
@@ -582,12 +582,12 @@ fn test_op_log_word_wrap() {
     [EOF]
     ");
     insta::assert_snapshot!(render(&["op", "log", "-n1", "--no-graph", "--stat"], 40, true), @"
-    2c5632322012
+    9f793904665f
     test-username@host.example.com default@
     2001-02-03 04:05:08.000 +07:00 -
     2001-02-03 04:05:08.000 +07:00
     snapshot working copy
-    args: jj debug snapshot
+    args: jj util snapshot
 
     Changed commits:
     + qpvuntsm 79f0968d (no description set)
@@ -2368,12 +2368,12 @@ fn test_op_diff_word_wrap() {
 
     // Add some file content changes
     work_dir.write_file("file1", "foo\n".repeat(100));
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
 
     // ui.log-word-wrap option works, and diff stat respects content width
     insta::assert_snapshot!(render(&["op", "diff", "--from=@---", "--stat"], 40, true), @"
     From operation: 267d2e28edfc (2001-02-03 08:05:07) add git remote origin
-      To operation: 27d1c8bca003 (2001-02-03 08:05:08) snapshot working copy
+      To operation: 76c742945b37 (2001-02-03 08:05:08) snapshot working copy
 
     Changed commits:
     ○  + sqpuoqvx f6f32c19 (no description
@@ -2441,7 +2441,7 @@ fn test_op_diff_word_wrap() {
     insta::assert_snapshot!(
         render(&["op", "diff", "--from=@---", "--config", config], 10, true), @"
     From operation: 267d2e28edfc (2001-02-03 08:05:07) add git remote origin
-      To operation: 27d1c8bca003 (2001-02-03 08:05:08) snapshot working copy
+      To operation: 76c742945b37 (2001-02-03 08:05:08) snapshot working copy
 
     Changed
     commits:

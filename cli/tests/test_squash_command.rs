@@ -1333,7 +1333,7 @@ fn test_squash_description() -> TestResult {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "b\n");
     work_dir.write_file("file2", "b\n");
-    work_dir.run_jj(["debug", "snapshot"]).success();
+    work_dir.run_jj(["util", "snapshot"]).success();
     let setup_opid1 = work_dir.current_operation_id();
     work_dir.run_jj(["squash"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
