@@ -316,6 +316,18 @@ fn test_git_remote_set_url() {
     work_dir
         .run_jj(["git", "remote", "add", "foo", "http://example.com/repo/foo"])
         .success();
+    let output = work_dir.run_jj(["git", "remote", "set-url", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: the following required arguments were not provided:
+      <URL>
+
+    Usage: jj git remote set-url <REMOTE> <URL>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
     let output = work_dir.run_jj([
         "git",
         "remote",

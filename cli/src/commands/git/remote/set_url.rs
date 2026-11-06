@@ -35,7 +35,10 @@ pub struct GitRemoteSetUrlArgs {
     /// This is a short form, equivalent to using the explicit --fetch.
     ///
     /// Local path will be resolved to absolute form.
-    #[arg(value_hint = clap::ValueHint::Url)]
+    #[arg(
+        value_hint = clap::ValueHint::Url,
+        required_unless_present_any = ["push", "fetch"]
+    )]
     url: Option<String>,
 
     /// The URL or path to push to

@@ -26,6 +26,9 @@ and this project adheres to
 
 ### Fixed bugs
 
+* `jj git remote set-url` now errors if no URL is given, instead of silently
+  doing nothing.
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
