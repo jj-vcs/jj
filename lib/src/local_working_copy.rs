@@ -1265,8 +1265,6 @@ impl TreeState {
         // update own write time while we before we rename it, so we know
         // there is no unknown data in it
         self.update_own_mtime();
-        // TODO: Retry if persisting fails (it will on Windows if the file happened to
-        // be open for read).
         let target_path = self.state_path.join("tree_state");
         persist_temp_file(temp_file, &target_path).map_err(|source| {
             TreeStateError::PersistTreeState {

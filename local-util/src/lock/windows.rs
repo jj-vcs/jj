@@ -23,6 +23,7 @@ use std::os::windows::fs::OpenOptionsExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::thread;
+use std::time::Duration;
 
 use tracing::instrument;
 
@@ -107,7 +108,7 @@ impl Drop for FileLock {
 }
 
 fn try_create_file(path: &Path) -> io::Result<File> {
-    let mut backoff_iterator = BackoffIterator::new();
+    let mut backoff_iterator = BackoffIterator::with_max_elapsed(Duration::from_secs(10));
     let mut options = OpenOptions::new();
     options
         .create(true)
