@@ -9529,10 +9529,16 @@ and this project adheres to
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>jj git push</code> now checks commits in <code>immutable()</code> for empty descriptions,
+<li>
+<p><code>jj git push</code> now checks commits in <code>immutable()</code> for empty descriptions,
   missing author/committer, conflicts, and being private
   (<code>git.private-commits</code>). Commits that are already on the remote being pushed
-  to are still not checked.</li>
+  to are still not checked.</p>
+</li>
+<li>
+<p>Deleted <code>jj debug snapshot</code>. It was deprecated in 0.39.0. Use <code>jj util snapshot</code>
+  instead.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
