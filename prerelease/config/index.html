@@ -6663,9 +6663,10 @@ unset, all commits are eligible to be pushed.</p>
 <span class="c1"># Prevent pushing work in progress or anything explicitly labeled &quot;private&quot;</span>
 <span class="n">private-commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;description(&#39;wip:*&#39;) | description(&#39;private:*&#39;)&quot;</span>
 </code></pre></div>
-<p>If a commit is in <code>git.private-commits</code> but is already on the remote, then it is
-not considered a private commit. Commits that are immutable are also excluded
-from the private set.</p>
+<p>If a commit is in <code>git.private-commits</code> but is already on the remote being
+pushed to, then it is not considered a private commit. Commits that are on
+other remotes are still considered private, since the remote being pushed to
+may be more public.</p>
 <p>Private commits prevent their descendants from being pushed, since doing so
 would require pushing the private commit as well.</p>
 <h3 id="git-subprocessing-behavior">Git subprocessing behavior<a class="headerlink" href="#git-subprocessing-behavior" title="Permanent link">&para;</a></h3>

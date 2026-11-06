@@ -9528,6 +9528,12 @@ and this project adheres to
 <h2 id="unreleased"><a href="https://github.com/jj-vcs/jj/compare/v0.47.1...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>jj git push</code> now checks commits in <code>immutable()</code> for empty descriptions,
+  missing author/committer, conflicts, and being private
+  (<code>git.private-commits</code>). Commits that are already on the remote being pushed
+  to are still not checked.</li>
+</ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
