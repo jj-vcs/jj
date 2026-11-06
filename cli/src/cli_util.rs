@@ -542,11 +542,30 @@ impl CommandHelper {
         workspace: Workspace,
         mut env: WorkspaceCommandEnvironment,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
-        let op_head =
-            self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
-        let repo = workspace.load_at(&op_head).await?;
+        let options = self.runner_options();
+        let mut runner = if let Some(op_str) = &self.data.global_args.at_operation {
+            let op = op_walk::resolve_op_for_load(workspace.repo_loader(), op_str).await?;
+            let repo = workspace.load_at(&op).await?;
+            let may_snapshot_working_copy = self.is_working_copy_writable();
+            WorkspaceOperationRunner::new(
+                workspace,
+                repo,
+                env.base.clone(),
+                options,
+                may_snapshot_working_copy,
+            )
+        } else {
+            let mut event_handler = CliRunnerEventHandler::new(ui, &env);
+            WorkspaceOperationRunner::load_at_head(
+                &mut event_handler,
+                workspace,
+                env.base.clone(),
+                options,
+            )
+            .await?
+        };
         if let Err(err) = jj_frontend::revset_util::try_resolve_trunk_alias(
-            repo.as_ref(),
+            runner.repo().as_ref(),
             &env.revset_parse_context(),
         ) {
             // The fallback can be builtin_trunk() if we're willing to support
@@ -564,7 +583,7 @@ impl CommandHelper {
                 ui.hint_default(),
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
             )?;
-            let base_env = Arc::make_mut(&mut env.base);
+            let base_env = Arc::make_mut(&mut runner.env);
             base_env
                 .revset_aliases_map_mut()
                 .insert("trunk()", fallback, None)
@@ -572,15 +591,8 @@ impl CommandHelper {
             // Any warnings were already reported when the expressions were first
             // loaded, and the fallback can't add new ones.
             base_env.reload_revset_expressions(&mut WorkspaceEnvironmentDiagnostics::new())?;
+            env.base = runner.env.clone();
         }
-        let may_snapshot_working_copy = self.is_working_copy_writable();
-        let runner = WorkspaceOperationRunner::new(
-            workspace,
-            repo,
-            env.base.clone(),
-            self.runner_options(),
-            may_snapshot_working_copy,
-        );
         WorkspaceCommandHelper::new(ui, runner, env)
     }
 
@@ -1502,6 +1514,33 @@ impl WorkspaceOperationRunner {
             may_snapshot_working_copy,
             may_update_working_copy,
         }
+    }
+
+    /// Loads the repo for `workspace` at the head operation. If there are
+    /// concurrent operations, they're merged.
+    pub async fn load_at_head(
+        event_handler: &mut dyn RunnerEventHandler,
+        workspace: Workspace,
+        env: Arc<WorkspaceEnvironment>,
+        options: RunnerOptions,
+    ) -> Result<Self, RunnerError> {
+        let repo_loader = workspace.repo_loader();
+        let op_head = resolve_head_operation(
+            event_handler,
+            repo_loader,
+            workspace.workspace_name(),
+            &options,
+        )
+        .await?;
+        let repo = repo_loader.load_at(&op_head).await?;
+        let may_snapshot_working_copy = !options.ignore_working_copy;
+        Ok(Self::new(
+            workspace,
+            repo,
+            env,
+            options,
+            may_snapshot_working_copy,
+        ))
     }
 
     pub fn workspace(&self) -> &Workspace {
@@ -4900,5 +4939,100 @@ mod tests {
         );
         assert_eq!(parse("1", &candidates), Ok(0));
         assert_eq!(parse("2", &candidates), Ok(1));
+    }
+
+    /// Records which events were reported.
+    #[derive(Default)]
+    struct RecordingEventHandler(Vec<String>);
+
+    #[async_trait(?Send)]
+    impl RunnerEventHandler for RecordingEventHandler {
+        async fn event(
+            &mut self,
+            event: RunnerEvent,
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let name = format!("{event:?}");
+            let name = name.split([' ', '(', '{']).next().unwrap().to_owned();
+            self.0.push(name);
+            Ok(())
+        }
+
+        fn snapshot_progress(&self) -> Option<Box<SnapshotProgress<'_>>> {
+            None
+        }
+    }
+
+    fn test_runner_options() -> RunnerOptions {
+        RunnerOptions {
+            ignore_working_copy: false,
+            integrate_operation: true,
+            ignore_immutable: false,
+            transaction_attributes: vec![],
+        }
+    }
+
+    /// Creates a workspace with two concurrent operations, and returns the
+    /// workspace, its environment, and the IDs of the operation heads.
+    fn workspace_with_concurrent_operations() -> (
+        testutils::TestWorkspace,
+        Arc<WorkspaceEnvironment>,
+        Vec<OperationId>,
+    ) {
+        let mut config = testutils::base_user_config();
+        config.extend_layers(crate::config::default_config_layers());
+        let settings = testutils::user_settings_from_config(config);
+        let test_workspace = testutils::TestWorkspace::init_with_settings(&settings);
+        let repo = &test_workspace.repo;
+        let op_ids = ["operation 1", "operation 2"]
+            .map(|description| {
+                let tx = repo.start_transaction();
+                tx.commit(description).block_on().unwrap().op_id().clone()
+            })
+            .into_iter()
+            .sorted()
+            .collect_vec();
+
+        let ui = Ui::null();
+        let config = settings.config();
+        let mut diagnostics = WorkspaceEnvironmentDiagnostics::new();
+        let env = WorkspaceEnvironment::new(
+            &mut diagnostics,
+            &test_workspace.workspace,
+            test_workspace.workspace.workspace_root(),
+            Arc::new(RevsetExtensions::default()),
+            load_fileset_aliases(&ui, config).unwrap(),
+            load_revset_aliases(&ui, config).unwrap(),
+        )
+        .unwrap();
+        (test_workspace, Arc::new(env), op_ids)
+    }
+
+    #[test]
+    fn test_load_at_head_concurrent_operations_merged() {
+        let (test_workspace, env, op_ids) = workspace_with_concurrent_operations();
+        let testutils::TestWorkspace {
+            env: _test_env,
+            workspace,
+            ..
+        } = test_workspace;
+        let mut event_handler = RecordingEventHandler::default();
+        let runner = WorkspaceOperationRunner::load_at_head(
+            &mut event_handler,
+            workspace,
+            env,
+            test_runner_options(),
+        )
+        .block_on()
+        .unwrap();
+        let parent_op_ids = runner
+            .repo()
+            .operation()
+            .parent_ids()
+            .iter()
+            .sorted()
+            .cloned()
+            .collect_vec();
+        assert_eq!(parent_op_ids, op_ids);
+        assert_eq!(event_handler.0, ["MergingConcurrentOperations"]);
     }
 }
