@@ -24,27 +24,19 @@ jobs:
         - build: linux-x86_64-gnu
           os: ubuntu-24.04
           cargo_flags: "--all-features"
-          extra_targets: ""
         - build: linux-aarch64-gnu
           os: ubuntu-24.04-arm
           cargo_flags: "--all-features"
-          extra_targets: ""
         - build: macos-x86_64
           os: macos-26
           cargo_flags: "--target x86_64-apple-darwin"
           extra_targets: "x86_64-apple-darwin"
         - build: macos-aarch64
           os: macos-15
-          cargo_flags: ""
-          extra_targets: ""
         - build: windows-x86_64
           os: windows-2022
-          cargo_flags: ""
-          extra_targets: ""
         - build: windows-aarch64
           os: windows-11-arm
-          cargo_flags: ""
-          extra_targets: ""
     runs-on: ${{ matrix.os }}
 
     # macos-x86_64 runners are inconsistent and prone to hitting the timeout
