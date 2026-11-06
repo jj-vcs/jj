@@ -40,7 +40,7 @@ fn test_file_delete() {
 
     // The file is deleted from the revision, and descendants are rebased.
     let output = work_dir.run_jj(["file", "delete", "-r=base", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: zsuskuln 69c03f6b child | child
@@ -48,7 +48,7 @@ fn test_file_delete() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=base"]).normalize_backslash(), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=base"]).normalize_backslash(), @"
     data.txt
     dir/a
     dir/b
@@ -56,7 +56,7 @@ fn test_file_delete() {
     notes.txt
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=child"]).normalize_backslash(), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=child"]).normalize_backslash(), @"
     data.txt
     dir/a
     dir/b
@@ -69,14 +69,14 @@ fn test_file_delete() {
     // With --restore-descendants, descendants keep their content.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["file", "delete", "-r=base", "--restore-descendants", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits (while preserving their content).
     Working copy  (@) now at: zsuskuln 178385e9 child | child
     Parent commit (@-)      : rlvkpnrz 53605aea base | base
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=base"]).normalize_backslash(), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=base"]).normalize_backslash(), @"
     data.txt
     dir/a
     dir/b
@@ -84,7 +84,7 @@ fn test_file_delete() {
     notes.txt
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=child"]).normalize_backslash(), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=child"]).normalize_backslash(), @"
     data.txt
     dir/a
     dir/b
@@ -98,7 +98,7 @@ fn test_file_delete() {
     // Multiple paths, directories, and filesets can be deleted at once
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["file", "delete", "-r=base", "file", "dir", "glob:*.txt"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: zsuskuln ea53444d child | child
@@ -106,7 +106,7 @@ fn test_file_delete() {
     Added 0 files, modified 0 files, removed 5 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=base"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=base"]), @"
     keep
     [EOF]
     ");
@@ -114,7 +114,7 @@ fn test_file_delete() {
     // Unmatched paths are reported, but matched paths are still deleted
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["file", "delete", "-r=base", "file", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Rebased 1 descendant commits.
@@ -123,7 +123,7 @@ fn test_file_delete() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=base"]).normalize_backslash(), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=base"]).normalize_backslash(), @"
     data.txt
     dir/a
     dir/b
@@ -136,7 +136,7 @@ fn test_file_delete() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let opid = work_dir.current_operation_id();
     let output = work_dir.run_jj(["file", "delete", "-r=base", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Nothing changed.
@@ -159,7 +159,7 @@ fn test_file_delete_conflict() {
 
     // Deleting a conflicted file removes the conflict
     let output = work_dir.run_jj(["file", "delete", "-r=conflict", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: znkkpsqq 59c14e97 (empty) (no description set)

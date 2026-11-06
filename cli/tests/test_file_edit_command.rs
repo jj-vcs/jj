@@ -45,7 +45,7 @@ fn test_file_edit() -> TestResult {
     // saved back to the revision, and descendants are rebased.
     std::fs::write(&edit_script, "expect\nbase\n\0write\nmodified\n")?;
     let output = work_dir.run_jj(["file", "edit", "-r=base", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: mzvwutvl d2c70bd0 child | child
@@ -53,11 +53,11 @@ fn test_file_edit() -> TestResult {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "file"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "file"]), @"
     modified
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=child", "file"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=child", "file"]), @"
     modified
     [EOF]
     ");
@@ -66,18 +66,18 @@ fn test_file_edit() -> TestResult {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write\nmodified\n")?;
     let output = work_dir.run_jj(["file", "edit", "-r=base", "--restore-descendants", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits (while preserving their content).
     Working copy  (@) now at: mzvwutvl 960b31ff child | child
     Parent commit (@-)      : rlvkpnrz 0f101435 base | base
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "file"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "file"]), @"
     modified
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=child", "file"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=child", "file"]), @"
     base
     [EOF]
     ");
@@ -86,14 +86,14 @@ fn test_file_edit() -> TestResult {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write\nedited\n")?;
     let output = work_dir.run_jj(["file", "edit", "other"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 5501cad3 child | child
     Parent commit (@-)      : rlvkpnrz 75eae605 base | base
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "other"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "other"]), @"
     edited
     [EOF]
     ");
@@ -124,7 +124,7 @@ fn test_file_edit() -> TestResult {
     let opid = work_dir.current_operation_id();
     std::fs::write(&edit_script, "")?;
     let output = work_dir.run_jj(["file", "edit", "-r=base", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -135,7 +135,7 @@ fn test_file_edit() -> TestResult {
     // saves it
     std::fs::write(&edit_script, "write\nbrand new\n")?;
     let output = work_dir.run_jj(["file", "edit", "-r=base", "new_file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: mzvwutvl 4f72c7df child | child
@@ -143,7 +143,7 @@ fn test_file_edit() -> TestResult {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "new_file"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "new_file"]), @"
     brand new
     [EOF]
     ");
@@ -153,7 +153,7 @@ fn test_file_edit() -> TestResult {
     let opid = work_dir.current_operation_id();
     std::fs::write(&edit_script, "")?;
     let output = work_dir.run_jj(["file", "edit", "-r=base", "new_file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -162,7 +162,7 @@ fn test_file_edit() -> TestResult {
 
     // Directories can't be edited
     let output = work_dir.run_jj(["file", "edit", "-r=base", "dir"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Path is a directory: dir
     [EOF]
@@ -179,7 +179,7 @@ fn test_file_edit() -> TestResult {
             (r"exit code", "exit status"),
         ]
     }, {
-        insta::assert_snapshot!(output.normalize_backslash(), @r"
+        insta::assert_snapshot!(output.normalize_backslash(), @"
         ------- stderr -------
         Error: Failed to edit file
         Caused by: Editor '<redacted>' exited with exit status: 1
@@ -210,7 +210,7 @@ fn test_file_edit_conflict() -> TestResult {
     // Nothing happens if the conflict is left unchanged.
     std::fs::write(&edit_script, "dump conflict_dump")?;
     let output = work_dir.run_jj(["file", "edit", "-r=conflict", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -229,7 +229,7 @@ fn test_file_edit_conflict() -> TestResult {
         format!("write\n{}", dumped.replace("left\n", "new-left\n")),
     )?;
     let output = work_dir.run_jj(["file", "edit", "-r=conflict", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: znkkpsqq 89dab22f (conflict) (empty) (no description set)
@@ -263,7 +263,7 @@ fn test_file_edit_conflict() -> TestResult {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write\nresolved\n")?;
     let output = work_dir.run_jj(["file", "edit", "-r=conflict", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: znkkpsqq f88712e9 (empty) (no description set)

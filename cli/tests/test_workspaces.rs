@@ -1753,7 +1753,7 @@ fn test_workspaces_remove_removes_directory() {
     assert!(!test_env.env_root().join("secondary").exists());
 
     let output = main_dir.run_jj(["log", "--limit", "3"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 504e3d8c
     │  (empty) (no description set)
     │ ○  pmmvwywv test.user@example.com 2001-02-03 08:05:10 0464fb03
@@ -1761,7 +1761,7 @@ fn test_workspaces_remove_removes_directory() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 7b22a8cb
     │  initial
     [EOF]
-    "#);
+    ");
 
     main_dir
         .run_jj(["workspace", "add", "../secondary"])
@@ -1926,14 +1926,14 @@ fn test_workspaces_remove_requires_writable_working_copy() {
     secondary_dir.write_file("unsnapshotted.txt", "important data");
 
     let output = main_dir.run_jj(["--ignore-working-copy", "workspace", "remove", "secondary"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: This command must be able to update the working copy.
     Hint: Don't use --ignore-working-copy.
     Hint: Use `jj workspace forget` to stop tracking a workspace without deleting files.
     [EOF]
     [exit status: 1]
-    "#);
+    ");
     assert!(
         test_env
             .env_root()
@@ -1942,14 +1942,14 @@ fn test_workspaces_remove_requires_writable_working_copy() {
     );
 
     let output = main_dir.run_jj(["--at-op=@-", "workspace", "remove", "secondary"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: This command must be able to update the working copy.
     Hint: Don't use --at-op.
     Hint: Use `jj workspace forget` to stop tracking a workspace without deleting files.
     [EOF]
     [exit status: 1]
-    "#);
+    ");
     assert!(
         test_env
             .env_root()
@@ -1963,14 +1963,14 @@ fn test_workspaces_remove_requires_writable_working_copy() {
         "remove",
         "secondary",
     ]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: This command must be able to update the working copy.
     Hint: Don't use --no-integrate-operation.
     Hint: Use `jj workspace forget` to stop tracking a workspace without deleting files.
     [EOF]
     [exit status: 1]
-    "#);
+    ");
     assert!(
         test_env
             .env_root()
@@ -1986,12 +1986,12 @@ fn test_workspaces_remove_refuses_main_workspace() {
     let main_dir = test_env.work_dir("main");
 
     let output = main_dir.run_jj(["workspace", "remove", "default"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Cannot remove workspace 'default' because it contains the repository
     [EOF]
     [exit status: 1]
-    "#);
+    ");
     assert!(test_env.env_root().join("main/.jj/repo").is_dir());
 }
 
@@ -2014,13 +2014,13 @@ fn test_workspaces_remove_refuses_foreign_repository() {
         .success();
 
     let output = main_dir.run_jj(["workspace", "remove", "secondary"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Cannot remove workspace 'secondary' because it belongs to another repository
     Hint: Use `jj workspace forget` to stop tracking a workspace without deleting files.
     [EOF]
     [exit status: 1]
-    "#);
+    ");
     assert!(test_env.env_root().join("secondary/.jj").is_dir());
 }
 
@@ -2388,12 +2388,12 @@ fn test_workspaces_remove_undo_readd() {
 
     // Removing a workspace deletes its store path, so undo cannot restore it.
     let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Workspace has no recorded path: secondary
     [EOF]
     [exit status: 1]
-    "#);
+    ");
 
     main_dir
         .run_jj(["workspace", "forget", "secondary"])
@@ -2404,10 +2404,10 @@ fn test_workspaces_remove_undo_readd() {
     assert!(test_env.env_root().join("secondary").is_dir());
 
     let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     $TEST_ENV/secondary
     [EOF]
-    "#);
+    ");
 }
 
 #[test]
