@@ -574,14 +574,14 @@ impl CommandHelper {
             base_env.reload_revset_expressions(&mut WorkspaceEnvironmentDiagnostics::new())?;
         }
         let may_snapshot_working_copy = self.is_working_copy_writable();
-        WorkspaceCommandHelper::new(
-            ui,
+        let runner = WorkspaceOperationRunner::new(
             workspace,
             repo,
-            env,
+            env.base.clone(),
             self.runner_options(),
             may_snapshot_working_copy,
-        )
+        );
+        WorkspaceCommandHelper::new(ui, runner, env)
     }
 
     pub fn get_working_copy_factory(&self) -> Result<&dyn WorkingCopyFactory, CommandError> {
@@ -657,14 +657,14 @@ impl CommandHelper {
                 let repo = workspace.load_at(&op).await?;
                 let options = self.runner_options();
                 let may_snapshot_working_copy = !options.ignore_working_copy;
-                let mut workspace_command = WorkspaceCommandHelper::new(
-                    ui,
+                let runner = WorkspaceOperationRunner::new(
                     workspace,
                     repo,
-                    env,
+                    env.base.clone(),
                     options,
                     may_snapshot_working_copy,
-                )?;
+                );
+                let mut workspace_command = WorkspaceCommandHelper::new(ui, runner, env)?;
                 workspace_command.check_working_copy_writable()?;
                 let snapshot_config = workspace_command.load_snapshot_config(ui)?;
 
@@ -890,7 +890,14 @@ impl CommandHelper {
         // the specified operation.
         let options = self.runner_options();
         let may_snapshot_working_copy = !options.ignore_working_copy;
-        WorkspaceCommandHelper::new(ui, workspace, repo, env, options, may_snapshot_working_copy)
+        let runner = WorkspaceOperationRunner::new(
+            workspace,
+            repo,
+            env.base.clone(),
+            options,
+            may_snapshot_working_copy,
+        );
+        WorkspaceCommandHelper::new(ui, runner, env)
     }
 }
 
@@ -2081,19 +2088,9 @@ impl WorkspaceCommandHelper {
     #[instrument(skip_all)]
     fn new(
         ui: &Ui,
-        workspace: Workspace,
-        repo: Arc<ReadonlyRepo>,
+        runner: WorkspaceOperationRunner,
         env: WorkspaceCommandEnvironment,
-        options: RunnerOptions,
-        may_snapshot_working_copy: bool,
     ) -> Result<Self, CommandError> {
-        let runner = WorkspaceOperationRunner::new(
-            workspace,
-            repo,
-            env.base.clone(),
-            options,
-            may_snapshot_working_copy,
-        );
         let helper = Self { runner, env };
         // Parse commit_summary template early to report error before starting
         // mutable operation.
