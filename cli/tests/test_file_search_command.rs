@@ -148,10 +148,7 @@ fn test_file_search() {
         "--pattern=hit",
         "binfile",
     ]);
-    insta::assert_snapshot!(output.normalize_backslash(), @"
-    binfile:hit\0hit
-    [EOF]
-    ");
+    insta::assert_snapshot!(output.normalize_backslash(), @"binfile:hit\0hit\n[EOF]");
     // --skip-binary skips the file entirely.
     let output = work_dir.run_jj([
         "file",
@@ -170,7 +167,7 @@ fn test_file_search() {
         "--pattern=hit",
         "binfile",
     ]);
-    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
     error: the argument '--binary-as-text' cannot be used with '--skip-binary'
 

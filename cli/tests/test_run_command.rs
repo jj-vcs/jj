@@ -2134,7 +2134,7 @@ fn test_run_sparse() {
     work_dir.run_jj(&["commit", "-m", "B"]).success();
     work_dir.write_file("c", "");
     work_dir.run_jj(&["commit", "-m", "C"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  zsuskulnrvyrovkzqrwmxqlsskqntxvp
     ○  kkmpptxzrspxrzommnulwmwkkqwworplC
     │
@@ -2149,18 +2149,18 @@ fn test_run_sparse() {
         .run_jj(&["run", "-r", "..@", "--", "ls"])
         .success()
         .stdout;
-    insta::assert_snapshot!(stdout, @r"
-        a
-        a
-        b
-        a
-        b
-        c
-        a
-        b
-        c
-        [EOF]
-        ");
+    insta::assert_snapshot!(stdout, @"
+    a
+    a
+    b
+    a
+    b
+    c
+    a
+    b
+    c
+    [EOF]
+    ");
 
     work_dir
         .run_jj(&["sparse", "set", "--clear", "--add", "a", "--add", "b"])
@@ -2170,31 +2170,31 @@ fn test_run_sparse() {
         .run_jj(&["run", "-r", "..@", "--", "ls"])
         .success()
         .stdout;
-    insta::assert_snapshot!(stdout, @r"
-        a
-        a
-        b
-        a
-        b
-        a
-        b
-        [EOF]
-        ");
+    insta::assert_snapshot!(stdout, @"
+    a
+    a
+    b
+    a
+    b
+    a
+    b
+    [EOF]
+    ");
 
     let stdout = work_dir
         .run_jj(&["run", "-r", "..@", "--sparse-patterns", "copy", "--", "ls"])
         .success()
         .stdout;
-    insta::assert_snapshot!(stdout, @r"
-        a
-        a
-        b
-        a
-        b
-        a
-        b
-        [EOF]
-        ");
+    insta::assert_snapshot!(stdout, @"
+    a
+    a
+    b
+    a
+    b
+    a
+    b
+    [EOF]
+    ");
 
     let stdout = work_dir
         .run_jj(&["run", "-r", "..@", "--sparse-patterns", "empty", "--", "ls"])
@@ -2206,16 +2206,16 @@ fn test_run_sparse() {
         .run_jj(&["run", "-r", "..@", "--sparse-patterns", "full", "--", "ls"])
         .success()
         .stdout;
-    insta::assert_snapshot!(stdout, @r"
-        a
-        a
-        b
-        a
-        b
-        c
-        a
-        b
-        c
-        [EOF]
-        ");
+    insta::assert_snapshot!(stdout, @"
+    a
+    a
+    b
+    a
+    b
+    c
+    a
+    b
+    c
+    [EOF]
+    ");
 }
