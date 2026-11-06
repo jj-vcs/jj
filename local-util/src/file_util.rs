@@ -24,6 +24,7 @@ use std::io::Write;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use futures::AsyncRead;
 use futures::AsyncReadExt as _;
@@ -36,6 +37,7 @@ pub use self::platform::check_executable_bit_support;
 pub use self::platform::check_symlink_support;
 pub use self::platform::symlink_dir;
 pub use self::platform::symlink_file;
+use crate::lock::backoff::BackoffIterator;
 
 /// An error which can occur when accessing paths.
 #[derive(Debug, Error)]
@@ -275,15 +277,44 @@ pub fn new_temp_file_for_replacement(
 /// lost. It's up to caller to synchronize the directory entries.
 ///
 /// See also <https://lwn.net/Articles/457667/> for the behavior on Linux.
+///
+/// On Windows, replacing the target fails while another process has it open
+/// without `FILE_SHARE_DELETE` (which is how `std::fs` opens files). Since
+/// readers typically hold the file open only briefly, the rename is retried
+/// with backoff for up to about 2 seconds in that case.
 pub fn persist_temp_file<P: AsRef<Path>>(
-    temp_file: NamedTempFile,
+    mut temp_file: NamedTempFile,
     new_path: P,
 ) -> io::Result<File> {
     // Ensure persisted file content is flushed to disk.
     temp_file.as_file().sync_data()?;
-    temp_file
-        .persist(new_path)
-        .map_err(|PersistError { error, file: _ }| error)
+    let new_path = new_path.as_ref();
+    let mut retry_delays = BackoffIterator::with_max_elapsed(Duration::from_secs(2));
+    loop {
+        match temp_file.persist(new_path) {
+            Ok(file) => return Ok(file),
+            Err(PersistError { error, file }) => {
+                if is_transient_persist_error(&error)
+                    && let Some(delay) = retry_delays.next()
+                {
+                    std::thread::sleep(delay);
+                    temp_file = file;
+                } else {
+                    return Err(error);
+                }
+            }
+        }
+    }
+}
+
+/// Returns true if the error from replacing a file may go away once other
+/// processes close the source or target file.
+fn is_transient_persist_error(error: &io::Error) -> bool {
+    // ERROR_SHARING_VIOLATION isn't mapped to any `ErrorKind`.
+    const ERROR_SHARING_VIOLATION: i32 = 32;
+    cfg!(windows)
+        && (error.kind() == ErrorKind::PermissionDenied
+            || error.raw_os_error() == Some(ERROR_SHARING_VIOLATION))
 }
 
 /// Like [`persist_temp_file()`], but doesn't try to overwrite the existing
@@ -808,6 +839,26 @@ mod tests {
         let mut temp_file = NamedTempFile::new_in(&temp_dir)?;
         temp_file.write_all(b"contents")?;
         assert!(persist_content_addressed_temp_file(temp_file, target).is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_persist_temp_file_target_open_briefly() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let target = temp_dir.path().join("file");
+        fs::write(&target, b"old")?;
+        let mut temp_file = NamedTempFile::new_in(&temp_dir)?;
+        temp_file.write_all(b"new")?;
+
+        // On Windows, an open file can't be replaced until it's closed.
+        let reader = File::open(&target)?;
+        let reader_thread = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            drop(reader);
+        });
+        persist_temp_file(temp_file, &target)?;
+        reader_thread.join().unwrap();
+        assert_eq!(fs::read(&target)?, b"new");
         Ok(())
     }
 

@@ -18,6 +18,9 @@ and this project adheres to
 
 ### Fixed bugs
 
+* On Windows, commands no longer fail with "Access is denied" when writing
+  working-copy state while another jj process is reading it.
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0

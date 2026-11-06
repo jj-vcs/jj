@@ -17,14 +17,22 @@ use std::time::Duration;
 pub struct BackoffIterator {
     next_sleep_secs: f32,
     elapsed_secs: f32,
+    max_elapsed_secs: f32,
 }
 
 impl BackoffIterator {
     #[cfg_attr(unix, expect(dead_code))]
     pub fn new() -> Self {
+        Self::with_max_elapsed(Duration::from_secs(10))
+    }
+
+    /// Creates an iterator that stops yielding delays once their sum reaches
+    /// `max_elapsed`.
+    pub fn with_max_elapsed(max_elapsed: Duration) -> Self {
         Self {
             next_sleep_secs: 0.001,
             elapsed_secs: 0.0,
+            max_elapsed_secs: max_elapsed.as_secs_f32(),
         }
     }
 }
@@ -33,7 +41,7 @@ impl Iterator for BackoffIterator {
     type Item = Duration;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.elapsed_secs >= 10.0 {
+        if self.elapsed_secs >= self.max_elapsed_secs {
             None
         } else {
             let current_sleep = self.next_sleep_secs * (rand::random::<f32>() + 0.5);
