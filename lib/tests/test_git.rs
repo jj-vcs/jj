@@ -7714,6 +7714,13 @@ fn test_set_remote_urls() -> TestResult {
         Some("https://example.com/repo/path3"),
         Some("git@example.com:repo/path3"),
     );
+
+    // test setting no urls on a nonexistent remote
+
+    assert_matches!(
+        git::set_remote_urls(repo.store(), "nonexistent".as_ref(), None, None),
+        Err(git::GitRemoteManagementError::NoSuchRemote(_))
+    );
     Ok(())
 }
 

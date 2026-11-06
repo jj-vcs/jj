@@ -3046,11 +3046,6 @@ pub fn set_remote_urls(
     new_url: Option<&str>,
     new_push_url: Option<&str>,
 ) -> Result<(), GitRemoteManagementError> {
-    // quick sanity check
-    if new_url.is_none() && new_push_url.is_none() {
-        return Ok(());
-    }
-
     let git_repo = get_git_repo(store)?;
 
     validate_remote_name(remote_name)?;
@@ -3061,6 +3056,10 @@ pub fn set_remote_urls(
         ));
     };
     let mut remote = result?;
+
+    if new_url.is_none() && new_push_url.is_none() {
+        return Ok(());
+    }
 
     if let Some(url) = new_url {
         remote = remote.with_url(url)?;
