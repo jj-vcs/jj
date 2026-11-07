@@ -401,7 +401,10 @@ Some ready-to-use trailer templates are available for frequently used trailers:
 * `format_signed_off_by_trailer(commit)` creates a "Signed-off-by" trailer
   using the committer info.
 * `format_gerrit_change_id_trailer(commit)` creates a "Change-Id" trailer
-  suitable to be used with Gerrit. It is based Jujutsu's change id.
+  suitable to be used with Gerrit. It is based on Jujutsu's change ID. See the
+  [Gerrit docs](gerrit.md#change-id-management).
+* `format_gerrit_link_trailer(commit)` creates a "Link" trailer suitable to be
+  used with Gerrit. See the [Gerrit docs](gerrit.md#alternative-link-trailer).
 
 Existing trailers are also accessible via `commit.trailers()`.
 
