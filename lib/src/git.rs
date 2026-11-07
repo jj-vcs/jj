@@ -87,6 +87,7 @@ use tempfile::TempDir;
 use thiserror::Error;
 
 use crate::config::ConfigGetError;
+use crate::config::ConfigGetResultExt as _;
 use crate::git_subprocess::GitFetchStatus;
 pub use crate::git_subprocess::GitProgress;
 pub use crate::git_subprocess::GitSidebandLineTerminator;
@@ -130,6 +131,9 @@ pub struct GitSettings {
     pub record_synthetic_predecessors: bool,
     /// Whether to store the change ID in a header of Git commit objects.
     pub write_change_id_header: bool,
+    /// `.gitattributes` filter values whose matching files are skipped during
+    /// snapshot.
+    pub ignore_filters: Vec<String>,
 }
 
 impl GitSettings {
@@ -141,6 +145,10 @@ impl GitSettings {
             record_synthetic_predecessors: settings
                 .get_bool("git.record-synthetic-predecessors")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
+            ignore_filters: settings
+                .get("git.ignore-filters")
+                .optional()?
+                .unwrap_or_else(|| vec!["lfs".to_string()]),
         })
     }
 
