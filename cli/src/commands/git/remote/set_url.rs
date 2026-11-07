@@ -25,9 +25,13 @@ use crate::ui::Ui;
 
 /// Set the URL of a Git remote
 #[derive(clap::Args, Clone, Debug)]
+// Dummy group to show <REMOTE> <URL> in that order:
+// https://github.com/clap-rs/clap/issues/5625#issuecomment-2688535047
+#[command(group(clap::ArgGroup::new("target_remote").required(true)))]
+#[command(group(clap::ArgGroup::new("new_url").multiple(true).required(true)))]
 pub struct GitRemoteSetUrlArgs {
     /// The remote's name
-    #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
+    #[arg(group = "target_remote", add = ArgValueCandidates::new(complete::git_remotes))]
     remote: RemoteNameBuf,
 
     /// The URL or path to fetch from
@@ -35,19 +39,19 @@ pub struct GitRemoteSetUrlArgs {
     /// This is a short form, equivalent to using the explicit --fetch.
     ///
     /// Local path will be resolved to absolute form.
-    #[arg(value_hint = clap::ValueHint::Url)]
+    #[arg(group = "new_url", value_hint = clap::ValueHint::Url)]
     url: Option<String>,
 
     /// The URL or path to push to
     ///
     /// Local path will be resolved to absolute form.
-    #[arg(long, value_hint = clap::ValueHint::Url)]
+    #[arg(long, group = "new_url", value_hint = clap::ValueHint::Url)]
     push: Option<String>,
 
     /// The URL or path to fetch from
     ///
     /// Local path will be resolved to absolute form.
-    #[arg(long, value_hint = clap::ValueHint::Url, conflicts_with = "url")]
+    #[arg(long, group = "new_url", value_hint = clap::ValueHint::Url, conflicts_with = "url")]
     fetch: Option<String>,
 }
 
