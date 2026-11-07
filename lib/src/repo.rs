@@ -1246,7 +1246,15 @@ impl MutableRepo {
                 }
                 dependents
             },
-            |_| panic!("graph has cycle"),
+            |commit| {
+                BackendError::Other(
+                    format!(
+                        "Cycle between rewritten commits involving commit {}",
+                        commit.id()
+                    )
+                    .into(),
+                )
+            },
         )
         .await
     }
