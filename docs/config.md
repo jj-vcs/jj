@@ -817,13 +817,13 @@ Can be customized by the `format_short_id()` template alias.
 
 ```toml
 [template-aliases]
-# Highlight unique prefix and show at least 12 characters (default)
+# Highlight unique prefix and show at least 12 characters (default config uses 8).
 'format_short_id(id)' = 'id.shortest(12)'
-# Just the shortest possible unique prefix
+# Just the shortest possible unique prefix.
 'format_short_id(id)' = 'id.shortest()'
-# Show unique prefix and the rest surrounded by brackets
+# Show unique prefix and the rest of a 12-character prefix surrounded by brackets.
 'format_short_id(id)' = 'id.shortest(12).prefix() ++ "[" ++ id.shortest(12).rest() ++ "]"'
-# Always show 12 characters
+# Always show 12 characters without highlighting the unique prefix.
 'format_short_id(id)' = 'id.short(12)'
 ```
 
