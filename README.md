@@ -4,10 +4,10 @@
 
 <p><img title="jj logo" src="docs/images/jj-logo.svg" width="320" height="320"></p>
 
-[![Release](https://img.shields.io/github/v/release/martinvonz/jj)](https://github.com/jj-vcs/jj/releases)
-[![Release date](https://img.shields.io/github/release-date/martinvonz/jj)](https://github.com/jj-vcs/jj/releases)
+[![Release](https://img.shields.io/github/v/release/jj-vcs/jj)](https://github.com/jj-vcs/jj/releases)
+[![Release date](https://img.shields.io/github/release-date/jj-vcs/jj)](https://github.com/jj-vcs/jj/releases)
 <br/>
-[![License](https://img.shields.io/github/license/martinvonz/jj)](https://github.com/jj-vcs/jj/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/jj-vcs/jj)](https://github.com/jj-vcs/jj/blob/main/LICENSE)
 [![Discord](https://img.shields.io/discord/968932220549103686.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/dkmfj3aGQN)
 [![IRC](https://img.shields.io/badge/irc-%23jujutsu-blue.svg)](https://web.libera.chat/?channel=#jujutsu)
 
@@ -213,9 +213,9 @@ the header of the website when you scroll to the top of any page.
 
 ### Compatible with Git
 
-Jujutsu is designed so that the underlying data and storage model is abstract.
-Today, only the Git backend is production-ready. The Git backend uses the
-[gitoxide](https://github.com/Byron/gitoxide) Rust library.
+Jujutsu is designed so that the underlying data and storage model is abstracted
+through [backends]. Today, only the Git backend is production-ready. The Git
+backend uses the [gitoxide](https://github.com/Byron/gitoxide) Rust library.
 
 [backends]: https://docs.jj-vcs.dev/latest/glossary#backend
 
@@ -252,18 +252,18 @@ changes.
 With Jujutsu, the working copy plays a smaller role than with Git. Commands
 snapshot the working copy before they start, then they update the repo, and then
 the working copy is updated (if the working-copy commit was modified). Almost
-all commands (even checkout!) operate on the commits in the repo, leaving the
-common functionality of snapshotting and updating of the working copy to
-centralized code. For example, `jj restore` (similar to `git restore`) can
-restore from any commit and into any commit, and `jj describe` can set the
-commit message of any commit (defaults to the working-copy commit).
+all commands operate on the commits in the repo, leaving the common
+functionality of snapshotting and updating of the working copy to centralized
+code. For example, `jj restore` (similar to `git restore`) can restore from any
+commit and into any commit, and `jj describe` can set the commit message of any
+commit (defaults to the working-copy commit).
 
 ### Entire repo is under version control
 
 All operations you perform in the repo are recorded, along with a snapshot of
 the repo state after the operation. This means that you can easily restore to
-an earlier repo state, simply undo your operations one-by-one or even _revert_ a
-particular operation which does not have to be the most recent one.
+an earlier repo state, simply undo your operations one-by-one, or even _revert_
+a particular operation (which does not have to be the most recent one).
 
 <img src="demos/operation_log.png" />
 
@@ -343,11 +343,11 @@ for contributors. The broad TL;DR:
 
 ### Mandatory Google Disclaimer
 
-I (Martin von Zweigbergk, <martinvonz@google.com>) started Jujutsu as a hobby
-project in late 2019, and it has evolved into my full-time project at Google,
-with several other Googlers (now) assisting development in various capacities.
-That said, while Google is one of the main contributors, **this is not a
-supported Google product**, i.e. support is provided by the community.
+I (Martin von Zweigbergk, <https://github.com/martinvonz>) started Jujutsu as a
+hobby project in late 2019, and it has evolved into a full-time project at
+Google, with several other Googlers (now) assisting development in various
+capacities. That said, while Google is one of the main contributors, **this is
+not a supported Google product**, i.e. support is provided by the community.
 
 ## License
 
