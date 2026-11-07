@@ -66,6 +66,7 @@ use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
+use crate::working_copy::ResetError;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
@@ -83,6 +84,8 @@ pub enum WorkspaceInitError {
     #[error(transparent)]
     CheckOutCommit(#[from] CheckOutCommitError),
     /// Error from the working copy state.
+    #[error(transparent)]
+    AdoptWorkingCopy(#[from] ResetError),
     #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
     /// Error from a file system operation.
@@ -155,7 +158,10 @@ fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
 }
 
 /// Adds the workspace to the repo view and initializes its working copy. The
-/// operation is attributed to `operation_workspace_name` if given.
+/// operation is attributed to `operation_workspace_name` if given. If
+/// `wc_commit` is given, it becomes the workspace's working-copy commit and the
+/// working copy adopts the files already on disk. Otherwise, a new
+/// working-copy commit is created on top of the root commit.
 async fn init_working_copy(
     repo: &Arc<ReadonlyRepo>,
     workspace_root: &Path,
@@ -163,6 +169,7 @@ async fn init_working_copy(
     working_copy_factory: &dyn WorkingCopyFactory,
     workspace_name: WorkspaceNameBuf,
     operation_workspace_name: Option<&WorkspaceName>,
+    wc_commit: Option<&Commit>,
 ) -> Result<(Box<dyn WorkingCopy>, Arc<ReadonlyRepo>), WorkspaceInitError> {
     let working_copy_state_path = jj_dir.join("working_copy");
     std::fs::create_dir(&working_copy_state_path).context(&working_copy_state_path)?;
@@ -171,21 +178,42 @@ async fn init_working_copy(
     if let Some(operation_workspace_name) = operation_workspace_name {
         tx.set_workspace_name(operation_workspace_name);
     }
-    tx.repo_mut()
-        .check_out(workspace_name.clone(), &repo.store().root_commit())
-        .await?;
-    let repo = tx
-        .commit(format!("add workspace '{}'", workspace_name.as_symbol()))
-        .await?;
-
-    let working_copy = working_copy_factory.init_working_copy(
-        repo.store().clone(),
-        workspace_root.to_path_buf(),
-        working_copy_state_path.clone(),
-        repo.op_id().clone(),
-        workspace_name,
-        repo.settings(),
-    )?;
+    let operation_description = format!("add workspace '{}'", workspace_name.as_symbol());
+    let (working_copy, repo) = if let Some(wc_commit) = wc_commit {
+        tx.repo_mut()
+            .edit(workspace_name.clone(), wc_commit)
+            .await
+            .map_err(CheckOutCommitError::from)?;
+        // Adopt the files before committing the operation so the workspace
+        // isn't added to the view if the working copy doesn't support it.
+        let working_copy = working_copy_factory.init_working_copy(
+            repo.store().clone(),
+            workspace_root.to_path_buf(),
+            working_copy_state_path.clone(),
+            repo.op_id().clone(),
+            workspace_name,
+            repo.settings(),
+        )?;
+        let mut locked_wc = working_copy.start_mutation().await?;
+        locked_wc.adopt(wc_commit).await?;
+        let repo = tx.commit(operation_description).await?;
+        let working_copy = locked_wc.finish(repo.op_id().clone()).await?;
+        (working_copy, repo)
+    } else {
+        tx.repo_mut()
+            .check_out(workspace_name.clone(), &repo.store().root_commit())
+            .await?;
+        let repo = tx.commit(operation_description).await?;
+        let working_copy = working_copy_factory.init_working_copy(
+            repo.store().clone(),
+            workspace_root.to_path_buf(),
+            working_copy_state_path.clone(),
+            repo.op_id().clone(),
+            workspace_name,
+            repo.settings(),
+        )?;
+        (working_copy, repo)
+    };
     let working_copy_type_path = working_copy_state_path.join("type");
     fs::write(&working_copy_type_path, working_copy.name()).context(&working_copy_type_path)?;
     Ok((working_copy, repo))
@@ -413,6 +441,7 @@ impl Workspace {
                 working_copy_factory,
                 workspace_name.to_owned(),
                 None,
+                None,
             )
             .await?;
             let repo_loader = repo.loader().clone();
@@ -464,6 +493,59 @@ impl Workspace {
         workspace_name: WorkspaceNameBuf,
         operation_workspace_name: Option<&WorkspaceName>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
+        Self::init_workspace_with_existing_repo_impl(
+            workspace_root,
+            repo_path,
+            repo,
+            working_copy_factory,
+            workspace_name,
+            operation_workspace_name,
+            None,
+        )
+        .await
+    }
+
+    /// Like [`Self::init_workspace_with_existing_repo()`], but makes
+    /// `wc_commit` the new workspace's working-copy commit and adopts the files
+    /// already in `workspace_root` without touching them (see
+    /// [`LockedWorkingCopy::adopt()`]). This is useful for a directory that
+    /// already contains the files, such as a copy-on-write clone of another
+    /// workspace. Any differences between the files on disk and `wc_commit`
+    /// will show up as changes in the working copy when it's next snapshotted.
+    ///
+    /// If the working copy doesn't support adopting files, this fails with
+    /// [`ResetError::AdoptNotSupported`] before the workspace is added to the
+    /// view.
+    pub async fn adopt_workspace_with_existing_repo(
+        workspace_root: &Path,
+        repo_path: &Path,
+        repo: &Arc<ReadonlyRepo>,
+        working_copy_factory: &dyn WorkingCopyFactory,
+        workspace_name: WorkspaceNameBuf,
+        operation_workspace_name: Option<&WorkspaceName>,
+        wc_commit: &Commit,
+    ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
+        Self::init_workspace_with_existing_repo_impl(
+            workspace_root,
+            repo_path,
+            repo,
+            working_copy_factory,
+            workspace_name,
+            operation_workspace_name,
+            Some(wc_commit),
+        )
+        .await
+    }
+
+    async fn init_workspace_with_existing_repo_impl(
+        workspace_root: &Path,
+        repo_path: &Path,
+        repo: &Arc<ReadonlyRepo>,
+        working_copy_factory: &dyn WorkingCopyFactory,
+        workspace_name: WorkspaceNameBuf,
+        operation_workspace_name: Option<&WorkspaceName>,
+        wc_commit: Option<&Commit>,
+    ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
 
         let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
@@ -487,6 +569,7 @@ impl Workspace {
             working_copy_factory,
             workspace_name,
             operation_workspace_name,
+            wc_commit,
         )
         .await?;
         let workspace = Self::new(
