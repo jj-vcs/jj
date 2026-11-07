@@ -416,6 +416,55 @@ impl RepoPath {
         RepoPathComponentsIter { value: &self.value }
     }
 
+    /// Returns whether this path contains a component that Windows can't represent.
+    pub fn has_windows_unsupported_component(&self) -> bool {
+        self.components().any(|component| {
+            let name = component.as_internal_str();
+            if name
+                .chars()
+                .any(|c| c.is_control() || matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*'))
+                || name.ends_with([' ', '.'])
+            {
+                return true;
+            }
+            let stem = name.split('.').next().unwrap_or("");
+            ["CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"]
+                .iter()
+                .any(|reserved| stem.eq_ignore_ascii_case(reserved))
+                || ["COM", "LPT"].iter().any(|prefix| {
+                    stem.get(..3)
+                        .is_some_and(|stem_prefix| stem_prefix.eq_ignore_ascii_case(prefix))
+                        && matches!(
+                            stem.get(3..),
+                            Some(
+                                "1" | "2"
+                                    | "3"
+                                    | "4"
+                                    | "5"
+                                    | "6"
+                                    | "7"
+                                    | "8"
+                                    | "9"
+                                    | "¹"
+                                    | "²"
+                                    | "³"
+                            )
+                        )
+                })
+        })
+    }
+
+    /// Returns whether a component can alias a reserved working-copy directory
+    /// after Windows removes trailing dots and spaces.
+    pub fn has_windows_reserved_dir_alias(&self) -> bool {
+        self.components().any(|component| {
+            let name = component.as_internal_str().trim_end_matches([' ', '.']);
+            [".git", ".jj"]
+                .iter()
+                .any(|reserved| name.eq_ignore_ascii_case(reserved))
+        })
+    }
+
     /// Iterator over the path's ancestors, with children before parents.
     ///
     /// For example, `RepoPath::from_internal_string("a/b/c")?.ancestors()`
