@@ -45,18 +45,24 @@ Examples of `-r` and `-s`:
 
 ### Specifying destinations
 
-Commands that move revisions around also need to specify the destinations.
+Commands that move revisions around or create revisions also need to specify the
+destination.
 
 - `--onto REV` (`-o REV`) places revisions as children of `REV`.
-- `--insert-after REV` (`-A REV`) inserts revisions as children of `REV` and parents of `REV+`.
-- `--insert-before REV` (`-B REV`) inserts revisions as the children of `REV-` and parents of `REV`.
+- `--insert-after REV` (`-A REV`) inserts revisions as children of `REV` and
+  parents of `REV+`.
+- `--insert-before REV` (`-B REV`) inserts revisions as children of `REV-` and
+  parents of `REV`.
 
 Examples:
 
 - `jj rebase -r REV -o main` rebases revisions in `REV` as children of `main`.
-- `jj rebase -r REV -B yyy` inserts revisions `REV` between `yyy` and its parents.
-- `jj rebase -r REV -A main -B yyy` inserts revisions `REV` between `main` and `yyy`.
-- `jj revert -r xyz -o main` creates a revision that reverts `xyz` then rebases it on top of `main`.
+- `jj rebase -r REV -B yyy` inserts revisions in `REV` between `yyy` and its
+  parents.
+- `jj rebase -r REV -A main -B yyy` inserts revisions in `REV` between `main`
+  and `yyy`.
+- `jj revert -r xyz -o main` creates a revision that reverts `xyz` then rebases
+  it on top of `main`.
 
 ## Manipulating diffs and file contents
 
@@ -103,8 +109,10 @@ command is so common that Jujutsu allows `jj new xyz`.
 The commands that allow omitting the `-r` are:
 
 - `jj abandon`
+- `jj arrange`
 - `jj describe`
 - `jj duplicate`
+- `jj edit`
 - `jj metaedit`
 - `jj new`
 - `jj parallelize`
