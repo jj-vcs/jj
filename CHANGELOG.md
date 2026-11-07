@@ -97,6 +97,10 @@ Thanks to the people who made this release happen!
 
 ### New features
 
+* `jj gerrit upload` will now automatically default to a remote branch
+  pointing directly to the immutable base commit of the uploaded revisions
+  if neither `--remote-branch` nor `gerrit.default-remote-branch` is specified.
+
 * `jj git push` with `git.sign-on-push` enabled now signs commits in a
   separate operation before the push, so commits stay signed if the push
   fails and a new push doesn't have to sign them again.
