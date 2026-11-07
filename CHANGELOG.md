@@ -139,6 +139,9 @@ Thanks to the people who made this release happen!
   stdout. Use `--binary-as-text` to force text treatment, or `--skip-binary` to
   skip binary files entirely.
 
+* The builtin diff now attempts to split changes into smaller hunks by falling
+  back to the longest common substring algorithm.
+
 ### Fixed bugs
 
 * `jj git push` no longer validates (e.g. for empty descriptions) commits that
