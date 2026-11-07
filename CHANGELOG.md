@@ -29,6 +29,9 @@ and this project adheres to
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
   changes from being exported to Git HEAD and refs.
 
+* Snapshotting new or changed files no longer serializes the Git object writes,
+  making the first `jj status` in a large working copy faster.
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0

@@ -565,8 +565,10 @@ impl GitBackend {
             .map_err(|err| to_read_object_err(err, tree_id))
     }
 
-    // Similar to gix's write_blob, but compute the hash outside our lock to
-    // reduce contention.
+    // Similar to gix's write_blob, but on a thread-local handle rather than
+    // under our lock, so that snapshotting in parallel checks for and writes
+    // blobs in parallel. Two threads may race to write the same blob; the
+    // second write replaces the first with the same contents.
     fn write_blob(
         &self,
         bytes: &[u8],
@@ -582,11 +584,11 @@ impl GitBackend {
             source: err.into(),
         })?;
 
-        let locked_repo = self.lock_git_repo();
-        if !locked_repo.objects.exists(&oid) {
+        let repo = self.git_repo();
+        if !repo.objects.exists(&oid) {
             // reuse the precomputed hash, since Gitoxide provides an API for it (otherwise
             // Gitoxide recomputes it).
-            let write_oid = locked_repo
+            let write_oid = repo
                 .objects
                 .write_buf_with_known_id(gix::objs::Kind::Blob, bytes, oid)
                 .map_err(|err| BackendError::WriteObject {
