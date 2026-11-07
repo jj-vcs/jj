@@ -655,6 +655,34 @@ edit = true
 You can pass the `--no-edit` flag to `prev` and `next` if you find yourself
 needing the original behavior.
 
+### Interactive prompts
+
+By default, `jj` may prompt for input on the terminal when an operation is
+ambiguous or requires confirmation (for example, choosing a target revision in
+`jj next` or `jj prev`, confirming deletion in `jj config gc`, or resolving
+divergence in `jj converge`).
+
+You can disable interactive terminal prompts by setting `ui.interactive` to
+`false`:
+
+```toml
+[ui]
+interactive = false
+```
+
+When `ui.interactive = false`, prompts with a default answer use that default
+automatically, and prompts without a default fail immediately instead of
+waiting on standard input. This is useful in scripts, CI, or coding agent
+environments that allocate a pseudo-terminal (PTY) where `jj` would otherwise
+detect a terminal and block waiting for input.
+
+Note that `ui.interactive` only controls terminal prompts; to avoid launching
+pagers or external editors in non-interactive environments, also configure
+[`ui.paginate = "never"`](#pager) and non-interactive tools for
+[`ui.editor`](#editor), [`ui.diff-editor`](#editing-diffs), and
+`ui.merge-editor`. You can scope these settings to specific environments using
+[`--when.environments`](#conditional-variables).
+
 ## List
 
 ### Default Template

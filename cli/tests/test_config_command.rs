@@ -2130,6 +2130,27 @@ fn test_config_gc_missing_default_no() -> TestResult {
     assert!(repo_config_dir.is_dir());
     assert!(workspace_config_dir.is_dir());
 
+    // `ui.interactive = false` also selects the default without prompting.
+    let output = test_env.work_dir("").run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["config", "gc", "--config=ui.interactive=false"])
+            .write_stdin("y\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Missing repo configs (repo path no longer exists):
+      $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
+        repo path: $TEST_ENV/repo/.jj/repo
+    Missing workspace configs (workspace path no longer exists):
+      $TEST_ENV/home/.config/jj/workspaces/d043564ef93650b06a70
+        workspace path: $TEST_ENV/secondary/.jj
+    Delete 2 missing config directories? (yN): n
+    Aborted; nothing was deleted.
+    [EOF]
+    ");
+    assert!(repo_config_dir.is_dir());
+    assert!(workspace_config_dir.is_dir());
+
     Ok(())
 }
 

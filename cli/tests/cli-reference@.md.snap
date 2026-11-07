@@ -979,6 +979,9 @@ The modifications made by `jj converge` can be reviewed by `jj op show -p`. You 
 * `-r`, `--revision <REVSETS>` — The search space to look for divergent revisions
 
    If no revisions are specified, this defaults to the `revsets.converge` setting.
+* `-i`, `--interactive` — Prompt the user for help resolving divergence
+
+   Takes precedence over `ui.interactive = false`.
 * `--no-interactive` — Do not prompt the user for help resolving divergence
 
    If the command cannot solve divergence automatically it will print a warning and exit without making any changes (divergence will still be present).

@@ -97,6 +97,10 @@ Thanks to the people who made this release happen!
 
 ### New features
 
+* New `ui.interactive` config option (default `true`) disables interactive
+  terminal prompts when set to `false`. `jj converge` also respects
+  `ui.interactive` and supports `-i`/`--interactive` to override it.
+
 * `jj git push` with `git.sign-on-push` enabled now signs commits in a
   separate operation before the push, so commits stay signed if the push
   fails and a new push doesn't have to sign them again.
