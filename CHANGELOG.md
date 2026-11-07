@@ -29,6 +29,16 @@ and this project adheres to
 * Deleted `jj debug snapshot`. It was deprecated in 0.39.0. Use `jj util snapshot`
   instead.
 
+* The default `jj log` revset, the default `revsets.short-prefixes`, and the
+  default `revsets.op-diff-changes-in` now use the new `shared_immutable_heads()`
+  revset alias instead of `immutable_heads()`. If you have overridden
+  `immutable_heads()`, you may want to override `shared_immutable_heads()`
+  instead (or as well). For example, if you have overridden it as
+  `builtin_immutable_heads() | release@origin`, you probably want to override
+  `shared_immutable_heads()` as `builtin_shared_immutable_heads() |
+  release@origin` instead.
+  See [docs](docs/config.md#set-of-immutable-commits)
+
 ### Deprecations
 
 ### New features
@@ -52,6 +62,11 @@ and this project adheres to
   emits a warning that the output may be broken due to potential wrapping in the
   middle of JSON output. Users should set the config option to `false` to avoid
   receiving invalid JSON objects on small terminals.
+
+* New `shared_immutable_heads()` revset alias for commits that have been shared
+  with others, such as commits on remotes. Shared commits are immutable by
+  default.
+  See [docs](docs/config.md#set-of-immutable-commits)
 
 ### Fixed bugs
 

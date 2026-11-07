@@ -645,18 +645,29 @@ for a comprehensive list.
   ```
 
 * `builtin_log()`: Resolves to `present(@) |
-  ancestors(immutable_heads().., 2) | trunk()`. It is used as the default value
-  for `revsets.log`, which is the set of revisions shown by `jj log` if no
+  ancestors(shared_immutable_heads().., 2) | trunk()`. It is used as the default
+  value for `revsets.log`, which is the set of revisions shown by `jj log` if no
   revisions or paths are specified.
 
-* `builtin_immutable_heads()`: Resolves to `trunk() | tags() |
+* `builtin_shared_immutable_heads()`: Resolves to `trunk() | tags() |
   untracked_remote_bookmarks() | untracked_remote_tags()`. It is used as the
-  default definition for `immutable_heads()` below. It is not recommended to
-  redefine this alias. Prefer to redefine `immutable_heads()` instead.
+  default definition for `shared_immutable_heads()` below. It is not
+  recommended to redefine this alias. Prefer to redefine
+  `shared_immutable_heads()` instead.
+
+* `shared_immutable_heads()`: The heads of the set of commits that have been
+  shared with others, such as commits on remotes. Shared commits are not shown
+  by default in `jj log` and are immutable by default. Resolves to
+  `builtin_shared_immutable_heads()` by default, and can be overridden as
+  required. See [here](config.md#set-of-immutable-commits) for details.
+
+* `builtin_immutable_heads()`: Resolves to `shared_immutable_heads()`. It is
+  used as the default definition for `immutable_heads()` below. It is not
+  recommended to redefine this alias. Prefer to redefine `immutable_heads()`
+  instead.
 
 * `immutable_heads()`: The heads of the set of immutable commits (not "heads
-  that are immutable"). Resolves to `trunk() | tags() |
-  untracked_remote_bookmarks() | untracked_remote_tags()` by default. It is
+  that are immutable"). Resolves to `shared_immutable_heads()` by default. It is
   actually defined as `builtin_immutable_heads()`, and can be overridden as
   required. The full set of immutable commits is `::immutable_heads()` (i.e.,
   `immutable()`). See [here](config.md#set-of-immutable-commits) for details.

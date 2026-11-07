@@ -16,7 +16,7 @@ log = "builtin_log()"
 # Emit the working-copy branch first, which is usually most interesting.
 # This also helps stabilize output order.
 log-graph-prioritize = "present(@)"
-op-diff-changes-in = "mutable() | immutable_heads()"
+op-diff-changes-in = "~::(shared_immutable_heads() | root()) | shared_immutable_heads()"
 sign = "reachable(@, mutable())"
 bookmark-advance-to = "@"
 bookmark-advance-from = "heads(::to & bookmarks())"
@@ -37,13 +37,16 @@ latest(
 
 # The default set of revisions shown by `jj log` if no revisions or paths are
 # specified.
-'builtin_log()' = 'present(@) | ancestors(immutable_heads().., 2) | trunk()'
+'builtin_log()' = 'present(@) | ancestors(shared_immutable_heads().., 2) | trunk()'
 
-# If immutable_heads() failed to evaluate, many jj commands wouldn't work. Use
-# present(expr) if symbols in expr might not always exist.
-'builtin_immutable_heads()' = '''
+# If shared_immutable_heads() or immutable_heads() failed to evaluate, many jj
+# commands wouldn't work. Use present(expr) if symbols in expr might not always
+# exist.
+'builtin_shared_immutable_heads()' = '''
 trunk() | tags() | untracked_remote_bookmarks() | untracked_remote_tags()
 '''
+'shared_immutable_heads()' = 'builtin_shared_immutable_heads()'
+'builtin_immutable_heads()' = 'shared_immutable_heads()'
 'immutable_heads()' = 'builtin_immutable_heads()'
 'immutable()' = '::(immutable_heads() | root())'
 'mutable()' = '~immutable()'
