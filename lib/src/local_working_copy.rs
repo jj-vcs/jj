@@ -2122,8 +2122,10 @@ impl FileSnapshotter<'_> {
             // If the file contained a conflict before and is a normal file on
             // disk, we try to parse any conflict markers in the file into a
             // conflict.
-            let new_file_ids = conflicts::update_from_content(
+            let updated_content = conflicts::update_from_content(
                 &old_file_ids,
+                self.current_tree.labels(),
+                None,
                 self.store(),
                 repo_path,
                 &contents,
@@ -2132,7 +2134,7 @@ impl FileSnapshotter<'_> {
                 }),
             )
             .await?;
-            match new_file_ids.into_resolved() {
+            match updated_content.new_file_ids.into_resolved() {
                 Ok(file_id) => {
                     // On Windows, we preserve the executable bit from the merged trees.
                     let executable = exec_bit.for_tree_value(self.tree_state.exec_policy, || {

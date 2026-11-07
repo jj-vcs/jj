@@ -208,6 +208,15 @@ impl MaterializedFileConflictValue {
     pub fn merge_contents(&self, merge_options: &MergeOptions) -> MaterializedMergeResult {
         MaterializedMergeResult::new(&self.contents, self.labels.clone(), merge_options)
     }
+
+    /// Returns a [`SimplifiedMapping`] that can be passed to
+    /// [`update_from_content`] to ensure that it parses conflict terms in the
+    /// same order they are materialized.
+    pub fn sorted_to_simplified_mapping(&self) -> SimplifiedMapping {
+        let simplified = file_ids_with_labels(&self.ids, &self.labels);
+        let simplified_to_sorted_mapping = SimplifiedMapping::sorted_order(&simplified);
+        simplified_to_sorted_mapping.invert()
+    }
 }
 
 /// Reads the data associated with a `MergedTreeValue` so it can be written to
@@ -1117,18 +1126,88 @@ fn parse_git_style_conflict_hunk(input: &[u8], expected_marker_len: usize) -> Me
     }
 }
 
+fn file_ids_with_labels<'a, 'b>(
+    ids: &'a Merge<Option<FileId>>,
+    labels: &'b ConflictLabels,
+) -> Merge<(Option<&'a FileId>, &'b str)> {
+    if labels.has_labels() {
+        ids.map(|id| id.as_ref())
+            .zip(labels.as_merge().map(|label| label.as_str()))
+    } else {
+        ids.map(|id| (id.as_ref(), ""))
+    }
+}
+
+// Find the original simplified mapping that was used when materializing a
+// conflict. This is possible if we have the `sorted_to_simplified_mapping`.
+// We need the conflict labels so we can break ties in the sorted order when
+// multiple terms have the same content but different labels.
+fn find_original_simplified_mapping(
+    unsimplified_ids: &Merge<Option<FileId>>,
+    labels: &ConflictLabels,
+    sorted_to_simplified_mapping: Option<&SimplifiedMapping>,
+) -> SimplifiedMapping {
+    let simplified_mapping = SimplifiedMapping::simplifying(unsimplified_ids);
+    let Some(sorted_to_simplified_mapping) = sorted_to_simplified_mapping else {
+        return simplified_mapping;
+    };
+    assert_eq!(
+        sorted_to_simplified_mapping.new_num_sides(),
+        sorted_to_simplified_mapping.old_num_sides(),
+        "should be a permutation"
+    );
+    // If the number of terms changed since the conflict was materialized, we
+    // can't use this mapping. The conflict will likely fail to parse anyway.
+    let expected_num_sides = simplified_mapping.new_num_sides();
+    if sorted_to_simplified_mapping.old_num_sides() != expected_num_sides {
+        return simplified_mapping;
+    }
+
+    let simplified_file_ids = unsimplified_ids.apply_simplified_mapping(&simplified_mapping);
+    let simplified_labels = labels.apply_simplified_mapping(&simplified_mapping);
+
+    let simplified = file_ids_with_labels(&simplified_file_ids, &simplified_labels);
+    simplified_mapping
+        .then(&SimplifiedMapping::sorted_order(&simplified))
+        .then(sorted_to_simplified_mapping)
+}
+
+pub struct UpdatedConflictContent {
+    pub new_file_ids: Merge<Option<FileId>>,
+    pub new_sorted_to_simplified_mapping: Option<SimplifiedMapping>,
+}
+
+impl UpdatedConflictContent {
+    pub fn resolved(file_id: FileId) -> Self {
+        Self {
+            new_file_ids: Merge::normal(file_id),
+            new_sorted_to_simplified_mapping: None,
+        }
+    }
+}
+
 /// Parses conflict markers in `content` and returns an updated version of
 /// `file_ids` with the new contents. If no (valid) conflict markers remain, a
 /// single resolves `FileId` will be returned.
+///
+/// If `sorted_to_simplified_mapping` is provided, it will be used to ensure
+/// the conflict terms are parsed in the same order they were materialized.
+/// The appropriate value to pass can be obtained from
+/// [`MaterializedFileConflictValue::sorted_to_simplified_mapping`]. A new
+/// `sorted_to_simplified_mapping` will be returned with the resolved value.
 pub async fn update_from_content(
     file_ids: &Merge<Option<FileId>>,
+    labels: &ConflictLabels,
+    sorted_to_simplified_mapping: Option<&SimplifiedMapping>,
     store: &Store,
     path: &RepoPath,
     content: &[u8],
     conflict_marker_len: usize,
-) -> BackendResult<Merge<Option<FileId>>> {
-    let simplified_mapping = SimplifiedMapping::simplifying(file_ids);
+) -> BackendResult<UpdatedConflictContent> {
+    let simplified_mapping =
+        find_original_simplified_mapping(file_ids, labels, sorted_to_simplified_mapping);
     let simplified_file_ids = file_ids.apply_simplified_mapping(&simplified_mapping);
+    let simplified_labels = labels.apply_simplified_mapping(&simplified_mapping);
 
     let old_unmerged_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
     let old_unmerged_hunks = files::merge_hunks(&old_unmerged_contents, store.merge_options());
@@ -1171,13 +1250,16 @@ pub async fn update_from_content(
         (MergeResult::Resolved(_), Some(_)) | (MergeResult::Conflict(_), None) => false,
     };
     if unchanged {
-        return Ok(file_ids.clone());
+        return Ok(UpdatedConflictContent {
+            new_file_ids: file_ids.clone(),
+            new_sorted_to_simplified_mapping: sorted_to_simplified_mapping.cloned(),
+        });
     }
 
     let Some(hunks) = new_hunks else {
         // Either there are no markers or they don't have the expected arity
         let file_id = store.write_file(path, &mut &content[..]).await?;
-        return Ok(Merge::normal(file_id));
+        return Ok(UpdatedConflictContent::resolved(file_id));
     };
 
     let mut contents = Merge::repeated(
@@ -1222,16 +1304,30 @@ pub async fn update_from_content(
         .await?,
     );
 
-    // If the conflict was simplified, expand the conflict to the original
-    // number of sides.
-    let new_file_ids = if new_file_ids.num_sides() != file_ids.num_sides() {
+    // Update the `sorted_to_simplified_mapping` to reflect the new sorted order.
+    let new_simplified_file_ids =
+        new_file_ids.apply_simplified_mapping(&simplified_to_merged_mapping);
+    let new_simplified_labels =
+        simplified_labels.apply_simplified_mapping(&simplified_to_merged_mapping);
+    let new_simplified_to_sorted_mapping = SimplifiedMapping::sorted_order(&file_ids_with_labels(
+        &new_simplified_file_ids,
+        &new_simplified_labels,
+    ));
+    let new_sorted_to_simplified_mapping = new_simplified_to_sorted_mapping.invert();
+
+    // If the conflict was simplified (or the order of terms changed),
+    // update the original file IDs using the simplified mapping.
+    let new_file_ids = if simplified_mapping.is_no_op() {
+        new_file_ids
+    } else {
         file_ids
             .clone()
             .update_from_simplified(new_file_ids, &simplified_mapping)
-    } else {
-        new_file_ids
     };
-    Ok(new_file_ids)
+    Ok(UpdatedConflictContent {
+        new_file_ids,
+        new_sorted_to_simplified_mapping: Some(new_sorted_to_simplified_mapping),
+    })
 }
 
 #[cfg(test)]

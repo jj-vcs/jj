@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use bstr::BString;
 use itertools::Itertools as _;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
@@ -288,12 +289,17 @@ async fn run_mergetool_external_single_file(
         );
         conflicts::update_from_content(
             &file.unsimplified_ids,
+            // We don't have these labels here, and they're only used for the
+            // `sorted_to_simplified_mapping`, which we don't use here.
+            &ConflictLabels::unlabeled(),
+            None,
             store,
             &repo_path,
             output_file_contents.as_slice(),
             conflict_marker_len,
         )
         .await?
+        .new_file_ids
     } else {
         let new_file_id = store
             .write_file(&repo_path, &mut output_file_contents.as_slice())

@@ -31,6 +31,7 @@ use jj_lib::backend::TreeValue;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::MaterializedFileConflictValue;
@@ -650,8 +651,12 @@ async fn edit_conflict_markers_in_text_editor(
     if new_content.is_empty() || new_content == initial_content {
         return Err(ConflictResolveError::EmptyOrUnchanged);
     }
-    let new_file_ids = conflicts::update_from_content(
+    let updated_content = conflicts::update_from_content(
         &file.unsimplified_ids,
+        // We don't have these labels here, and they're only used for the
+        // `sorted_to_simplified_mapping`, which we don't use here.
+        &ConflictLabels::unlabeled(),
+        None,
         store,
         &repo_path,
         &new_content,
@@ -661,7 +666,7 @@ async fn edit_conflict_markers_in_text_editor(
     tree_builder
         .set_or_remove_merge(
             repo_path.clone(),
-            new_tree_value(&conflict, &file, new_file_ids),
+            new_tree_value(&conflict, &file, updated_content.new_file_ids),
         )
         .unwrap();
     Ok(())

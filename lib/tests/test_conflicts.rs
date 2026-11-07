@@ -635,6 +635,8 @@ fn test_materialize_update_roundtrip(style: ConflictMarkerStyle) -> TestResult {
     let materialized = materialize_conflict_string(store, path, &conflict, style);
     let parsed = update_from_content(
         &conflict,
+        &ConflictLabels::unlabeled(),
+        None,
         store,
         path,
         materialized.as_bytes(),
@@ -642,7 +644,7 @@ fn test_materialize_update_roundtrip(style: ConflictMarkerStyle) -> TestResult {
     )
     .block_on()?;
 
-    assert_eq!(parsed, conflict);
+    assert_eq!(parsed.new_file_ids, conflict);
     Ok(())
 }
 
@@ -1842,9 +1844,18 @@ fn test_update_conflict_from_content() -> TestResult {
     let materialized =
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
-        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN)
-            .block_on()
-            .unwrap()
+        update_from_content(
+            &conflict,
+            &ConflictLabels::unlabeled(),
+            None,
+            store,
+            path,
+            content,
+            MIN_CONFLICT_MARKER_LEN,
+        )
+        .block_on()
+        .unwrap()
+        .new_file_ids
     };
     assert_eq!(parse(materialized.as_bytes()), conflict);
 
@@ -1893,9 +1904,18 @@ fn test_update_conflict_from_content_modify_delete() -> TestResult {
     let materialized =
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
-        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN)
-            .block_on()
-            .unwrap()
+        update_from_content(
+            &conflict,
+            &ConflictLabels::unlabeled(),
+            None,
+            store,
+            path,
+            content,
+            MIN_CONFLICT_MARKER_LEN,
+        )
+        .block_on()
+        .unwrap()
+        .new_file_ids
     };
     assert_eq!(parse(materialized.as_bytes()), conflict);
 
@@ -1947,9 +1967,18 @@ fn test_update_conflict_from_content_simplified_conflict() -> TestResult {
     let materialized =
         materialize_conflict_string(store, path, &simplified_conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
-        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN)
-            .block_on()
-            .unwrap()
+        update_from_content(
+            &conflict,
+            &ConflictLabels::unlabeled(),
+            None,
+            store,
+            path,
+            content,
+            MIN_CONFLICT_MARKER_LEN,
+        )
+        .block_on()
+        .unwrap()
+        .new_file_ids
     };
     insta::assert_snapshot!(
         materialized,
@@ -2084,9 +2113,18 @@ fn test_update_conflict_from_content_with_long_markers() -> TestResult {
     );
 
     let parse = |conflict, content| {
-        update_from_content(conflict, store, path, content, materialized_marker_len)
-            .block_on()
-            .unwrap()
+        update_from_content(
+            conflict,
+            &ConflictLabels::unlabeled(),
+            None,
+            store,
+            path,
+            content,
+            materialized_marker_len,
+        )
+        .block_on()
+        .unwrap()
+        .new_file_ids
     };
     assert_eq!(parse(&conflict, materialized.as_bytes()), conflict);
 
@@ -2224,12 +2262,15 @@ fn test_update_conflict_from_content_no_eol() -> TestResult {
     assert_eq!(
         update_from_content(
             &conflict,
+            &ConflictLabels::unlabeled(),
+            None,
             store,
             path,
             materialized.as_bytes(),
             MIN_CONFLICT_MARKER_LEN,
         )
-        .block_on()?,
+        .block_on()?
+        .new_file_ids,
         conflict
     );
 
@@ -2262,12 +2303,15 @@ fn test_update_conflict_from_content_no_eol() -> TestResult {
     assert_eq!(
         update_from_content(
             &conflict,
+            &ConflictLabels::unlabeled(),
+            None,
             store,
             path,
             materialized.as_bytes(),
             MIN_CONFLICT_MARKER_LEN,
         )
-        .block_on()?,
+        .block_on()?
+        .new_file_ids,
         conflict
     );
 
@@ -2298,12 +2342,15 @@ fn test_update_conflict_from_content_no_eol() -> TestResult {
     assert_eq!(
         update_from_content(
             &conflict,
+            &ConflictLabels::unlabeled(),
+            None,
             store,
             path,
             materialized.as_bytes(),
             MIN_CONFLICT_MARKER_LEN,
         )
-        .block_on()?,
+        .block_on()?
+        .new_file_ids,
         conflict
     );
     Ok(())
@@ -2377,12 +2424,15 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() -> TestResult {
     assert_eq!(
         update_from_content(
             &conflict,
+            &ConflictLabels::unlabeled(),
+            None,
             store,
             path,
             materialized.as_bytes(),
             MIN_CONFLICT_MARKER_LEN,
         )
-        .block_on()?,
+        .block_on()?
+        .new_file_ids,
         conflict
     );
     Ok(())
@@ -2421,12 +2471,15 @@ fn test_update_conflict_from_content_only_no_eol_change() -> TestResult {
     assert_eq!(
         update_from_content(
             &conflict,
+            &ConflictLabels::unlabeled(),
+            None,
             store,
             path,
             materialized.as_bytes(),
             MIN_CONFLICT_MARKER_LEN,
         )
-        .block_on()?,
+        .block_on()?
+        .new_file_ids,
         conflict
     );
     Ok(())
@@ -2508,9 +2561,18 @@ fn test_update_from_content_malformed_conflict() -> TestResult {
     );
 
     let parse = |conflict, content| {
-        update_from_content(conflict, store, path, content, materialized_marker_len)
-            .block_on()
-            .unwrap()
+        update_from_content(
+            conflict,
+            &ConflictLabels::unlabeled(),
+            None,
+            store,
+            path,
+            content,
+            materialized_marker_len,
+        )
+        .block_on()
+        .unwrap()
+        .new_file_ids
     };
     assert_eq!(parse(&conflict, materialized.as_bytes()), conflict);
 

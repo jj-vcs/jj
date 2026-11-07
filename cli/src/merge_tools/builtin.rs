@@ -422,15 +422,17 @@ async fn apply_diff_builtin(
                 })
             } else if let Some(old_file_ids) = old_value.to_file_id_merge() {
                 // TODO: should error out if conflicts couldn't be parsed?
-                let new_file_ids = conflicts::update_from_content(
+                let updated_content = conflicts::update_from_content(
                     &old_file_ids,
+                    left_tree.labels(),
+                    None,
                     store,
                     path,
                     contents,
                     MIN_CONFLICT_MARKER_LEN, // TODO: use the materialization parameter
                 )
                 .await?;
-                match new_file_ids.into_resolved() {
+                match updated_content.new_file_ids.into_resolved() {
                     Ok(id) => Merge::resolved(id.map(|id| TreeValue::File {
                         id,
                         executable,
