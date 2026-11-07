@@ -29,11 +29,15 @@ use jj_lib::lock::FileLockError;
 use jj_lib::matchers::Matcher;
 use jj_lib::matchers::NothingMatcher;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_heads_store;
+use jj_lib::op_heads_store::OpHeadsStoreError;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_store::OperationId;
+use jj_lib::operation::Operation;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::ReadonlyRepo;
+use jj_lib::repo::RepoLoader;
 use jj_lib::repo::RepoLoaderError;
 use jj_lib::repo::RewriteRootCommit;
 use jj_lib::revset::RevsetEvaluationError;
@@ -155,6 +159,12 @@ impl RunnerOptions {
 pub enum RunnerEvent {
     /// A transaction was not committed because it had no changes.
     NothingChanged,
+    /// Concurrent operations were found when loading the repo and are about
+    /// to be merged.
+    MergingConcurrentOperations {
+        /// The concurrent operations.
+        operations: Vec<Operation>,
+    },
     /// Descendants of rewritten commits were rebased.
     DescendantsRebased {
         /// Number of rebased commits.
@@ -237,6 +247,8 @@ pub enum RunnerEvent {
 /// Why descendant commits were rebased.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RebaseReason {
+    /// Commits were rewritten by concurrent operations that were merged.
+    ConcurrentOperations,
     /// Commits were rewritten by a transaction.
     RewrittenCommits,
     /// Commits were rewritten in the Git repo.
@@ -258,6 +270,47 @@ pub trait RunnerEventHandler {
     /// Returns a callback for reporting progress while snapshotting the working
     /// copy.
     fn snapshot_progress(&self) -> Option<Box<SnapshotProgress<'_>>>;
+}
+
+/// Resolves the head operation of the operation log. If there are concurrent
+/// operations, they're merged.
+pub async fn resolve_head_operation(
+    event_handler: &mut dyn RunnerEventHandler,
+    repo_loader: &RepoLoader,
+    workspace_name: &WorkspaceName,
+    options: &RunnerOptions,
+) -> Result<Operation, RunnerError> {
+    op_heads_store::resolve_op_heads(
+        repo_loader.op_heads_store().as_ref(),
+        repo_loader.op_store(),
+        async |op_heads| -> Result<Operation, RunnerError> {
+            event_handler
+                .event(RunnerEvent::MergingConcurrentOperations {
+                    operations: op_heads.clone(),
+                })
+                .await
+                .map_err(RunnerError::EventHandling)?;
+            let (merged_repo, num_rebased) = repo_loader
+                .merge_operations(
+                    op_heads,
+                    Some(workspace_name),
+                    Some("reconcile divergent operations"),
+                    options.transaction_attributes.iter().cloned(),
+                )
+                .await?;
+            if num_rebased > 0 {
+                event_handler
+                    .event(RunnerEvent::DescendantsRebased {
+                        num_rebased,
+                        reason: RebaseReason::ConcurrentOperations,
+                    })
+                    .await
+                    .map_err(RunnerError::EventHandling)?;
+            }
+            Ok(merged_repo.operation().clone())
+        },
+    )
+    .await
 }
 
 /// Configuration used when snapshotting the working copy and importing changes
@@ -329,6 +382,9 @@ pub enum RunnerError {
     /// Error from the operation store.
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
+    /// Error from the operation heads store.
+    #[error(transparent)]
+    OpHeadsStore(#[from] OpHeadsStoreError),
     /// Error loading the repo.
     #[error(transparent)]
     RepoLoader(#[from] RepoLoaderError),
