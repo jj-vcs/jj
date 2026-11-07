@@ -2907,6 +2907,7 @@ name = "jj-local-util"
 version = "0.47.1"
 dependencies = [
  "blake2",
+ "dunce",
  "eyre",
  "futures 0.3.34",
  "itertools 0.15.0",

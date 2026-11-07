@@ -20,7 +20,6 @@ pub struct BackoffIterator {
 }
 
 impl BackoffIterator {
-    #[cfg_attr(unix, expect(dead_code))]
     pub fn new() -> Self {
         Self {
             next_sleep_secs: 0.001,
