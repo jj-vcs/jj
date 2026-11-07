@@ -1058,6 +1058,64 @@ fn test_user_trunk_absent_with_revset_warnings() {
 }
 
 #[test]
+fn test_workspace_immutable_heads_warnings() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"revset-aliases.'immutable_heads()' = 'diff_contains("x")'"#);
+    test_env.add_config(
+        r#"revset-aliases.'workspace_immutable_heads()' = 'immutable_heads() | diff_contains("y")'"#,
+    );
+    test_env.add_config("revsets.short-prefixes = 'none()'");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Warnings from within immutable_heads() are reported only for
+    // immutable_heads(), not again for workspace_immutable_heads()
+    let output = work_dir.run_jj(["log", "-r@", "-Tcommit_id.short()"]);
+    insta::assert_snapshot!(output, @r#"
+    @  e8849ae12c70
+    │
+    ~
+    [EOF]
+    ------- stderr -------
+    Warning: In `revset-aliases.immutable_heads()`
+     --> 1:1
+      |
+    1 | diff_contains("x")
+      | ^-----------^
+      |
+      = diff_contains() is deprecated; use diff_lines() instead
+    Warning: In `revset-aliases.workspace_immutable_heads()`
+     --> 1:21
+      |
+    1 | immutable_heads() | diff_contains("y")
+      |                     ^-----------^
+      |
+      = diff_contains() is deprecated; use diff_lines() instead
+    [EOF]
+    "#);
+
+    // Warnings from immutable_heads() are reported even if
+    // workspace_immutable_heads() doesn't refer to it
+    test_env.add_config(r#"revset-aliases.'workspace_immutable_heads()' = 'none()'"#);
+    let output = work_dir.run_jj(["log", "-r@", "-Tcommit_id.short()"]);
+    insta::assert_snapshot!(output, @r#"
+    @  e8849ae12c70
+    │
+    ~
+    [EOF]
+    ------- stderr -------
+    Warning: In `revset-aliases.immutable_heads()`
+     --> 1:1
+      |
+    1 | diff_contains("x")
+      | ^-----------^
+      |
+      = diff_contains() is deprecated; use diff_lines() instead
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_user_trunk_absent_or_conflicted() {
     let test_env = TestEnvironment::default();
     // If trunk() is set to a local bookmark, resolution may fail due to

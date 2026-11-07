@@ -175,9 +175,9 @@ fn test_builtin_user_redefines_builtin_immutable_heads() {
     ~
     [EOF]
     ------- stderr -------
-    Warning: Redefining `revset-aliases.builtin_immutable_heads()` is not recommended; redefine `immutable_heads()` instead.
-    Warning: Redefining `revset-aliases.mutable()` is not recommended; redefine `immutable_heads()` instead.
-    Warning: Redefining `revset-aliases.immutable()` is not recommended; redefine `immutable_heads()` instead.
+    Warning: Redefining `revset-aliases.builtin_immutable_heads()` is not recommended; redefine `immutable_heads()` or `workspace_immutable_heads()` instead.
+    Warning: Redefining `revset-aliases.mutable()` is not recommended; redefine `immutable_heads()` or `workspace_immutable_heads()` instead.
+    Warning: Redefining `revset-aliases.immutable()` is not recommended; redefine `immutable_heads()` or `workspace_immutable_heads()` instead.
     [EOF]
     ");
 }

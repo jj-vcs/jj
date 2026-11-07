@@ -42,6 +42,7 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
+use jj_lib::revset::RevsetParseErrorKind;
 use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::UserRevsetExpression;
@@ -64,6 +65,9 @@ pub enum WorkspaceEnvironmentError {
     /// The configured `immutable_heads()` couldn't be parsed.
     #[error("Invalid `revset-aliases.immutable_heads()`")]
     InvalidImmutableHeads(#[source] RevsetParseError),
+    /// The configured `workspace_immutable_heads()` couldn't be parsed.
+    #[error("Invalid `revset-aliases.workspace_immutable_heads()`")]
+    InvalidWorkspaceImmutableHeads(#[source] RevsetParseError),
     /// The configured `revsets.short-prefixes` couldn't be parsed.
     #[error("Invalid `revsets.short-prefixes`")]
     InvalidShortPrefixes(#[source] RevsetParseError),
@@ -78,6 +82,9 @@ pub enum WorkspaceEnvironmentError {
 pub struct WorkspaceEnvironmentDiagnostics {
     /// Diagnostics from parsing `revset-aliases.immutable_heads()`.
     pub immutable_heads: RevsetDiagnostics,
+    /// Diagnostics from parsing `revset-aliases.workspace_immutable_heads()`,
+    /// excluding those from within `immutable_heads()`.
+    pub workspace_immutable_heads: RevsetDiagnostics,
     /// Diagnostics from parsing `revsets.short-prefixes`.
     pub short_prefixes: RevsetDiagnostics,
 }
@@ -87,6 +94,7 @@ impl WorkspaceEnvironmentDiagnostics {
     pub fn new() -> Self {
         Self {
             immutable_heads: RevsetDiagnostics::new(),
+            workspace_immutable_heads: RevsetDiagnostics::new(),
             short_prefixes: RevsetDiagnostics::new(),
         }
     }
@@ -113,6 +121,7 @@ pub struct WorkspaceEnvironment {
     pub(crate) working_copy_shared_with_git: bool,
     workspace_name: WorkspaceNameBuf,
     immutable_heads_expression: Arc<UserRevsetExpression>,
+    workspace_immutable_heads_expression: Arc<UserRevsetExpression>,
     short_prefixes_expression: Option<Arc<UserRevsetExpression>>,
     conflict_marker_style: ConflictMarkerStyle,
 }
@@ -149,6 +158,7 @@ impl WorkspaceEnvironment {
             working_copy_shared_with_git,
             workspace_name: workspace.workspace_name().to_owned(),
             immutable_heads_expression: RevsetExpression::root(),
+            workspace_immutable_heads_expression: RevsetExpression::root(),
             short_prefixes_expression: None,
             conflict_marker_style: settings.get("ui.conflict-marker-style")?,
         };
@@ -278,19 +288,40 @@ impl WorkspaceEnvironment {
     ) -> Result<(), WorkspaceEnvironmentError> {
         self.immutable_heads_expression =
             self.load_immutable_heads_expression(&mut diagnostics.immutable_heads)?;
+        let mut workspace_immutable_heads_diagnostics = RevsetDiagnostics::new();
+        self.workspace_immutable_heads_expression = self
+            .load_workspace_immutable_heads_expression(
+                &mut workspace_immutable_heads_diagnostics,
+            )?;
+        // Warnings from within `immutable_heads()` have already been reported
+        // above.
+        workspace_immutable_heads_diagnostics.retain(|diag| {
+            !matches!(
+                diag.kind(),
+                RevsetParseErrorKind::InAliasExpansion(id) if id == "immutable_heads()"
+            )
+        });
+        diagnostics
+            .workspace_immutable_heads
+            .extend_with(workspace_immutable_heads_diagnostics, |diag| diag);
         self.short_prefixes_expression =
             self.load_short_prefixes_expression(&mut diagnostics.short_prefixes)?;
         Ok(())
     }
 
-    /// User-configured expression defining the immutable set.
+    /// User-configured expression defining the set of commits that cannot be
+    /// rewritten from this workspace. This matches the default definition of
+    /// the `immutable()` alias.
     pub fn immutable_expression(&self) -> Arc<UserRevsetExpression> {
         // Negated ancestors expression `~::(<heads> | root())` is slightly
         // easier to optimize than negated union `~(::<heads> | root())`.
-        self.immutable_heads_expression.ancestors()
+        self.workspace_immutable_heads_expression.ancestors()
     }
 
-    /// User-configured expression defining the heads of the immutable set.
+    /// User-configured expression defining the heads of the set of commits
+    /// that are immutable from any workspace (`immutable_heads()`). Unlike
+    /// [`Self::immutable_expression()`], this doesn't include commits that are
+    /// immutable only from this workspace. Includes the root commit.
     pub fn immutable_heads_expression(&self) -> &Arc<UserRevsetExpression> {
         &self.immutable_heads_expression
     }
@@ -309,6 +340,17 @@ impl WorkspaceEnvironment {
             &self.revset_parse_context(),
         )
         .map_err(WorkspaceEnvironmentError::InvalidImmutableHeads)
+    }
+
+    fn load_workspace_immutable_heads_expression(
+        &self,
+        diagnostics: &mut RevsetDiagnostics,
+    ) -> Result<Arc<UserRevsetExpression>, WorkspaceEnvironmentError> {
+        crate::revset_util::parse_workspace_immutable_heads_expression(
+            diagnostics,
+            &self.revset_parse_context(),
+        )
+        .map_err(WorkspaceEnvironmentError::InvalidWorkspaceImmutableHeads)
     }
 
     fn load_short_prefixes_expression(
@@ -350,10 +392,20 @@ impl WorkspaceEnvironment {
         let id_prefix_context = IdPrefixContext::new(self.revset_extensions.clone());
         let symbol_resolver = SymbolResolver::new(repo, self.revset_extensions.symbol_resolvers())
             .with_id_prefix_context(&id_prefix_context);
-        let (expression, _other_repos) = immutable_expression
+        let resolved = immutable_expression
             .resolve_user_expression(repo, &symbol_resolver)
-            .map_err(RunnerError::InvalidImmutableHeads)?
-            .into_inner();
+            .map_err(|err| {
+                // `workspace_immutable_heads()` usually refers to
+                // `immutable_heads()`, so blame the latter if it's invalid.
+                match self
+                    .immutable_heads_expression
+                    .resolve_user_expression(repo, &symbol_resolver)
+                {
+                    Ok(_) => RunnerError::InvalidWorkspaceImmutableHeads(err),
+                    Err(err) => RunnerError::InvalidImmutableHeads(err),
+                }
+            })?;
+        let (expression, _other_repos) = resolved.into_inner();
         Ok(expression)
     }
 }

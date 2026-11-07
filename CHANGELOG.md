@@ -12,6 +12,10 @@ and this project adheres to
 
 ### Breaking changes
 
+* `jj workspace add` now creates the new working-copy commit on top of the
+  closest immutable ancestor (`heads(::@ & immutable())`) instead of on the
+  parents of the current working-copy commit. Pass `-r @-` for the old behavior.
+
 * `jj git push` now checks commits in `immutable()` for empty descriptions,
   missing author/committer, conflicts, and being private
   (`git.private-commits`). Commits that are already on the remote being pushed
@@ -20,9 +24,20 @@ and this project adheres to
 * Deleted `jj debug snapshot`. It was deprecated in 0.39.0. Use `jj util snapshot`
   instead.
 
+* The working-copy commits of other workspaces (and their ancestors) are now
+  considered immutable by default, so you don't accidentally make the other
+  workspaces stale. Use `--ignore-immutable` or set
+  `revset-aliases."workspace_immutable_heads()" = "immutable_heads()"` to
+  rewrite them. See [docs](docs/config.md#set-of-immutable-commits)
+
 ### Deprecations
 
 ### New features
+
+* New `workspace_immutable_heads()` revset alias for commits that cannot be
+  rewritten from the current workspace. It defaults to `immutable_heads()`
+  and replaces that function in the definition of `immutable()`.
+  See [docs](docs/config.md#set-of-immutable-commits)
 
 ### Fixed bugs
 

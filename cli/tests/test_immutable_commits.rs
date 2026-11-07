@@ -93,8 +93,23 @@ fn test_rewrite_immutable_generic() {
     [exit status: 1]
     ");
 
-    // Can use --ignore-immutable to override
+    // Unresolvable workspace_immutable_heads()
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
+    test_env.add_config(
+        r#"revset-aliases."workspace_immutable_heads()" = "immutable_heads() | bookmark_that_does_not_exist""#,
+    );
+    let output = work_dir.run_jj(["edit", "main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Config error: Invalid `revset-aliases.workspace_immutable_heads()`
+    Caused by: Revision `bookmark_that_does_not_exist` doesn't exist
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+    test_env.add_config(r#"revset-aliases."workspace_immutable_heads()" = "immutable_heads()""#);
+
+    // Can use --ignore-immutable to override
     let output = work_dir.run_jj(["--ignore-immutable", "edit", "main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -119,7 +134,7 @@ fn test_rewrite_immutable_generic() {
     let output = work_dir.run_jj(["new", "main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: wqnwkozp 8fc35e6e (empty) (no description set)
+    Working copy  (@) now at: lylxulpl 883af231 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 9d190342 main | b
     [EOF]
     ");
@@ -230,7 +245,9 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
         .run_jj(["workspace", "add", "../workspace1"])
         .success();
     let workspace1_dir = test_env.work_dir("workspace1");
-    workspace1_dir.run_jj(["edit", "default@"]).success();
+    workspace1_dir
+        .run_jj(["edit", "--ignore-immutable", "default@"])
+        .success();
 
     // New working-copy commit is created early for the current workspace
     let output = work_dir.run_jj(["bookmark", "set", "main", "-r@"]);
@@ -261,7 +278,7 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     insta::assert_snapshot!(output, @"
     @  vruxwmqv test.user@example.com 2001-02-03 08:05:14 workspace1@ bbc55980
     │  (no description set)
-    │ ○  royxmykx test.user@example.com 2001-02-03 08:05:13 default@ acbba76f
+    │ ◆  royxmykx test.user@example.com 2001-02-03 08:05:13 default@ acbba76f
     ├─╯  (no description set)
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:09 main e1cb4cf3
     │  (empty) a
@@ -284,7 +301,7 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace_already_immutable() {
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "working_copies() ~ @""#);
     work_dir.run_jj(["new", "-m=a"]).success();
     let output = work_dir
-        .run_jj(["workspace", "add", "../workspace1"])
+        .run_jj(["workspace", "add", "-r", "@-", "../workspace1"])
         .success();
     // The current workspace is immutable from the new workspace's perspective,
     // but we should not create a new commit for it.
@@ -313,6 +330,103 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace_already_immutable() {
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl b6d970c6 (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 167b8dbf (empty) a
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_other_working_copies_immutable_by_default() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["describe", "-m=a"]).success();
+    work_dir
+        .run_jj(["workspace", "add", "--name=second", "../second"])
+        .success();
+    let second_dir = test_env.work_dir("second");
+    second_dir.run_jj(["describe", "-m=b"]).success();
+    second_dir.run_jj(["new", "-m=c"]).success();
+    work_dir.run_jj(["new", "subject(b)", "-m=d"]).success();
+
+    // The other workspace's working-copy commit and its ancestors are shown in
+    // the default log but are immutable
+    let output = work_dir.run_jj(["log"]);
+    insta::assert_snapshot!(output, @"
+    @  royxmykx test.user@example.com 2001-02-03 08:05:12 default@ 24a16930
+    │  (empty) d
+    │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:11 second@ f430c437
+    ├─╯  (empty) c
+    ◆  pmmvwywv test.user@example.com 2001-02-03 08:05:10 45b70b0c
+    │  (empty) b
+    │ ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 b86e28cd
+    ├─╯  (empty) a
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    // The other workspace's working-copy commit can't be rewritten
+    let output = work_dir.run_jj(["describe", "second@", "-m=c2"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Commit f430c4378c33 is immutable
+    Hint: Could not modify commit: mzvwutvl f430c437 (empty) c
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
+    [EOF]
+    [exit status: 1]
+    "#);
+    // Nor can its ancestors
+    let output = work_dir.run_jj(["describe", "subject(b)", "-m=b2"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Commit 45b70b0cadd0 is immutable
+    Hint: Could not modify commit: pmmvwywv 45b70b0c (empty) b
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 2 immutable commits.
+    [EOF]
+    [exit status: 1]
+    "#);
+    // The current workspace's working-copy commit can be rewritten
+    work_dir.run_jj(["describe", "-m=d2"]).success();
+
+    // The other workspace considers this workspace's working-copy commit
+    // immutable
+    let output = second_dir.run_jj(["describe", "default@", "-m=d3"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Commit 83af4c3b348e is immutable
+    Hint: Could not modify commit: royxmykx 83af4c3b (empty) d2
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    // Can be overridden
+    test_env.add_config(r#"revset-aliases."workspace_immutable_heads()" = "immutable_heads()""#);
+    work_dir
+        .run_jj(["describe", "subject(b)", "-m=b2"])
+        .success();
+    let output = work_dir.run_jj(["log"]);
+    insta::assert_snapshot!(output, @"
+    @  royxmykx test.user@example.com 2001-02-03 08:05:18 default@ 0f40a018
+    │  (empty) d2
+    │ ○  mzvwutvl test.user@example.com 2001-02-03 08:05:18 second@ 361a7cc2
+    ├─╯  (empty) c
+    ○  pmmvwywv test.user@example.com 2001-02-03 08:05:18 7698f752
+    │  (empty) b2
+    │ ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 b86e28cd
+    ├─╯  (empty) a
+    ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
 }

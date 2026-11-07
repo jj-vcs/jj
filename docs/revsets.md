@@ -654,22 +654,28 @@ for a comprehensive list.
   default definition for `immutable_heads()` below. It is not recommended to
   redefine this alias. Prefer to redefine `immutable_heads()` instead.
 
-* `immutable_heads()`: The heads of the set of immutable commits (not "heads
-  that are immutable"). Resolves to `trunk() | tags() |
-  untracked_remote_bookmarks() | untracked_remote_tags()` by default. It is
-  actually defined as `builtin_immutable_heads()`, and can be overridden as
-  required. The full set of immutable commits is `::immutable_heads()` (i.e.,
-  `immutable()`). See [here](config.md#set-of-immutable-commits) for details.
+* `immutable_heads()`: The heads of the set of commits that are immutable from
+  any workspace, such as commits on remotes (not "heads that are immutable").
+  Resolves to `trunk() | tags() | untracked_remote_bookmarks() |
+  untracked_remote_tags()` by default. It is actually defined as
+  `builtin_immutable_heads()`, and can be overridden as required. See
+  [here](config.md#set-of-immutable-commits) for details.
+
+* `workspace_immutable_heads()`: The heads of the set of commits that cannot be
+  rewritten from the current workspace. Resolves to `immutable_heads() |
+  (working_copies() ~ present(@))` by default, i.e. other workspaces'
+  working-copy commits are also immutable. It can be overridden as required. See
+  [here](config.md#set-of-immutable-commits) for details.
 
 * `immutable()`: The set of commits that `jj` treats as immutable. This is
-  equivalent to `::(immutable_heads() | root())`. It is not recommended to redefine
+  equivalent to `::(workspace_immutable_heads() | root())`. It is not recommended to redefine
   this alias. Note that modifying this will *not* change whether a commit is immutable.
-  To do that, edit `immutable_heads()`.
+  To do that, edit `immutable_heads()` or `workspace_immutable_heads()`.
 
 * `mutable()`: The set of commits that `jj` treats as mutable. This is
   equivalent to `~immutable()`. It is not recommended to redefine this alias.
   Note that modifying this will *not* change whether a commit is immutable.
-  To do that, edit `immutable_heads()`.
+  To do that, edit `immutable_heads()` or `workspace_immutable_heads()`.
 
 * `visible()`: The set of visible commits. Resolves to `::visible_heads()`.
   This is equal to `all()` unless your revset includes
