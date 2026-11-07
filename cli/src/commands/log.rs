@@ -226,7 +226,7 @@ pub(crate) async fn cmd_log(
             return Ok(());
         }
         let tree = &commit.tree();
-        unmatched_explicit_paths = stream::iter(unmatched_explicit_paths.iter().copied())
+        let mut unmatched: Vec<_> = stream::iter(unmatched_explicit_paths.iter().copied())
             .filter_map(|path| async move {
                 tree.path_value(path)
                     .await
@@ -235,6 +235,20 @@ pub(crate) async fn cmd_log(
             })
             .try_collect()
             .await?;
+        if !unmatched.is_empty() {
+            // The revisions are selected by whether they change the path
+            // relative to the merged parent tree, so a path that is absent here
+            // but present there was deleted by this revision, which is a match.
+            let parent_tree = commit.parent_tree_no_resolve(repo.as_ref()).await?;
+            let mut still_unmatched = vec![];
+            for path in unmatched {
+                if parent_tree.path_value(path).await?.is_absent() {
+                    still_unmatched.push(path);
+                }
+            }
+            unmatched = still_unmatched;
+        }
+        unmatched_explicit_paths = unmatched;
         Ok(())
     };
 
