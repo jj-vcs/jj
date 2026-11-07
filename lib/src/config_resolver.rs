@@ -396,10 +396,12 @@ fn rename_value(
 ) -> Result<String, ConfigMigrateLayerError> {
     let value = layer.delete_value(old_name)?.expect("tested by matches()");
     if matches!(layer.look_up_item(new_name), Ok(Some(_))) {
-        return Ok(format!("{old_name} is deleted (superseded by {new_name})"));
+        return Ok(format!(
+            "remove {old_name} (ignored because {new_name} is set)"
+        ));
     }
     layer.set_value(new_name, value)?;
-    Ok(format!("{old_name} is renamed to {new_name}"))
+    Ok(format!("replace {old_name} with {new_name}"))
 }
 
 fn rename_update_value(
@@ -410,14 +412,16 @@ fn rename_update_value(
 ) -> Result<String, ConfigMigrateLayerError> {
     let old_value = layer.delete_value(old_name)?.expect("tested by matches()");
     if matches!(layer.look_up_item(new_name), Ok(Some(_))) {
-        return Ok(format!("{old_name} is deleted (superseded by {new_name})"));
+        return Ok(format!(
+            "remove {old_name} (ignored because {new_name} is set)"
+        ));
     }
     let new_value = new_value_fn(&old_value).map_err(|error| ConfigMigrateLayerError::Type {
         name: old_name.to_string(),
         error,
     })?;
     layer.set_value(new_name, new_value.clone())?;
-    Ok(format!("{old_name} is updated to {new_name} = {new_value}"))
+    Ok(format!("replace {old_name} with {new_name} = {new_value}"))
 }
 
 /// Applies migration `rules` to `config`. Returns descriptions of the applied
@@ -1491,15 +1495,15 @@ mod tests {
         [
             (
                 User,
-                "foo.old is renamed to foo.new",
+                "replace foo.old with foo.new",
             ),
             (
                 User,
-                "bar.old is deleted (superseded by baz.new)",
+                "remove bar.old (ignored because baz.new is set)",
             ),
             (
                 User,
-                "bar.old is renamed to baz.new",
+                "replace bar.old with baz.new",
             ),
         ]
         "#);
@@ -1552,15 +1556,15 @@ mod tests {
         [
             (
                 User,
-                "foo.old is updated to foo.new = ['foo.old #0']",
+                "replace foo.old with foo.new = ['foo.old #0']",
             ),
             (
                 User,
-                "bar.old is deleted (superseded by baz.new)",
+                "remove bar.old (ignored because baz.new is set)",
             ),
             (
                 User,
-                "bar.old is updated to baz.new = \"bar.old #1 updated\"",
+                "replace bar.old with baz.new = \"bar.old #1 updated\"",
             ),
         ]
         "#);

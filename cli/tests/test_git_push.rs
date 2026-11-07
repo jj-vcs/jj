@@ -2727,6 +2727,29 @@ fn test_git_push_commits_not_ready() {
 }
 
 #[test]
+fn test_git_push_sign_on_push_deprecated_config() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config("git.sign-on-push = true");
+    work_dir
+        .run_jj(["config", "set", "--repo", "git.sign-on-push", "false"])
+        .success();
+
+    // Each level holding the old setting gets its own warning, which tells the
+    // user what to write instead.
+    let output = work_dir.run_jj(["config", "get", "revsets.git-sign-on-push"]);
+    insta::assert_snapshot!(output, @r#"
+    none()
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated user-level config: replace git.sign-on-push with revsets.git-sign-on-push = "~signed() & mine()"
+    Warning: Deprecated repo-level config: replace git.sign-on-push with revsets.git-sign-on-push = "none()"
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_git_push_sign_on_push() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);

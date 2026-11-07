@@ -2242,7 +2242,7 @@ fn test_fix_line_range_args_migration() {
     let output = work_dir.run_jj(["fix"]).success();
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: fix.tools.tool-1.line-range-arg is updated to fix.tools.tool-1.line-range-args = ["--line-ranges=$first-$last"]
+    Warning: Deprecated user-level config: replace fix.tools.tool-1.line-range-arg with fix.tools.tool-1.line-range-args = ["--line-ranges=$first-$last"]
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm bce2043c (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
