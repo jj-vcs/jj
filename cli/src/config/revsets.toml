@@ -46,7 +46,7 @@ latest(
 trunk() | tags() | untracked_remote_bookmarks() | untracked_remote_tags()
 '''
 'shared_immutable_heads()' = 'builtin_shared_immutable_heads()'
-'builtin_immutable_heads()' = 'shared_immutable_heads()'
+'builtin_immutable_heads()' = 'shared_immutable_heads() | (working_copies() ~ present(@))'
 'immutable_heads()' = 'builtin_immutable_heads()'
 'immutable()' = '::(immutable_heads() | root())'
 'mutable()' = '~immutable()'

@@ -282,7 +282,8 @@ pub async fn cmd_workspace_add(
         )?;
         writeln!(
             ui.hint_default(),
-            "Use `-r @-` to create it on top of the current working copy's parents instead."
+            "Use `-r @-` to create it on top of the current working copy's parents instead. That \
+             would make those commits and their ancestors immutable in this workspace."
         )?;
     }
 

@@ -1114,6 +1114,8 @@ fn test_split_interactive_with_paths() -> TestResult {
 #[test]
 fn test_split_with_multiple_workspaces_same_working_copy() -> TestResult {
     let mut test_env = TestEnvironment::default();
+    // Allow rewriting other workspaces' working-copy commits.
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "shared_immutable_heads()""#);
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_dir = test_env.work_dir("main");
@@ -1194,7 +1196,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() -> TestResult {
     // node in the graph indicates the current workspace's working-copy commit.
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  qpvuntsmwlqt default@ first-commit
-    │ ○  pmmvwywvzvvn second@
+    │ ◆  pmmvwywvzvvn second@
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -1215,7 +1217,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() -> TestResult {
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  mzvwutvlkqwt default@ second-commit
     ○  qpvuntsmwlqt first-commit
-    │ ○  pmmvwywvzvvn second@
+    │ ◆  pmmvwywvzvvn second@
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -1229,7 +1231,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() -> TestResult {
     @  vruxwmqvtpmx default@ second-commit
     │ ○  qpvuntsmwlqt first-commit
     ├─╯
-    │ ○  pmmvwywvzvvn second@
+    │ ◆  pmmvwywvzvvn second@
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]
