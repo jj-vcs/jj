@@ -729,10 +729,10 @@ Set the `JJ_TRACE` environment variable to generate a trace file:
 
 ```shell
 # Generate trace with auto-generated filename (jj-trace-{timestamp}.json)
-JJ_TRACE= jj st
+JJ_TRACE= jj status
 
 # Generate trace with specific filename
-JJ_TRACE=/tmp/trace.json jj st
+JJ_TRACE=/tmp/trace.json jj status
 ```
 
 To include function argument values in the trace (useful for detailed
