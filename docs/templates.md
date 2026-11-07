@@ -243,10 +243,14 @@ _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
-* `.normal_hex() -> String`: Normal hex representation (0-9a-f) instead of the
-  canonical "reversed" (z-k) representation.
-* `.short([len: Integer]) -> String`
-* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+* `.normal_hex() -> String`: Returns the normal hex representation (`0-9a-f`)
+  instead of the canonical "reversed" (`z-k`) representation.
+* `.short([len: Integer]) -> String`: Returns a prefix of length `len`
+  (default 12) of the change ID. This is a plain string, so unique prefixes are
+  not labeled with colors; see `.shortest()`.
+* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Returns a prefix of
+  length `min_len` of the change ID, with the shortest unique prefix labeled.
+  If `min_len` is not given, defaults to only the shortest unique prefix.
 
 ### `Commit` type
 
@@ -325,8 +329,12 @@ _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
-* `.short([len: Integer]) -> String`
-* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+* `.short([len: Integer]) -> String`: Returns a prefix of length `len`
+  (default 12) of the commit ID. This is a plain string, so unique prefixes are
+  not labeled with colors; see `.shortest()`.
+* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Returns a prefix of
+  length `min_len` of the commit ID, with the shortest unique prefix labeled.
+  If `min_len` is not given, defaults to only the shortest unique prefix.
 
 ### `CommitRef` type
 

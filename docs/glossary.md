@@ -59,12 +59,18 @@ ID is a property of a commit.
 
 ## Change ID
 
-A change ID is a unique identifier for a [change](#change). They are typically
-16 bytes long and are often randomly generated (but the size is chosen by the
-commit backend implementation, so try not to depend on an exact length). By
-default, `jj log` presents them as a sequence of 12 letters in the `k-z` range,
-at the beginning of a line. These are actually hexadecimal numbers that use
-"digits" `z-k` instead of `0-9a-f`.
+A change ID is a unique identifier for a [change](#change). They are internally
+stored as hexadecimal numbers but are displayed using the "digits" `z-k`
+("reverse hex") instead of `0-9a-f`; this makes them necessarily distinct from
+[commit IDs](#commit-id) since they do not share the same alphabet. By default,
+`jj log` presents these with an 8-letter prefix at the beginning of a line.
+
+The commit [backend](#backend) implementation may influence certain aspects of
+change IDs. For example, with the Git backend they are 16 bytes long (32
+characters) and are randomly generated when a change is created or
+deterministically determined from an imported commit ID from Git. For the best
+compatibility of downstream tools with existing or future backends, try not to
+depend on potentially differing values such as the length.
 
 ## Change offset
 
@@ -96,10 +102,16 @@ The word "revision" is used as a synonym for "commit".
 
 ## Commit ID
 
-A commit ID is a unique identifier for a [commit](#commit). They are 20 bytes
-long when using the Git backend. They are presented in regular hexadecimal
-format at the end of the line in `jj log`, using 12 hexadecimal digits by
-default. When using the Git backend, the commit ID is the Git commit ID.
+A commit ID is a unique identifier for a [commit](#commit). By default, `jj log`
+presents these with an 8-letter prefix in regular hexadecimal format (`0-9a-f`)
+at the end of a line.
+
+The commit [backend](#backend) implementation may influence certain aspects of
+commit IDs. For example, with the Git backend they are 20 bytes long (40
+characters) when using the SHA-1 object format and 32 bytes long (64 characters)
+when using the SHA-256 object format, and they are the same as the Git commit
+ID. For the best compatibility of downstream tools with existing or future
+backends, try not to depend on potentially differing values such as the length.
 
 ## Committer date
 
