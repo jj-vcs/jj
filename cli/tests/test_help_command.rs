@@ -116,13 +116,24 @@ fn test_help_keyword() {
     let help_cmd = test_env
         .run_jj_in(".", ["help", "--keyword", "revsets"])
         .success();
-    // It should be equal to the docs
-    assert_eq!(help_cmd.stdout.raw(), include_str!("../../docs/revsets.md"));
+    // It should be equal to the docs, without HTML comments. This is a rough
+    // approximation of `strip_html_comments()` that only handles the comments
+    // currently in revsets.md. Update it if new comments break this test.
+    let comments = regex::Regex::new(r"(?s)<!--.*?-->").unwrap();
+    let blank_lines = regex::Regex::new(r"\n{3,}").unwrap();
+    let normalize = |text: &str| {
+        blank_lines
+            .replace_all(&text.replace("\r\n", "\n"), "\n\n")
+            .into_owned()
+    };
+    let docs = include_str!("../../docs/revsets.md");
+    let expected = comments.replace_all(docs, "");
+    assert_ne!(expected, docs, "revsets.md should contain an HTML comment");
+    assert_eq!(normalize(help_cmd.stdout.raw()), normalize(&expected));
 
     // It should show help for a certain keyword if the `-k` flag is present
-    let help_cmd = test_env.run_jj_in(".", ["help", "-k", "revsets"]).success();
-    // It should be equal to the docs
-    assert_eq!(help_cmd.stdout.raw(), include_str!("../../docs/revsets.md"));
+    let help_cmd_short = test_env.run_jj_in(".", ["help", "-k", "revsets"]).success();
+    assert_eq!(help_cmd_short.stdout.raw(), help_cmd.stdout.raw());
 
     // It should give hints if a similar keyword is present
     let output = test_env.run_jj_in(".", ["help", "-k", "rev"]);
