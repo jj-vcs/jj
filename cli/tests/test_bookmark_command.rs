@@ -1997,6 +1997,7 @@ fn test_bookmark_track_untrack_patterns() -> TestResult {
     ------- stderr -------
     Warning: No matching bookmarks for names: maine
     Warning: No matching remotes for names: unknown
+    Hint: To add the missing remote, run `jj git remote add unknown <origin>`
     Nothing changed.
     [EOF]
     ");
