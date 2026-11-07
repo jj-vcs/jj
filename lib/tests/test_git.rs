@@ -7063,7 +7063,8 @@ fn test_concurrent_write_commit() -> TestResult {
 #[cfg_attr(windows, ignore)]
 fn test_concurrent_read_write_commit() -> TestResult {
     let settings = user_settings_without_change_id();
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    // The expected commit ids below are SHA-1
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 

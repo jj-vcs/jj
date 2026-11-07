@@ -51,7 +51,7 @@ fn stable_settings() -> UserSettings {
 
 #[test]
 fn test_id_prefix() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
     let root_change_id = repo.store().root_change_id();
@@ -257,7 +257,7 @@ fn test_id_prefix() -> TestResult {
 
 #[test]
 fn test_id_prefix_divergent() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
 
@@ -401,7 +401,7 @@ fn test_id_prefix_divergent() -> TestResult {
 
 #[test]
 fn test_id_prefix_hidden() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
 
