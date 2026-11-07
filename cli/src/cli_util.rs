@@ -59,6 +59,7 @@ use jj_frontend::runner::RunnerOptions;
 use jj_frontend::runner::SnapshotConfig;
 use jj_frontend::runner::StaleWorkingCopyError;
 use jj_frontend::runner::WorkingCopyNotWritableReason;
+use jj_frontend::runner::resolve_head_operation;
 use jj_frontend::workspace_env::WorkspaceEnvironment;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
 use jj_lib::backend::BackendResult;
@@ -91,7 +92,6 @@ use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::ObjectId as _;
-use jj_lib::op_heads_store;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::RefTarget;
@@ -850,28 +850,12 @@ impl CommandHelper {
         if let Some(op_str) = &self.data.global_args.at_operation {
             Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
         } else {
-            op_heads_store::resolve_op_heads(
-                repo_loader.op_heads_store().as_ref(),
-                repo_loader.op_store(),
-                async |op_heads| {
-                    writeln!(
-                        ui.status(),
-                        "Concurrent modification detected, resolving automatically.",
-                    )?;
-                    // TODO: It may be helpful to print each operation we're merging here
-                    let transaction_description = "reconcile divergent operations";
-                    merge_operations(
-                        Some(ui),
-                        repo_loader,
-                        op_heads,
-                        Some(workspace_name),
-                        Some(transaction_description),
-                        &self.data.string_args,
-                    )
-                    .await
-                },
+            let mut event_handler = UiRunnerEventHandler { ui };
+            let options = self.runner_options();
+            Ok(
+                resolve_head_operation(&mut event_handler, repo_loader, workspace_name, &options)
+                    .block_on()?,
             )
-            .block_on()
         }
     }
 
@@ -1252,10 +1236,22 @@ impl UiRunnerEventHandler<'_> {
         let ui = self.ui;
         match event {
             RunnerEvent::NothingChanged => writeln!(ui.status(), "Nothing changed.")?,
+            RunnerEvent::MergingConcurrentOperations { operations: _ } => {
+                // TODO: It may be helpful to print each operation we're merging here
+                writeln!(
+                    ui.status(),
+                    "Concurrent modification detected, resolving automatically.",
+                )?;
+            }
             RunnerEvent::DescendantsRebased {
                 num_rebased,
                 reason,
             } => match reason {
+                RebaseReason::ConcurrentOperations => writeln!(
+                    ui.status(),
+                    "Rebased {num_rebased} descendant commits onto commits rewritten by other \
+                     operation.",
+                )?,
                 RebaseReason::RewrittenCommits => {
                     writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
                 }
