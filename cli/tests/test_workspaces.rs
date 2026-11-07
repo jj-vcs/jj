@@ -87,7 +87,7 @@ fn test_workspaces_add_second_and_third_workspace() {
     ------- stderr -------
     Created workspace in "../secondary"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: rzvqmyuk 42960ba4 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -98,15 +98,15 @@ fn test_workspaces_add_second_and_third_workspace() {
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  504e3d8c1bcd default@
     ○  7b22a8cbe888 "initial"
-    │ ○  42960ba4ec00 second@
+    │ ◆  42960ba4ec00 second@
     ├─╯
     ◆  000000000000
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&secondary_dir), @r#"
     @  42960ba4ec00 second@
-    │ ○  504e3d8c1bcd default@
-    │ ○  7b22a8cbe888 "initial"
+    │ ◆  504e3d8c1bcd default@
+    │ ◆  7b22a8cbe888 "initial"
     ├─╯
     ◆  000000000000
     [EOF]
@@ -127,7 +127,7 @@ fn test_workspaces_add_second_and_third_workspace() {
     ------- stderr -------
     Created workspace in "../third"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: nuwvvtmy a5c05b8e (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -168,7 +168,7 @@ fn test_workspaces_add_with_message() {
     ------- stderr -------
     Created workspace in "../secondary"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: pmmvwywv 5a4eac98 (empty) add second workspace
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -210,7 +210,7 @@ fn test_workspaces_add_with_message() {
     ------- stderr -------
     Created workspace in "../quaternary"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: nppvrztz b9e9705d (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -305,10 +305,10 @@ fn test_workspaces_add_second_workspace_on_merge() {
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @    46ed31b61ce9 default@ "merge"
     ├─╮
-    │ │ ○  d23b2d4ff55c second@
+    │ │ ◆  d23b2d4ff55c second@
     ╭─┬─╯
-    │ ○  3c52528f5893 "left"
-    ○ │  a3155ab1bf5a "right"
+    │ ◆  3c52528f5893 "left"
+    ◆ │  a3155ab1bf5a "right"
     ├─╯
     ◆  000000000000
     [EOF]
@@ -321,7 +321,7 @@ fn test_workspaces_add_second_workspace_on_merge() {
 fn test_workspaces_add_second_workspace_on_multiple_immutable_heads() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
-    test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmarks()""#);
+    test_env.add_config(r#"revset-aliases."shared_immutable_heads()" = "bookmarks()""#);
     let main_dir = test_env.work_dir("main");
 
     main_dir.run_jj(["describe", "-m=left"]).success();
@@ -342,7 +342,7 @@ fn test_workspaces_add_second_workspace_on_multiple_immutable_heads() {
     ------- stderr -------
     Created workspace in "../secondary"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: nuwvvtmy b654f607 (empty) (no description set)
     Parent commit (@-)      : zsuskuln 06135f2a right | (empty) right
     Parent commit (@-)      : qpvuntsm 3c52528f left | (empty) left
@@ -355,7 +355,7 @@ fn test_workspaces_add_second_workspace_on_multiple_immutable_heads() {
     @  fb9c48c68744 default@ "child"
     ○    ab041354c6f4 "merge"
     ├─╮
-    │ │ ○  b654f6077538 second@
+    │ │ ◆  b654f6077538 second@
     ╭─┬─╯
     ◆ │  3c52528f5893 left "left"
     │ ◆  06135f2a91ad right "right"
@@ -371,7 +371,7 @@ fn test_workspaces_add_second_workspace_on_multiple_immutable_heads() {
 fn test_workspaces_add_second_workspace_parent_immutable() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
-    test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmarks()""#);
+    test_env.add_config(r#"revset-aliases."shared_immutable_heads()" = "bookmarks()""#);
     let main_dir = test_env.work_dir("main");
 
     main_dir.run_jj(["commit", "-m=initial"]).success();
@@ -465,7 +465,7 @@ fn test_workspaces_add_at_operation() {
     ------- stderr -------
     Created workspace in "../secondary"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: rzvqmyuk 42960ba4 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -547,18 +547,18 @@ fn test_workspaces_add_workspace_at_revision() {
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  5ac9178da8b2 default@
     ○  a47d8a593529 "second"
-    │ ○  ea5860fbd622 second@
+    │ ◆  ea5860fbd622 second@
     ├─╯
-    ○  27473635a942 "first"
+    ◆  27473635a942 "first"
     ◆  000000000000
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&secondary_dir), @r#"
     @  ea5860fbd622 second@
-    │ ○  5ac9178da8b2 default@
-    │ ○  a47d8a593529 "second"
+    │ ◆  5ac9178da8b2 default@
+    │ ◆  a47d8a593529 "second"
     ├─╯
-    ○  27473635a942 "first"
+    ◆  27473635a942 "first"
     ◆  000000000000
     [EOF]
     "#);
@@ -641,13 +641,13 @@ fn test_workspaces_add_workspace_multiple_revisions() {
 
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  8d23abddc924 default@
-    │ ○      2d7c9a2d41dc merge@
+    │ ◆      2d7c9a2d41dc merge@
     │ ├─┬─╮
-    │ │ │ ○  27473635a942 "first"
+    │ │ │ ◆  27473635a942 "first"
     ├─────╯
-    │ │ ○  62444a45efcf "second"
+    │ │ ◆  62444a45efcf "second"
     ├───╯
-    │ ○  eba7f49e2358 "third"
+    │ ◆  eba7f49e2358 "third"
     ├─╯
     ◆  000000000000
     [EOF]
@@ -677,7 +677,7 @@ fn test_workspaces_add_workspace_from_subdir() {
     ------- stderr -------
     Created workspace in "../../secondary"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: rzvqmyuk 42960ba4 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -708,7 +708,7 @@ fn test_workspaces_add_workspace_in_current_workspace() {
     Created workspace in "secondary"
     Warning: Workspace created inside current directory. If this was unintentional, delete the "secondary" directory and run `jj workspace forget secondary` to remove it.
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: pmmvwywv 337ba39f (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -728,7 +728,7 @@ fn test_workspaces_add_workspace_in_current_workspace() {
     ------- stderr -------
     Created workspace in "third"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: zxsnswpr b9671a25 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -764,7 +764,7 @@ fn test_workspace_add_override_path_in_store() {
     ------- stderr -------
     Created workspace in "../secondary"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: pmmvwywv 337ba39f (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -799,7 +799,7 @@ fn test_workspace_add_override_path_in_store() {
     ------- stderr -------
     Created workspace in "../tertiary"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: spxsnpux 82612b50 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -839,9 +839,9 @@ fn test_workspaces_conflicting_edits() {
 
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  393250c59e39 default@
-    │ ○  547036666102 secondary@
+    │ ◆  547036666102 secondary@
     ├─╯
-    ○  9a462e35578a
+    ◆  9a462e35578a
     ◆  000000000000
     [EOF]
     ");
@@ -851,7 +851,7 @@ fn test_workspaces_conflicting_edits() {
     secondary_dir.write_file("file", "changed in second\n");
     // Squash the changes from the main workspace into the initial commit (before
     // running any command in the secondary workspace
-    let output = main_dir.run_jj(["squash"]);
+    let output = main_dir.run_jj(["squash", "--ignore-immutable"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
@@ -863,9 +863,9 @@ fn test_workspaces_conflicting_edits() {
     // The secondary workspace's working-copy commit was updated
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  3a9b690d6e67 default@
-    │ ○  90f3d42e0bff secondary@
+    │ ◆  90f3d42e0bff secondary@
     ├─╯
-    ○  b853f7c8b006
+    ◆  b853f7c8b006
     ◆  000000000000
     [EOF]
     ");
@@ -907,9 +907,9 @@ fn test_workspaces_conflicting_edits() {
     @  90f3d42e0bff secondary@ (divergent)
     │ ×  8823f4273170 (divergent)
     ├─╯
-    │ ○  3a9b690d6e67 default@
+    │ ◆  3a9b690d6e67 default@
     ├─╯
-    ○  b853f7c8b006
+    ◆  b853f7c8b006
     ◆  000000000000
     [EOF]
     ");
@@ -918,9 +918,9 @@ fn test_workspaces_conflicting_edits() {
     @  90f3d42e0bff secondary@ (divergent)
     │ ×  8823f4273170 (divergent)
     ├─╯
-    │ ○  3a9b690d6e67 default@
+    │ ◆  3a9b690d6e67 default@
     ├─╯
-    ○  b853f7c8b006
+    ◆  b853f7c8b006
     ◆  000000000000
     [EOF]
     ");
@@ -943,16 +943,16 @@ fn test_workspaces_updated_by_other() {
 
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  393250c59e39 default@
-    │ ○  547036666102 secondary@
+    │ ◆  547036666102 secondary@
     ├─╯
-    ○  9a462e35578a
+    ◆  9a462e35578a
     ◆  000000000000
     [EOF]
     ");
 
     // Rewrite the check-out commit in one workspace.
     main_dir.write_file("file", "changed in main\n");
-    let output = main_dir.run_jj(["squash"]);
+    let output = main_dir.run_jj(["squash", "--ignore-immutable"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
@@ -964,9 +964,9 @@ fn test_workspaces_updated_by_other() {
     // The secondary workspace's working-copy commit was updated.
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  3a9b690d6e67 default@
-    │ ○  90f3d42e0bff secondary@
+    │ ◆  90f3d42e0bff secondary@
     ├─╯
-    ○  b853f7c8b006
+    ◆  b853f7c8b006
     ◆  000000000000
     [EOF]
     ");
@@ -993,9 +993,9 @@ fn test_workspaces_updated_by_other() {
     insta::assert_snapshot!(get_log_output(&secondary_dir),
     @"
     @  90f3d42e0bff secondary@
-    │ ○  3a9b690d6e67 default@
+    │ ◆  3a9b690d6e67 default@
     ├─╯
-    ○  b853f7c8b006
+    ◆  b853f7c8b006
     ◆  000000000000
     [EOF]
     ");
@@ -1020,16 +1020,16 @@ fn test_workspaces_updated_by_other_automatic() {
 
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  393250c59e39 default@
-    │ ○  547036666102 secondary@
+    │ ◆  547036666102 secondary@
     ├─╯
-    ○  9a462e35578a
+    ◆  9a462e35578a
     ◆  000000000000
     [EOF]
     ");
 
     // Rewrite the check-out commit in one workspace.
     main_dir.write_file("file", "changed in main\n");
-    let output = main_dir.run_jj(["squash"]);
+    let output = main_dir.run_jj(["squash", "--ignore-immutable"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
@@ -1041,9 +1041,9 @@ fn test_workspaces_updated_by_other_automatic() {
     // The secondary workspace's working-copy commit was updated.
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  3a9b690d6e67 default@
-    │ ○  90f3d42e0bff secondary@
+    │ ◆  90f3d42e0bff secondary@
     ├─╯
-    ○  b853f7c8b006
+    ◆  b853f7c8b006
     ◆  000000000000
     [EOF]
     ");
@@ -1066,9 +1066,9 @@ fn test_workspaces_updated_by_other_automatic() {
     insta::assert_snapshot!(get_log_output(&secondary_dir),
     @"
     @  90f3d42e0bff secondary@
-    │ ○  3a9b690d6e67 default@
+    │ ◆  3a9b690d6e67 default@
     ├─╯
-    ○  b853f7c8b006
+    ◆  b853f7c8b006
     ◆  000000000000
     [EOF]
     ");
@@ -1093,16 +1093,16 @@ fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
 
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  393250c59e39 default@
-    │ ○  547036666102 secondary@
+    │ ◆  547036666102 secondary@
     ├─╯
-    ○  9a462e35578a
+    ◆  9a462e35578a
     ◆  000000000000
     [EOF]
     ");
 
     // Rewrite all commits from one workspace.
     main_dir.write_file("file", "changed in main\n");
-    let output = main_dir.run_jj(["squash"]);
+    let output = main_dir.run_jj(["squash", "--ignore-immutable"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
@@ -1114,9 +1114,9 @@ fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
     // The secondary workspace's working-copy commit was updated.
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  3a9b690d6e67 default@
-    │ ○  90f3d42e0bff secondary@
+    │ ◆  90f3d42e0bff secondary@
     ├─╯
-    ○  b853f7c8b006
+    ◆  b853f7c8b006
     ◆  000000000000
     [EOF]
     ");
@@ -1166,9 +1166,9 @@ fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
     @  c38323e3e6f3 secondary@ (divergent) "modified"
     │ ×  48a90f069c8c (divergent)
     ├─╯
-    │ ○  3a9b690d6e67 default@
+    │ ◆  3a9b690d6e67 default@
     ├─╯
-    ○  b853f7c8b006
+    ◆  b853f7c8b006
     ◆  000000000000
     [EOF]
     "#);
@@ -1213,7 +1213,9 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
 
     // Create an op by abandoning the parent commit. Importantly, that commit also
     // changes the target tree in the secondary workspace.
-    main_dir.run_jj(["abandon", "@-"]).success();
+    main_dir
+        .run_jj(["abandon", "--ignore-immutable", "@-"])
+        .success();
 
     let output = main_dir.run_jj([
         "operation",
@@ -1223,7 +1225,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     ]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @"
-        @  e56093ccc0 abandon commit de90575a14d8b9198dc0930f9de4a69f846ded36
+        @  a031cd0636 abandon commit de90575a14d8b9198dc0930f9de4a69f846ded36
         ○  dfa0762189 create initial working-copy commit in workspace secondary
         ○  a39530f714 add workspace 'secondary'
         ○  eb6701963b new empty commit
@@ -1243,9 +1245,9 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     insta::allow_duplicates! {
         insta::assert_snapshot!(get_log_output(&main_dir), @"
         @  320bc89effc9 default@
-        │ ○  891f00062e10 secondary@
+        │ ◆  891f00062e10 secondary@
         ├─╯
-        ○  367415be5b44
+        ◆  367415be5b44
         ◆  000000000000
         [EOF]
         ");
@@ -1292,10 +1294,10 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     insta::allow_duplicates! {
         insta::assert_snapshot!(get_log_output(&main_dir), @r#"
         @  320bc89effc9 default@
-        │ ○  18851b397d09 secondary@ "RECOVERY COMMIT FROM `jj workspace update-stale`"
-        │ ○  891f00062e10
+        │ ◆  18851b397d09 secondary@ "RECOVERY COMMIT FROM `jj workspace update-stale`"
+        │ ◆  891f00062e10
         ├─╯
-        ○  367415be5b44
+        ◆  367415be5b44
         ◆  000000000000
         [EOF]
         "#);
@@ -1334,20 +1336,20 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         insta::assert_snapshot!(output, @"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation 0c043bf08fbb snapshot working copy
+        │  -- operation f6e76b1b6b8f snapshot working copy
         ○  kmkuslsw/1 test.user@example.com 2001-02-03 08:05:18 866928d1 (hidden)
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 2617bcd8cc4a recovery commit
+           -- operation aedc2b8a2a22 recovery commit
         [EOF]
         ");
     } else {
         insta::assert_snapshot!(output, @"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation c320b2ce39e2 snapshot working copy
+        │  -- operation 82a099133a8c snapshot working copy
         ○  kmkuslsw/1 test.user@example.com 2001-02-03 08:05:18 866928d1 (hidden)
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 2617bcd8cc4a recovery commit
+           -- operation aedc2b8a2a22 recovery commit
         [EOF]
         ");
     }
@@ -1452,10 +1454,10 @@ fn test_workspaces_update_stale_snapshot() {
 
     insta::assert_snapshot!(get_log_output(&secondary_dir), @"
     @  35d779b3baea secondary@
-    │ ○  c9516583d53b default@
-    │ ○  f6ae7810ef56
+    │ ◆  c9516583d53b default@
+    │ ◆  f6ae7810ef56
     ├─╯
-    ○  7d5738ba9943
+    ◆  7d5738ba9943
     ◆  000000000000
     [EOF]
     ");
@@ -1495,7 +1497,9 @@ fn test_colocated_workspace_update_stale() {
     // Rewrite the check-out commit from the secondary workspace.
     // This makes the main (colocated) workspace's working copy stale.
     secondary_dir.write_file("file", "changed in secondary\n");
-    secondary_dir.run_jj(["squash"]).success();
+    secondary_dir
+        .run_jj(["squash", "--ignore-immutable"])
+        .success();
 
     // Update and export the bookmark from the secondary workspace.
     secondary_dir
@@ -1518,9 +1522,9 @@ fn test_colocated_workspace_update_stale() {
 
     insta::assert_snapshot!(get_log_output(&secondary_dir), @r#"
     @  9cb8253861b5 secondary@
-    │ ○  f562bf82f2da default@
+    │ ◆  f562bf82f2da default@
     ├─╯
-    ○  30ed2f28b710
+    ◆  30ed2f28b710
     │ ○  e97ad7861f78 book1 "new book1"
     ├─╯
     │ ○  f656b467890b "old book1"
@@ -1568,9 +1572,9 @@ fn test_colocated_workspace_update_stale() {
     // change. If it were, the "old book1" revision would be abandoned.
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  f562bf82f2da default@
-    │ ○  9cb8253861b5 secondary@
+    │ ◆  9cb8253861b5 secondary@
     ├─╯
-    ○  30ed2f28b710
+    ◆  30ed2f28b710
     │ ○  7fe3ff3b9a60 book2 "book2"
     ├─╯
     │ ○  e97ad7861f78 book1 "new book1"
@@ -1630,7 +1634,7 @@ fn test_workspaces_forget() {
     // there's only one workspace. We should show it when the command is not run
     // from that workspace.
     insta::assert_snapshot!(get_log_output(&main_dir), @"
-    ○  337ba39f440e
+    ◆  337ba39f440e
     │ ○  006bd1130b84
     ├─╯
     ◆  000000000000
@@ -1778,9 +1782,13 @@ fn test_workspaces_forget_abandon_commits() {
     main_dir.run_jj(["workspace", "add", "../third"]).success();
     main_dir.run_jj(["workspace", "add", "../fourth"]).success();
     let third_dir = test_env.work_dir("third");
-    third_dir.run_jj(["edit", "second@"]).success();
+    third_dir
+        .run_jj(["edit", "--ignore-immutable", "second@"])
+        .success();
     let fourth_dir = test_env.work_dir("fourth");
-    fourth_dir.run_jj(["edit", "second@"]).success();
+    fourth_dir
+        .run_jj(["edit", "--ignore-immutable", "second@"])
+        .success();
 
     // there should be four workspaces, three of which are at the same empty commit
     let output = main_dir.run_jj(["workspace", "list"]);
@@ -1793,7 +1801,7 @@ fn test_workspaces_forget_abandon_commits() {
     ");
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  006bd1130b84 default@
-    │ ○  94f41578a9e1 fourth@ second@ third@
+    │ ◆  94f41578a9e1 fourth@ second@ third@
     ├─╯
     ◆  000000000000
     [EOF]
@@ -1804,7 +1812,7 @@ fn test_workspaces_forget_abandon_commits() {
         .run_jj(["workspace", "forget", "default"])
         .success();
     insta::assert_snapshot!(get_log_output(&main_dir), @"
-    ○  94f41578a9e1 fourth@ second@ third@
+    ◆  94f41578a9e1 fourth@ second@ third@
     │ ○  006bd1130b84
     ├─╯
     ◆  000000000000
@@ -1815,7 +1823,7 @@ fn test_workspaces_forget_abandon_commits() {
     // still have commit checked out)
     main_dir.run_jj(["workspace", "forget", "second"]).success();
     insta::assert_snapshot!(get_log_output(&main_dir), @"
-    ○  94f41578a9e1 fourth@ third@
+    ◆  94f41578a9e1 fourth@ third@
     │ ○  006bd1130b84
     ├─╯
     ◆  000000000000
@@ -1968,7 +1976,7 @@ fn test_workspaces_remove_snapshots_stale_before_removal() {
     secondary_dir.write_file("unsnapshotted.txt", "important data");
 
     main_dir
-        .run_jj(["describe", "-rsecondary@", "-mstale"])
+        .run_jj(["describe", "--ignore-immutable", "-rsecondary@", "-mstale"])
         .success();
 
     let output = main_dir.run_jj(["workspace", "remove", "secondary"]);
@@ -2206,7 +2214,9 @@ fn test_list_workspaces_template() {
     ");
 
     // Make multiple workspaces point to the same commit.
-    secondary_dir.run_jj(["edit", "default@"]).success();
+    secondary_dir
+        .run_jj(["edit", "--ignore-immutable", "default@"])
+        .success();
 
     let output = main_dir.run_jj(["workspace", "list", "-T", template]);
     insta::assert_snapshot!(output, @"
@@ -2576,14 +2586,14 @@ fn test_workspaces_rename_workspace() {
     // Can see the working-copy commit in each workspace in the log output.
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     @  e8849ae12c70 default@
-    │ ○  94f41578a9e1 third@
+    │ ◆  94f41578a9e1 third@
     ├─╯
     ◆  000000000000
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&secondary_dir), @"
     @  94f41578a9e1 third@
-    │ ○  e8849ae12c70 default@
+    │ ◆  e8849ae12c70 default@
     ├─╯
     ◆  000000000000
     [EOF]
@@ -2655,7 +2665,7 @@ fn test_workspaces_add_forget_colocated() {
     ------- stderr -------
     Created workspace in "../flag-off"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: pmmvwywv 337ba39f (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -2674,7 +2684,7 @@ fn test_workspaces_add_forget_colocated() {
     ------- stderr -------
     Created workspace in "../config-off"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: rzvqmyuk 42960ba4 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -2694,7 +2704,7 @@ fn test_workspaces_add_forget_colocated() {
     Created Git worktree for the new workspace.
     Created workspace in "../flag-on"
     Created working copy on top of `revsets.workspace-add` instead of the current working copy's parents.
-    Hint: Use `-r @-` to create it on top of the current working copy's parents instead.
+    Hint: Use `-r @-` to create it on top of the current working copy's parents instead. That would make those commits and their ancestors immutable in this workspace.
     Working copy  (@) now at: zxsnswpr b9671a25 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
