@@ -197,6 +197,8 @@ pub enum ResolvedExpression {
         heads: Box<Self>,
         /// Range of generations to include, where `roots` are generation 0.
         generation_from_roots: Range<u64>,
+        /// Range of parent indices to follow when traversing from `roots` (but not from `heads`).
+        parents_range: Range<u32>,
     },
     /// Commits reachable from `sources` within `domain`.
     Reachable {
