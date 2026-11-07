@@ -2090,7 +2090,7 @@ Rename a Git remote
 
 Set the URL of a Git remote
 
-**Usage:** `jj git remote set-url [OPTIONS] <REMOTE> [URL]`
+**Usage:** `jj git remote set-url <REMOTE> <URL|--push <PUSH>|--fetch <FETCH>>`
 
 ###### **Arguments:**
 
