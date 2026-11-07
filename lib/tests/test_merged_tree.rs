@@ -59,6 +59,7 @@ use testutils::create_tree_with_copy_id;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
+use testutils::test_backend::TestBackend;
 use testutils::write_copy_histories;
 
 fn diff_entry_tuple(diff: TreeDiffEntry) -> (RepoPathBuf, (MergedTreeValue, MergedTreeValue)) {
@@ -486,7 +487,9 @@ fn test_merged_tree_builder_resolved_overrides_on_conflict() -> TestResult {
         repo,
         &[(conflicted_path, "resolved"), (added_path, "added")],
     );
-    let mut tree_builder = MergedTreeBuilder::new(base_tree);
+    let test_backend: &TestBackend = store.backend_impl().unwrap();
+    let written_before = test_backend.written_trees_count();
+    let mut tree_builder = MergedTreeBuilder::new(base_tree.clone());
     tree_builder.set_or_remove_merge(
         conflicted_path.to_owned(),
         values.path_value(conflicted_path).block_on()?,
@@ -496,6 +499,8 @@ fn test_merged_tree_builder_resolved_overrides_on_conflict() -> TestResult {
         values.path_value(added_path).block_on()?,
     )?;
     let tree = tree_builder.write_tree().block_on()?;
+    // `shared/`, `dir/`, and the root tree are each written only once.
+    assert_eq!(test_backend.written_trees_count() - written_before, 3);
     let expected = create_single_tree(
         repo,
         &[
@@ -506,6 +511,18 @@ fn test_merged_tree_builder_resolved_overrides_on_conflict() -> TestResult {
         ],
     );
     assert_eq!(*tree.tree_ids(), Merge::resolved(expected.id().clone()));
+
+    // Resolving the conflict to match `side1` reuses `side1`'s trees across
+    // all terms without writing any new trees.
+    let written_before = test_backend.written_trees_count();
+    let mut tree_builder = MergedTreeBuilder::new(base_tree);
+    tree_builder.set_or_remove_merge(
+        conflicted_path.to_owned(),
+        Merge::normal(side1.path_value(conflicted_path).block_on()?.unwrap()),
+    )?;
+    let tree = tree_builder.write_tree().block_on()?;
+    assert_eq!(test_backend.written_trees_count() - written_before, 0);
+    assert_eq!(*tree.tree_ids(), Merge::resolved(side1.id().clone()));
     Ok(())
 }
 
@@ -1669,12 +1686,14 @@ fn test_filtered_redundant_writes() {
     );
 
     // Match only dir/unchanged. This would require reading multiple trees but
-    // should only require writing one tree each for `dir/` and for the root. We
-    // don't currently test that only one write happens.
+    // should only require writing one tree each for `dir/` and for the root.
+    let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
+    let written_before = test_backend.written_trees_count();
     let filtered = tree
         .filtered(&FilesMatcher::new([unchanged_file]))
         .block_on()
         .unwrap();
+    assert_eq!(test_backend.written_trees_count() - written_before, 2);
     let expected_tree = create_single_tree(repo, &[(unchanged_file, "unchanged")])
         .id()
         .clone();
