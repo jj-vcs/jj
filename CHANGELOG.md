@@ -24,6 +24,11 @@ and this project adheres to
 
 ### New features
 
+* `jj workspace forget` now hints, when you forget the workspace you're currently
+  in, that its working copy is left on disk as an unregistered checkout — and that
+  a later workspace reusing the same name (e.g. `jj workspace add <path>` deriving
+  the name from the path) would silently shadow it.
+
 ### Fixed bugs
 
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
