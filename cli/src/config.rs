@@ -1035,7 +1035,9 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                         continue;
                     };
                     if matches!(layer.look_up_item(new_name), Ok(Some(_))) {
-                        messages.push(format!("{old_name} is deleted (superseded by {new_name})"));
+                        messages.push(format!(
+                            "remove {old_name} (ignored because {new_name} is set)"
+                        ));
                         continue;
                     }
                     let Some(old_value_str) = old_value.as_str() else {
@@ -1049,7 +1051,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                     };
                     layer.set_value(new_name, ConfigValue::from_iter([old_value_str]))?;
                     messages.push(format!(
-                        "{old_name} is updated to {new_name} = [{}]",
+                        "replace {old_name} with {new_name} = [{}]",
                         old_value.decorated("", "")
                     ));
                 }
