@@ -5331,7 +5331,10 @@ added again. To deduplicate based only on the trailer key, use the
 <li><code>format_signed_off_by_trailer(commit)</code> creates a "Signed-off-by" trailer
   using the committer info.</li>
 <li><code>format_gerrit_change_id_trailer(commit)</code> creates a "Change-Id" trailer
-  suitable to be used with Gerrit. It is based Jujutsu's change id.</li>
+  suitable to be used with Gerrit. It is based on Jujutsu's change ID. See the
+  <a href="../gerrit/#change-id-management">Gerrit docs</a>.</li>
+<li><code>format_gerrit_link_trailer(commit)</code> creates a "Link" trailer suitable to be
+  used with Gerrit. See the <a href="../gerrit/#alternative-link-trailer">Gerrit docs</a>.</li>
 </ul>
 <p>Existing trailers are also accessible via <code>commit.trailers()</code>.</p>
 <h3 id="diff-colors-and-styles">Diff colors and styles<a class="headerlink" href="#diff-colors-and-styles" title="Permanent link">&para;</a></h3>
