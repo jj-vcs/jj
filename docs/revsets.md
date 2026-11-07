@@ -661,16 +661,18 @@ for a comprehensive list.
   `builtin_shared_immutable_heads()` by default, and can be overridden as
   required. See [here](config.md#set-of-immutable-commits) for details.
 
-* `builtin_immutable_heads()`: Resolves to `shared_immutable_heads()`. It is
-  used as the default definition for `immutable_heads()` below. It is not
-  recommended to redefine this alias. Prefer to redefine `immutable_heads()`
-  instead.
+* `builtin_immutable_heads()`: Resolves to `shared_immutable_heads() |
+  (working_copies() ~ present(@))`, i.e. shared commits and other workspaces'
+  working-copy commits. It is used as the default definition for
+  `immutable_heads()` below. It is not recommended to redefine this alias.
+  Prefer to redefine `immutable_heads()` instead.
 
 * `immutable_heads()`: The heads of the set of immutable commits (not "heads
-  that are immutable"). Resolves to `shared_immutable_heads()` by default. It is
-  actually defined as `builtin_immutable_heads()`, and can be overridden as
-  required. The full set of immutable commits is `::immutable_heads()` (i.e.,
-  `immutable()`). See [here](config.md#set-of-immutable-commits) for details.
+  that are immutable"). Resolves to `shared_immutable_heads() |
+  (working_copies() ~ present(@))` by default. It is actually defined as
+  `builtin_immutable_heads()`, and can be overridden as required. The full set
+  of immutable commits is `::immutable_heads()` (i.e., `immutable()`). See
+  [here](config.md#set-of-immutable-commits) for details.
 
 * `immutable()`: The set of commits that `jj` treats as immutable. This is
   equivalent to `::(immutable_heads() | root())`. It is not recommended to redefine

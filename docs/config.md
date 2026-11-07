@@ -616,10 +616,13 @@ therefore immutable):
 You can configure the set of immutable commits via
 `revset-aliases."immutable_heads()"`. The default set of immutable heads is
 `builtin_immutable_heads()`, which in turn is defined as
-`shared_immutable_heads()`. Unlike `shared_immutable_heads()`,
-`immutable_heads()` doesn't affect which commits are shown by default in `jj
-log`. For example, to prevent rewriting commits authored by other users while
-still showing them in `jj log`:
+`shared_immutable_heads() | (working_copies() ~ present(@))`. That means that
+the working-copy commits of other workspaces are also immutable by default, so
+you don't accidentally make the other workspaces stale. A commit that is checked
+out in the current workspace stays mutable even if another workspace also has it
+checked out. Unlike `shared_immutable_heads()`, `immutable_heads()` doesn't
+affect which commits are shown by default in `jj log`. For example, to prevent
+rewriting commits authored by other users while still showing them in `jj log`:
 
 ```toml
 # The `trunk().. &` bit is an optimization to scan for non-`mine()` commits
@@ -630,6 +633,13 @@ still showing them in `jj log`:
 
 Ancestors of the configured set are also immutable. The root commit is always
 immutable even if the set is empty.
+
+To allow rewriting other workspaces' working-copy commits:
+
+```toml
+[revset-aliases]
+"immutable_heads()" = "shared_immutable_heads()"
+```
 
 !!! warning
 
