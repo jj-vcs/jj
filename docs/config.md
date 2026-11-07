@@ -2191,13 +2191,13 @@ the user's machine, or exfiltrate data.
 
 To find the per-repo config file for the current repo, run:
 
-```bash
+```shell
 jj config path --repo
 ```
 
 To find the per-workspace config file for the current workspace, run:
 
-```bash
+```shell
 jj config path --workspace
 ```
 
