@@ -26,6 +26,10 @@ and this project adheres to
 
 ### Fixed bugs
 
+* `jj debug watchman status` now hints at the likely fix when Watchman fails on
+  macOS because `~/Library/LaunchAgents` is owned by root.
+  [#4064](https://github.com/jj-vcs/jj/issues/4064)
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
