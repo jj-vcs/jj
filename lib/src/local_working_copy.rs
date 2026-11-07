@@ -1937,15 +1937,13 @@ impl FileSnapshotter<'_> {
         mut new_file_state: FileState,
     ) -> Result<(), SnapshotError> {
         let update = self
-            .get_updated_tree_value(&path, disk_path, maybe_current_file_state, &new_file_state)
+            .get_updated_tree_value(
+                &path,
+                disk_path,
+                maybe_current_file_state,
+                &mut new_file_state,
+            )
             .await?;
-        // Preserve materialized conflict data for normal, non-resolved files
-        if matches!(new_file_state.file_type, FileType::Normal { .. })
-            && !update.as_ref().is_some_and(|update| update.is_resolved())
-        {
-            new_file_state.materialized_conflict_data =
-                maybe_current_file_state.and_then(|state| state.materialized_conflict_data);
-        }
         if let Some(tree_value) = update {
             self.tree_entries_tx.send((path.clone(), tree_value)).ok();
         }
@@ -1993,7 +1991,7 @@ impl FileSnapshotter<'_> {
         repo_path: &RepoPath,
         disk_path: &Path,
         maybe_current_file_state: Option<&FileState>,
-        new_file_state: &FileState,
+        new_file_state: &mut FileState,
     ) -> Result<Option<MergedTreeValue>, SnapshotError> {
         let clean = match maybe_current_file_state {
             None => {
@@ -2008,6 +2006,10 @@ impl FileSnapshotter<'_> {
             }
         };
         if clean {
+            // Preserve materialized conflict data for unchanged files.
+            new_file_state.materialized_conflict_data =
+                maybe_current_file_state.and_then(|state| state.materialized_conflict_data);
+
             Ok(None)
         } else {
             let current_tree_values = self.current_tree.path_value(repo_path).await?;
@@ -2030,6 +2032,7 @@ impl FileSnapshotter<'_> {
                         &current_tree_values,
                         exec_bit,
                         maybe_current_file_state.and_then(|state| state.materialized_conflict_data),
+                        new_file_state,
                     )
                     .await?
                 }
@@ -2058,6 +2061,7 @@ impl FileSnapshotter<'_> {
         current_tree_values: &MergedTreeValue,
         exec_bit: ExecBit,
         materialized_conflict_data: Option<MaterializedConflictData>,
+        new_file_state: &mut FileState,
     ) -> Result<MergedTreeValue, SnapshotError> {
         if let Some(current_tree_value) = current_tree_values.as_resolved() {
             let id = self.write_file_to_store(repo_path, disk_path).await?;
@@ -2119,6 +2123,10 @@ impl FileSnapshotter<'_> {
                     message: "Failed to read the EOL converted contents".to_string(),
                     err: err.into(),
                 })?;
+            let materialized_conflict_data =
+                materialized_conflict_data.unwrap_or(MaterializedConflictData {
+                    conflict_marker_len: MIN_CONFLICT_MARKER_LEN as u32,
+                });
             // If the file contained a conflict before and is a normal file on
             // disk, we try to parse any conflict markers in the file into a
             // conflict.
@@ -2129,9 +2137,7 @@ impl FileSnapshotter<'_> {
                 self.store(),
                 repo_path,
                 &contents,
-                materialized_conflict_data.map_or(MIN_CONFLICT_MARKER_LEN, |data| {
-                    data.conflict_marker_len as usize
-                }),
+                materialized_conflict_data.conflict_marker_len as usize,
             )
             .await?;
             match updated_content.new_file_ids.into_resolved() {
@@ -2150,6 +2156,9 @@ impl FileSnapshotter<'_> {
                     }))
                 }
                 Err(new_file_ids) => {
+                    // Since the conflict is not resolved, preserve the materialized conflict data.
+                    new_file_state.materialized_conflict_data = Some(materialized_conflict_data);
+
                     if new_file_ids != old_file_ids {
                         Ok(current_tree_values.with_new_file_ids(&new_file_ids))
                     } else {
