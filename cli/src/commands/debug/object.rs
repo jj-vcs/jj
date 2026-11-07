@@ -51,9 +51,12 @@ pub struct DebugObjectCommitArgs {
 }
 
 #[derive(clap::Args, Clone, Debug)]
+// Dummy group to show <PATH> <ID> in that order:
+// https://github.com/clap-rs/clap/issues/5625#issuecomment-2688535047
+#[command(group(clap::ArgGroup::new("target_path").required(true)))]
 #[command(group(clap::ArgGroup::new("target").required(true)))]
 pub struct DebugObjectFileArgs {
-    #[arg(value_hint = clap::ValueHint::FilePath)]
+    #[arg(group = "target_path", value_hint = clap::ValueHint::FilePath)]
     path: String,
 
     #[arg(group = "target")]
@@ -81,9 +84,12 @@ pub struct DebugObjectSymlinkArgs {
 }
 
 #[derive(clap::Args, Clone, Debug)]
+// Dummy group to show <DIR> <ID> in that order:
+// https://github.com/clap-rs/clap/issues/5625#issuecomment-2688535047
+#[command(group(clap::ArgGroup::new("target_dir").required(true)))]
 #[command(group(clap::ArgGroup::new("target").required(true)))]
 pub struct DebugObjectTreeArgs {
-    #[arg(value_hint = clap::ValueHint::DirPath)]
+    #[arg(group = "target_dir", value_hint = clap::ValueHint::DirPath)]
     dir: String,
 
     #[arg(group = "target")]
