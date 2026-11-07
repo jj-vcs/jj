@@ -2189,15 +2189,10 @@ workspace. This prevents a repo copy, archive, or checkout from silently
 bringing along a config file that could change `jj`'s behavior, run commands on
 the user's machine, or exfiltrate data.
 
-To find the per-repo config file for the current repo, run:
+To find the current per-repo or per-workspace config file, run:
 
 ```shell
 jj config path --repo
-```
-
-To find the per-workspace config file for the current workspace, run:
-
-```shell
 jj config path --workspace
 ```
 
