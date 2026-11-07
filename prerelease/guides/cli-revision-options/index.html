@@ -2485,18 +2485,24 @@ descendants</em>. <code>-s REV</code> is essentially identical to <code>-r REV::
 </li>
 </ul>
 <h3 id="specifying-destinations">Specifying destinations<a class="headerlink" href="#specifying-destinations" title="Permanent link">&para;</a></h3>
-<p>Commands that move revisions around also need to specify the destinations.</p>
+<p>Commands that move revisions around or create revisions also need to specify the
+destination.</p>
 <ul>
 <li><code>--onto REV</code> (<code>-o REV</code>) places revisions as children of <code>REV</code>.</li>
-<li><code>--insert-after REV</code> (<code>-A REV</code>) inserts revisions as children of <code>REV</code> and parents of <code>REV+</code>.</li>
-<li><code>--insert-before REV</code> (<code>-B REV</code>) inserts revisions as the children of <code>REV-</code> and parents of <code>REV</code>.</li>
+<li><code>--insert-after REV</code> (<code>-A REV</code>) inserts revisions as children of <code>REV</code> and
+  parents of <code>REV+</code>.</li>
+<li><code>--insert-before REV</code> (<code>-B REV</code>) inserts revisions as children of <code>REV-</code> and
+  parents of <code>REV</code>.</li>
 </ul>
 <p>Examples:</p>
 <ul>
 <li><code>jj rebase -r REV -o main</code> rebases revisions in <code>REV</code> as children of <code>main</code>.</li>
-<li><code>jj rebase -r REV -B yyy</code> inserts revisions <code>REV</code> between <code>yyy</code> and its parents.</li>
-<li><code>jj rebase -r REV -A main -B yyy</code> inserts revisions <code>REV</code> between <code>main</code> and <code>yyy</code>.</li>
-<li><code>jj revert -r xyz -o main</code> creates a revision that reverts <code>xyz</code> then rebases it on top of <code>main</code>.</li>
+<li><code>jj rebase -r REV -B yyy</code> inserts revisions in <code>REV</code> between <code>yyy</code> and its
+  parents.</li>
+<li><code>jj rebase -r REV -A main -B yyy</code> inserts revisions in <code>REV</code> between <code>main</code>
+  and <code>yyy</code>.</li>
+<li><code>jj revert -r xyz -o main</code> creates a revision that reverts <code>xyz</code> then rebases
+  it on top of <code>main</code>.</li>
 </ul>
 <h2 id="manipulating-diffs-and-file-contents">Manipulating diffs and file contents<a class="headerlink" href="#manipulating-diffs-and-file-contents" title="Permanent link">&para;</a></h2>
 <p>Commands that view or manipulate the <em>contents</em> of revisions use <code>--from</code> and
@@ -2537,8 +2543,10 @@ command is so common that Jujutsu allows <code>jj new xyz</code>.</p>
 <p>The commands that allow omitting the <code>-r</code> are:</p>
 <ul>
 <li><code>jj abandon</code></li>
+<li><code>jj arrange</code></li>
 <li><code>jj describe</code></li>
 <li><code>jj duplicate</code></li>
+<li><code>jj edit</code></li>
 <li><code>jj metaedit</code></li>
 <li><code>jj new</code></li>
 <li><code>jj parallelize</code></li>
