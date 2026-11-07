@@ -2242,11 +2242,22 @@ fn test_fix_line_range_args_migration() {
     let output = work_dir.run_jj(["fix"]).success();
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: fix.tools.tool-1.line-range-arg is updated to fix.tools.tool-1.line-range-args = ["--line-ranges=$first-$last"]
+    Warning: Deprecated user-level jj config: fix.tools.tool-1.line-range-arg is updated to fix.tools.tool-1.line-range-args = ["--line-ranges=$first-$last"]
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm bce2043c (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    "#);
+
+    let output = test_env
+        .run_jj_in(".", ["config", "list", "fix.tools.tool-1.line-range-args"])
+        .success();
+    insta::assert_snapshot!(output, @r#"
+    fix.tools.tool-1.line-range-args = ["--line-ranges=$first-$last"]
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated user-level jj config: fix.tools.tool-1.line-range-arg is updated to fix.tools.tool-1.line-range-args = ["--line-ranges=$first-$last"]
     [EOF]
     "#);
 }

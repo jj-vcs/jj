@@ -4652,7 +4652,7 @@ impl<'a> CliRunner<'a> {
             };
             writeln!(
                 ui.warning_default(),
-                "Deprecated {source_str} config: {desc}"
+                "Deprecated {source_str} jj config: {desc}"
             )?;
         }
 
