@@ -554,13 +554,10 @@ pub async fn cmd_git_push(
         }
     }
 
-    if by_remote
-        .iter()
-        .all(|(_, ref_updates)| ref_updates.bookmarks.is_empty() && ref_updates.tags.is_empty())
-    {
-        writeln!(ui.status(), "Nothing changed.")?;
-        return Ok(());
-    }
+    // Suppress status messages for remotes with no changes.
+    by_remote.retain(|(_, ref_updates)| {
+        !ref_updates.bookmarks.is_empty() || !ref_updates.tags.is_empty()
+    });
 
     if !args.dry_run {
         let to_push_exprs = by_remote
@@ -653,7 +650,6 @@ pub async fn cmd_git_push(
         let description = {
             let remotes = match &*by_remote {
                 [(remote, _)] => format!("git remote {remote}", remote = remote.as_symbol()),
-                // by_remote is not empty
                 _ => format!(
                     "git remotes {remotes}",
                     remotes = by_remote
