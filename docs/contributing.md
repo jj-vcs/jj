@@ -21,6 +21,17 @@ well (including future projects).
 
 {% include-markdown '../AI_POLICY.md' heading-offset=2 %}
 
+### Paid contributors
+
+If your employer pays anyone (not necessarily you) to contribute to Jujutsu,
+please make sure your GitHub username is [recorded](paid_contributors.md).
+To avoid conflicts of interest, please don't merge a PR that has only been
+approved by someone from the same organization. Similarly, as a reviewer, there
+is no need to approve your coworkers' PRs, since the author should await an
+approval from someone else anyway. It is of course still appreciated if you
+review and comment on their PRs. Also, if the PR seems completely unrelated to
+your company's interests, do feel free to approve it.
+
 ### Commit guidelines
 
 Unlike many GitHub projects (but like many VCS projects), we care more about the
@@ -36,6 +47,13 @@ use `jj split` to do it if you didn't realize ahead of time how it should be
 split up. Include tests and documentation in the same commit as the code they
 test and document.
 
+If you have been invited to the `jj-vcs/` organization feel free to create
+branches directly in the repo, ideally prefixed by your name or username. This
+allows other people to directly check out your work and possibly integrate them
+in their custom builds of jj.
+
+#### Commit message guidelines
+
 The commit message should describe the changes in the commit;
 the PR description can even be empty, but feel free to include a personal
 message. We don't use [Conventional Commits] and instead start the commit
@@ -50,11 +68,6 @@ strict about the style, but please do explain the reason for the change unless
 it's obvious. If the PR closes an open issue or feature request for the
 project, include the `Closes #<issue-number>` or `Fixes #<issue-number>` in
 the commit description.
-
-If you have been invited to the `jj-vcs/` organization feel free to create
-branches directly in the repo, ideally prefixed by your name or username. This
-allows other people to directly check out your work and possibly integrate them
-in their custom builds of jj.
 
 [Conventional Commits]: https://www.conventionalcommits.org/en/v1.0.0/
 [How to Write a Git Commit Message]: https://cbea.ms/git-commit/
@@ -78,27 +91,16 @@ review others' PRs so the maintainers don't need to spend as much time on them.
 When you address comments on a PR, don't make the changes in a commit on top (as
 is typical on GitHub). Instead, please make the changes in the appropriate
 commit. You can do that by creating a new commit on top of the initial commit
- (`jj new <commit>`) and then squash in the changes when you're done (`jj squash`).
-`jj git push`
-will automatically force-push the bookmark.
+(`jj new <commit>`) and then squash in the changes when you're done
+(`jj squash`). `jj git push` will automatically force-push the bookmark.
 
 Mark conversation threads as resolved when you have addressed them. If you
-realize that a comment requires non-trivial changes, write a reply instead and
-ask your reviewer to take another look after updating the code.
+realize that a comment requires non-trivial changes, write a reply and ask your
+reviewer to take another look after updating the code.
 
 When your first PR has been approved, we typically invite you to the
-`jj-vcs/contributors` team to give you contributor access,
-so you can address any remaining minor comments and then merge the PR yourself
-when you're ready.
-
-If your employer pays anyone (not necessarily you) to contribute to Jujutsu,
-please make sure your GitHub username is [recorded](paid_contributors.md).
-To avoid conflicts of interest, please don't merge a PR that has only been
-approved by someone from the same organization. Similarly, as a reviewer, there
-is no need to approve your coworkers' PRs, since the author should await an
-approval from someone else anyway. It is of course still appreciated if you
-review and comment on their PRs. Also, if the PR seems completely unrelated to
-your company's interests, do feel free to approve it.
+`jj-vcs/contributors` team to give you contributor access, so you can address
+any remaining minor comments and then merge the PR yourself when you're ready.
 
 ### Changelog entries
 
@@ -184,9 +186,8 @@ multiple stakeholders, see the [process here](design_docs.md#process).
 We appreciate [bug
 reports](https://github.com/jj-vcs/jj/issues/new?template=bug_report.md)
 about any problems, however small, lurking in [our documentation
-website](https://docs.jj-vcs.dev/prerelease) or in the `jj help
-<command>` docs. If a part of the bug report template does not apply, you can
-just delete it.
+website](https://docs.jj-vcs.dev/prerelease) or in the `jj help <command>` docs.
+If a part of the bug report template does not apply, you can just delete it.
 
 Before reporting a problem with the documentation website, we'd appreciate it if
 you could check that the problem still exists in the "prerelease" version of the
