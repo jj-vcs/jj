@@ -101,8 +101,7 @@ use crate::ui::Ui;
 /// current state matches what Jujutsu last fetched.
 ///
 /// Unlike in Git, the remote to push to is not derived from the tracked remote
-/// bookmarks. Use `--remote` to select the remote Git repository by name. There
-/// is no option to push to multiple remotes.
+/// bookmarks. Use `--remote` to select the remote Git repositories.
 ///
 /// Before the command actually moves, creates, or deletes a remote bookmark, it
 /// makes several [safety checks]. If there is a problem, you may need to run
