@@ -329,7 +329,7 @@ fn test_git_push_configured_revset() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No bookmarks/tags found in revsets.git-push: remote_bookmarks(remote=exact:remote)..@ (remote=origin)
-    Nothing changed.
+    Dry-run requested, not pushing.
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -2495,7 +2495,7 @@ fn test_git_push_tracked_vs_all() {
     Hint: Push deleted bookmarks with --deleted or forget the bookmark to suppress this warning.
     Warning: Refusing to push deleted tag tag2
     Hint: Push deleted tags with --deleted.
-    Nothing changed.
+    Dry-run requested, not pushing.
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push", "--tracked", "--deleted", "--dry-run"]);
@@ -3400,7 +3400,7 @@ fn test_git_push_parse_multiple_remotes_from_args_or_config() {
 }
 
 #[test]
-fn test_git_push_named_multiple_remotes_from_config() {
+fn test_git_push_multiple_remotes() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     let local_dir = test_env.work_dir("local");
@@ -3422,6 +3422,20 @@ fn test_git_push_named_multiple_remotes_from_config() {
     Changes to push to other_1:
       bookmark: named-bookmark [add to d7738fce4d92]
     Changes to push to other_2:
+      bookmark: named-bookmark [add to d7738fce4d92]
+    [EOF]
+    ");
+
+    // Only the remote "origin" has changes
+    local_dir
+        .run_jj(["bookmark", "track", "--remote=*", "named-bookmark"])
+        .success();
+    let output = local_dir.run_jj(["git", "push", "--remote=*", "-bnamed-bookmark"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Bookmark named-bookmark@other_1 already matches named-bookmark
+    Bookmark named-bookmark@other_2 already matches named-bookmark
+    Changes to push to origin:
       bookmark: named-bookmark [add to d7738fce4d92]
     [EOF]
     ");
