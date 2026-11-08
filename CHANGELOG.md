@@ -29,6 +29,9 @@ and this project adheres to
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
   changes from being exported to Git HEAD and refs.
 
+* Fixed `jj git push` failure when pushing to multiple remotes with empty
+  updates. [#10647](https://github.com/jj-vcs/jj/issues/10647)
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
