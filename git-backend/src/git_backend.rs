@@ -669,6 +669,16 @@ fn gix_open_opts_from_settings(settings: &GitBackendSettings) -> gix::open::Opti
         .open_path_as_is(true)
         // Gitoxide recommends this when correctness is preferred
         .strict_config(true)
+        // The object store can only track a fixed number of pack indices,
+        // determined when the repo is opened. By default, that's only 10% more
+        // than the number of packs at that time (but at least 32), so a few
+        // new packs written by `git fetch`, a concurrent process, or the
+        // backend itself would make object lookups fail. Slots are cheap, so
+        // leave room for plenty of new packs.
+        .object_store_slots(gix::odb::store::init::Slots::AsNeededByDiskState {
+            multiplier: 2.0,
+            minimum: 1024,
+        })
 }
 
 /// Parses the `jj:conflict-labels` header value if present.
@@ -1709,6 +1719,49 @@ mod tests {
         )
         .unwrap()
         .to_thread_local()
+    }
+
+    #[test]
+    fn read_from_packs_added_after_open() -> TestResult {
+        let settings = backend_settings();
+        let temp_dir = new_temp_dir();
+        let store_path = temp_dir.path().join("store");
+        fs::create_dir(&store_path)?;
+        let backend =
+            GitBackend::init_internal(&settings, &store_path, gix::hash::Kind::default())?;
+        let pack_dir = backend.git_repo_path().join("objects").join("pack");
+
+        // More packs than gix's default minimum number of index slots
+        let source_repo = git_init(temp_dir.path().join("source"), gix::hash::Kind::default());
+        let mut blob_ids = vec![];
+        for i in 0..40 {
+            let blob_id = source_repo.write_blob(format!("blob {i}"))?.detach();
+            let mut child = Command::new("git")
+                .arg("--git-dir")
+                .arg(source_repo.path())
+                .args(["pack-objects", "-q"])
+                .arg(pack_dir.join("pack"))
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::null())
+                .spawn()?;
+            std::io::Write::write_all(
+                &mut child.stdin.take().unwrap(),
+                format!("{blob_id}\n").as_bytes(),
+            )?;
+            assert!(child.wait()?.success());
+            blob_ids.push(FileId::from_bytes(blob_id.as_bytes()));
+        }
+
+        for (i, blob_id) in blob_ids.iter().enumerate() {
+            let mut contents = vec![];
+            backend
+                .read_file(RepoPath::root(), blob_id)
+                .block_on()?
+                .read_to_end(&mut contents)
+                .block_on()?;
+            assert_eq!(contents, format!("blob {i}").as_bytes());
+        }
+        Ok(())
     }
 
     #[test]
