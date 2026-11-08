@@ -295,7 +295,7 @@ pub fn persist_temp_file<P: AsRef<Path>>(
         match temp_file.persist(new_path) {
             Ok(file) => return Ok(file),
             Err(PersistError { error, file }) => {
-                if is_transient_persist_error(&error)
+                if is_transient_file_error(&error)
                     && let Some(delay) = retry_delays.next()
                 {
                     std::thread::sleep(delay);
@@ -308,9 +308,8 @@ pub fn persist_temp_file<P: AsRef<Path>>(
     }
 }
 
-/// Returns true if the error from replacing a file may go away once other
-/// processes close the source or target file.
-fn is_transient_persist_error(error: &io::Error) -> bool {
+/// Returns true if a file error may go away once other processes close a file.
+pub(crate) fn is_transient_file_error(error: &io::Error) -> bool {
     // ERROR_SHARING_VIOLATION isn't mapped to any `ErrorKind`.
     const ERROR_SHARING_VIOLATION: i32 = 32;
     cfg!(windows)
