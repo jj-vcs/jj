@@ -3537,6 +3537,11 @@ including capture group 0 for the full match.</p>
 <li><code>try(expr: Any, fallback: Any...) -&gt; Any</code>: Evaluates each expression in order
   and returns the first successful result. Suppresses preceding runtime errors,
   but lets parsing errors (such as type errors) pass through.</li>
+<li><code>with(values..., |names...| body) -&gt; Any</code>: Binds each value expression to its
+  respective lambda parameter, returning the lambda evaluated with the new name
+  bindings. The expressions are re-evaluated at every use of bound names, so
+  this is effectively the same as defining temporary template aliases with local
+  scoping rules.</li>
 <li><code>coalesce(content: Template...) -&gt; Template</code>: Returns the first <strong>non-empty</strong>
   content.</li>
 <li><code>concat(content: Template...) -&gt; Template</code>:
