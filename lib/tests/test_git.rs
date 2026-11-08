@@ -6807,6 +6807,26 @@ fn test_push_updates_success() -> TestResult {
 }
 
 #[test]
+fn test_push_updates_empty() -> TestResult {
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let setup = set_up_push_repos(&settings, &temp_dir);
+    let subprocess_options = GitSubprocessOptions::from_settings(&settings)?;
+    let stats = git::push_updates(
+        setup.jj_repo.as_ref(),
+        subprocess_options,
+        "origin".as_ref(),
+        &[],
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert!(stats.pushed.is_empty());
+    assert!(stats.rejected.is_empty());
+    assert!(stats.remote_rejected.is_empty());
+    Ok(())
+}
+
+#[test]
 fn test_push_updates_no_such_remote() -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();

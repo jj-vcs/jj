@@ -238,6 +238,10 @@ impl GitSubprocessContext {
         callback: &mut dyn GitSubprocessCallback,
         options: &GitPushOptions,
     ) -> Result<GitPushStats, GitSubprocessError> {
+        if references.is_empty() {
+            // Don't attempt to push the default targets
+            return Ok(GitPushStats::default());
+        }
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
         // Exclude all fetch mappings to prevent push from updating tracking
