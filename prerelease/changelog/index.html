@@ -9550,8 +9550,14 @@ and this project adheres to
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
-<li>In colocated workspaces, <code>--ignore-working-copy</code> and <code>--at-op</code> now prevent
-  changes from being exported to Git HEAD and refs.</li>
+<li>
+<p>In colocated workspaces, <code>--ignore-working-copy</code> and <code>--at-op</code> now prevent
+  changes from being exported to Git HEAD and refs.</p>
+</li>
+<li>
+<p>Fixed <code>jj git push</code> failure when pushing to multiple remotes with empty
+  updates. <a href="https://github.com/jj-vcs/jj/issues/10647">#10647</a></p>
+</li>
 </ul>
 <h2 id="0471-2026-11-04"><a href="https://github.com/jj-vcs/jj/compare/v0.47.0...v0.47.1">0.47.1</a> - 2026-11-04<a class="headerlink" href="#0471-2026-11-04" title="Permanent link">&para;</a></h2>
 <p>This release fixes a dependency error that broke Linux builds in the 0.47.0
