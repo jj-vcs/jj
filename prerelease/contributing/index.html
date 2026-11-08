@@ -1659,6 +1659,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#paid-contributors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paid contributors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#commit-guidelines" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1666,6 +1677,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Commit guidelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#commit-message-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commit message guidelines
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -2695,6 +2723,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#paid-contributors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paid contributors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#commit-guidelines" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2702,6 +2741,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Commit guidelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#commit-message-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commit message guidelines
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -3206,6 +3262,15 @@ Assisted-by: GPT 5.6 Sol
  your writing in its original language.</p>
 </li>
 </ol>
+<h3 id="paid-contributors">Paid contributors<a class="headerlink" href="#paid-contributors" title="Permanent link">&para;</a></h3>
+<p>If your employer pays anyone (not necessarily you) to contribute to Jujutsu,
+please make sure your GitHub username is <a href="../paid_contributors/">recorded</a>.
+To avoid conflicts of interest, please don't merge a PR that has only been
+approved by someone from the same organization. Similarly, as a reviewer, there
+is no need to approve your coworkers' PRs, since the author should await an
+approval from someone else anyway. It is of course still appreciated if you
+review and comment on their PRs. Also, if the PR seems completely unrelated to
+your company's interests, do feel free to approve it.</p>
 <h3 id="commit-guidelines">Commit guidelines<a class="headerlink" href="#commit-guidelines" title="Permanent link">&para;</a></h3>
 <p>Unlike many GitHub projects (but like many VCS projects), we care more about the
 contents of commits than about the contents of PRs. We review each commit
@@ -3218,6 +3283,11 @@ consists of many parts, try to separate out those into separate commits. You can
 use <code>jj split</code> to do it if you didn't realize ahead of time how it should be
 split up. Include tests and documentation in the same commit as the code they
 test and document.</p>
+<p>If you have been invited to the <code>jj-vcs/</code> organization feel free to create
+branches directly in the repo, ideally prefixed by your name or username. This
+allows other people to directly check out your work and possibly integrate them
+in their custom builds of jj.</p>
+<h4 id="commit-message-guidelines">Commit message guidelines<a class="headerlink" href="#commit-message-guidelines" title="Permanent link">&para;</a></h4>
 <p>The commit message should describe the changes in the commit;
 the PR description can even be empty, but feel free to include a personal
 message. We don't use <a href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commits</a> and instead start the commit
@@ -3232,10 +3302,6 @@ strict about the style, but please do explain the reason for the change unless
 it's obvious. If the PR closes an open issue or feature request for the
 project, include the <code>Closes #&lt;issue-number&gt;</code> or <code>Fixes #&lt;issue-number&gt;</code> in
 the commit description.</p>
-<p>If you have been invited to the <code>jj-vcs/</code> organization feel free to create
-branches directly in the repo, ideally prefixed by your name or username. This
-allows other people to directly check out your work and possibly integrate them
-in their custom builds of jj.</p>
 <h3 id="code-reviews">Code reviews<a class="headerlink" href="#code-reviews" title="Permanent link">&para;</a></h3>
 <p>All submissions, including submissions by project members, require review. We
 use GitHub pull requests for this purpose. Consult
@@ -3252,24 +3318,14 @@ review others' PRs so the maintainers don't need to spend as much time on them.<
 <p>When you address comments on a PR, don't make the changes in a commit on top (as
 is typical on GitHub). Instead, please make the changes in the appropriate
 commit. You can do that by creating a new commit on top of the initial commit
- (<code>jj new &lt;commit&gt;</code>) and then squash in the changes when you're done (<code>jj squash</code>).
-<code>jj git push</code>
-will automatically force-push the bookmark.</p>
+(<code>jj new &lt;commit&gt;</code>) and then squash in the changes when you're done
+(<code>jj squash</code>). <code>jj git push</code> will automatically force-push the bookmark.</p>
 <p>Mark conversation threads as resolved when you have addressed them. If you
-realize that a comment requires non-trivial changes, write a reply instead and
-ask your reviewer to take another look after updating the code.</p>
+realize that a comment requires non-trivial changes, write a reply and ask your
+reviewer to take another look after updating the code.</p>
 <p>When your first PR has been approved, we typically invite you to the
-<code>jj-vcs/contributors</code> team to give you contributor access,
-so you can address any remaining minor comments and then merge the PR yourself
-when you're ready.</p>
-<p>If your employer pays anyone (not necessarily you) to contribute to Jujutsu,
-please make sure your GitHub username is <a href="../paid_contributors/">recorded</a>.
-To avoid conflicts of interest, please don't merge a PR that has only been
-approved by someone from the same organization. Similarly, as a reviewer, there
-is no need to approve your coworkers' PRs, since the author should await an
-approval from someone else anyway. It is of course still appreciated if you
-review and comment on their PRs. Also, if the PR seems completely unrelated to
-your company's interests, do feel free to approve it.</p>
+<code>jj-vcs/contributors</code> team to give you contributor access, so you can address
+any remaining minor comments and then merge the PR yourself when you're ready.</p>
 <h3 id="changelog-entries">Changelog entries<a class="headerlink" href="#changelog-entries" title="Permanent link">&para;</a></h3>
 <p>When creating PRs, please update <a href="https://github.com/jj-vcs/jj/blob/main/CHANGELOG.md"><code>CHANGELOG.md</code></a> with the new
 changes under the "Unreleased" section. Make sure to highlight any breaking
@@ -3336,9 +3392,8 @@ multiple stakeholders, see the <a href="../design_docs/#process">process here</a
 <p>We appreciate <a href="https://github.com/jj-vcs/jj/issues/new?template=bug_report.md">bug
 reports</a>
 about any problems, however small, lurking in <a href="https://docs.jj-vcs.dev/prerelease">our documentation
-website</a> or in the <code>jj help
-&lt;command&gt;</code> docs. If a part of the bug report template does not apply, you can
-just delete it.</p>
+website</a> or in the <code>jj help &lt;command&gt;</code> docs.
+If a part of the bug report template does not apply, you can just delete it.</p>
 <p>Before reporting a problem with the documentation website, we'd appreciate it if
 you could check that the problem still exists in the "prerelease" version of the
 documentation (as opposed to the docs for one of the released versions of <code>jj</code>).
