@@ -28,7 +28,7 @@ use std::time::Duration;
 use tracing::instrument;
 
 use super::FileLockError;
-use super::backoff::BackoffIterator;
+use crate::backoff::BackoffIterator;
 
 const FILE_SHARE_READ: u32 = 1;
 const FILE_SHARE_WRITE: u32 = 2;

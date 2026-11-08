@@ -14,7 +14,6 @@
 
 #![expect(missing_docs)]
 
-pub(crate) mod backoff;
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]
