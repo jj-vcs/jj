@@ -37,7 +37,7 @@ pub use self::platform::check_executable_bit_support;
 pub use self::platform::check_symlink_support;
 pub use self::platform::symlink_dir;
 pub use self::platform::symlink_file;
-use crate::lock::backoff::BackoffIterator;
+use crate::backoff::BackoffIterator;
 
 /// An error which can occur when accessing paths.
 #[derive(Debug, Error)]

@@ -22,6 +22,7 @@
 #![deny(unsafe_code)]
 #![deny(unused_must_use)]
 
+mod backoff;
 pub mod file_util;
 pub mod lock;
 pub mod stacked_table;
