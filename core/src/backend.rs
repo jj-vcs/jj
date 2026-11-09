@@ -446,6 +446,10 @@ pub trait MergedTreeValueExt {
     /// Whether this merge is present and not a tree
     fn is_file_like(&self) -> bool;
 
+    /// If this merge contains only trees or absent entries, returns a merge of
+    /// the `TreeId`s.
+    fn to_tree_id_merge(&self) -> Option<Merge<Option<TreeId>>>;
+
     /// If this merge contains only files or absent entries, returns a merge of
     /// the `FileId`s. The executable bits and copy IDs will be ignored. Use
     /// `Merge::with_new_file_ids()` to produce a new merge with the original
@@ -487,6 +491,18 @@ where
 
     fn is_file_like(&self) -> bool {
         self.is_present() && !self.is_tree()
+    }
+
+    fn to_tree_id_merge(&self) -> Option<Merge<Option<TreeId>>> {
+        let tree_ids = self
+            .try_map(|term| match borrow_tree_value(term.as_ref()) {
+                None => Ok(None),
+                Some(TreeValue::Tree(id)) => Ok(Some(id.clone())),
+                _ => Err(()),
+            })
+            .ok()?;
+
+        Some(tree_ids)
     }
 
     fn to_file_merge(&self) -> Option<Merge<Option<FileId>>> {
@@ -915,5 +931,42 @@ mod tests {
         let change_id = ChangeId::from_hex("deadbeef0123");
         assert_eq!(format!("{change_id}"), "mlpmollkzyxw");
         assert_eq!(format!("{change_id:.6}"), "mlpmol");
+    }
+
+    #[test]
+    fn test_to_tree_id_merge() {
+        let tree_id = |hex| Some(TreeId::from_hex(hex));
+        let tree = |hex| Some(TreeValue::Tree(TreeId::from_hex(hex)));
+        let file = |hex| {
+            Some(TreeValue::File {
+                id: FileId::from_hex(hex),
+                executable: false,
+                copy_id: CopyId::placeholder(),
+            })
+        };
+
+        // Trees and absent terms
+        let merge = Merge::from_vec(vec![tree("01"), None, tree("02")]);
+        assert!(merge.is_tree());
+        assert_eq!(
+            merge.to_tree_id_merge(),
+            Some(Merge::from_vec(vec![tree_id("01"), None, tree_id("02"),]))
+        );
+
+        // Only files
+        let merge = Merge::from_vec(vec![file("01"), None, file("02")]);
+        assert!(!merge.is_tree());
+        assert_eq!(merge.to_tree_id_merge(), None);
+
+        // A file that doesn't cancel out
+        let merge = Merge::from_vec(vec![tree("01"), None, file("02")]);
+        assert!(!merge.is_tree());
+        assert_eq!(merge.to_tree_id_merge(), None);
+
+        // Files that are equal but don't cancel out because they have the same
+        // sign
+        let merge = Merge::from_vec(vec![tree("01"), None, file("02"), None, file("02")]);
+        assert!(!merge.is_tree());
+        assert_eq!(merge.to_tree_id_merge(), None);
     }
 }
