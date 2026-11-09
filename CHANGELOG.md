@@ -42,6 +42,10 @@ and this project adheres to
   path is also no longer listed as a directory/file conflict, and its
   conflicted files are listed instead.
 
+* A conflict where a path is a directory in some terms and a file in others is
+  now treated as a file conflict when the directory terms cancel out, so it is
+  materialized with conflict markers.
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0

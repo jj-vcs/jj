@@ -14,20 +14,26 @@
 
 use indoc::indoc;
 use itertools::Itertools as _;
+use jj_core::backend::BackendResult;
 use jj_core::backend::FileId;
+use jj_core::backend::MergedTreeValueExt as _;
+use jj_core::backend::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::conflicts::ConflictMarkerStyle;
 use jj_core::conflicts::ConflictMaterializeOptions;
 use jj_core::conflicts::MIN_CONFLICT_MARKER_LEN;
+use jj_core::conflicts::MaterializedTreeValue;
 use jj_core::conflicts::choose_materialized_conflict_marker_len;
 use jj_core::conflicts::extract_as_single_hunk;
 use jj_core::conflicts::materialize_merge_result_to_bytes;
+use jj_core::conflicts::materialize_tree_value;
 use jj_core::conflicts::parse_conflict;
 use jj_core::conflicts::update_from_content;
 use jj_core::files::FileMergeHunkLevel;
 use jj_core::files::MergeOptions;
 use jj_core::merge::Merge;
 use jj_core::merge::SameChange;
+use jj_core::merged_tree::MergedTree;
 use jj_core::repo_path::RepoPath;
 use jj_core::store::Store;
 use jj_lib::repo::Repo as _;
@@ -790,6 +796,80 @@ fn test_materialize_conflict_modify_delete() {
     >>>>>>> conflict 1 of 1 ends
     "
     );
+}
+
+/// Test materializing a merge where a path is a directory in some terms and a
+/// file in others, and the directory terms cancel out.
+#[test]
+fn test_materialize_file_conflict_with_canceled_tree_terms() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let path = repo_path("file");
+    let sub_path = repo_path("file/sub");
+    let terms = [
+        testutils::create_tree(repo, &[(path, "1\n")]),
+        testutils::create_tree(repo, &[(sub_path, "dir\n")]),
+        testutils::create_tree(repo, &[(sub_path, "dir\n")]),
+        testutils::create_tree(repo, &[(path, "0\n")]),
+        testutils::create_tree(repo, &[(path, "2\n")]),
+    ];
+    let value = Merge::from_vec(
+        terms
+            .iter()
+            .map(|tree| Ok(tree.path_value(path).block_on()?.into_resolved().unwrap()))
+            .collect::<BackendResult<Vec<_>>>()?,
+    );
+    let file_id = |tree: &MergedTree| match tree.path_value(path).block_on().unwrap().as_resolved()
+    {
+        Some(Some(TreeValue::File { id, .. })) => id.clone(),
+        _ => panic!("expected a file"),
+    };
+    let labels = ConflictLabels::from_vec(
+        ["a", "base1", "b", "base2", "c"]
+            .map(str::to_owned)
+            .to_vec(),
+    );
+
+    let materialized = materialize_tree_value(store, path, value.clone(), &labels).block_on()?;
+    let MaterializedTreeValue::FileConflict(file) = materialized else {
+        panic!("expected a file conflict");
+    };
+    // The canceled tree terms are replaced by absent terms
+    assert_eq!(
+        file.unsimplified_ids,
+        Merge::from_vec(vec![
+            Some(file_id(&terms[0])),
+            None,
+            None,
+            Some(file_id(&terms[3])),
+            Some(file_id(&terms[4])),
+        ])
+    );
+    assert_eq!(
+        file.ids,
+        Merge::from_vec(vec![
+            Some(file_id(&terms[0])),
+            Some(file_id(&terms[3])),
+            Some(file_id(&terms[4])),
+        ])
+    );
+
+    // Writing the file IDs back replaces the canceled tree terms by absent
+    // terms
+    let file_value = |index: usize| value.as_slice()[index].clone();
+    assert_eq!(
+        value.with_new_file_ids(&file.unsimplified_ids),
+        Merge::from_vec(vec![
+            file_value(0),
+            None,
+            None,
+            file_value(3),
+            file_value(4),
+        ])
+    );
+    Ok(())
 }
 
 #[test]

@@ -452,18 +452,23 @@ pub trait MergedTreeValueExt {
     /// replaced by `None`.
     fn to_tree_id_merge(&self) -> Option<Merge<Option<TreeId>>>;
 
-    /// If this merge contains only files or absent entries, returns a merge of
-    /// the `FileId`s. The executable bits and copy IDs will be ignored. Use
+    /// If this merge contains only files or absent entries, ignoring non-file
+    /// terms that cancel out against each other, returns a merge of the
+    /// `FileId`s, with `None` in place of absent terms and canceled terms. The
+    /// executable bits and copy IDs will be ignored. Use
     /// `Merge::with_new_file_ids()` to produce a new merge with the original
     /// executable bits preserved.
     fn to_file_id_merge(&self) -> Option<Merge<Option<FileId>>>;
 
-    /// If this merge contains only files or absent entries, returns a merge of
-    /// the files' executable bits.
+    /// If this merge contains only files or absent entries, ignoring non-file
+    /// terms that cancel out against each other, returns a merge of the files'
+    /// executable bits, with `None` in place of absent terms and canceled
+    /// terms.
     fn to_executable_merge(&self) -> Option<Merge<Option<bool>>>;
 
-    /// If this merge contains only files or absent entries, returns a merge of
-    /// the files' copy IDs.
+    /// If this merge contains only files or absent entries, ignoring non-file
+    /// terms that cancel out against each other, returns a merge of the files'
+    /// copy IDs, with `None` in place of absent terms and canceled terms.
     fn to_copy_id_merge(&self) -> Option<Merge<Option<CopyId>>>;
 
     /// Creates a new merge with the file ids from the given merge. In other
@@ -494,45 +499,36 @@ where
     }
 
     fn to_file_id_merge(&self) -> Option<Merge<Option<FileId>>> {
-        let file_ids = self
-            .try_map(|term| match borrow_tree_value(term.as_ref()) {
-                None => Ok(None),
-                Some(TreeValue::File {
-                    id,
-                    executable: _,
-                    copy_id: _,
-                }) => Ok(Some(id.clone())),
-                _ => Err(()),
-            })
-            .ok()?;
-
-        Some(file_ids)
+        convert_terms_ignoring_canceled(self, |value| match value {
+            TreeValue::File {
+                id,
+                executable: _,
+                copy_id: _,
+            } => Some(id.clone()),
+            _ => None,
+        })
     }
 
     fn to_executable_merge(&self) -> Option<Merge<Option<bool>>> {
-        self.try_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Ok(None),
-            Some(TreeValue::File {
+        convert_terms_ignoring_canceled(self, |value| match value {
+            TreeValue::File {
                 id: _,
                 executable,
                 copy_id: _,
-            }) => Ok(Some(*executable)),
-            _ => Err(()),
+            } => Some(*executable),
+            _ => None,
         })
-        .ok()
     }
 
     fn to_copy_id_merge(&self) -> Option<Merge<Option<CopyId>>> {
-        self.try_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Ok(None),
-            Some(TreeValue::File {
+        convert_terms_ignoring_canceled(self, |value| match value {
+            TreeValue::File {
                 id: _,
                 executable: _,
                 copy_id,
-            }) => Ok(Some(copy_id.clone())),
-            _ => Err(()),
+            } => Some(copy_id.clone()),
+            _ => None,
         })
-        .ok()
     }
 
     fn with_new_file_ids(&self, file_ids: &Merge<Option<FileId>>) -> Merge<Option<TreeValue>> {
@@ -553,6 +549,8 @@ where
                         copy_id: copy_id.clone(),
                     }),
                     (None, None) => None,
+                    // Non-file terms that cancel out have no file ID.
+                    (Some(old), None) if !matches!(old, TreeValue::File { .. }) => None,
                     // New files are populated to preserve the materialized conflict. The file won't
                     // be checked out to the disk. So the metadata is not important, and we will
                     // just use the default values.
