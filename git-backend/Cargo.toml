@@ -21,7 +21,6 @@ include = [
 [dependencies]
 async-trait = { workspace = true }
 blake2 = { workspace = true }
-dunce = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true }
 itertools = { workspace = true }

@@ -30,7 +30,6 @@ async-trait = { workspace = true }
 blake2 = { workspace = true }
 bstr = { workspace = true }
 digest = { workspace = true }
-dunce = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
@@ -64,6 +63,7 @@ tracing = { workspace = true }
 watchman_client = { workspace = true, optional = true }
 
 [dev-dependencies]
+dunce = { workspace = true }
 eyre = { workspace = true }
 indoc = { workspace = true }
 insta = { workspace = true }
