@@ -480,13 +480,7 @@ where
     T: Borrow<TreeValue>,
 {
     fn is_tree(&self) -> bool {
-        self.is_present()
-            && self.iter().all(|value| {
-                matches!(
-                    borrow_tree_value(value.as_ref()),
-                    Some(TreeValue::Tree(_)) | None
-                )
-            })
+        self.is_present() && borrow_tree_id_merge(self).is_some()
     }
 
     fn is_file_like(&self) -> bool {
@@ -494,15 +488,7 @@ where
     }
 
     fn to_tree_id_merge(&self) -> Option<Merge<Option<TreeId>>> {
-        let tree_ids = self
-            .try_map(|term| match borrow_tree_value(term.as_ref()) {
-                None => Ok(None),
-                Some(TreeValue::Tree(id)) => Ok(Some(id.clone())),
-                _ => Err(()),
-            })
-            .ok()?;
-
-        Some(tree_ids)
+        borrow_tree_id_merge(self).map(|ids| ids.map(|id| id.cloned()))
     }
 
     fn to_file_id_merge(&self) -> Option<Merge<Option<FileId>>> {
@@ -607,6 +593,19 @@ where
         }
         buf
     }
+}
+
+/// Like [`MergedTreeValueExt::to_tree_id_merge()`], but borrows the tree IDs.
+fn borrow_tree_id_merge<T: Borrow<TreeValue>>(
+    merge: &Merge<Option<T>>,
+) -> Option<Merge<Option<&TreeId>>> {
+    merge
+        .try_map(|term| match borrow_tree_value(term.as_ref()) {
+            None => Ok(None),
+            Some(TreeValue::Tree(id)) => Ok(Some(id)),
+            Some(_) => Err(()),
+        })
+        .ok()
 }
 
 /// Borrow the Option's `TreeValue` if it exists.
