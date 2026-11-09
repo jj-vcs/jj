@@ -601,29 +601,42 @@ where
 fn borrow_tree_id_merge<T: Borrow<TreeValue>>(
     merge: &Merge<Option<T>>,
 ) -> Option<Merge<Option<&TreeId>>> {
-    fn to_tree_id(value: Option<&TreeValue>) -> Option<Option<&TreeId>> {
-        match value {
-            None => Some(None),
-            Some(TreeValue::Tree(id)) => Some(Some(id)),
-            Some(_) => None,
-        }
-    }
+    convert_terms_ignoring_canceled(merge, |value| match value {
+        TreeValue::Tree(id) => Some(id),
+        _ => None,
+    })
+}
+
+/// Converts the present terms of `merge` using `convert`, with `None` in place
+/// of absent terms. If some terms can't be converted, but they cancel out,
+/// all canceled terms are replaced by `None`, which preserves the meaning of
+/// the merge as well as its arity. Returns `None` if there are terms that
+/// can't be converted and don't cancel out, or if no term can be converted.
+fn convert_terms_ignoring_canceled<'a, T: Borrow<TreeValue>, U>(
+    merge: &'a Merge<Option<T>>,
+    convert: impl Fn(&'a TreeValue) -> Option<U>,
+) -> Option<Merge<Option<U>>> {
+    let convert_term = |value: &Option<&'a TreeValue>| match value {
+        None => Ok(None),
+        Some(value) => convert(value).map(Some).ok_or(()),
+    };
 
     let values = merge.map(|term| borrow_tree_value(term.as_ref()));
-    if let Ok(ids) = values.try_map(|&value| to_tree_id(value).ok_or(())) {
-        return Some(ids);
+    if let Ok(converted) = values.try_map(convert_term) {
+        return Some(converted);
     }
-    // Only a mix of trees and non-trees can become a tree merge by canceling
-    // out terms.
+    // Only a mix of convertible and non-convertible terms can become
+    // convertible by canceling out terms.
     if !values
         .iter()
-        .any(|value| matches!(value, Some(TreeValue::Tree(_))))
+        .flatten()
+        .any(|value| convert(value).is_some())
     {
         return None;
     }
     values
         .replace_canceled_terms(None)
-        .try_map(|&value| to_tree_id(value).ok_or(()))
+        .try_map(convert_term)
         .ok()
 }
 
