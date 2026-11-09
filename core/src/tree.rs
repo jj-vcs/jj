@@ -34,7 +34,6 @@ use crate::backend::MergedTreeValueExt as _;
 use crate::backend::TreeEntriesNonRecursiveIterator;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
-use crate::backend::borrow_tree_value;
 use crate::matchers::Matcher;
 use crate::merge::Merge;
 use crate::repo_path::RepoPath;
@@ -260,12 +259,8 @@ where
         store: &Arc<Store>,
         dir: &RepoPath,
     ) -> BackendResult<Option<Merge<Tree>>> {
-        let tree_id_merge = self.try_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Ok(None),
-            Some(TreeValue::Tree(id)) => Ok(Some(id)),
-            Some(_) => Err(()),
-        });
-        if let Ok(tree_id_merge) = tree_id_merge {
+        let tree_id_merge = self.to_tree_id_merge();
+        if let Some(tree_id_merge) = tree_id_merge {
             Ok(Some(
                 tree_id_merge
                     .try_map_async(async |id| {
