@@ -333,20 +333,7 @@ impl TreeMergeExt for Merge<Tree> {
                 if !merge.is_tree() {
                     return Ok(None);
                 }
-                let trees = merge
-                    .try_map_async(async |value| match value {
-                        Some(TreeValue::Tree(sub_tree_id)) => {
-                            let subdir = self.dir().join(name);
-                            store.get_tree(subdir, sub_tree_id).await
-                        }
-                        Some(_) => unreachable!(),
-                        None => {
-                            let subdir = self.dir().join(name);
-                            Ok(Tree::empty(store.clone(), subdir))
-                        }
-                    })
-                    .await?;
-                Ok(Some(trees))
+                merge.to_tree_merge(store, &self.dir().join(name)).await
             }
         }
     }
