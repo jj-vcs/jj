@@ -2095,7 +2095,7 @@ impl FileSnapshotter<'_> {
                 executable,
                 copy_id,
             }))
-        } else if let Some(old_file_ids) = current_tree_values.to_file_merge() {
+        } else if let Some(old_file_ids) = current_tree_values.to_file_id_merge() {
             // Safe to unwrap because the copy id exists exactly on the file variant
             let copy_id_merge = current_tree_values.to_copy_id_merge().unwrap();
             let copy_id = copy_id_merge
