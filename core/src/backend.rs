@@ -454,7 +454,7 @@ pub trait MergedTreeValueExt {
     /// the `FileId`s. The executable bits and copy IDs will be ignored. Use
     /// `Merge::with_new_file_ids()` to produce a new merge with the original
     /// executable bits preserved.
-    fn to_file_merge(&self) -> Option<Merge<Option<FileId>>>;
+    fn to_file_id_merge(&self) -> Option<Merge<Option<FileId>>>;
 
     /// If this merge contains only files or absent entries, returns a merge of
     /// the files' executable bits.
@@ -505,7 +505,7 @@ where
         Some(tree_ids)
     }
 
-    fn to_file_merge(&self) -> Option<Merge<Option<FileId>>> {
+    fn to_file_id_merge(&self) -> Option<Merge<Option<FileId>>> {
         let file_ids = self
             .try_map(|term| match borrow_tree_value(term.as_ref()) {
                 None => Ok(None),

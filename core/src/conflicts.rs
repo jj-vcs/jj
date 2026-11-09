@@ -269,7 +269,7 @@ pub async fn try_materialize_file_conflict_value(
     conflict_labels: &ConflictLabels,
 ) -> BackendResult<Option<MaterializedFileConflictValue>> {
     let (Some(unsimplified_ids), Some(executable_bits)) =
-        (conflict.to_file_merge(), conflict.to_executable_merge())
+        (conflict.to_file_id_merge(), conflict.to_executable_merge())
     else {
         return Ok(None);
     };

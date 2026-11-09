@@ -83,7 +83,7 @@ pub(crate) async fn cmd_file_annotate(
     if file_value.is_absent() {
         return Err(user_error(format!("No such path: {ui_path}")));
     }
-    if file_value.to_file_merge().is_none() {
+    if file_value.to_file_id_merge().is_none() {
         return Err(user_error(format!(
             "Path exists but is not a regular file: {ui_path}"
         )));

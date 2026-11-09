@@ -101,7 +101,7 @@ pub(crate) async fn cmd_file_edit(
         }
         Err(conflict) => {
             // A conflict is editable only if every term is a file (or absent).
-            if conflict.to_file_merge().is_none() {
+            if conflict.to_file_id_merge().is_none() {
                 return Err(user_error(format!(
                     "Path '{ui_path}' has a non-file conflict and cannot be edited"
                 )));
