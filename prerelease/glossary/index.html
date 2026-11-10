@@ -2945,12 +2945,17 @@ local Git branch corresponds to a <code>jj</code> bookmark.</p>
 don't exist as an object in the data model; only the change ID does. The change
 ID is a property of a commit.</p>
 <h2 id="change-id">Change ID<a class="headerlink" href="#change-id" title="Permanent link">&para;</a></h2>
-<p>A change ID is a unique identifier for a <a href="#change">change</a>. They are typically
-16 bytes long and are often randomly generated (but the size is chosen by the
-commit backend implementation, so try not to depend on an exact length). By
-default, <code>jj log</code> presents them as a sequence of 12 letters in the <code>k-z</code> range,
-at the beginning of a line. These are actually hexadecimal numbers that use
-"digits" <code>z-k</code> instead of <code>0-9a-f</code>.</p>
+<p>A change ID is a unique identifier for a <a href="#change">change</a>. They are internally
+stored as hexadecimal numbers but are displayed using the "digits" <code>z-k</code>
+("reverse hex") instead of <code>0-9a-f</code>; this makes them necessarily distinct from
+<a href="#commit-id">commit IDs</a> since they do not share the same alphabet. By default,
+<code>jj log</code> presents these with an 8-letter prefix at the beginning of a line.</p>
+<p>The commit <a href="#backend">backend</a> implementation may influence certain aspects of
+change IDs. For example, with the Git backend they are 16 bytes long (32
+characters) and are randomly generated when a change is created or
+deterministically determined from an imported commit ID from Git. For the best
+compatibility of downstream tools with existing or future backends, try not to
+depend on potentially differing values such as the length.</p>
 <h2 id="change-offset">Change offset<a class="headerlink" href="#change-offset" title="Permanent link">&para;</a></h2>
 <p>Sometimes a change ID might not unambiguously identify a commit, such as if the
 commit is hidden or if the change ID is <a href="#divergent-change">divergent</a>. In these
@@ -2974,10 +2979,15 @@ introduced by a commit compared to its parent(s), and <code>jj rebase</code> wil
 those changes onto another base commit.</p>
 <p>The word "revision" is used as a synonym for "commit".</p>
 <h2 id="commit-id">Commit ID<a class="headerlink" href="#commit-id" title="Permanent link">&para;</a></h2>
-<p>A commit ID is a unique identifier for a <a href="#commit">commit</a>. They are 20 bytes
-long when using the Git backend. They are presented in regular hexadecimal
-format at the end of the line in <code>jj log</code>, using 12 hexadecimal digits by
-default. When using the Git backend, the commit ID is the Git commit ID.</p>
+<p>A commit ID is a unique identifier for a <a href="#commit">commit</a>. By default, <code>jj log</code>
+presents these with an 8-letter prefix in regular hexadecimal format (<code>0-9a-f</code>)
+at the end of a line.</p>
+<p>The commit <a href="#backend">backend</a> implementation may influence certain aspects of
+commit IDs. For example, with the Git backend they are 20 bytes long (40
+characters) when using the SHA-1 object format and 32 bytes long (64 characters)
+when using the SHA-256 object format, and they are the same as the Git commit
+ID. For the best compatibility of downstream tools with existing or future
+backends, try not to depend on potentially differing values such as the length.</p>
 <h2 id="committer-date">Committer date<a class="headerlink" href="#committer-date" title="Permanent link">&para;</a></h2>
 <p>The committer date of a <a href="#commit">commit</a> records when that particular commit
 object was created. It is set for a new commit and updated whenever <code>jj</code>

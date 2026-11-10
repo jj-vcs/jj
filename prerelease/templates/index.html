@@ -3651,10 +3651,14 @@ labels are stripped.</p>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
 <p>The following methods are defined.</p>
 <ul>
-<li><code>.normal_hex() -&gt; String</code>: Normal hex representation (0-9a-f) instead of the
-  canonical "reversed" (z-k) representation.</li>
-<li><code>.short([len: Integer]) -&gt; String</code></li>
-<li><code>.shortest([min_len: Integer]) -&gt; ShortestIdPrefix</code>: Shortest unique prefix.</li>
+<li><code>.normal_hex() -&gt; String</code>: Returns the normal hex representation (<code>0-9a-f</code>)
+  instead of the canonical "reversed" (<code>z-k</code>) representation.</li>
+<li><code>.short([len: Integer]) -&gt; String</code>: Returns a prefix of length <code>len</code>
+  (default 12) of the change ID. This is a plain string, so unique prefixes are
+  not labeled with colors; see <code>.shortest()</code>.</li>
+<li><code>.shortest([min_len: Integer]) -&gt; ShortestIdPrefix</code>: Returns a prefix of
+  length <code>min_len</code> of the change ID, with the shortest unique prefix labeled.
+  If <code>min_len</code> is not given, defaults to only the shortest unique prefix.</li>
 </ul>
 <h3 id="commit-type"><code>Commit</code> type<a class="headerlink" href="#commit-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: no</em></p>
@@ -3727,8 +3731,12 @@ labels are stripped.</p>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
 <p>The following methods are defined.</p>
 <ul>
-<li><code>.short([len: Integer]) -&gt; String</code></li>
-<li><code>.shortest([min_len: Integer]) -&gt; ShortestIdPrefix</code>: Shortest unique prefix.</li>
+<li><code>.short([len: Integer]) -&gt; String</code>: Returns a prefix of length <code>len</code>
+  (default 12) of the commit ID. This is a plain string, so unique prefixes are
+  not labeled with colors; see <code>.shortest()</code>.</li>
+<li><code>.shortest([min_len: Integer]) -&gt; ShortestIdPrefix</code>: Returns a prefix of
+  length <code>min_len</code> of the commit ID, with the shortest unique prefix labeled.
+  If <code>min_len</code> is not given, defaults to only the shortest unique prefix.</li>
 </ul>
 <h3 id="commitref-type"><code>CommitRef</code> type<a class="headerlink" href="#commitref-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
