@@ -44,6 +44,7 @@ use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::git_util::GitSubprocessUi;
+use crate::git_util::object_format_mismatch_error;
 use crate::git_util::print_push_stats;
 use crate::ui::Ui;
 
@@ -714,7 +715,11 @@ pub async fn cmd_gerrit_upload(
             | git::GitPushError::RemoteName(_)
             | git::GitPushError::UnexpectedBackend(_) => user_error(err),
             git::GitPushError::Subprocess(_) => {
-                user_error_with_message("Internal git error while pushing to gerrit", err)
+                if err.is_object_format_mismatch() {
+                    object_format_mismatch_error(err, &store)
+                } else {
+                    user_error_with_message("Internal git error while pushing to gerrit", err)
+                }
             }
         })?;
         print_push_stats(ui, &push_stats)?;
