@@ -177,20 +177,14 @@ fn strip_common_path_prefix<'a, 'b>(
 
 /// Returns an absolute, normalized path.
 ///
-/// On platforms other than WASI, resolves symlinks using
-/// [`dunce::canonicalize()`], which requires the path to exist. On WASI, only
-/// accepts paths that are already absolute and contain no redundant components
-/// or separators. Returns these paths unchanged, without resolving symlinks or
-/// checking whether they exist.
+/// On platforms other than WASI, resolves symlinks and requires the path to
+/// exist. On Windows, uses `dunce` to avoid verbatim paths where possible.
+///
+/// On WASI, only accepts paths that are already absolute and contain no
+/// redundant components or separators. Returns these paths unchanged, without
+/// resolving symlinks or checking whether they exist.
 pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
-    #[cfg(not(target_os = "wasi"))]
-    {
-        dunce::canonicalize(path)
-    }
-    #[cfg(target_os = "wasi")]
-    {
-        platform::canonicalize(path.as_ref())
-    }
+    platform::canonicalize(path.as_ref())
 }
 
 /// Consumes as much `..` and `.` as possible without considering symlinks.
@@ -426,6 +420,7 @@ mod platform {
     use std::ffi::OsStr;
     use std::fs;
     use std::fs::File;
+    pub use std::fs::canonicalize;
     use std::io;
     use std::os::unix::ffi::OsStrExt as _;
     use std::os::unix::fs::MetadataExt as _;
@@ -517,6 +512,7 @@ mod platform {
     pub use std::os::windows::fs::symlink_file;
     use std::path::Path;
 
+    pub use dunce::canonicalize;
     use winreg::RegKey;
     use winreg::enums::HKEY_LOCAL_MACHINE;
 
