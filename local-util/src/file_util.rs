@@ -263,7 +263,7 @@ pub fn new_temp_file_for_replacement(
 ) -> io::Result<(NamedTempFile, PathBuf)> {
     let path = path.as_ref();
     let (old_metadata, new_path) = match path.symlink_metadata() {
-        Ok(m) if m.is_symlink() => match path.canonicalize() {
+        Ok(m) if m.is_symlink() => match canonicalize(path) {
             Ok(new_path) => (Some(new_path.symlink_metadata()?), new_path),
             Err(err) if err.kind() == io::ErrorKind::NotFound => (None, path.to_owned()),
             Err(err) => return Err(err),
@@ -885,7 +885,7 @@ mod tests {
         symlink_file(&link_target, &link_path)?;
 
         let (temp_file, new_path) = new_temp_file_for_replacement(&link_path)?;
-        assert_eq!(new_path, target_path.canonicalize()?);
+        assert_eq!(new_path, canonicalize(&target_path)?);
         assert_eq!(temp_file.path().parent(), new_path.parent());
         if cfg!(unix) {
             assert_eq!(
