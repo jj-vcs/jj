@@ -16,6 +16,7 @@
 
 use std::cmp::min;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
 use std::fs;
 use std::io;
@@ -187,6 +188,7 @@ impl WorkspacePool {
         clean: bool,
         sparsity: Option<Vec<RepoPathBuf>>,
         conflict_marker_style: ConflictMarkerStyle,
+        ignore_filters: HashSet<String>,
     ) -> Result<Self, RunError> {
         // The parent() call is needed to not write under `.jj/repo/`.
         let base_path = repo_path.parent().unwrap().join("run").join("default");
@@ -202,6 +204,7 @@ impl WorkspacePool {
                 eol_conversion_mode: EolConversionMode::None,
                 exec_change_setting: ExecChangeSetting::Auto,
                 fsmonitor_settings: FsmonitorSettings::None,
+                ignore_filters,
             },
         })
     }
@@ -835,6 +838,20 @@ pub async fn cmd_run(
         }
     };
 
+    let ignore_filters = {
+        #[cfg(feature = "git")]
+        {
+            use jj_lib::git::GitSettings;
+            GitSettings::from_settings(workspace_command.settings())?
+                .ignore_filters
+                .into_iter()
+                .collect()
+        }
+        #[cfg(not(feature = "git"))]
+        {
+            HashSet::new()
+        }
+    };
     let mut tx = workspace_command.start_transaction();
 
     let rt = {
@@ -852,6 +869,7 @@ pub async fn cmd_run(
         args.clean,
         sparsity,
         conflict_marker_style,
+        ignore_filters,
     )?);
 
     let spec = Arc::new(CommandSpec {

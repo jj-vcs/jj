@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
 use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
@@ -116,11 +117,26 @@ pub(crate) async fn cmd_file_edit(
     let state_dir = temp_dir.path().join("state");
     std::fs::create_dir(&wc_path).context(&wc_path)?;
     std::fs::create_dir(&state_dir).context(&state_dir)?;
+    let ignore_filters: HashSet<String> = {
+        #[cfg(feature = "git")]
+        {
+            use jj_lib::git::GitSettings;
+            GitSettings::from_settings(workspace_command.settings())?
+                .ignore_filters
+                .into_iter()
+                .collect()
+        }
+        #[cfg(not(feature = "git"))]
+        {
+            HashSet::new()
+        }
+    };
     let tree_state_settings = TreeStateSettings {
         conflict_marker_style,
         eol_conversion_mode: EolConversionMode::None,
         exec_change_setting: ExecChangeSetting::Auto,
         fsmonitor_settings: FsmonitorSettings::None,
+        ignore_filters,
     };
     let mut tree_state = TreeState::init(
         repo.store().clone(),
