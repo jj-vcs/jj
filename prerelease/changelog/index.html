@@ -9543,10 +9543,18 @@ and this project adheres to
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
-<li>New <code>with(values..., |names...| body)</code> templating function which allows you to
+<li>
+<p>New <code>with(values..., |names...| body)</code> templating function which allows you to
   assign expressions to name bindings in a lambda. Expressions are re-evaluated
   for each use, so this is effectively the same as defining temporary template
-  aliases for each expression (currently no performance benefit).</li>
+  aliases for each expression (currently no performance benefit).</p>
+</li>
+<li>
+<p><code>jj interdiff</code>'s <code>--from</code> and <code>--to</code> options now accept revsets that resolve
+  to multiple revisions; each side is treated as if its revisions were
+  squashed into a single revision first.
+  <a href="https://github.com/jj-vcs/jj/issues/8281">#8281</a></p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
