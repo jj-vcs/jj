@@ -53,3 +53,9 @@ updates:
     npm-dependencies:
       patterns:
       - "*"
+  ignore:
+  # Starlight imports the default export from js-yaml 4, and its code is
+  # bundled such that it resolves our top-level js-yaml. Keep it at the same
+  # major version as Starlight's.
+  - dependency-name: "js-yaml"
+    update-types: ["version-update:semver-major"]
