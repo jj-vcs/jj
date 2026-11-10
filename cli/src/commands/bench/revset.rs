@@ -67,7 +67,7 @@ pub async fn cmd_bench_revset(
     let mut criterion = new_criterion(ui, &args.criterion);
     let mut group = criterion.benchmark_group("revsets");
     for revset in &revsets {
-        bench_revset(ui, command, &workspace_command, &mut group, revset)?;
+        bench_revset(ui, command, &workspace_command, &mut group, revset).await?;
     }
     // Neither of these seem to report anything...
     group.finish();
@@ -75,11 +75,11 @@ pub async fn cmd_bench_revset(
     Ok(())
 }
 
-fn bench_revset<M: Measurement>(
+async fn bench_revset<M: Measurement>(
     ui: &mut Ui,
     command: &CommandHelper,
     workspace_command: &WorkspaceCommandHelper,
-    group: &mut BenchmarkGroup<M>,
+    group: &mut BenchmarkGroup<'_, M>,
     revset: &RevisionArg,
 ) -> Result<(), CommandError> {
     writeln!(ui.status(), "----------Testing revset: {revset}----------")?;
@@ -88,8 +88,8 @@ fn bench_revset<M: Measurement>(
         .expression()
         .clone();
     // Time both evaluation and iteration.
-    let routine = |workspace_command: &WorkspaceCommandHelper,
-                   expression: Arc<UserRevsetExpression>| {
+    let routine = async |workspace_command: &WorkspaceCommandHelper,
+                         expression: Arc<UserRevsetExpression>| {
         // Evaluate the expression without parsing/evaluating short-prefixes.
         let repo = workspace_command.repo().as_ref();
         let symbol_resolver =
@@ -98,10 +98,10 @@ fn bench_revset<M: Measurement>(
             .resolve_user_expression(repo, &symbol_resolver)
             .unwrap();
         let revset = resolved.evaluate().unwrap();
-        revset.stream().count().block_on()
+        revset.stream().count().await
     };
     let before = Instant::now();
-    let result = routine(workspace_command, expression.clone());
+    let result = routine(workspace_command, expression.clone()).await;
     let after = Instant::now();
     writeln!(
         ui.status(),
@@ -124,7 +124,7 @@ fn bench_revset<M: Measurement>(
                     workspace_command.repo().readonly_index();
                     workspace_command
                 },
-                |workspace_command| routine(&workspace_command, expression.clone()),
+                |workspace_command| routine(&workspace_command, expression.clone()).block_on(),
                 // Index-preloaded repo may consume a fair amount of memory
                 BatchSize::LargeInput,
             );
