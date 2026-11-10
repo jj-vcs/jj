@@ -363,6 +363,42 @@ fn test_git_push_no_matching_bookmark() {
 }
 
 #[test]
+fn test_git_push_object_format_mismatch() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let origin_git_repo_path = git_repo_dir_for_jj_repo(&test_env.work_dir("origin"));
+    test_env
+        .run_jj_in(".", ["git", "init", "--object-hash=sha256", "sha256"])
+        .success();
+    let work_dir = test_env.work_dir("sha256");
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "origin",
+            origin_git_repo_path.to_str().unwrap(),
+        ])
+        .success();
+    work_dir.run_jj(["describe", "-m=description"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
+        .success();
+
+    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: my-bookmark [add to 6a06b05850c0]
+    Error: The remote repository uses a different object format
+    Hint: This repository uses the sha256 object format and the remote uses sha1. jj cannot convert between object formats.
+    Hint: To use this remote, clone it into a new repository with `jj git clone --object-hash sha1`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_git_push_matching_bookmark_unchanged() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);

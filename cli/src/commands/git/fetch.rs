@@ -39,6 +39,7 @@ use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::git_util::GitSubprocessUi;
 use crate::git_util::load_git_import_options;
+use crate::git_util::object_format_mismatch_error;
 use crate::git_util::print_git_import_stats;
 use crate::revset_util::parse_remote_fetch_bookmarks;
 use crate::revset_util::parse_remote_fetch_tags;
@@ -225,6 +226,7 @@ pub async fn cmd_git_fetch(
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
+    let store = tx.repo().store().clone();
     let mut git_fetch = GitFetch::new(
         tx.repo_mut(),
         git_settings.to_subprocess_options(),
@@ -239,7 +241,12 @@ pub async fn cmd_git_fetch(
 
     for (remote, ref_expr) in &remote_ref_exprs {
         let mut callback = GitSubprocessUi::new(ui);
-        git_fetch.fetch(remote, ref_expr, &mut callback, None)?;
+        git_fetch
+            .fetch(remote, ref_expr, &mut callback, None)
+            .map_err(|err| match err {
+                err if err.is_object_format_mismatch() => object_format_mismatch_error(err, &store),
+                err => err.into(),
+            })?;
     }
 
     let import_stats = git_fetch.import_refs().await?;
