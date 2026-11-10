@@ -1099,6 +1099,7 @@ fn test_git_clone_object_format() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/failed"
     Error: The remote repository uses a different object format
+    Hint: jj cannot convert between object formats. To use this remote, clone it into a new repository with `jj git clone`.
     Hint: Remove `--object-hash` to clone with the remote's object format.
     [EOF]
     [exit status: 1]
