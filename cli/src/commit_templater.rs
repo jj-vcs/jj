@@ -484,7 +484,7 @@ impl NoTemplateBooleanCast for TreeDiff {}
 impl NoTemplateBooleanCast for TreeDiffEntry {}
 impl NoTemplateBooleanCast for TreeEntry {}
 impl NoTemplateBooleanCast for TreeValue {}
-impl NoTemplateBooleanCast for DiffStatsFormatted<'_> {}
+impl NoTemplateBooleanCast for DiffStatsFormatted {}
 impl NoTemplateBooleanCast for DiffStatEntry {}
 impl NoTemplateBooleanCast for CryptographicSignature {}
 impl NoTemplateBooleanCast for AnnotationLine {}
@@ -521,7 +521,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
     TreeValue(BoxedTemplateProperty<'repo, TreeValue>),
     TreeValueOpt(BoxedTemplateProperty<'repo, Option<TreeValue>>),
     TreeValueOptList(BoxedTemplateProperty<'repo, Vec<Option<TreeValue>>>),
-    DiffStats(BoxedTemplateProperty<'repo, DiffStatsFormatted<'repo>>),
+    DiffStats(BoxedTemplateProperty<'repo, DiffStatsFormatted>),
     DiffStatEntry(BoxedTemplateProperty<'repo, DiffStatEntry>),
     DiffStatEntryOpt(BoxedTemplateProperty<'repo, Option<DiffStatEntry>>),
     DiffStatEntryList(BoxedTemplateProperty<'repo, Vec<DiffStatEntry>>),
@@ -564,7 +564,7 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     TreeValue(TreeValue),
     TreeValueOpt(Option<TreeValue>),
     TreeValueOptList(Vec<Option<TreeValue>>),
-    DiffStats(DiffStatsFormatted<'repo>),
+    DiffStats(DiffStatsFormatted),
     DiffStatEntry(DiffStatEntry),
     DiffStatEntryOpt(Option<DiffStatEntry>),
     DiffStatEntryList(Vec<DiffStatEntry>),
@@ -2756,7 +2756,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                             .block_on()?;
                     Ok(DiffStatsFormatted {
                         stats,
-                        path_converter,
+                        path_converter: path_converter.clone(),
                         // TODO: fall back to current available width
                         width: width.unwrap_or(80),
                         options,
@@ -3047,19 +3047,19 @@ fn is_executable_file(value: &MergedTreeValue) -> Option<bool> {
 
 /// [`DiffStats`] with rendering parameters.
 #[derive(Clone, Debug)]
-pub struct DiffStatsFormatted<'a> {
+pub struct DiffStatsFormatted {
     stats: DiffStats,
-    path_converter: &'a RepoPathUiConverter,
+    path_converter: RepoPathUiConverter,
     width: usize,
     options: DiffStatOptions,
 }
 
-impl Template for DiffStatsFormatted<'_> {
+impl Template for DiffStatsFormatted {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         diff_util::show_diff_stats(
             formatter.as_mut(),
             &self.stats,
-            self.path_converter,
+            &self.path_converter,
             self.width,
             &self.options,
         )
