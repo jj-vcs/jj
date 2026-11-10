@@ -1130,28 +1130,30 @@ pub async fn update_from_content(
 
     // Now write the new files contents we found by parsing the file with conflict
     // markers.
-    let new_file_ids: Vec<Option<FileId>> = try_join_all(zip(&contents, &simplified_file_ids).map(
-        async |(content, file_id)| -> BackendResult<Option<FileId>> {
-            if file_id.is_some() || !content.is_empty() {
-                let file_id = store.write_file(path, &mut content.as_slice()).await?;
-                Ok(Some(file_id))
-            } else {
-                // The missing side of a conflict is still represented by
-                // the empty string we materialized it as
-                Ok(None)
-            }
-        },
-    ))
-    .await?;
+    let new_file_ids: Merge<Option<FileId>> = Merge::from_vec(
+        try_join_all(zip(&contents, &simplified_file_ids).map(
+            async |(content, file_id)| -> BackendResult<Option<FileId>> {
+                if file_id.is_some() || !content.is_empty() {
+                    let file_id = store.write_file(path, &mut content.as_slice()).await?;
+                    Ok(Some(file_id))
+                } else {
+                    // The missing side of a conflict is still represented by
+                    // the empty string we materialized it as
+                    Ok(None)
+                }
+            },
+        ))
+        .await?,
+    );
 
     // If the conflict was simplified, expand the conflict to the original
     // number of sides.
-    let new_file_ids = if new_file_ids.len() != file_ids.iter().len() {
+    let new_file_ids = if new_file_ids.num_sides() != file_ids.num_sides() {
         file_ids
             .clone()
-            .update_from_simplified(Merge::from_vec(new_file_ids), &simplified_mapping)
+            .update_from_simplified(new_file_ids, &simplified_mapping)
     } else {
-        Merge::from_vec(new_file_ids)
+        new_file_ids
     };
     Ok(new_file_ids)
 }
