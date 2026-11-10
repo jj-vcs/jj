@@ -96,7 +96,6 @@
           cargo-deny
           cargo-insta
           cargo-nextest
-          cargo-llvm-cov
 
           # Miscellaneous tools
           rumdl
