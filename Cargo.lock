@@ -2911,6 +2911,7 @@ dependencies = [
  "futures 0.3.34",
  "itertools 0.15.0",
  "jj-core",
+ "nix 0.31.3",
  "num_cpus",
  "pollster",
  "rand 0.10.3",

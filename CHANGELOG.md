@@ -46,6 +46,11 @@ and this project adheres to
   now treated as a file conflict when the directory terms cancel out, so it is
   materialized with conflict markers.
 
+* On macOS, jj now syncs written files with `F_BARRIERFSYNC` instead of
+  `F_FULLFSYNC`, which makes commands that write to the repo faster. The
+  drawback is that recent writes may be lost, but it should not result in
+  a corrupt repo.
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
