@@ -384,7 +384,7 @@ does not match the <code dir="auto">jj help</code> output exactly.</p><p>Run <co
 <li><code dir="auto">gerrit</code> — Interact with Gerrit Code Review</li>
 <li><code dir="auto">git</code> — Commands for working with Git remotes and the underlying Git repo</li>
 <li><code dir="auto">help</code> — Print this message or the help of the given subcommand(s)</li>
-<li><code dir="auto">interdiff</code> — Show differences between the diffs of two revisions</li>
+<li><code dir="auto">interdiff</code> — Show differences between the diffs of two revsets</li>
 <li><code dir="auto">log</code> — Show revision history</li>
 <li><code dir="auto">metaedit</code> — Modify the metadata of a revision without changing its content</li>
 <li><code dir="auto">new</code> — Create a new, empty change and (by default) edit it in the working copy</li>
@@ -1994,14 +1994,15 @@ Show a tutorial to get started with jj</li>
 </li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-interdiff"><code dir="auto">jj interdiff</code></h2><a class="sl-anchor-link" href="#jj-interdiff"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “jj interdiff”</span></a></div>
-<p>Show differences between the diffs of two revisions</p>
-<p>This is like running <code dir="auto">jj diff -r</code> on each change, then comparing those results. It answers: "How do the modifications introduced by revision A differ from the modifications introduced by revision B?"</p>
+<p>Show differences between the diffs of two revsets</p>
+<p>This is like running <code dir="auto">jj diff -r</code> on each side, then comparing those results. It answers: "How do the modifications introduced by revision A differ from the modifications introduced by revision B?"</p>
 <p>For example, if two changes both add a feature but implement it differently, <code dir="auto">jj interdiff --from @- --to other</code> shows what one implementation adds or removes that the other doesn't.</p>
 <p>A common use of this command is to compare how a change has changed since the last push to a remote:</p>
 <p><code dir="auto">sh $ jj interdiff --from push-xyz@origin --to push-xyz </code></p>
 <p>This command is different from <code dir="auto">jj diff --from A --to B</code>, which compares file contents directly. <code dir="auto">interdiff</code> compares what the changes do in terms of their patches, rather than their file contents. This makes a difference when the two revisions have different parents: <code dir="auto">jj diff --from A --to B</code> will include the changes between their parents while <code dir="auto">jj interdiff --from A --to B</code> will not.</p>
 <p>Technically, this works by rebasing <code dir="auto">--from</code> onto <code dir="auto">--to</code>'s parents and comparing the result to <code dir="auto">--to</code>.</p>
-<p>To see the changes throughout the whole evolution of a change instead of between just two revisions, use <code dir="auto">jj evolog -p</code> instead.</p>
+<p><code dir="auto">--from</code> and <code dir="auto">--to</code> may also resolve to multiple revisions; each side is then treated as if its revisions were squashed into a single revision first. For example, if revisions <code dir="auto">A::B</code> were rebased and modified to <code dir="auto">C::D</code>, then <code dir="auto">jj interdiff --from A::B --to C::D</code> shows how the changes evolved. Multiple heads and/or roots are supported, but gaps in the revsets are not supported (e.g. <code dir="auto">--from 'A|C'</code> in a linear chain <code dir="auto">A::C</code>).</p>
+<p>To see the changes throughout the whole evolution of a single change instead, use <code dir="auto">jj evolog --patch</code>.</p>
 <p><strong>Usage:</strong> <code dir="auto">jj interdiff [OPTIONS] &#x3C;--from &#x3C;REVSET>|--to &#x3C;REVSET>> [FILESETS]...</code></p>
 <div class="sl-heading-wrapper level-h6"><h6 id="arguments-41"><strong>Arguments:</strong></h6><a class="sl-anchor-link" href="#arguments-41"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Arguments:”</span></a></div>
 <ul>
@@ -2010,10 +2011,10 @@ Show a tutorial to get started with jj</li>
 <div class="sl-heading-wrapper level-h6"><h6 id="options-42"><strong>Options:</strong></h6><a class="sl-anchor-link" href="#options-42"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Options:”</span></a></div>
 <ul>
 <li>
-<p><code dir="auto">-f</code>, <code dir="auto">--from &#x3C;REVSET></code> — The first revision to compare (default: @)</p>
+<p><code dir="auto">-f</code>, <code dir="auto">--from &#x3C;REVSET></code> — The first revision(s) to compare (default: @)</p>
 </li>
 <li>
-<p><code dir="auto">-t</code>, <code dir="auto">--to &#x3C;REVSET></code> — The second revision to compare (default: @)</p>
+<p><code dir="auto">-t</code>, <code dir="auto">--to &#x3C;REVSET></code> — The second revision(s) to compare (default: @)</p>
 </li>
 <li>
 <p><code dir="auto">-s</code>, <code dir="auto">--summary</code> — For each path, show only whether it was modified, added, or deleted</p>
