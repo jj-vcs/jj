@@ -556,8 +556,7 @@ tuple_impls! {
 
 /// Type-erased [`TemplateProperty`].
 pub type BoxedTemplateProperty<'a, O> = Box<dyn TemplateProperty<Output = O> + 'a>;
-pub type BoxedSerializeProperty<'a> =
-    BoxedTemplateProperty<'a, Box<dyn erased_serde::Serialize + 'a>>;
+pub type BoxedSerializeProperty<'a> = BoxedTemplateProperty<'a, Box<dyn erased_serde::Serialize>>;
 
 /// [`TemplateProperty`] adapters that are useful when implementing methods.
 pub trait TemplatePropertyExt: TemplateProperty {
@@ -596,7 +595,7 @@ pub trait TemplatePropertyExt: TemplateProperty {
     fn into_serialize<'a>(self) -> BoxedSerializeProperty<'a>
     where
         Self: Sized + 'a,
-        Self::Output: serde::Serialize,
+        Self::Output: serde::Serialize + 'static,
     {
         Box::new(self.map(|value| Box::new(value) as Box<dyn erased_serde::Serialize>))
     }
@@ -750,8 +749,8 @@ impl<'a> SerializeMapProperty<'a> {
     }
 }
 
-impl<'a> TemplateProperty for SerializeMapProperty<'a> {
-    type Output = SerializeMap<'a>;
+impl TemplateProperty for SerializeMapProperty<'_> {
+    type Output = SerializeMap;
 
     fn extract(&self) -> Result<Self::Output, TemplatePropertyError> {
         let entries = self.entries.iter().map(|e| e.extract()).try_collect()?;
@@ -760,14 +759,14 @@ impl<'a> TemplateProperty for SerializeMapProperty<'a> {
 }
 
 /// Wrapper for serializable `(key, value)` pairs.
-pub struct SerializeMap<'a> {
+pub struct SerializeMap {
     entries: Vec<(
-        Box<dyn erased_serde::Serialize + 'a>,
-        Box<dyn erased_serde::Serialize + 'a>,
+        Box<dyn erased_serde::Serialize>,
+        Box<dyn erased_serde::Serialize>,
     )>,
 }
 
-impl serde::Serialize for SerializeMap<'_> {
+impl serde::Serialize for SerializeMap {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

@@ -51,7 +51,7 @@ pub struct GenericTemplateLanguage<'a, C> {
 
 impl<'a, C> GenericTemplateLanguage<'a, C>
 where
-    C: serde::Serialize + 'a,
+    C: serde::Serialize + 'static,
 {
     /// Sets up environment with no keywords.
     ///
@@ -102,7 +102,7 @@ where
 
 impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C>
 where
-    C: serde::Serialize + 'a,
+    C: serde::Serialize + 'static,
 {
     type Property = GenericTemplatePropertyKind<'a, C>;
 
@@ -181,7 +181,7 @@ pub(crate) use impl_self_property_wrapper;
 
 impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C>
 where
-    C: serde::Serialize + 'a,
+    C: serde::Serialize + 'static,
 {
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self {
         Self::Core(CoreTemplatePropertyKind::wrap_template(template))
