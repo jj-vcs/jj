@@ -82,7 +82,7 @@ jobs:
         toolchain: 1.97.1
         # comma-separated list of extra targets to install
         targets: ${{ matrix.extra_targets }}
-    - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68
+    - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2
       with:
         tool: nextest
     - name: Install mold
