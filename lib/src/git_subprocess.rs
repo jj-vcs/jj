@@ -421,6 +421,7 @@ fn parse_no_remote_ref(stderr: &[u8]) -> Option<String> {
 fn parse_object_format_mismatch(stderr: &[u8]) -> bool {
     stderr.lines().next().is_some_and(|first_line| {
         first_line.starts_with(b"fatal: mismatched algorithms: ")
+            || first_line.starts_with(b"fatal: the server does not support algorithm ")
             || first_line == b"fatal: Server does not support this repository's object format"
             || first_line
                 == b"fatal: the receiving end does not support this repository's hash algorithm"
@@ -1011,6 +1012,8 @@ and the repository exists. "###;
         b"error: remote-tracking branch 'bookmark' not found";
     const SAMPLE_OBJECT_FORMAT_MISMATCH_ERROR: &[u8] =
         b"fatal: mismatched algorithms: client sha1; server sha256";
+    const SAMPLE_OBJECT_FORMAT_UNADVERTISED_ERROR: &[u8] =
+        b"fatal: the server does not support algorithm 'sha256'";
     const SAMPLE_OBJECT_FORMAT_MISMATCH_V0_ERROR: &[u8] =
         br###"fatal: Server does not support this repository's object format
 fatal: the remote end hung up unexpectedly
@@ -1124,6 +1127,9 @@ Done";
     fn test_parse_object_format_mismatch() {
         assert!(parse_object_format_mismatch(
             SAMPLE_OBJECT_FORMAT_MISMATCH_ERROR
+        ));
+        assert!(parse_object_format_mismatch(
+            SAMPLE_OBJECT_FORMAT_UNADVERTISED_ERROR
         ));
         assert!(parse_object_format_mismatch(
             SAMPLE_OBJECT_FORMAT_MISMATCH_V0_ERROR
