@@ -706,6 +706,10 @@ mod git {
     use super::user_error;
     use super::user_error_with_message;
 
+    const OBJECT_FORMAT_MISMATCH_HINT: &str = "jj cannot convert between object formats. To use \
+                                               this remote, clone it into a new repository with \
+                                               `jj git clone`.";
+
     impl From<GitImportError> for CommandError {
         fn from(err: GitImportError) -> Self {
             let hint = match &err {
@@ -745,6 +749,9 @@ jj currently does not support partial clones. To use jj with this repository, tr
                     user_error(err).hinted("Run `jj git remote rename` to give a different name.")
                 }
                 GitFetchError::RefExpansion(err) => err.into(),
+                GitFetchError::Subprocess(_) if err.is_object_format_mismatch() => {
+                    user_error(err).hinted(OBJECT_FORMAT_MISMATCH_HINT)
+                }
                 GitFetchError::RejectedUpdates(_)
                 | GitFetchError::FailedToPrune(_)
                 | GitFetchError::Subprocess(_) => user_error(err),
@@ -777,6 +784,9 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 GitPushError::NoSuchRemote(_) => user_error(err),
                 GitPushError::RemoteName(_) => {
                     user_error(err).hinted("Run `jj git remote rename` to give a different name.")
+                }
+                GitPushError::Subprocess(_) if err.is_object_format_mismatch() => {
+                    user_error(err).hinted(OBJECT_FORMAT_MISMATCH_HINT)
                 }
                 GitPushError::Subprocess(_) => user_error(err),
                 GitPushError::UnexpectedBackend(_) => user_error(err),
