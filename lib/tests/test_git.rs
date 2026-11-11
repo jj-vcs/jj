@@ -2547,15 +2547,14 @@ fn test_import_refs_missing_git_commit() -> TestResult {
     let result = git::import_refs(tx.repo_mut(), &import_options).block_on();
     assert!(result.is_ok());
 
-    // Missing commit is pointed to by HEAD: the ref is ignored as we don't know
-    // if the missing object is a commit or not.
+    // Missing commit is pointed to by HEAD
     fs::rename(&backup_object_file, &object_file)?;
     git_repo.find_reference("refs/heads/main")?.delete()?;
     testutils::git::set_head_to_id(&git_repo, commit1);
     fs::rename(&object_file, &backup_object_file)?;
     let mut tx = repo.start_transaction();
     let result = import_head(tx.repo_mut(), &test_workspace.workspace);
-    assert!(result.is_ok());
+    assert_matches!(result, Err(GitImportError::Git(_)));
     Ok(())
 }
 
