@@ -1717,7 +1717,8 @@ All relevant users, including owner, reviewers, cc'd, users that have starred th
 </li>
 <li>
 <p><code dir="auto">--object-hash &#x3C;OBJECT_HASH></code> — Object hash algorithm for the local Git repository.</p>
-<p><em>Must</em> match the remote's hash algorithm, otherwise the operation will fail. Most existing repositories today still use the classic SHA-1 format, which is also the default if not configured otherwise by the [git.object-hash config].</p>
+<p>If not given, the remote's hash algorithm is used. Git can't report the hash algorithm of an empty remote yet, so in that case the [git.object-hash config] is used, which defaults to SHA-1.</p>
+<p>If given, it must match the remote's hash algorithm, or the clone fails.</p>
 <p>See also Git's [hash-function-transition] document for an in-depth explanation of the migration towards stronger hash functions.</p>
 <p>[git.object-hash config]: <a href="https://docs.jj-vcs.dev/latest/config/#default-object-hash-format">https://docs.jj-vcs.dev/latest/config/#default-object-hash-format</a> [hash-function-transition]: <a href="https://git-scm.com/docs/hash-function-transition">https://git-scm.com/docs/hash-function-transition</a></p>
 <p>Possible values: <code dir="auto">sha1</code>, <code dir="auto">sha256</code></p>
