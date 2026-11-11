@@ -37,8 +37,8 @@ You can enable JSON Schema validation in your editor by adding a `#:schema`
 reference at the top of your TOML config files. See [JSON Schema Support] for
 details.
 
-See the [TOML site] and the [syntax guide] for a detailed description of the
-syntax. We cover some of the basics below.
+See the [TOML site] and the [syntax guide (v1.1.0)][TOML syntax pinned] for a
+detailed description of the syntax. We cover some of the basics below.
 
 The first thing to remember is that the value of a setting (the part to the
 right of the `=` sign) should be surrounded in quotes if it's a string.
@@ -46,9 +46,9 @@ right of the `=` sign) should be surrounded in quotes if it's a string.
 [config dir]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/
 [JSON Schema Support]: #json-schema-support
 [specified on the command-line]: #specifying-config-on-the-command-line
-[syntax guide]: https://toml.io/en/latest
 [the user config files]: #user-config-files
 [TOML site]: https://toml.io/en/
+[TOML syntax pinned]: https://toml.io/en/v1.1.0
 
 ### Dotted style and headings
 
