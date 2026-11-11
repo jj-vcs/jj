@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
 
       matrix:
-        build: [linux-x86_64-musl, linux-x86_64-gnu, linux-aarch64-musl, linux-aarch64-gnu, macos-x86_64, macos-aarch64, win-x86_64]
+        build: [linux-x86_64-musl, linux-x86_64-gnu, linux-aarch64-musl, linux-aarch64-gnu, linux-riscv64-musl, macos-x86_64, macos-aarch64, win-x86_64]
         include:
         - build: linux-x86_64-musl
           os: ubuntu-24.04
@@ -27,6 +27,11 @@ jobs:
         - build: linux-aarch64-gnu
           os: ubuntu-24.04-arm
           target: aarch64-unknown-linux-gnu
+        - build: linux-riscv64-musl
+          os: ubuntu-24.04
+          target: riscv64gc-unknown-linux-musl
+          use_cross: true
+          cargo_extra_flags: "--config .cargo/config-ci.toml"
         - build: macos-x86_64
           os: macos-15
           target: x86_64-apple-darwin
@@ -57,9 +62,14 @@ jobs:
         with:
           toolchain: stable
           target: ${{ matrix.target }}
+      - name: Install cross
+        if: matrix.use_cross
+        run: cargo install cross --git https://github.com/cross-rs/cross --rev f86fd03bb70b4c6802847c18087e21391498b0b4
       - name: Build release binary
         shell: bash
-        run: cargo build --target ${{ matrix.target }} --verbose --release
+        env:
+          BUILD_TOOL: ${{ matrix.use_cross && 'cross' || 'cargo' }}
+        run: $BUILD_TOOL build --target ${{ matrix.target }} --verbose --release ${{ matrix.cargo_extra_flags || '' }}
 
       - name: Set up artifact directory
         shell: bash
