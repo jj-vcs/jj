@@ -1243,11 +1243,10 @@ pub async fn import_head(
     let git_repo = git_backend.open_git_repo_at_workdir(workspace_root)?;
 
     let old_git_head = mut_repo.view().git_head(workspace_name);
-    let new_git_head_id = if let Ok(oid) = git_repo.head_id() {
-        Some(CommitId::from_bytes(oid.as_bytes()))
-    } else {
-        None
-    };
+    let new_git_head_id = git_repo
+        .head()?
+        .try_into_peeled_id()?
+        .map(|oid| CommitId::from_bytes(oid.as_bytes()));
     if old_git_head.as_resolved() == Some(&new_git_head_id) {
         return Ok(());
     }
@@ -1281,7 +1280,7 @@ pub async fn import_head_commit(
     let git_backend = get_git_backend(store)?;
     let git_repo = git_backend.git_repo();
 
-    let Ok(oid) = git_repo.head_id() else {
+    let Some(oid) = git_repo.head()?.try_into_peeled_id()? else {
         return Ok(None);
     };
     let head_id = CommitId::from_bytes(oid.as_bytes());
@@ -1404,7 +1403,7 @@ pub fn export_some_refs(
     );
 
     let check_and_detach_head = |git_repo: &gix::Repository| -> Result<(), GitExportError> {
-        let Ok(head_ref) = git_repo.find_reference("HEAD") else {
+        let Some(head_ref) = git_repo.try_find_reference("HEAD")? else {
             return Ok(());
         };
         let old_target = head_ref.inner.target;
