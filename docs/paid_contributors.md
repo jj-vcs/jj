@@ -8,7 +8,7 @@ The purpose of this list is to make it easy to spot conflicts of interest, such
 as when an employee approves changes from another employee of the same company.
 See [contribution docs](contributing.md#code-reviews) for details on this policy.
 
-## East River Source Control
+## [East River Source Control](https://ersc.io)
 
 * benbrittain
 * bts
@@ -19,7 +19,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * steveklabnik
 * thoughtpolice
 
-## Alphabet/Google
+## [Alphabet/Google](https://about.google.com)
 
 * 06393993
 * 10ne1
@@ -66,7 +66,11 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * vslashg
 * zygoloid
 
-## IMC Trading
+## [IMC Trading](https://imc.com)
 
 * freundTech
 * HoelzelJon
+
+## [Jujubi](https://juju.bi)
+
+* pksunkara
