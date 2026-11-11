@@ -9555,6 +9555,12 @@ and this project adheres to
   squashed into a single revision first.
   <a href="https://github.com/jj-vcs/jj/issues/8281">#8281</a></p>
 </li>
+<li>
+<p><code>jj git clone</code> now uses the object format (SHA-1 or SHA-256) of the remote
+  repository, unless <code>--object-hash</code> is given. The format of an empty remote
+  can't be detected yet, so <code>git.object-hash</code> is still used in that case.
+  <a href="https://github.com/jj-vcs/jj/issues/3813">#3813</a></p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>

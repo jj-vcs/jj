@@ -6516,7 +6516,8 @@ is in the <a href="https://git-scm.com/docs/hash-function-transition">process of
 namely SHA-256.</p>
 <p>Currently, the object hash function can only be set when initializing a new Git
 repository. The setting <code>git.object-hash</code> controls the default choice for that
-purpose. It can take the values <code>sha1</code> (default) and <code>sha256</code>.</p>
+purpose. It can take the values <code>sha1</code> (default) and <code>sha256</code>. <code>jj git clone</code>
+uses the object hash function of the remote repository instead.</p>
 <p>Note that at the moment there is no interopability between the formats, and not
 all code forges support SHA-256 repositories yet.</p>
 <h3 id="default-remotes-for-jj-git-fetch-and-jj-git-push">Default remotes for <code>jj git fetch</code> and <code>jj git push</code><a class="headerlink" href="#default-remotes-for-jj-git-fetch-and-jj-git-push" title="Permanent link">&para;</a></h3>

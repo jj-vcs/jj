@@ -11602,7 +11602,8 @@ upload</code> does:
 </li>
 <li>
 <p><code>--object-hash &lt;OBJECT_HASH&gt;</code> — Object hash algorithm for the local Git repository.</p>
-<p><em>Must</em> match the remote's hash algorithm, otherwise the operation will fail. Most existing repositories today still use the classic SHA-1 format, which is also the default if not configured otherwise by the [git.object-hash config].</p>
+<p>If not given, the remote's hash algorithm is used. Git can't report the hash algorithm of an empty remote yet, so in that case the [git.object-hash config] is used, which defaults to SHA-1.</p>
+<p>If given, it must match the remote's hash algorithm, or the clone fails.</p>
 <p>See also Git's [hash-function-transition] document for an in-depth explanation of the migration towards stronger hash functions.</p>
 <p>[git.object-hash config]: https://docs.jj-vcs.dev/latest/config/#default-object-hash-format [hash-function-transition]: https://git-scm.com/docs/hash-function-transition</p>
 <p>Possible values: <code>sha1</code>, <code>sha256</code></p>
