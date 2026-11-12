@@ -18,6 +18,7 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::future::try_join_all;
 use futures::stream;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
@@ -225,16 +226,26 @@ pub(crate) async fn cmd_log(
         if unmatched_explicit_paths.is_empty() {
             return Ok(());
         }
-        let tree = &commit.tree();
-        unmatched_explicit_paths = stream::iter(unmatched_explicit_paths.iter().copied())
-            .filter_map(|path| async move {
-                tree.path_value(path)
-                    .await
-                    .map(|value| value.is_absent().then_some(path))
-                    .transpose()
-            })
-            .try_collect()
-            .await?;
+        // A path may be absent from this revision's tree and still be a known
+        // path, e.g. when it was deleted here. Consider the parents' trees too,
+        // so that such a path is not reported as unmatched.
+        let mut trees = vec![commit.tree()];
+        trees.extend(commit.parents().await?.into_iter().map(|p| p.tree()));
+        let checked = try_join_all(unmatched_explicit_paths.iter().map(|&path| {
+            let trees = &trees;
+            async move {
+                let absent_everywhere = try_join_all(trees.iter().map(|t| t.path_value(path)))
+                    .await?
+                    .into_iter()
+                    .all(|value| value.is_absent());
+                Ok::<_, CommandError>((path, absent_everywhere))
+            }
+        }))
+        .await?;
+        unmatched_explicit_paths = checked
+            .into_iter()
+            .filter_map(|(path, absent_everywhere)| absent_everywhere.then_some(path))
+            .collect();
         Ok(())
     };
 
