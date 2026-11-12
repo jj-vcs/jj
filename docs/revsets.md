@@ -91,7 +91,8 @@ y) | z` or `x & (y | z)`.
    * `..x`: Ancestors of `x`, including the commits in `x` itself, but excluding
      the root commit. Shorthand for `root()..x`. Equivalent to `::x ~ root()`.
    * `x::y`: Descendants of `x` that are also ancestors of `y`. Equivalent
-      to `x:: & ::y`. This is what `git log` calls `--ancestry-path x..y`.
+     to `x:: & ::y`. For single commits `x` and `y`, this is similar to
+     `git log --ancestry-path x..y`, except that Git excludes `x` itself.
 
      This is called the DAG (directed acyclic graph) range operator.
    * `x..y`: Ancestors of `y` that are not also ancestors of `x`. Equivalent to
