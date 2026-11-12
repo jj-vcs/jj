@@ -71,6 +71,12 @@ pub(crate) struct NextArgs {
     #[arg(long, short, conflicts_with = "edit")]
     no_edit: bool,
 
+    /// Instead of creating a new working-copy commit on top of the target
+    /// commit (like `jj new`), keep the working copy and move it on
+    /// top of the target commit (like `jj rebase`)
+    #[arg(long, short, conflicts_with = "edit")]
+    keep: bool,
+
     /// Jump to the next conflicted descendant
     #[arg(long, conflicts_with = "offset")]
     conflict: bool,
@@ -83,6 +89,7 @@ impl From<&NextArgs> for MovementArgs {
             edit: val.edit,
             no_edit: val.no_edit,
             conflict: val.conflict,
+            rebase: val.keep,
         }
     }
 }
