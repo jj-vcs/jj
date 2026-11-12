@@ -119,6 +119,7 @@ use crate::template_builder::TemplateLanguage;
 use crate::template_builder::expect_stringify_expression;
 use crate::template_builder::merge_fn_map;
 use crate::template_value::TemplateTypeRegistry;
+use crate::template_value::TemplateValue;
 use crate::templater;
 use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
@@ -130,6 +131,7 @@ use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
+use crate::templater::WrapTemplateProperty;
 use crate::templater::list_to_boolean;
 use crate::templater::option_to_boolean;
 
@@ -539,6 +541,12 @@ pub enum CommitTemplatePropertyKind<'repo> {
     Trailer(BoxedTemplateProperty<'repo, Trailer>),
     TrailerOpt(BoxedTemplateProperty<'repo, Option<Trailer>>),
     TrailerList(BoxedTemplateProperty<'repo, Vec<Trailer>>),
+}
+
+impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplatePropertyKind<'repo> {
+    fn wrap_property(property: BoxedTemplateProperty<'repo, O>) -> Self {
+        Self::Core(CoreTemplatePropertyKind::wrap_property(property))
+    }
 }
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
@@ -3411,7 +3419,6 @@ mod tests {
 
     use super::*;
     use crate::templater::TemplateRenderer;
-    use crate::templater::WrapTemplateProperty;
 
     // TemplateBuildFunctionFn defined for<'a>
     type BuildFunctionFn = for<'a> fn(

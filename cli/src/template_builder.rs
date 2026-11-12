@@ -306,6 +306,15 @@ pub enum CoreTemplatePropertyKind<'a> {
     AnyList(BoxedAnyProperty<'a>),
 }
 
+impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyKind<'a> {
+    fn wrap_property(property: BoxedTemplateProperty<'a, O>) -> Self {
+        Self::Value {
+            ty: O::value_type(),
+            property: property.map(O::into_repr).into_dyn(),
+        }
+    }
+}
+
 /// Implements `WrapTemplateProperty<type>` for core property types.
 ///
 /// Use `impl_core_property_wrappers!(<'a> Kind<'a> => Core);` to implement
