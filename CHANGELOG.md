@@ -24,6 +24,9 @@ and this project adheres to
 
 ### New features
 
+* `jj git push` can now be configured to ask for confirmation before pushing
+  changes to a remote using `git.confirm-before-push`.
+
 * New `with(values..., |names...| body)` templating function which allows you to
   assign expressions to name bindings in a lambda. Expressions are re-evaluated
   for each use, so this is effectively the same as defining temporary template
