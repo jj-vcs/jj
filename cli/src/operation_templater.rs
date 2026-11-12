@@ -46,6 +46,7 @@ use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::merge_fn_map;
 use crate::template_value::TemplateTypeRegistry;
+use crate::template_value::TemplateValue;
 use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
@@ -312,6 +313,12 @@ impl<'a> OperationTemplatePropertyKind<'a> {
 pub enum OperationTemplateLanguagePropertyKind {
     Core(CoreTemplatePropertyKind<'static>),
     Operation(OperationTemplatePropertyKind<'static>),
+}
+
+impl<O: TemplateValue> WrapTemplateProperty<'static, O> for OperationTemplateLanguagePropertyKind {
+    fn wrap_property(property: BoxedTemplateProperty<'static, O>) -> Self {
+        Self::Core(CoreTemplatePropertyKind::wrap_property(property))
+    }
 }
 
 template_builder::impl_core_property_wrappers!(OperationTemplateLanguagePropertyKind => Core);

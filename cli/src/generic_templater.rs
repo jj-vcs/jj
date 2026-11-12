@@ -32,11 +32,13 @@ use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::TemplateLanguage;
 use crate::template_value::TemplateTypeRegistry;
+use crate::template_value::TemplateValue;
 use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::Template;
 use crate::templater::TemplatePropertyExt as _;
+use crate::templater::WrapTemplateProperty;
 
 /// General-purpose template language for basic value types.
 ///
@@ -159,6 +161,12 @@ where
 pub enum GenericTemplatePropertyKind<'a, C> {
     Core(CoreTemplatePropertyKind<'a>),
     Self_(BoxedTemplateProperty<'a, C>),
+}
+
+impl<'a, C, O: TemplateValue> WrapTemplateProperty<'a, O> for GenericTemplatePropertyKind<'a, C> {
+    fn wrap_property(property: BoxedTemplateProperty<'a, O>) -> Self {
+        Self::Core(CoreTemplatePropertyKind::wrap_property(property))
+    }
 }
 
 template_builder::impl_core_property_wrappers!(<'a, C> GenericTemplatePropertyKind<'a, C> => Core);
