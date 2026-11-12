@@ -9561,6 +9561,12 @@ and this project adheres to
   can't be detected yet, so <code>git.object-hash</code> is still used in that case.
   <a href="https://github.com/jj-vcs/jj/issues/3813">#3813</a></p>
 </li>
+<li>
+<p>Using the <code>json</code> template function with <code>ui.log-word-wrap</code> set to <code>true</code> now
+  emits a warning that the output may be broken due to potential wrapping in the
+  middle of JSON output. Users should set the config option to <code>false</code> to avoid
+  receiving invalid JSON objects on small terminals.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
