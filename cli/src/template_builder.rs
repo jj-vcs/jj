@@ -52,6 +52,10 @@ use serde::de::IntoDeserializer as _;
 use crate::config;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
+use crate::template_value::TemplateTypeRegistry;
+use crate::template_value::TemplateValueExtractionError;
+use crate::template_value::TemplateValueRepr;
+use crate::template_value::TemplateValueType;
 use crate::templater::AnyTemplateProperty;
 use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
@@ -102,6 +106,8 @@ pub trait TemplateLanguage<'a> {
 
     /// Returns the working directory for filesystem path template methods.
     fn current_dir(&self) -> &Path;
+
+    fn type_registry(&self) -> &TemplateTypeRegistry;
 
     /// Translates the given global `function` call to a property.
     ///
@@ -204,25 +210,51 @@ where
     fn wrap_any_list(property: BoxedAnyProperty<'a>) -> Self;
 
     /// Type name of the property output.
-    fn type_name(&self) -> &'static str;
+    fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str;
 
     /// Extracts property of `ByteString` type or newtype.
-    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'a, BString>, Self>;
+    fn try_into_byte_string(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'a, BString>, Self>;
     /// Extracts property of `String` type or newtype.
-    fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self>;
+    fn try_into_string(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'a, String>, Self>;
     // TODO: rename try_into_boolean() because it isn't a pure extraction fn?
-    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self>;
-    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'a, i64>, Self>;
-    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self>;
+    fn try_into_boolean(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'a, bool>, Self>;
+    fn try_into_integer(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'a, i64>, Self>;
+    fn try_into_timestamp(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self>;
 
-    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>>;
-    fn try_into_template(self) -> Option<Box<dyn Template + 'a>>;
+    fn try_into_serialize(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedSerializeProperty<'a>>;
+    fn try_into_template(self, registry: &TemplateTypeRegistry) -> Option<Box<dyn Template + 'a>>;
 
     /// Transforms into a property that will evaluate to `self == other`.
-    fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>>;
+    fn try_into_eq(
+        self,
+        other: Self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, bool>>;
 
     /// Transforms into a property that will evaluate to an [`Ordering`].
-    fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>>;
+    fn try_into_cmp(
+        self,
+        other: Self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, Ordering>>;
 }
 
 impl NoTemplateBooleanCast for i64 {}
@@ -235,6 +267,11 @@ impl NoTemplateBooleanCast for Timestamp {}
 impl NoTemplateBooleanCast for TimestampRange {}
 
 pub enum CoreTemplatePropertyKind<'a> {
+    Value {
+        ty: TemplateValueType,
+        property: BoxedTemplateProperty<'a, TemplateValueRepr>,
+    },
+
     ByteString(BoxedTemplateProperty<'a, BString>),
     ByteStringList(BoxedTemplateProperty<'a, Vec<BString>>),
     String(BoxedTemplateProperty<'a, String>),
@@ -313,8 +350,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         Self::AnyList(property)
     }
 
-    fn type_name(&self) -> &'static str {
+    fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
+            Self::Value { ty, property: _ } => registry.get_type_name(ty).expect("registered type"),
             Self::ByteString(_) => "ByteString",
             Self::ByteStringList(_) => "List<ByteString>",
             Self::String(_) => "String",
@@ -338,22 +376,36 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'a, BString>, Self> {
+    fn try_into_byte_string(
+        self,
+        _registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'a, BString>, Self> {
         match self {
             Self::ByteString(property) => Ok(property),
             _ => Err(self),
         }
     }
 
-    fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self> {
+    fn try_into_string(
+        self,
+        _registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'a, String>, Self> {
         match self {
             Self::String(property) => Ok(property),
             _ => Err(self),
         }
     }
 
-    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
+    fn try_into_boolean(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
         match self {
+            Self::Value { ty, property } if let Some(cast) = registry.get_to_condition_fn(&ty) => {
+                let out_property = property.map(move |repr| cast(repr).expect("valid type"));
+                Ok(out_property.into_dyn())
+            }
+            Self::Value { .. } => Err(self),
             Self::ByteString(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
             Self::ByteStringList(property) => Ok(list_to_boolean(property)),
             Self::String(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
@@ -380,8 +432,11 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'a, i64>, Self> {
-        let type_name = self.type_name();
+    fn try_into_integer(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'a, i64>, Self> {
+        let type_name = self.type_name(registry);
         match self {
             Self::Integer(property) => Ok(property),
             Self::IntegerOpt(property) => Ok(property.try_unwrap(type_name).into_dyn()),
@@ -389,15 +444,26 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self> {
+    fn try_into_timestamp(
+        self,
+        _registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self> {
         match self {
             Self::Timestamp(property) => Ok(property),
             _ => Err(self),
         }
     }
 
-    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
+    fn try_into_serialize(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedSerializeProperty<'a>> {
         match self {
+            Self::Value { ty, property } => {
+                let cast = registry.get_to_serialize_fn(&ty)?;
+                let out_property = property.map(move |repr| cast(repr).expect("valid type"));
+                Some(out_property.into_dyn())
+            }
             Self::ByteString(property) => Some(property.into_serialize()),
             Self::ByteStringList(property) => Some(property.into_serialize()),
             Self::String(property) => Some(property.into_serialize()),
@@ -422,13 +488,18 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Timestamp(property) => Some(property.into_serialize()),
             Self::TimestampRange(property) => Some(property.into_serialize()),
             Self::Template(_) => None,
-            Self::Any(property) => property.try_into_serialize(),
-            Self::AnyList(property) => property.try_into_serialize(),
+            Self::Any(property) => property.try_into_serialize(registry),
+            Self::AnyList(property) => property.try_into_serialize(registry),
         }
     }
 
-    fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
+    fn try_into_template(self, registry: &TemplateTypeRegistry) -> Option<Box<dyn Template + 'a>> {
         match self {
+            Self::Value { ty, property } => {
+                let cast = registry.get_to_template_fn(&ty)?;
+                let out_property = property.map(move |repr| cast(repr).expect("valid type"));
+                Some(out_property.into_template())
+            }
             Self::ByteString(property) => Some(property.into_template()),
             Self::ByteStringList(property) => Some(property.into_template()),
             Self::String(property) => Some(property.into_template()),
@@ -447,13 +518,60 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Timestamp(property) => Some(property.into_template()),
             Self::TimestampRange(property) => Some(property.into_template()),
             Self::Template(template) => Some(template),
-            Self::Any(property) => property.try_into_template(),
-            Self::AnyList(property) => property.try_into_template(),
+            Self::Any(property) => property.try_into_template(registry),
+            Self::AnyList(property) => property.try_into_template(registry),
         }
     }
 
-    fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
+    fn try_into_eq(
+        self,
+        other: Self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
+            (
+                Self::Value {
+                    ty: lty,
+                    property: lhs,
+                },
+                Self::Value {
+                    ty: rty,
+                    property: rhs,
+                },
+            ) if let Some(eq) = registry.get_eq_fn(&lty, &rty) => {
+                let out_property = (lhs, rhs).map(move |(l, r)| eq(l, r).expect("valid type"));
+                Some(out_property.into_dyn())
+            }
+            // Comparison between T and Option<U> doesn't fail, and returns
+            // false if either side is None. This is more capable than comparing
+            // Option<T> and Option<U> because PartialEq isn't implemented for
+            // different types wrapped in Option.
+            (
+                Self::Value {
+                    ty: lty @ TemplateValueType::Scalar(_),
+                    property: lhs,
+                },
+                Self::Value {
+                    ty: TemplateValueType::Option(rid),
+                    property: rhs,
+                },
+            ) if let Some(eq) = registry.get_eq_fn(&lty, &TemplateValueType::Scalar(rid)) => {
+                let out_property = (lhs, rhs).map(move |(l, r)| ignore_missing_value(eq(l, r)));
+                Some(out_property.into_dyn())
+            }
+            (
+                Self::Value {
+                    ty: TemplateValueType::Option(lid),
+                    property: lhs,
+                },
+                Self::Value {
+                    ty: rty @ TemplateValueType::Scalar(_),
+                    property: rhs,
+                },
+            ) if let Some(eq) = registry.get_eq_fn(&TemplateValueType::Scalar(lid), &rty) => {
+                let out_property = (lhs, rhs).map(move |(l, r)| ignore_missing_value(eq(l, r)));
+                Some(out_property.into_dyn())
+            }
             (Self::ByteString(lhs), Self::ByteString(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
@@ -490,6 +608,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Email(lhs), Self::String(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.0 == r).into_dyn())
             }
+            (Self::Value { .. }, _) => None,
             (Self::ByteString(_), _) => None,
             (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
@@ -513,8 +632,53 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
+    fn try_into_cmp(
+        self,
+        other: Self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         match (self, other) {
+            (
+                Self::Value {
+                    ty: lty,
+                    property: lhs,
+                },
+                Self::Value {
+                    ty: rty,
+                    property: rhs,
+                },
+            ) if let Some(cmp) = registry.get_cmp_fn(&lty, &rty) => {
+                let out_property = (lhs, rhs).map(move |(l, r)| cmp(l, r).expect("valid type"));
+                Some(out_property.into_dyn())
+            }
+            // To compare T and Option<U>, T is wrapped in Option. This is fine
+            // for now since we only support total ordering.
+            (
+                Self::Value {
+                    ty: TemplateValueType::Scalar(lid),
+                    property: lhs,
+                },
+                Self::Value {
+                    ty: rty @ TemplateValueType::Option(_),
+                    property: rhs,
+                },
+            ) if let Some(cmp) = registry.get_cmp_fn(&TemplateValueType::Option(lid), &rty) => {
+                let out_property = (lhs, rhs).map(move |(l, r)| cmp(l, r).expect("valid type"));
+                Some(out_property.into_dyn())
+            }
+            (
+                Self::Value {
+                    ty: lty @ TemplateValueType::Option(_),
+                    property: lhs,
+                },
+                Self::Value {
+                    ty: TemplateValueType::Scalar(rid),
+                    property: rhs,
+                },
+            ) if let Some(cmp) = registry.get_cmp_fn(&lty, &TemplateValueType::Option(rid)) => {
+                let out_property = (lhs, rhs).map(move |(l, r)| cmp(l, r).expect("valid type"));
+                Some(out_property.into_dyn())
+            }
             (Self::Integer(lhs), Self::Integer(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.cmp(&r)).into_dyn())
             }
@@ -527,6 +691,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::IntegerOpt(lhs), Self::IntegerOpt(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.cmp(&r)).into_dyn())
             }
+            (Self::Value { .. }, _) => None,
             (Self::ByteString(_), _) => None,
             (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
@@ -549,6 +714,11 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::AnyList(_), _) => None,
         }
     }
+}
+
+/// Creates the registry of types available to a template language.
+pub fn new_core_type_registry() -> TemplateTypeRegistry {
+    TemplateTypeRegistry::empty()
 }
 
 /// Function that translates global function call node.
@@ -613,6 +783,15 @@ pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a
     pub template_methods: BuildTemplateMethodFnMap<'a, L, P>,
     pub any_methods: BuildAnyMethodFnMap<'a, L, P>,
     pub any_list_methods: BuildAnyMethodFnMap<'a, L, P>,
+}
+
+fn ignore_missing_value<T: Default>(result: Result<T, TemplateValueExtractionError>) -> T {
+    result.unwrap_or_else(|err| match err {
+        TemplateValueExtractionError::UnexpectedType(ty) => {
+            panic!("unexpected type: {ty:?}")
+        }
+        TemplateValueExtractionError::MissingValue => T::default(),
+    })
 }
 
 pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'s str, F>) {
@@ -741,8 +920,9 @@ where
         property: CoreTemplatePropertyKind<'a>,
         function: &FunctionCallNode,
     ) -> TemplateParseResult<L::Property> {
-        let type_name = property.type_name();
+        let type_name = property.type_name(language.type_registry());
         match property {
+            CoreTemplatePropertyKind::Value { .. } => todo!(),
             CoreTemplatePropertyKind::ByteString(property) => {
                 let table = &self.byte_string_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -863,50 +1043,65 @@ impl<P> Expression<P> {
 }
 
 impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
-    pub fn type_name(&self) -> &'static str {
-        self.property.type_name()
+    pub fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
+        self.property.type_name(registry)
     }
 
-    pub fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
-        self.property.try_into_boolean().ok()
+    pub fn try_into_boolean(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, bool>> {
+        self.property.try_into_boolean(registry).ok()
     }
 
-    pub fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
-        self.property.try_into_integer().ok()
+    pub fn try_into_integer(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, i64>> {
+        self.property.try_into_integer(registry).ok()
     }
 
-    pub fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
-        self.property.try_into_timestamp().ok()
+    pub fn try_into_timestamp(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
+        self.property.try_into_timestamp(registry).ok()
     }
 
     /// Transforms into a byte string property by formatting the value if
     /// needed.
-    pub fn try_into_byte_stringify(self) -> Option<BoxedTemplateProperty<'a, BString>> {
-        let property = match self.property.try_into_byte_string() {
+    pub fn try_into_byte_stringify(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, BString>> {
+        let property = match self.property.try_into_byte_string(registry) {
             Ok(bytes_property) => return Some(bytes_property),
             Err(property) => property,
         };
-        let property = match property.try_into_string() {
+        let property = match property.try_into_string(registry) {
             Ok(string_property) => return Some(string_property.map(BString::from).into_dyn()),
             Err(property) => property,
         };
-        let template = property.try_into_template()?;
+        let template = property.try_into_template(registry)?;
         Some(PlainTextFormattedProperty::new(template).into_dyn())
     }
 
     /// Transforms into a string property by formatting the value if needed.
-    pub fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
+    pub fn try_into_stringify(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, String>> {
         let from_bytes =
             |s: BString| Ok(String::from_utf8(s.into()).map_err(|err| err.utf8_error())?);
-        let property = match self.property.try_into_string() {
+        let property = match self.property.try_into_string(registry) {
             Ok(string_property) => return Some(string_property),
             Err(property) => property,
         };
-        let property = match property.try_into_byte_string() {
+        let property = match property.try_into_byte_string(registry) {
             Ok(bytes_property) => return Some(bytes_property.and_then(from_bytes).into_dyn()),
             Err(property) => property,
         };
-        let template = property.try_into_template()?;
+        let template = property.try_into_template(registry)?;
         Some(
             PlainTextFormattedProperty::new(template)
                 .and_then(from_bytes)
@@ -914,12 +1109,18 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
         )
     }
 
-    pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
-        self.property.try_into_serialize()
+    pub fn try_into_serialize(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedSerializeProperty<'a>> {
+        self.property.try_into_serialize(registry)
     }
 
-    pub fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
-        let template = self.property.try_into_template()?;
+    pub fn try_into_template(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<Box<dyn Template + 'a>> {
+        let template = self.property.try_into_template(registry)?;
         if self.labels.is_empty() {
             Some(template)
         } else {
@@ -927,25 +1128,43 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
         }
     }
 
-    pub fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
-        self.property.try_into_eq(other.property)
+    pub fn try_into_eq(
+        self,
+        other: Self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, bool>> {
+        self.property.try_into_eq(other.property, registry)
     }
 
-    pub fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
-        self.property.try_into_cmp(other.property)
+    pub fn try_into_cmp(
+        self,
+        other: Self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'a, Ordering>> {
+        self.property.try_into_cmp(other.property, registry)
     }
 }
 
 impl<'a, P: CoreTemplatePropertyVar<'a>> AnyTemplateProperty<'a> for Expression<P> {
-    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>> {
-        (*self).try_into_serialize()
+    fn try_into_serialize(
+        self: Box<Self>,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedSerializeProperty<'a>> {
+        (*self).try_into_serialize(registry)
     }
 
-    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>> {
-        (*self).try_into_template()
+    fn try_into_template(
+        self: Box<Self>,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<Box<dyn Template + 'a>> {
+        (*self).try_into_template(registry)
     }
 
-    fn try_join(self: Box<Self>, _: Box<dyn Template + 'a>) -> Option<Box<dyn Template + 'a>> {
+    fn try_join(
+        self: Box<Self>,
+        _: Box<dyn Template + 'a>,
+        _: &TemplateTypeRegistry,
+    ) -> Option<Box<dyn Template + 'a>> {
         None
     }
 }
@@ -1051,12 +1270,14 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
         BinaryOp::Eq | BinaryOp::Ne => {
             let lhs = build_expression(language, diagnostics, build_ctx, lhs_node)?;
             let rhs = build_expression(language, diagnostics, build_ctx, rhs_node)?;
-            let lty = lhs.type_name();
-            let rty = rhs.type_name();
-            let eq = lhs.try_into_eq(rhs).ok_or_else(|| {
-                let message = format!("Cannot compare expressions of type `{lty}` and `{rty}`");
-                TemplateParseError::expression(message, span)
-            })?;
+            let lty = lhs.type_name(language.type_registry());
+            let rty = rhs.type_name(language.type_registry());
+            let eq = lhs
+                .try_into_eq(rhs, language.type_registry())
+                .ok_or_else(|| {
+                    let message = format!("Cannot compare expressions of type `{lty}` and `{rty}`");
+                    TemplateParseError::expression(message, span)
+                })?;
             let out = match op {
                 BinaryOp::Eq => eq.into_dyn(),
                 BinaryOp::Ne => eq.map(|eq| !eq).into_dyn(),
@@ -1067,12 +1288,14 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
         BinaryOp::Ge | BinaryOp::Gt | BinaryOp::Le | BinaryOp::Lt => {
             let lhs = build_expression(language, diagnostics, build_ctx, lhs_node)?;
             let rhs = build_expression(language, diagnostics, build_ctx, rhs_node)?;
-            let lty = lhs.type_name();
-            let rty = rhs.type_name();
-            let cmp = lhs.try_into_cmp(rhs).ok_or_else(|| {
-                let message = format!("Cannot compare expressions of type `{lty}` and `{rty}`");
-                TemplateParseError::expression(message, span)
-            })?;
+            let lty = lhs.type_name(language.type_registry());
+            let rty = rhs.type_name(language.type_registry());
+            let cmp = lhs
+                .try_into_cmp(rhs, language.type_registry())
+                .ok_or_else(|| {
+                    let message = format!("Cannot compare expressions of type `{lty}` and `{rty}`");
+                    TemplateParseError::expression(message, span)
+                })?;
             let out = match op {
                 BinaryOp::Ge => cmp.map(|ordering| ordering.is_ge()).into_dyn(),
                 BinaryOp::Gt => cmp.map(|ordering| ordering.is_gt()).into_dyn(),
@@ -2041,11 +2264,13 @@ fn builtin_any_list_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildAnyM
             let separator =
                 expect_template_expression(language, diagnostics, build_ctx, separator_node)?;
             Ok(L::Property::wrap_template(
-                self_template.try_join(separator).ok_or_else(|| {
-                    // FIXME: This error should probably be reported on the type
-                    // within the AnyListTemplateProperty.
-                    TemplateParseError::expected_type("Template", "AnyList", function.name_span)
-                })?,
+                self_template
+                    .try_join(separator, language.type_registry())
+                    .ok_or_else(|| {
+                        // FIXME: This error should probably be reported on the type
+                        // within the AnyListTemplateProperty.
+                        TemplateParseError::expected_type("Template", "AnyList", function.name_span)
+                    })?,
             ))
         },
     );
@@ -2969,7 +3194,7 @@ pub fn expect_boolean_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         build_ctx,
         node,
         "Boolean",
-        |expression| expression.try_into_boolean(),
+        |expression| expression.try_into_boolean(language.type_registry()),
     )
 }
 
@@ -2985,7 +3210,7 @@ pub fn expect_integer_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         build_ctx,
         node,
         "Integer",
-        |expression| expression.try_into_integer(),
+        |expression| expression.try_into_integer(language.type_registry()),
     )
 }
 
@@ -3035,7 +3260,7 @@ pub fn expect_byte_stringify_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         build_ctx,
         node,
         "ByteStringify",
-        |expression| expression.try_into_byte_stringify(),
+        |expression| expression.try_into_byte_stringify(language.type_registry()),
     )
 }
 
@@ -3053,7 +3278,7 @@ pub fn expect_stringify_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         build_ctx,
         node,
         "Stringify",
-        |expression| expression.try_into_stringify(),
+        |expression| expression.try_into_stringify(language.type_registry()),
     )
 }
 
@@ -3069,7 +3294,7 @@ pub fn expect_timestamp_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         build_ctx,
         node,
         "Timestamp",
-        |expression| expression.try_into_timestamp(),
+        |expression| expression.try_into_timestamp(language.type_registry()),
     )
 }
 
@@ -3095,10 +3320,12 @@ pub fn expect_serialize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         }
         _ => {
             let expression = build_expression(language, diagnostics, build_ctx, node)?;
-            let actual_type = expression.type_name();
-            expression.try_into_serialize().ok_or_else(|| {
-                TemplateParseError::expected_type("Serialize", actual_type, node.span)
-            })
+            let actual_type = expression.type_name(language.type_registry());
+            expression
+                .try_into_serialize(language.type_registry())
+                .ok_or_else(|| {
+                    TemplateParseError::expected_type("Serialize", actual_type, node.span)
+                })
         }
     })
 }
@@ -3115,7 +3342,7 @@ pub fn expect_template_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         build_ctx,
         node,
         "Template",
-        |expression| expression.try_into_template(),
+        |expression| expression.try_into_template(language.type_registry()),
     )
 }
 
@@ -3143,7 +3370,7 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
 ) -> TemplateParseResult<T> {
     template_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let expression = build_expression(language, diagnostics, build_ctx, node)?;
-        let actual_type = expression.type_name();
+        let actual_type = expression.type_name(language.type_registry());
         f(expression)
             .ok_or_else(|| TemplateParseError::expected_type(expected_type, actual_type, node.span))
     })

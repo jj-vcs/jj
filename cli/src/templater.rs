@@ -40,6 +40,7 @@ use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::formatter::LabeledScope;
 use crate::formatter::PlainTextFormatter;
+use crate::template_value::TemplateTypeRegistry;
 use crate::text_util;
 use crate::time_util;
 
@@ -644,15 +645,22 @@ pub trait WrapTemplateProperty<'a, O>: Sized {
 
 /// Abstraction trait for a type-erased TemplateProperty
 pub trait AnyTemplateProperty<'a> {
-    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>>;
+    fn try_into_serialize(
+        self: Box<Self>,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedSerializeProperty<'a>>;
 
-    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>>;
+    fn try_into_template(
+        self: Box<Self>,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<Box<dyn Template + 'a>>;
 
     /// If this is a list whose elements convert to `Template`, concatenate with
     /// the given separator.
     fn try_join(
         self: Box<Self>,
         separator: Box<dyn Template + 'a>,
+        registry: &TemplateTypeRegistry,
     ) -> Option<Box<dyn Template + 'a>>;
 }
 pub type BoxedAnyProperty<'a> = Box<dyn AnyTemplateProperty<'a> + 'a>;
@@ -846,9 +854,12 @@ where
     P::Output: IntoIterator<Item = O>,
     O: Clone + 'a,
 {
-    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>> {
+    fn try_into_serialize(
+        self: Box<Self>,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedSerializeProperty<'a>> {
         let placeholder = self.placeholder;
-        let mapped = self.mapped.try_into_serialize()?;
+        let mapped = self.mapped.try_into_serialize(registry)?;
         Some(
             self.property
                 .and_then(move |property| {
@@ -861,16 +872,20 @@ where
         )
     }
 
-    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>> {
-        self.try_join(Box::new(Literal(" ")))
+    fn try_into_template(
+        self: Box<Self>,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<Box<dyn Template + 'a>> {
+        self.try_join(Box::new(Literal(" ")), registry)
     }
 
     fn try_join(
         self: Box<Self>,
         separator: Box<dyn Template + 'a>,
+        registry: &TemplateTypeRegistry,
     ) -> Option<Box<dyn Template + 'a>> {
         let placeholder = self.placeholder;
-        let mapped = self.mapped.try_into_template()?;
+        let mapped = self.mapped.try_into_template(registry)?;
         Some(Box::new(ListPropertyTemplate::new(
             self.property,
             separator,
@@ -907,12 +922,15 @@ impl<'a, P> AnyTemplateProperty<'a> for ConditionalProperty<'a, P>
 where
     P: TemplateProperty<Output = bool> + 'a,
 {
-    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>> {
+    fn try_into_serialize(
+        self: Box<Self>,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedSerializeProperty<'a>> {
         Some(
             (
                 self.condition,
-                self.on_true.try_into_serialize()?,
-                self.on_false?.try_into_serialize()?,
+                self.on_true.try_into_serialize(registry)?,
+                self.on_false?.try_into_serialize(registry)?,
             )
                 .map(
                     move |(condition, on_true, on_false)| {
@@ -923,14 +941,17 @@ where
         )
     }
 
-    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>> {
+    fn try_into_template(
+        self: Box<Self>,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<Box<dyn Template + 'a>> {
         Some(Box::new(ConditionalTemplate::new(
             self.condition,
-            self.on_true.try_into_template()?,
+            self.on_true.try_into_template(registry)?,
             // NOTE: We need to propagate out the inner `None` (or else we would
             // allow a non-template `else` property).
             match self.on_false {
-                Some(on_false) => on_false.try_into_template()?,
+                Some(on_false) => on_false.try_into_template(registry)?,
                 None => Box::new(Literal("")),
             },
         )))
@@ -939,6 +960,7 @@ where
     fn try_join(
         self: Box<Self>,
         _separator: Box<dyn Template + 'a>,
+        _registry: &TemplateTypeRegistry,
     ) -> Option<Box<dyn Template + 'a>> {
         // NOTE: This is implementable, but currently cannot be called.
         None
@@ -1002,19 +1024,26 @@ impl<T> TryList<T> {
 
 /// Converts type-erased properties if all items support the operation.
 impl<'a> AnyTemplateProperty<'a> for TryList<BoxedAnyProperty<'a>> {
-    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>> {
-        let properties = self.try_into_inner(|p| p.try_into_serialize())?;
+    fn try_into_serialize(
+        self: Box<Self>,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedSerializeProperty<'a>> {
+        let properties = self.try_into_inner(|p| p.try_into_serialize(registry))?;
         Some(Box::new(TryList(properties)))
     }
 
-    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>> {
-        let templates = self.try_into_inner(|p| p.try_into_template())?;
+    fn try_into_template(
+        self: Box<Self>,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<Box<dyn Template + 'a>> {
+        let templates = self.try_into_inner(|p| p.try_into_template(registry))?;
         Some(Box::new(TryList(templates)))
     }
 
     fn try_join(
         self: Box<Self>,
         _separator: Box<dyn Template + 'a>,
+        _registry: &TemplateTypeRegistry,
     ) -> Option<Box<dyn Template + 'a>> {
         // NOTE: This is implementable, but currently cannot be called.
         None
