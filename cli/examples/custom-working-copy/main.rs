@@ -287,6 +287,10 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
         self.inner.recover(commit).await
     }
 
+    async fn adopt(&mut self, commit: &Commit) -> Result<(), ResetError> {
+        self.inner.adopt(commit).await
+    }
+
     fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
         self.inner.sparse_patterns()
     }
