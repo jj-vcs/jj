@@ -16,9 +16,13 @@
 
 use std::any::Any;
 use std::any::TypeId;
+use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 use bstr::BString;
+
+use crate::templater::Template;
 
 /// Marker for opaque template value types.
 pub trait OpaqueTemplateValue: Clone + 'static {}
@@ -259,6 +263,95 @@ fn downcast_value<T: Clone + 'static>(opaque: Rc<dyn Any>) -> Result<T, Rc<dyn A
 
 fn unexpected_type(repr: &TemplateValueRepr) -> TemplateValueExtractionError {
     TemplateValueExtractionError::UnexpectedType(repr.actual_value_type())
+}
+
+type CastFn<T> = fn(TemplateValueRepr) -> Result<T, TemplateValueExtractionError>;
+type ToTemplateFn = CastFn<Box<dyn Template>>;
+type ToSerializeFn = CastFn<Box<dyn erased_serde::Serialize>>;
+
+pub struct TemplateTypeRegistry {
+    type_names: HashMap<TemplateValueType, &'static str>,
+    to_template_fns: HashMap<TemplateValueType, ToTemplateFn>,
+    to_serialize_fns: HashMap<TemplateValueType, ToSerializeFn>,
+}
+
+impl TemplateTypeRegistry {
+    pub fn empty() -> Self {
+        Self {
+            type_names: HashMap::new(),
+            to_template_fns: HashMap::new(),
+            to_serialize_fns: HashMap::new(),
+        }
+    }
+
+    /// Registers a new template value type.
+    #[track_caller]
+    pub fn register<T: TemplateValue>(
+        &mut self,
+        type_name: &'static str,
+    ) -> TemplateTypeRegistration<'_, T> {
+        let old_type_name = self.type_names.insert(T::value_type(), type_name);
+        assert_eq!(old_type_name, None, "type already registered: {type_name}");
+        TemplateTypeRegistration {
+            registry: self,
+            ty: PhantomData,
+        }
+    }
+
+    pub fn get_type_name(&self, ty: &TemplateValueType) -> Option<&'static str> {
+        self.type_names.get(ty).copied()
+    }
+
+    pub fn get_to_template_fn(&self, ty: &TemplateValueType) -> Option<ToTemplateFn> {
+        self.to_template_fns.get(ty).copied()
+    }
+
+    pub fn get_to_serialize_fn(&self, ty: &TemplateValueType) -> Option<ToSerializeFn> {
+        self.to_serialize_fns.get(ty).copied()
+    }
+}
+
+pub struct TemplateTypeRegistration<'a, T> {
+    registry: &'a mut TemplateTypeRegistry,
+    ty: PhantomData<fn(T)>,
+}
+
+impl<T: TemplateValue> TemplateTypeRegistration<'_, T> {
+    /// Registers this as a formattable type.
+    pub fn formattable(self) -> Self
+    where
+        T: Template,
+    {
+        self.registry
+            .to_template_fns
+            .insert(T::value_type(), try_into_template::<T>);
+        self
+    }
+
+    /// Registers this as a serializable type.
+    pub fn serializable(self) -> Self
+    where
+        T: serde::Serialize,
+    {
+        self.registry
+            .to_serialize_fns
+            .insert(T::value_type(), try_into_serialize::<T>);
+        self
+    }
+}
+
+fn try_into_template<T: TemplateValue + Template>(
+    repr: TemplateValueRepr,
+) -> Result<Box<dyn Template>, TemplateValueExtractionError> {
+    let value = T::try_from_repr(repr)?;
+    Ok(Box::new(value))
+}
+
+fn try_into_serialize<T: TemplateValue + serde::Serialize>(
+    repr: TemplateValueRepr,
+) -> Result<Box<dyn erased_serde::Serialize>, TemplateValueExtractionError> {
+    let value = T::try_from_repr(repr)?;
+    Ok(Box::new(value))
 }
 
 #[cfg(test)]
