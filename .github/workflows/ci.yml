@@ -65,8 +65,8 @@ jobs:
     # 2025-10-06 (aseipp): x86 macos runners consistently slower, bump 20m -> 25m
     # 2026-08-28 (slerpy): x86 macos & arm windows are timing out, bump 25m -> 30m
     #
-    # The "nix flake" jobs below use the same timeout, so update there too if
-    # you update here.
+    # The "nix flake" jobs in `nix.yml` use the same timeout, so update there
+    # too if you update here.
     timeout-minutes: 30
 
     steps:
@@ -140,23 +140,6 @@ jobs:
         toolchain: 1.97.1
     - name: Build
       run: cargo build -p jj-cli --no-default-features --verbose
-
-  build-nix:
-    name: nix flake
-    strategy:
-      fail-fast: ${{ github.event_name == 'merge_group' }}
-      matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b
-      - run: nix flake check -L --show-trace
 
   check-protos:
     name: check (protos)
@@ -348,7 +331,6 @@ jobs:
     - test
     - check-wasi
     - no-git
-    - build-nix
     - check-protos
     - check-rustfmt
     - check-markdown
