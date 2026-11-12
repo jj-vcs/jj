@@ -61,6 +61,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * solson
 * spectral54
 * steadmon
+* tbhova
 * tbodt
 * vaghinak-vardanyan
 * vslashg
