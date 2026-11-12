@@ -118,6 +118,7 @@ use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::expect_stringify_expression;
 use crate::template_builder::merge_fn_map;
+use crate::template_value::TemplateTypeRegistry;
 use crate::templater;
 use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
@@ -154,6 +155,7 @@ pub struct CommitTemplateLanguage<'repo> {
     id_prefix_context: &'repo IdPrefixContext,
     immutable_expression: Arc<UserRevsetExpression>,
     conflict_marker_style: ConflictMarkerStyle,
+    type_registry: TemplateTypeRegistry,
     build_fn_table: CommitTemplateBuildFnTable<'repo>,
     keyword_cache: CommitKeywordCache,
     cache_extensions: ExtensionsMap,
@@ -173,6 +175,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         conflict_marker_style: ConflictMarkerStyle,
         extensions: &[impl AsRef<dyn CommitTemplateLanguageExtension>],
     ) -> Self {
+        let type_registry = template_builder::new_core_type_registry();
         let mut build_fn_table = CommitTemplateBuildFnTable::builtin();
         let mut cache_extensions = ExtensionsMap::empty();
 
@@ -191,6 +194,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
             id_prefix_context,
             immutable_expression,
             conflict_marker_style,
+            type_registry,
             build_fn_table,
             keyword_cache: CommitKeywordCache::default(),
             cache_extensions,
@@ -225,6 +229,10 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
         cwd
     }
 
+    fn type_registry(&self) -> &TemplateTypeRegistry {
+        &self.type_registry
+    }
+
     fn build_function(
         &self,
         diagnostics: &mut TemplateDiagnostics,
@@ -242,7 +250,7 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
         property: Self::Property,
         function: &FunctionCallNode,
     ) -> TemplateParseResult<Self::Property> {
-        let type_name = property.type_name();
+        let type_name = property.type_name(self.type_registry());
         match property {
             CommitTemplatePropertyKind::Core(property) => {
                 let table = &self.build_fn_table.core;
@@ -589,9 +597,9 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         Self::Core(CoreTemplatePropertyKind::wrap_any_list(property))
     }
 
-    fn type_name(&self) -> &'static str {
+    fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
-            Self::Core(property) => property.type_name(),
+            Self::Core(property) => property.type_name(registry),
             Self::Operation(property) => property.type_name(),
             Self::Commit(_) => "Commit",
             Self::CommitOpt(_) => "Option<Commit>",
@@ -634,17 +642,23 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
-    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'repo, BString>, Self> {
+    fn try_into_byte_string(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'repo, BString>, Self> {
         match self {
-            Self::Core(property) => property.try_into_byte_string().map_err(Self::Core),
+            Self::Core(property) => property.try_into_byte_string(registry).map_err(Self::Core),
             Self::Operation(property) => property.try_into_byte_string().map_err(Self::Operation),
             _ => Err(self),
         }
     }
 
-    fn try_into_string(self) -> Result<BoxedTemplateProperty<'repo, String>, Self> {
+    fn try_into_string(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'repo, String>, Self> {
         match self {
-            Self::Core(property) => property.try_into_string().map_err(Self::Core),
+            Self::Core(property) => property.try_into_string(registry).map_err(Self::Core),
             Self::Operation(property) => property.try_into_string().map_err(Self::Operation),
             Self::RefSymbol(property) => Ok(property.map(|RefSymbolBuf(s)| s).into_dyn()),
             Self::RefSymbolOpt(property) => Ok(property
@@ -654,9 +668,12 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
-    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
+    fn try_into_boolean(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
-            Self::Core(property) => property.try_into_boolean().map_err(Self::Core),
+            Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
             Self::Operation(property) => property.try_into_boolean().map_err(Self::Operation),
             Self::Commit(_) => Err(self),
             Self::CommitOpt(property) => Ok(option_to_boolean(property)),
@@ -701,25 +718,34 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
-    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'repo, i64>, Self> {
+    fn try_into_integer(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'repo, i64>, Self> {
         match self {
-            Self::Core(property) => property.try_into_integer().map_err(Self::Core),
+            Self::Core(property) => property.try_into_integer(registry).map_err(Self::Core),
             Self::Operation(property) => property.try_into_integer().map_err(Self::Operation),
             _ => Err(self),
         }
     }
 
-    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'repo, Timestamp>, Self> {
+    fn try_into_timestamp(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'repo, Timestamp>, Self> {
         match self {
-            Self::Core(property) => property.try_into_timestamp().map_err(Self::Core),
+            Self::Core(property) => property.try_into_timestamp(registry).map_err(Self::Core),
             Self::Operation(property) => property.try_into_timestamp().map_err(Self::Operation),
             _ => Err(self),
         }
     }
 
-    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'repo>> {
+    fn try_into_serialize(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
-            Self::Core(property) => property.try_into_serialize(),
+            Self::Core(property) => property.try_into_serialize(registry),
             Self::Operation(property) => property.try_into_serialize(),
             Self::Commit(property) => Some(property.into_serialize()),
             Self::CommitOpt(property) => Some(property.into_serialize()),
@@ -762,9 +788,12 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
-    fn try_into_template(self) -> Option<Box<dyn Template + 'repo>> {
+    fn try_into_template(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<Box<dyn Template + 'repo>> {
         match self {
-            Self::Core(property) => property.try_into_template(),
+            Self::Core(property) => property.try_into_template(registry),
             Self::Operation(property) => property.try_into_template(),
             Self::Commit(_) => None,
             Self::CommitOpt(_) => None,
@@ -807,10 +836,14 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
-    fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'repo, bool>> {
+    fn try_into_eq(
+        self,
+        other: Self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'repo, bool>> {
         type Core<'repo> = CoreTemplatePropertyKind<'repo>;
         match (self, other) {
-            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs),
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
             (Self::Core(lhs), Self::Operation(rhs)) => rhs.try_into_eq_core(lhs),
             (Self::Core(Core::String(lhs)), Self::RefSymbol(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| RefSymbolBuf(l) == r).into_dyn())
@@ -885,9 +918,13 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
-    fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'repo, Ordering>> {
+    fn try_into_cmp(
+        self,
+        other: Self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'repo, Ordering>> {
         match (self, other) {
-            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs),
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
             (Self::Core(lhs), Self::Operation(rhs)) => rhs
                 .try_into_cmp_core(lhs)
                 .map(|property| property.map(Ordering::reverse).into_dyn()),

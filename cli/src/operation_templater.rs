@@ -45,6 +45,7 @@ use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::merge_fn_map;
+use crate::template_value::TemplateTypeRegistry;
 use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
@@ -73,6 +74,7 @@ pub struct OperationTemplateLanguage {
     repo_loader: RepoLoader,
     current_op_id: Option<OperationId>,
     current_dir: PathBuf,
+    type_registry: TemplateTypeRegistry,
     build_fn_table: OperationTemplateLanguageBuildFnTable,
     cache_extensions: ExtensionsMap,
 }
@@ -86,6 +88,7 @@ impl OperationTemplateLanguage {
         current_dir: &Path,
         extensions: &[impl AsRef<dyn OperationTemplateLanguageExtension>],
     ) -> Self {
+        let type_registry = template_builder::new_core_type_registry();
         let mut build_fn_table = OperationTemplateLanguageBuildFnTable::builtin();
         let mut cache_extensions = ExtensionsMap::empty();
 
@@ -101,6 +104,7 @@ impl OperationTemplateLanguage {
             repo_loader: repo_loader.clone(),
             current_op_id: current_op_id.cloned(),
             current_dir: current_dir.to_owned(),
+            type_registry,
             build_fn_table,
             cache_extensions,
         }
@@ -116,6 +120,10 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
 
     fn current_dir(&self) -> &Path {
         &self.current_dir
+    }
+
+    fn type_registry(&self) -> &TemplateTypeRegistry {
+        &self.type_registry
     }
 
     fn build_function(
@@ -322,74 +330,100 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
         Self::Core(CoreTemplatePropertyKind::wrap_any_list(property))
     }
 
-    fn type_name(&self) -> &'static str {
+    fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
-            Self::Core(property) => property.type_name(),
+            Self::Core(property) => property.type_name(registry),
             Self::Operation(property) => property.type_name(),
         }
     }
 
-    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'static, BString>, Self> {
+    fn try_into_byte_string(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'static, BString>, Self> {
         match self {
-            Self::Core(property) => property.try_into_byte_string().map_err(Self::Core),
+            Self::Core(property) => property.try_into_byte_string(registry).map_err(Self::Core),
             Self::Operation(property) => property.try_into_byte_string().map_err(Self::Operation),
         }
     }
 
-    fn try_into_string(self) -> Result<BoxedTemplateProperty<'static, String>, Self> {
+    fn try_into_string(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'static, String>, Self> {
         match self {
-            Self::Core(property) => property.try_into_string().map_err(Self::Core),
+            Self::Core(property) => property.try_into_string(registry).map_err(Self::Core),
             Self::Operation(property) => property.try_into_string().map_err(Self::Operation),
         }
     }
 
-    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'static, bool>, Self> {
+    fn try_into_boolean(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'static, bool>, Self> {
         match self {
-            Self::Core(property) => property.try_into_boolean().map_err(Self::Core),
+            Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
             Self::Operation(property) => property.try_into_boolean().map_err(Self::Operation),
         }
     }
 
-    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'static, i64>, Self> {
+    fn try_into_integer(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'static, i64>, Self> {
         match self {
-            Self::Core(property) => property.try_into_integer().map_err(Self::Core),
+            Self::Core(property) => property.try_into_integer(registry).map_err(Self::Core),
             Self::Operation(property) => property.try_into_integer().map_err(Self::Operation),
         }
     }
 
-    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'static, Timestamp>, Self> {
+    fn try_into_timestamp(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Result<BoxedTemplateProperty<'static, Timestamp>, Self> {
         match self {
-            Self::Core(property) => property.try_into_timestamp().map_err(Self::Core),
+            Self::Core(property) => property.try_into_timestamp(registry).map_err(Self::Core),
             Self::Operation(property) => property.try_into_timestamp().map_err(Self::Operation),
         }
     }
 
-    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'static>> {
+    fn try_into_serialize(
+        self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedSerializeProperty<'static>> {
         match self {
-            Self::Core(property) => property.try_into_serialize(),
+            Self::Core(property) => property.try_into_serialize(registry),
             Self::Operation(property) => property.try_into_serialize(),
         }
     }
 
-    fn try_into_template(self) -> Option<Box<dyn Template>> {
+    fn try_into_template(self, registry: &TemplateTypeRegistry) -> Option<Box<dyn Template>> {
         match self {
-            Self::Core(property) => property.try_into_template(),
+            Self::Core(property) => property.try_into_template(registry),
             Self::Operation(property) => property.try_into_template(),
         }
     }
 
-    fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'static, bool>> {
+    fn try_into_eq(
+        self,
+        other: Self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'static, bool>> {
         match (self, other) {
-            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs),
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
             (Self::Core(lhs), Self::Operation(rhs)) => rhs.try_into_eq_core(lhs),
             (Self::Operation(lhs), Self::Core(rhs)) => lhs.try_into_eq_core(rhs),
             (Self::Operation(lhs), Self::Operation(rhs)) => lhs.try_into_eq(rhs),
         }
     }
 
-    fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'static, Ordering>> {
+    fn try_into_cmp(
+        self,
+        other: Self,
+        registry: &TemplateTypeRegistry,
+    ) -> Option<BoxedTemplateProperty<'static, Ordering>> {
         match (self, other) {
-            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs),
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
             (Self::Core(lhs), Self::Operation(rhs)) => rhs
                 .try_into_cmp_core(lhs)
                 .map(|property| property.map(Ordering::reverse).into_dyn()),
