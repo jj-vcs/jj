@@ -18,6 +18,9 @@ use futures::TryStreamExt as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::commit_templater::CommitTemplateBuildFnTable;
 use jj_cli::commit_templater::CommitTemplateLanguageExtension;
+use jj_cli::template_builder::TemplateLanguage as _;
+use jj_cli::template_builder::cast_value_property;
+use jj_cli::template_value::TemplateValue as _;
 use jj_cli::templater::TemplatePropertyExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -123,10 +126,13 @@ impl SymbolResolverExtension for TheDigitest {
 
 impl CommitTemplateLanguageExtension for HexCounter {
     fn build_fn_table<'repo>(&self) -> CommitTemplateBuildFnTable<'repo> {
-        let mut table = CommitTemplateBuildFnTable::empty();
-        table.commit_methods.insert(
+        type T = Commit;
+        let mut fn_table = CommitTemplateBuildFnTable::empty();
+        let table = fn_table.core.methods.entry(T::value_type()).or_default();
+        table.insert(
             "has_most_digits",
             |language, _diagnostics, _build_context, property, call| {
+                let property = cast_value_property::<T>(property, language.type_registry());
                 call.expect_no_arguments()?;
                 let most_digits = language
                     .cache_extension::<MostDigitsInId>()
@@ -137,17 +143,19 @@ impl CommitTemplateLanguageExtension for HexCounter {
                 Ok(out_property.into_dyn_wrapped())
             },
         );
-        table.commit_methods.insert(
+        table.insert(
             "num_digits_in_id",
-            |_language, _diagnostics, _build_context, property, call| {
+            |language, _diagnostics, _build_context, property, call| {
+                let property = cast_value_property::<T>(property, language.type_registry());
                 call.expect_no_arguments()?;
                 let out_property = property.map(|commit| num_digits_in_id(commit.id()));
                 Ok(out_property.into_dyn_wrapped())
             },
         );
-        table.commit_methods.insert(
+        table.insert(
             "num_char_in_id",
-            |_language, diagnostics, _build_context, property, call| {
+            |language, diagnostics, _build_context, property, call| {
+                let property = cast_value_property::<T>(property, language.type_registry());
                 let [string_arg] = call.expect_exact_arguments()?;
                 let char_arg = template_parser::catch_aliases(
                     diagnostics,
@@ -170,7 +178,7 @@ impl CommitTemplateLanguageExtension for HexCounter {
             },
         );
 
-        table
+        fn_table
     }
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap) {
