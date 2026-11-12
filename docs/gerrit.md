@@ -198,3 +198,8 @@ if(
 ```
 
 [commit-msg hook documentation]: https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html
+
+## Commit signing
+
+You can [sign commits](config.md#commit-signing) automatically during
+`jj gerrit upload`.
