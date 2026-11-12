@@ -30,6 +30,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * AM5800
 * aspotashev
 * brychanrobot
+* Capstan
 * daehyeok
 * drieber
 * durin42
