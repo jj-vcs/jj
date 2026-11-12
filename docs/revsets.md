@@ -92,10 +92,14 @@ y) | z` or `x & (y | z)`.
      the root commit. Shorthand for `root()..x`. Equivalent to `::x ~ root()`.
    * `x::y`: Descendants of `x` that are also ancestors of `y`. Equivalent
       to `x:: & ::y`. This is what `git log` calls `--ancestry-path x..y`.
+
+     This is called the DAG (directed acyclic graph) range operator.
    * `x..y`: Ancestors of `y` that are not also ancestors of `x`. Equivalent to
      `::y ~ ::x`. This is what `git log` calls `x..y` (i.e. the same as we call it).
      Note that this is *not* a "path" between `x` and `y` in the commit graph -- `x`
      and `y` do not need to be related by ancestry.
+
+     This is called the range operator.
    * `::`: All visible commits in the repo. Equivalent to `all()`, and
      `root()::visible_heads()` if no hidden revisions are mentioned.
    * `..`: All visible commits in the repo, but excluding the root commit.
