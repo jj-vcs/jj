@@ -73,8 +73,8 @@ pub struct TemplateValueRepr {
 #[derive(Clone, Debug)]
 enum Tagged {
     // Inline common value types:
-    // ByteString(BString),
-    // String(String),
+    ByteString(BString),
+    String(String),
     Boolean(bool),
     Integer(Option<i64>),
     // Opaque value, or its type if no value is available:
@@ -93,8 +93,8 @@ impl TemplateValueRepr {
     /// `Scalar(T)`.
     pub fn actual_value_type(&self) -> TemplateValueType {
         match &self.tagged {
-            // Tagged::ByteString(_) => BString::value_type(),
-            // Tagged::String(_) => String::value_type(),
+            Tagged::ByteString(_) => BString::value_type(),
+            Tagged::String(_) => String::value_type(),
             Tagged::Boolean(_) => bool::value_type(),
             Tagged::Integer(_) => <Option<i64>>::value_type(),
             Tagged::OpaqueSome(opaque) => TemplateValueType::Option(Rc::as_ref(opaque).type_id()),
@@ -171,8 +171,8 @@ macro_rules! impl_inline_optional_values {
 }
 
 impl_inline_scalar_values! {
-    // ByteString(BString),
-    // String(String),
+    ByteString(BString),
+    String(String),
     Boolean(bool),
 }
 
@@ -251,8 +251,8 @@ macro_rules! impl_opaque_list_values {
 }
 
 impl_opaque_list_values! {
-    // <> Vec<BString>;
-    // <> Vec<String>;
+    <> Vec<BString>;
+    <> Vec<String>;
     <T: OpaqueTemplateValue> Vec<T>;
     <T: OpaqueTemplateValue> Vec<Option<T>>;
 }

@@ -116,6 +116,7 @@ use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::TemplateBuildFunctionFnMap;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::cast_value_property;
 use crate::template_builder::expect_stringify_expression;
 use crate::template_builder::merge_fn_map;
 use crate::template_value::TemplateTypeRegistry;
@@ -316,9 +317,10 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
             }
             CommitTemplatePropertyKind::RefSymbol(property) => {
                 // Forward to String methods, but the type_name is "RefSymbol"
-                let table = &self.build_fn_table.core.string_methods;
+                let methods = &self.build_fn_table.core.methods;
+                let table = methods.get(&String::value_type()).expect("registered type");
                 let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.map(|RefSymbolBuf(s)| s).into_dyn();
+                let inner_property = property.map(|RefSymbolBuf(s)| s.into_repr()).into_dyn();
                 build(self, diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::RefSymbolOpt(property) => {
@@ -853,17 +855,37 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
             (Self::Core(lhs), Self::Operation(rhs)) => rhs.try_into_eq_core(lhs),
-            (Self::Core(Core::String(lhs)), Self::RefSymbol(rhs)) => {
+            (
+                Self::Core(Core::Value {
+                    ty: lty,
+                    property: lhs,
+                }),
+                Self::RefSymbol(rhs),
+            ) if lty == String::value_type() => {
+                let lhs = cast_value_property::<String>(lhs, registry);
                 Some((lhs, rhs).map(|(l, r)| RefSymbolBuf(l) == r).into_dyn())
             }
-            (Self::Core(Core::String(lhs)), Self::RefSymbolOpt(rhs)) => Some(
-                (lhs, rhs)
-                    .map(|(l, r)| Some(RefSymbolBuf(l)) == r)
-                    .into_dyn(),
-            ),
+            (
+                Self::Core(Core::Value {
+                    ty: lty,
+                    property: lhs,
+                }),
+                Self::RefSymbolOpt(rhs),
+            ) if lty == String::value_type() => {
+                let lhs = cast_value_property::<String>(lhs, registry);
+                let out_property = (lhs, rhs).map(|(l, r)| Some(RefSymbolBuf(l)) == r);
+                Some(out_property.into_dyn())
+            }
             (Self::Operation(lhs), Self::Core(rhs)) => lhs.try_into_eq_core(rhs),
             (Self::Operation(lhs), Self::Operation(rhs)) => lhs.try_into_eq(rhs),
-            (Self::RefSymbol(lhs), Self::Core(Core::String(rhs))) => {
+            (
+                Self::RefSymbol(lhs),
+                Self::Core(Core::Value {
+                    ty: rty,
+                    property: rhs,
+                }),
+            ) if rty == String::value_type() => {
+                let rhs = cast_value_property::<String>(rhs, registry);
                 Some((lhs, rhs).map(|(l, r)| l == RefSymbolBuf(r)).into_dyn())
             }
             (Self::RefSymbol(lhs), Self::RefSymbol(rhs)) => {
@@ -872,11 +894,17 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::RefSymbol(lhs), Self::RefSymbolOpt(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| Some(l) == r).into_dyn())
             }
-            (Self::RefSymbolOpt(lhs), Self::Core(Core::String(rhs))) => Some(
-                (lhs, rhs)
-                    .map(|(l, r)| l == Some(RefSymbolBuf(r)))
-                    .into_dyn(),
-            ),
+            (
+                Self::RefSymbolOpt(lhs),
+                Self::Core(Core::Value {
+                    ty: rty,
+                    property: rhs,
+                }),
+            ) if rty == String::value_type() => {
+                let rhs = cast_value_property::<String>(rhs, registry);
+                let out_property = (lhs, rhs).map(|(l, r)| l == Some(RefSymbolBuf(r)));
+                Some(out_property.into_dyn())
+            }
             (Self::RefSymbolOpt(lhs), Self::RefSymbol(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == Some(r)).into_dyn())
             }
