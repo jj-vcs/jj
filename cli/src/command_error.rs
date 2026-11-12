@@ -721,6 +721,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 GitImportError::Index(_) => None,
                 GitImportError::RevsetEvaluation(_) => None,
                 GitImportError::Git(_) => None,
+                GitImportError::GitRepoAtWorkdir(_) => None,
                 GitImportError::UnexpectedBackend(_) => None,
             };
             let mut cmd_err =

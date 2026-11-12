@@ -80,6 +80,7 @@ use jj_core::str_util::StringMatcher;
 use jj_core::str_util::StringPattern;
 use jj_core::view::View;
 use jj_git_backend::git_backend::GitBackend;
+use jj_git_backend::git_backend::GitRepoAtWorkdirError;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
 use jj_local_util::file_util::is_empty_dir;
@@ -549,16 +550,13 @@ pub enum GitImportError {
     RevsetEvaluation(#[from] RevsetEvaluationError),
     /// Error from the Git repo.
     #[error(transparent)]
-    Git(Box<dyn std::error::Error + Send + Sync>),
+    Git(#[from] gix::Error),
+    /// Error opening the worktree repository.
+    #[error(transparent)]
+    GitRepoAtWorkdir(#[from] GitRepoAtWorkdirError),
     /// The repo is not backed by a [`GitBackend`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
-}
-
-impl GitImportError {
-    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        Self::Git(source.into())
-    }
 }
 
 /// Options for [`import_refs()`].
@@ -959,23 +957,23 @@ fn diff_refs_to_import(
 
     let mut changed_git_refs = Vec::new();
     let mut failed_ref_names = Vec::new();
-    let actual = git_repo.references().map_err(GitImportError::from_git)?;
+    let actual = git_repo.references()?;
     collect_changed_git_refs_to_import(
-        actual.local_branches().map_err(GitImportError::from_git)?,
+        actual.local_branches()?,
         &mut known_git_refs,
         &mut changed_git_refs,
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
     collect_changed_git_refs_to_import(
-        actual.remote_branches().map_err(GitImportError::from_git)?,
+        actual.remote_branches()?,
         &mut known_git_refs,
         &mut changed_git_refs,
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
     collect_changed_git_refs_to_import(
-        actual.tags().map_err(GitImportError::from_git)?,
+        actual.tags()?,
         &mut known_git_refs,
         &mut changed_git_refs,
         &mut failed_ref_names,
@@ -1042,20 +1040,16 @@ fn diff_fetched_refs_to_import(
     let mut changed_remote_bookmarks = Vec::new();
     let mut changed_remote_tags = Vec::new();
     let mut failed_ref_names = Vec::new();
-    let actual = git_repo.references().map_err(GitImportError::from_git)?;
+    let actual = git_repo.references()?;
     collect_changed_fetched_refs_to_import(
-        actual
-            .prefixed(FETCH_BOOKMARK_REF_NAMESPACE)
-            .map_err(GitImportError::from_git)?,
+        actual.prefixed(FETCH_BOOKMARK_REF_NAMESPACE)?,
         &mut known_remote_bookmarks,
         &mut changed_remote_bookmarks,
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
     collect_changed_fetched_refs_to_import(
-        actual
-            .prefixed(REMOTE_TAG_REF_NAMESPACE)
-            .map_err(GitImportError::from_git)?,
+        actual.prefixed(REMOTE_TAG_REF_NAMESPACE)?,
         &mut known_remote_tags,
         &mut changed_remote_tags,
         &mut failed_ref_names,
@@ -1101,7 +1095,7 @@ fn collect_changed_git_refs_to_import(
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> Result<(), GitImportError> {
     for git_ref in actual_git_refs {
-        let git_ref = git_ref.map_err(GitImportError::from_git)?;
+        let git_ref = git_ref?;
         let full_name_bytes = git_ref.name().as_bstr();
         let Ok(full_name) = str::from_utf8(full_name_bytes) else {
             // Non-utf8 refs cannot be imported.
@@ -1145,7 +1139,7 @@ fn collect_changed_fetched_refs_to_import(
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> Result<(), GitImportError> {
     for git_ref in actual_git_refs {
-        let git_ref = git_ref.map_err(GitImportError::from_git)?;
+        let git_ref = git_ref?;
         let full_name_bytes = git_ref.name().as_bstr();
         let Ok(full_name) = str::from_utf8(full_name_bytes) else {
             // Non-utf8 refs cannot be imported.
@@ -1246,9 +1240,7 @@ pub async fn import_head(
 ) -> Result<(), GitImportError> {
     let store = mut_repo.store();
     let git_backend = get_git_backend(store)?;
-    let git_repo = git_backend
-        .open_git_repo_at_workdir(workspace_root)
-        .map_err(GitImportError::from_git)?;
+    let git_repo = git_backend.open_git_repo_at_workdir(workspace_root)?;
 
     let old_git_head = mut_repo.view().git_head(workspace_name);
     let new_git_head_id = if let Ok(oid) = git_repo.head_id() {
@@ -1315,16 +1307,10 @@ pub async fn import_head_commit(
 pub enum GitExportError {
     /// Error from the Git repo.
     #[error(transparent)]
-    Git(Box<dyn std::error::Error + Send + Sync>),
+    Git(#[from] gix::Error),
     /// The repo is not backed by a [`GitBackend`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
-}
-
-impl GitExportError {
-    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        Self::Git(source.into())
-    }
 }
 
 /// The reason we failed to export a ref to Git.
@@ -1427,13 +1413,10 @@ pub fn export_some_refs(
             && let Some((kind, symbol)) = parse_git_ref(target_name_str.as_ref())
         {
             // Unborn ref is mapped to None (= absent)
-            let maybe_target_ref = git_repo
-                .try_find_reference(target_name)
-                .map_err(GitExportError::from_git)?;
+            let maybe_target_ref = git_repo.try_find_reference(target_name)?;
             let current_oid = maybe_target_ref
                 .map(|target_ref| target_ref.into_fully_peeled_id())
-                .transpose()
-                .map_err(GitExportError::from_git)?
+                .transpose()?
                 .map(|id| id.detach());
             let refs = match kind {
                 GitRefKind::Bookmark => &bookmarks,
@@ -1451,8 +1434,7 @@ pub fn export_some_refs(
                     git_repo,
                     gix::refs::transaction::PreviousValue::MustExistAndMatch(old_target),
                     current_oid,
-                )
-                .map_err(GitExportError::from_git)?;
+                )?;
             }
         }
         Ok(())
@@ -1461,7 +1443,7 @@ pub fn export_some_refs(
     let git_repo = get_git_repo(mut_repo.store())?;
 
     check_and_detach_head(&git_repo)?;
-    for worktree in git_repo.worktrees().map_err(GitExportError::from_git)? {
+    for worktree in git_repo.worktrees()? {
         if let Ok(worktree_repo) = worktree.into_repo_with_possibly_inaccessible_worktree() {
             check_and_detach_head(&worktree_repo)?;
         }
@@ -1947,16 +1929,13 @@ pub enum GitCreateWorktreeError {
     MoveGitLink(#[source] PathError),
     /// Error from the Git repo.
     #[error(transparent)]
-    Git(Box<dyn std::error::Error + Send + Sync>),
+    Git(#[from] gix::Error),
+    /// Error opening the worktree repository.
+    #[error(transparent)]
+    GitRepoAtWorkdir(#[from] GitRepoAtWorkdirError),
     /// The repo is not backed by a [`GitBackend`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
-}
-
-impl GitCreateWorktreeError {
-    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        Self::Git(source.into())
-    }
 }
 
 /// Creates a Git worktree at `destination` to back a jj workspace.
@@ -1999,9 +1978,7 @@ pub fn create_worktree(
     // worktree can't materialize the branch nobody asked for. If the
     // working-copy commit turns out to have a real parent, the HEAD export
     // replaces this with a detached HEAD.
-    let git_repo = git_backend
-        .open_git_repo_at_workdir(destination)
-        .map_err(GitCreateWorktreeError::from_git)?;
+    let git_repo = git_backend.open_git_repo_at_workdir(destination)?;
     let unborn_branch = gix::refs::Target::Symbolic(
         format!("refs/heads/{branch_name}")
             .try_into()
@@ -2011,8 +1988,8 @@ pub fn create_worktree(
         &git_repo,
         gix::refs::transaction::PreviousValue::MustExistAndMatch(unborn_branch),
         None,
-    )
-    .map_err(GitCreateWorktreeError::from_git)
+    )?;
+    Ok(())
 }
 
 /// Adds a worktree for a directory that already has contents.
@@ -2100,19 +2077,19 @@ pub enum GitResetHeadError {
     Backend(#[from] BackendError),
     /// Error from the Git repo.
     #[error(transparent)]
-    Git(Box<dyn std::error::Error + Send + Sync>),
+    Git(#[from] gix::Error),
+    /// Error opening the worktree repository.
+    #[error(transparent)]
+    GitRepoAtWorkdir(#[from] GitRepoAtWorkdirError),
+    /// Error accessing files.
+    #[error(transparent)]
+    Path(#[from] PathError),
     /// Failed to update the Git HEAD ref.
     #[error("Failed to update Git HEAD ref")]
     UpdateHeadRef(#[source] gix::Error),
     /// The repo is not backed by a [`GitBackend`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
-}
-
-impl GitResetHeadError {
-    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        Self::Git(source.into())
-    }
 }
 
 /// Sets Git HEAD to the first parent of `new_wc_commit`.
@@ -2131,9 +2108,7 @@ pub async fn reset_head(
     (old_wc_commit, new_wc_commit): (Option<&Commit>, &Commit),
 ) -> Result<(), GitResetHeadError> {
     let git_backend = get_git_backend(mut_repo.store())?;
-    let git_repo = git_backend
-        .open_git_repo_at_workdir(workspace_root)
-        .map_err(GitResetHeadError::from_git)?;
+    let git_repo = git_backend.open_git_repo_at_workdir(workspace_root)?;
 
     let first_parent_id = &new_wc_commit.parent_ids()[0];
     let new_head_target = if first_parent_id != mut_repo.store().root_commit_id() {
@@ -2149,7 +2124,7 @@ pub async fn reset_head(
         let expected_ref = if let Some(id) = old_head_target.as_normal() {
             // We have to check the actual HEAD state because we don't record a
             // symbolic ref as such.
-            let actual_head = git_repo.head().map_err(GitResetHeadError::from_git)?;
+            let actual_head = git_repo.head()?;
             if actual_head.is_detached() {
                 let id = owned_oid_from_commit_id(id);
                 gix::refs::transaction::PreviousValue::MustExistAndMatch(id.into())
@@ -2207,7 +2182,7 @@ fn clear_operation_state(git_repo: &gix::Repository) -> Result<(), GitResetHeadE
     const STATE_DIR_NAMES: &[&str] = &["rebase-merge", "rebase-apply", "sequencer"];
     let handle_err = |err: PathError| match err.source.kind() {
         std::io::ErrorKind::NotFound => Ok(()),
-        _ => Err(GitResetHeadError::from_git(err)),
+        _ => Err(err),
     };
     for file_name in STATE_FILE_NAMES {
         let path = git_repo.path().join(file_name);
@@ -2245,9 +2220,7 @@ async fn reset_index(
         } else {
             // If the parent tree is resolved, we can use gix's `index_from_tree` method.
             // This is more efficient than iterating over the tree and adding each entry.
-            git_repo
-                .index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))
-                .map_err(GitResetHeadError::from_git)?
+            git_repo.index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))?
         }
     } else {
         build_index_from_merged_tree(git_repo, &parent_tree).await?
@@ -2372,11 +2345,9 @@ async fn build_index_from_merged_tree(
             .entry_index_by_path(INDEX_DUMMY_CONFLICT_FILE.into())
             .is_err()
     {
-        let file_blob = git_repo
-            .write_blob(
-                b"The working copy commit contains conflicts which cannot be resolved using Git.\n",
-            )
-            .map_err(GitResetHeadError::from_git)?;
+        let file_blob = git_repo.write_blob(
+            b"The working copy commit contains conflicts which cannot be resolved using Git.\n",
+        )?;
         index.dangerously_push_entry(
             gix::index::entry::Stat::default(),
             file_blob.detach(),
@@ -2405,9 +2376,7 @@ pub async fn update_intent_to_add(
     new_tree: &MergedTree,
 ) -> Result<(), GitResetHeadError> {
     let git_backend = get_git_backend(repo.store())?;
-    let git_repo = git_backend
-        .open_git_repo_at_workdir(workspace_root)
-        .map_err(GitResetHeadError::from_git)?;
+    let git_repo = git_backend.open_git_repo_at_workdir(workspace_root)?;
     let lock = lock_index(&git_repo)?;
     let mut index = open_index_or_empty(&git_repo)?;
     update_intent_to_add_impl(&git_repo, &mut index, old_tree, new_tree).await?;
@@ -2429,13 +2398,13 @@ const INDEX_LOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1
 /// `git status`, which IDEs often run in the background, briefly take the lock
 /// to refresh stat information.
 fn lock_index(git_repo: &gix::Repository) -> Result<gix::lock::File, GitResetHeadError> {
-    gix::lock::File::acquire_to_update_resource(
+    let lock = gix::lock::File::acquire_to_update_resource(
         git_repo.index_path(),
         gix::lock::acquire::Fail::AfterDurationWithBackoff(INDEX_LOCK_TIMEOUT),
         None,
         0,
-    )
-    .map_err(GitResetHeadError::from_git)
+    )?;
+    Ok(lock)
 }
 
 /// Writes `index` to the lock file and atomically replaces the Git index with
@@ -2446,21 +2415,15 @@ fn write_locked_index(
 ) -> Result<(), GitResetHeadError> {
     debug_assert_eq!(lock.resource_path(), index.path());
     let mut out = std::io::BufWriter::new(lock);
-    index
-        .write_to(&mut out, gix::index::write::Options::default())
-        .map_err(GitResetHeadError::from_git)?;
-    let lock = out
-        .into_inner()
-        .map_err(|err| {
-            let (source, out) = err.into_parts();
-            let path = out.get_ref().lock_path().to_owned();
-            PathError { path, source }
-        })
-        .map_err(GitResetHeadError::from_git)?;
+    index.write_to(&mut out, gix::index::write::Options::default())?;
+    let lock = out.into_inner().map_err(|err| {
+        let (source, out) = err.into_parts();
+        let path = out.get_ref().lock_path().to_owned();
+        PathError { path, source }
+    })?;
     lock.commit()
         .map_err(|err| err.error)
-        .context(index.path())
-        .map_err(GitResetHeadError::from_git)?;
+        .context(index.path())?;
     Ok(())
 }
 
@@ -2490,7 +2453,7 @@ pub fn open_index_or_empty(
                 git_repo.index_path(),
             ))
         }
-        Err(err) => Err(GitResetHeadError::from_git(err)),
+        Err(err) => Err(err.into()),
     }
 }
 
@@ -2534,10 +2497,7 @@ async fn update_intent_to_add_impl(
 
     if !added_paths.is_empty() {
         // We need to write the empty blob, otherwise `jj util gc` will report an error.
-        let empty_blob = git_repo
-            .write_blob(b"")
-            .map_err(GitResetHeadError::from_git)?
-            .detach();
+        let empty_blob = git_repo.write_blob(b"")?.detach();
         for (path, executable) in added_paths {
             // We have checked that the index doesn't have this entry
             index.dangerously_push_entry(
