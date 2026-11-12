@@ -2451,9 +2451,16 @@ fn write_locked_index(
         .map_err(GitResetHeadError::from_git)?;
     let lock = out
         .into_inner()
-        .map_err(|err| GitResetHeadError::from_git(err.into_error()))?;
+        .map_err(|err| {
+            let (source, out) = err.into_parts();
+            let path = out.get_ref().lock_path().to_owned();
+            PathError { path, source }
+        })
+        .map_err(GitResetHeadError::from_git)?;
     lock.commit()
-        .map_err(|err| GitResetHeadError::from_git(err.error))?;
+        .map_err(|err| err.error)
+        .context(index.path())
+        .map_err(GitResetHeadError::from_git)?;
     Ok(())
 }
 
