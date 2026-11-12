@@ -36,7 +36,12 @@ op_show = 'builtin_op_log_compact'
 
 revert_description = '''
 concat(
-  'Revert "' ++ description.first_line() ++ '"' ++ "\n",
+  if(
+    description.first_line().starts_with('Revert "') &&
+    !description.first_line().remove_prefix('Revert "').starts_with('Revert "'),
+    'Reapply "' ++ description.first_line().remove_prefix('Revert "') ++ "\n",
+    'Revert "' ++ description.first_line() ++ '"' ++ "\n",
+  ),
   "\n",
   "This reverts commit " ++ commit_id ++ ".\n",
 )
