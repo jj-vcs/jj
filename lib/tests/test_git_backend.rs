@@ -26,12 +26,13 @@ use jj_core::backend::Backend as _;
 use jj_core::backend::BackendError;
 use jj_core::backend::CommitId;
 use jj_core::backend::CopyRecord;
+use jj_core::backend::TreeValue;
 use jj_core::commit::Commit;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::index::Index;
 use jj_core::merge::Merge;
 use jj_core::merged_tree::MergedTree;
-use jj_core::object_id::ObjectId as _;
+use jj_core::object_id::ObjectId;
 use jj_core::repo_path::RepoPath;
 use jj_core::repo_path::RepoPathBuf;
 use jj_core::store::Store;
@@ -57,6 +58,7 @@ use testutils::create_tree;
 use testutils::is_external_tool_installed;
 use testutils::repo_path;
 use testutils::repo_path_buf;
+use testutils::repo_path_component;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
 
@@ -91,6 +93,13 @@ fn get_copy_records(
         );
     }
     res
+}
+
+/// Checks whether the object has been persisted, using a fresh handle to the
+/// Git repo so that in-memory objects in the backend aren't visible.
+fn git_object_exists(git_repo_path: &Path, id: &impl ObjectId) -> bool {
+    let git_repo = gix::open(git_repo_path).unwrap();
+    git_repo.has_object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
 }
 
 fn make_commit(
@@ -302,9 +311,10 @@ fn test_gc_extra_table() -> TestResult {
         write_random_commit(tx.repo_mut());
     }
     tx.commit("test").block_on()?;
-    // The first 3 will be squashed into one table segment
-    assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
-    assert_eq!(list_dir(&extra_path).len(), 5 + 1);
+    // All 4 commits are persisted by a single flush, so they end up in one table
+    // segment
+    assert_eq!(collect_extra_segment_num_entries(), [4]);
+    assert_eq!(list_dir(&extra_path).len(), 2 + 1);
 
     // Reload repo to invalidate cache in TableStore
     let repo = load_repo();
@@ -318,14 +328,14 @@ fn test_gc_extra_table() -> TestResult {
     get_git_backend(&repo)
         .gc(&heads, SystemTime::UNIX_EPOCH)
         .block_on()?;
-    assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
-    assert_eq!(list_dir(&extra_path).len(), 5 + 1);
+    assert_eq!(collect_extra_segment_num_entries(), [4]);
+    assert_eq!(list_dir(&extra_path).len(), 2 + 1);
 
     // All unreachable segments should be removed
     let now = SystemTime::now() + Duration::from_secs(1);
     get_git_backend(&repo).gc(&heads, now).block_on()?;
-    assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
-    assert_eq!(list_dir(&extra_path).len(), 2 + 1);
+    assert_eq!(collect_extra_segment_num_entries(), [4]);
+    assert_eq!(list_dir(&extra_path).len(), 1 + 1);
 
     // Ensure that repo is still loadable
     load_repo();
@@ -514,5 +524,197 @@ fn test_conflict_headers_roundtrip() -> TestResult {
     repo.store().clear_caches();
     // Conflict trees and labels should be preserved on read.
     assert_tree_eq!(repo.store().get_commit(commit.id())?.tree(), merged_tree);
+    Ok(())
+}
+
+#[test]
+fn test_writes_are_buffered_until_flush() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo.clone();
+    let store = repo.store();
+    let git_repo_path = get_git_backend(&repo).git_repo_path().to_owned();
+
+    let mut tx = repo.start_transaction();
+    let commit = make_commit(
+        &mut tx,
+        vec![store.root_commit_id().clone()],
+        &[(repo_path("file"), "contents\n")],
+    );
+    let tree_id = commit.tree_ids().first().clone();
+    let file_value = commit.tree().path_value(repo_path("file")).block_on()?;
+    let Some(TreeValue::File { id: file_id, .. }) = file_value.as_resolved().unwrap() else {
+        panic!("unexpected file value: {file_value:?}");
+    };
+
+    // The objects can be read back through the store before they've been
+    // persisted.
+    store.clear_caches();
+    let read_commit = store.get_commit(commit.id())?;
+    assert_eq!(read_commit.change_id(), commit.change_id());
+    assert_eq!(read_commit.tree_ids(), commit.tree_ids());
+    let read_tree = store.get_tree(RepoPathBuf::root(), &tree_id).block_on()?;
+    assert!(read_tree.value(repo_path_component("file")).is_some());
+
+    // But Git doesn't see them yet.
+    assert!(!git_object_exists(&git_repo_path, commit.id()));
+    assert!(!git_object_exists(&git_repo_path, &tree_id));
+    assert!(!git_object_exists(&git_repo_path, file_id));
+    assert!(!collect_no_gc_refs(&git_repo_path).contains(commit.id()));
+
+    // Committing the transaction persists the objects, the no-gc ref, and the
+    // extra metadata.
+    let repo = tx.commit("test").block_on()?;
+    assert!(git_object_exists(&git_repo_path, commit.id()));
+    assert!(git_object_exists(&git_repo_path, &tree_id));
+    assert!(git_object_exists(&git_repo_path, file_id));
+    assert!(collect_no_gc_refs(&git_repo_path).contains(commit.id()));
+    let reloaded_repo = test_repo
+        .env
+        .load_repo_at_head(repo.settings(), test_repo.repo_path());
+    let reloaded_commit = reloaded_repo.store().get_commit(commit.id())?;
+    assert_eq!(reloaded_commit.change_id(), commit.change_id());
+    Ok(())
+}
+
+#[test]
+fn test_dropped_transaction_writes_no_objects() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo;
+    let store = repo.store();
+    let git_repo_path = get_git_backend(&repo).git_repo_path().to_owned();
+    let objects_path = git_repo_path.join("objects");
+    let initial_objects_dir = list_dir(&objects_path);
+
+    let mut tx = repo.start_transaction();
+    let commit = make_commit(
+        &mut tx,
+        vec![store.root_commit_id().clone()],
+        &[(repo_path("file"), "contents\n")],
+    );
+    drop(tx);
+
+    // Nothing has been written to the Git repo, not even loose objects.
+    assert!(!git_object_exists(&git_repo_path, commit.id()));
+    assert_eq!(list_dir(&objects_path), initial_objects_dir);
+    assert!(!collect_no_gc_refs(&git_repo_path).contains(commit.id()));
+    Ok(())
+}
+
+#[test]
+fn test_flush_persists_objects_written_outside_transaction() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo;
+    let store = repo.store().clone();
+    let git_repo_path = get_git_backend(&repo).git_repo_path().to_owned();
+
+    // Trees can be written without being referenced by a commit (the working
+    // copy state refers to trees by ID, for example).
+    let tree = create_tree(&repo, &[(repo_path("a"), "a\n")]);
+    let tree_id = tree.tree_ids().first().clone();
+    assert!(!git_object_exists(&git_repo_path, &tree_id));
+
+    // They're persisted by the next flush along with everything else.
+    let mut tx = repo.start_transaction();
+    let commit = write_random_commit(tx.repo_mut());
+    tx.commit("test").block_on()?;
+    assert!(git_object_exists(&git_repo_path, commit.id()));
+    assert!(git_object_exists(&git_repo_path, &tree_id));
+
+    // An explicit flush also works, even if no commits have been written.
+    let tree = create_tree(&repo, &[(repo_path("b"), "b\n")]);
+    let tree_id = tree.tree_ids().first().clone();
+    assert!(!git_object_exists(&git_repo_path, &tree_id));
+    store.flush()?;
+    assert!(git_object_exists(&git_repo_path, &tree_id));
+    Ok(())
+}
+
+#[test]
+fn test_large_blobs_are_written_to_disk_immediately() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo;
+    let store = repo.store();
+    let git_repo_path = get_git_backend(&repo).git_repo_path().to_owned();
+
+    let small_file_id = store
+        .write_file(repo_path("small"), &mut &b"small"[..])
+        .block_on()?;
+    assert!(!git_object_exists(&git_repo_path, &small_file_id));
+
+    // Large blobs bypass the in-memory store to bound memory usage.
+    let large_contents = vec![b'x'; 1024 * 1024];
+    let large_file_id = store
+        .write_file(repo_path("large"), &mut large_contents.as_slice())
+        .block_on()?;
+    assert!(git_object_exists(&git_repo_path, &large_file_id));
+
+    store.flush()?;
+    assert!(git_object_exists(&git_repo_path, &small_file_id));
+    Ok(())
+}
+
+#[test]
+fn test_flush_writes_pack_for_many_objects() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo.clone();
+    let store = repo.store();
+    let git_repo_path = get_git_backend(&repo).git_repo_path().to_owned();
+    let objects_path = git_repo_path.join("objects");
+    let pack_path = objects_path.join("pack");
+    let count_loose_objects = || {
+        std::fs::read_dir(&objects_path)
+            .unwrap()
+            .map(|entry| entry.unwrap())
+            .filter(|entry| entry.file_name().len() == 2)
+            .map(|entry| std::fs::read_dir(entry.path()).unwrap().count())
+            .sum::<usize>()
+    };
+    let list_packs = || {
+        list_dir(&pack_path)
+            .into_iter()
+            .filter(|name| name.ends_with(".pack") || name.ends_with(".keep"))
+            .collect_vec()
+    };
+
+    // A few objects are written as loose objects
+    let mut tx = repo.start_transaction();
+    let small_commit = make_commit(
+        &mut tx,
+        vec![store.root_commit_id().clone()],
+        &[(repo_path("file"), "contents\n")],
+    );
+    let repo = tx.commit("test").block_on()?;
+    assert!(git_object_exists(&git_repo_path, small_commit.id()));
+    let num_loose_objects = count_loose_objects();
+    assert_eq!(num_loose_objects, 3); // commit, tree, blob
+    assert!(list_packs().is_empty());
+
+    // Many objects (here 200 blobs + 1 tree + 1 commit) are written to a pack
+    let contents = (0..200)
+        .map(|i| (repo_path_buf(format!("file{i}")), format!("contents {i}\n")))
+        .collect_vec();
+    let contents = contents
+        .iter()
+        .map(|(path, contents)| (path.as_ref(), contents.as_str()))
+        .collect_vec();
+    let mut tx = repo.start_transaction();
+    let large_commit = make_commit(&mut tx, vec![store.root_commit_id().clone()], &contents);
+    let repo = tx.commit("test").block_on()?;
+    assert!(git_object_exists(&git_repo_path, large_commit.id()));
+    assert!(git_object_exists(
+        &git_repo_path,
+        large_commit.tree_ids().first()
+    ));
+    assert_eq!(count_loose_objects(), num_loose_objects);
+    let packs = list_packs();
+    assert_eq!(packs.len(), 1, "{packs:?}");
+    assert!(packs[0].ends_with(".pack"));
+    // The objects can be read by a fresh store
+    let reloaded_repo = test_repo
+        .env
+        .load_repo_at_head(repo.settings(), test_repo.repo_path());
+    let reloaded_commit = reloaded_repo.store().get_commit(large_commit.id())?;
+    let tree = reloaded_commit.tree();
+    assert_eq!(block_on_stream(tree.entries()).count(), 200);
     Ok(())
 }

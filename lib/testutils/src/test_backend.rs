@@ -438,6 +438,11 @@ impl Backend for TestBackend {
     async fn gc(&self, _heads: &[CommitId], _keep_newer: SystemTime) -> BackendResult<()> {
         Ok(())
     }
+
+    fn flush(&self) -> BackendResult<()> {
+        // Objects are stored in memory and are visible immediately.
+        Ok(())
+    }
 }
 
 #[cfg(test)]

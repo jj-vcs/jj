@@ -352,6 +352,11 @@ impl Backend for SimpleBackend {
     async fn gc(&self, _heads: &[CommitId], _keep_newer: SystemTime) -> BackendResult<()> {
         Ok(())
     }
+
+    fn flush(&self) -> BackendResult<()> {
+        // Objects are written to disk immediately.
+        Ok(())
+    }
 }
 
 /// Converts a [`Commit`] into its protobuf representation.

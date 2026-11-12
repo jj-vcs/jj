@@ -162,15 +162,7 @@ fn test_rewrite(backend: TestRepoBackend) -> TestResult {
         .repo_mut()
         .new_commit(vec![store.root_commit_id().clone()], initial_tree)
         .write_unwrap();
-    let repo = tx.commit("test").block_on()?;
-
-    let rewritten_tree = create_tree(
-        &repo,
-        &[
-            (root_file_path, "file contents"),
-            (dir_file_path, "updated dir/file contents"),
-        ],
-    );
+    tx.commit("test").block_on()?;
 
     let mut config = StackedConfig::with_defaults();
     config.add_layer(ConfigLayer::parse(
@@ -183,10 +175,15 @@ fn test_rewrite(backend: TestRepoBackend) -> TestResult {
     let rewrite_settings = testutils::user_settings_from_config(config);
     let repo = test_env.load_repo_at_head(&rewrite_settings, test_repo.repo_path());
     let store = repo.store();
-    // We have a new store instance, so we need to associate the old tree with the
-    // new store instance.
-    let (tree_ids, labels) = rewritten_tree.into_tree_ids_and_labels();
-    let rewritten_tree = MergedTree::new(store.clone(), tree_ids, labels);
+    // Write the tree through the new store instance. Unflushed objects are only
+    // visible through the store that wrote them.
+    let rewritten_tree = create_tree(
+        &repo,
+        &[
+            (root_file_path, "file contents"),
+            (dir_file_path, "updated dir/file contents"),
+        ],
+    );
     let initial_commit = store.get_commit(initial_commit.id())?;
     let mut tx = repo.start_transaction();
     let rewritten_commit = tx

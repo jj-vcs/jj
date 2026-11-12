@@ -16,6 +16,7 @@
 
 use std::sync::Arc;
 
+use jj_core::backend::BackendError;
 use jj_core::backend::Timestamp;
 use jj_core::index::IndexError;
 use jj_core::index::ReadonlyIndex;
@@ -42,6 +43,8 @@ use crate::settings::UserSettings;
 #[derive(Debug, Error)]
 #[error("Failed to commit new operation")]
 pub enum TransactionCommitError {
+    /// Error from the backend.
+    Backend(#[from] BackendError),
     /// Error from the index.
     Index(#[from] IndexError),
     /// Error from the index store.
@@ -162,6 +165,10 @@ impl Transaction {
             view.is_heads_normalized(),
             "BUG: View heads must be normalized before persisting in the database"
         );
+
+        // Make sure the commits referenced by the new view have been persisted
+        // before we write the view and the operation.
+        base_repo.store().flush()?;
 
         let operation = {
             let view_id = base_repo.op_store().write_view(view.store_view()).await?;

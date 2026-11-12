@@ -69,6 +69,12 @@ gix = { version = "0.90.0", default-features = false, features = [
     "sha256",
 ] }
 gix-ignore = { version = "0.24.0" }
+# Only used to enable the features needed for writing pack files via `gix`'s
+# re-export of the crate.
+gix-pack = { version = "0.77.0", default-features = false, features = [
+    "generate",
+    "streaming-input",
+] }
 globset = "0.4.18"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
