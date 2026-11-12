@@ -53,6 +53,7 @@ use crate::config;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::template_value::TemplateTypeRegistry;
+use crate::template_value::TemplateValue;
 use crate::template_value::TemplateValueExtractionError;
 use crate::template_value::TemplateValueRepr;
 use crate::template_value::TemplateValueType;
@@ -755,6 +756,10 @@ pub type TemplateBuildFunctionFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Prop
 pub type TemplateBuildMethodFnMap<'a, L, T, P = <L as TemplateLanguage<'a>>::Property> =
     HashMap<&'static str, TemplateBuildMethodFn<'a, L, T, P>>;
 
+/// Table of functions that translate method call node of type-erased value types.
+pub type BuildValueMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
+    HashMap<&'static str, TemplateBuildMethodFn<'a, L, TemplateValueRepr, P>>;
+
 /// Table of functions that translate method call node of `Template`.
 pub type BuildTemplateMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
     HashMap<&'static str, BuildTemplateMethodFn<'a, L, P>>;
@@ -766,6 +771,7 @@ pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
 /// Symbol table of functions and methods available in the core template.
 pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
+    pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L, P>>,
     pub byte_string_methods: TemplateBuildMethodFnMap<'a, L, BString, P>,
     pub byte_string_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<BString>, P>,
     pub string_methods: TemplateBuildMethodFnMap<'a, L, String, P>,
@@ -785,6 +791,28 @@ pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a
     pub any_list_methods: BuildAnyMethodFnMap<'a, L, P>,
 }
 
+/// Converts a type-erased property back to the concrete type.
+pub fn cast_value_property<'a, T: TemplateValue>(
+    property: BoxedTemplateProperty<'a, TemplateValueRepr>,
+    registry: &TemplateTypeRegistry,
+) -> impl TemplateProperty<Output = T> + use<'a, T> {
+    let ty = T::value_type();
+    let type_name = registry.get_type_name(&ty).expect("registered type");
+    property.and_then(move |repr| reject_missing_value(T::try_from_repr(repr), type_name))
+}
+
+fn reject_missing_value<T>(
+    result: Result<T, TemplateValueExtractionError>,
+    type_name: &str,
+) -> Result<T, TemplatePropertyError> {
+    result.map_err(|err| match err {
+        TemplateValueExtractionError::UnexpectedType(ty) => panic!("unexpected type: {ty:?}"),
+        TemplateValueExtractionError::MissingValue => {
+            TemplatePropertyError(format!("No value set to Option<{type_name}>").into())
+        }
+    })
+}
+
 fn ignore_missing_value<T: Default>(result: Result<T, TemplateValueExtractionError>) -> T {
     result.unwrap_or_else(|err| match err {
         TemplateValueExtractionError::UnexpectedType(ty) => {
@@ -794,6 +822,7 @@ fn ignore_missing_value<T: Default>(result: Result<T, TemplateValueExtractionErr
     })
 }
 
+#[track_caller]
 pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'s str, F>) {
     for (name, function) in extension {
         if base.insert(name, function).is_some() {
@@ -806,6 +835,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
     pub fn empty() -> Self {
         Self {
             functions: HashMap::new(),
+            methods: HashMap::new(),
             byte_string_methods: HashMap::new(),
             byte_string_list_methods: HashMap::new(),
             string_methods: HashMap::new(),
@@ -826,9 +856,11 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         }
     }
 
+    #[track_caller]
     pub fn merge(&mut self, other: Self) {
         let Self {
             functions,
+            methods,
             byte_string_methods,
             byte_string_list_methods,
             string_methods,
@@ -849,6 +881,11 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         } = other;
 
         merge_fn_map(&mut self.functions, functions);
+        for (ty, table) in methods {
+            let base_table = self.methods.get_mut(&ty).expect("registered type");
+            merge_fn_map(base_table, table);
+        }
+
         merge_fn_map(&mut self.byte_string_methods, byte_string_methods);
         merge_fn_map(&mut self.byte_string_list_methods, byte_string_list_methods);
         merge_fn_map(&mut self.string_methods, string_methods);
@@ -877,6 +914,7 @@ where
     pub fn builtin() -> Self {
         Self {
             functions: builtin_functions(),
+            methods: HashMap::new(),
             byte_string_methods: builtin_byte_string_methods(),
             byte_string_list_methods: builtin_formattable_list_methods(),
             string_methods: builtin_string_methods(),
@@ -920,9 +958,21 @@ where
         property: CoreTemplatePropertyKind<'a>,
         function: &FunctionCallNode,
     ) -> TemplateParseResult<L::Property> {
-        let type_name = property.type_name(language.type_registry());
+        let registry = language.type_registry();
+        let type_name = property.type_name(registry);
         match property {
-            CoreTemplatePropertyKind::Value { .. } => todo!(),
+            CoreTemplatePropertyKind::Value { ty, property } => {
+                let unwrapped_ty = match ty {
+                    TemplateValueType::Scalar(_) => ty,
+                    TemplateValueType::Option(id) => TemplateValueType::Scalar(id),
+                };
+                let type_name = registry
+                    .get_type_name(&unwrapped_ty)
+                    .expect("registered type");
+                let table = self.methods.get(&unwrapped_ty).expect("registered type");
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
             CoreTemplatePropertyKind::ByteString(property) => {
                 let table = &self.byte_string_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -3574,6 +3624,7 @@ mod tests {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("description", || literal("".to_owned()));
         env.add_keyword("empty", || literal(true));
+        env.add_keyword("none_i64", || literal(None::<i64>));
 
         insta::assert_snapshot!(env.parse_err(r#"foo bar"#), @"
          --> 1:5
@@ -3730,6 +3781,14 @@ mod tests {
           |
         1 | 42.foo()
           |    ^-^
+          |
+          = Method `foo` doesn't exist for type `Integer`
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"none_i64.foo()"#), @"
+         --> 1:10
+          |
+        1 | none_i64.foo()
+          |          ^-^
           |
           = Method `foo` doesn't exist for type `Integer`
         ");
