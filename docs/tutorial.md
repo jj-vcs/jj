@@ -219,8 +219,9 @@ the "root commit". It's the root commit of every repo. The `root()`
 function in the revset matches it.
 
 There are also operators for getting the parents (`foo-`), children (`foo+`),
-ancestors (`::foo`), descendants (`foo::`), DAG range (`foo::bar`, like
-`git log --ancestry-path`), range (`foo..bar`, same as Git's). See
+ancestors (`::foo`), descendants (`foo::`), DAG range (`foo::bar`, similar to
+`git log --ancestry-path foo..bar`, except that Git excludes `foo`), range
+(`foo..bar`, same as Git's). See
 [the revset documentation](revsets.md) for all revset operators and functions.
 
 > **Hint:** If the default `jj log` omits some commits you expect to see, you
