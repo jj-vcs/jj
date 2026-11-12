@@ -1830,22 +1830,21 @@ key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52
 git-sign-on-push = "~signed() & mine()"
 ```
 
-With this setup, commits are not signed when they are created or rewritten. At
-push time, `revsets.git-sign-on-push` is evaluated and all matching mutable
-commits to be pushed will be signed beforehand.
+With this setup, commits are not signed when they are created or rewritten.
+Both `jj git push` and `jj gerrit upload` evaluate `revsets.git-sign-on-push`
+against local commits and sign matching mutable commits before uploading.
 
 This is useful when the signing backend requires user interaction or is slow,
 because the signing work is deferred to push time. If `signing.behavior` is set
 to `own` or `force`, commits may already be signed when written, and
 `revsets.git-sign-on-push` would have little or nothing left to sign.
 
-The commits are signed in their own transaction which is committed before
-the push starts. If the push fails, the commits stay signed and retrying
-does not have to sign them again. If nothing needs signing, no extra
-transaction is created.
+`jj git push` saves the signed commits locally before pushing. They remain
+signed if the push fails or is undone.
 
-Because signing and pushing are separate operations, `jj undo` of the push
-operation would not undo the commit signatures.
+`jj gerrit upload` signs the upload versions after adding Gerrit trailers and
+updating parents, leaving local commits unchanged. Each upload attempt signs
+the selected commits again, including retries after a failure.
 
 ## Commit Signature Verification
 
