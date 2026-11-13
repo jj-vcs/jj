@@ -15,7 +15,6 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::io;
-use std::io::Write;
 
 use jj_lib::config::ConfigGetError;
 use jj_lib::graph::GraphEdge;
@@ -28,8 +27,20 @@ use renderdag::pipeline::BoxDrawing;
 use renderdag::pipeline::GraphRowShaper;
 use renderdag::pipeline::PrefixLineRenderer;
 use renderdag::pipeline::PrefixLinesToText;
+use renderdag::pipeline::coloring::build_line_id_allocator_from_rules;
 use renderdag::pipeline::row_shape_to_prefix_lines::box_drawing::Curved;
 use renderdag::pipeline::row_shape_to_prefix_lines::box_drawing::Square;
+
+use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
+
+/// Color labels for graph lines, under the `graph` label. A line has the label
+/// that matches its line ID. Twelve labels allow six basic terminal colors and
+/// their bold variants.
+const LINE_LABELS: [&str; 12] = [
+    "line0", "line1", "line2", "line3", "line4", "line5", "line6", "line7", "line8", "line9",
+    "line10", "line11",
+];
 
 pub trait GraphLog<K: Clone + Eq + Hash> {
     fn add_node(
@@ -49,7 +60,7 @@ pub struct SaplingGraphLog<'writer, K> {
     text: PrefixLinesToText,
     /// Converts a width in columns to a width in characters.
     columns_to_chars: fn(u64) -> u64,
-    writer: &'writer mut dyn Write,
+    formatter: &'writer mut dyn Formatter,
 }
 
 fn convert_graph_edge_into_ancestor<K: Clone>(e: &GraphEdge<K>) -> Ancestor<K> {
@@ -78,9 +89,9 @@ where
         let prefix_lines = self.prefix_lines.next_prefix_lines(&row_shape);
         let mut result = Ok(());
         self.text.write_next_lines(
-            |text, _color| {
+            |text, color| {
                 if result.is_ok() {
-                    result = self.writer.write_all(text.as_bytes());
+                    result = write_piece(self.formatter, text, *color);
                 }
             },
             prefix_lines,
@@ -96,6 +107,28 @@ where
         let parents = edges.iter().map(convert_graph_edge_into_ancestor).collect();
         let columns = self.shaper.width(Some(id), Some(&parents));
         (self.columns_to_chars)(columns).try_into().unwrap()
+    }
+}
+
+/// Writes one piece of graph text, with the color label of its line.
+fn write_piece(
+    formatter: &mut dyn Formatter,
+    text: &str,
+    line_id: Option<usize>,
+) -> io::Result<()> {
+    match line_id {
+        Some(id) => {
+            // Leave the space after a glyph unlabeled, so that a line
+            // background color covers only the glyph.
+            let glyph = text.trim_end();
+            let space = &text[glyph.len()..];
+            let line = LINE_LABELS[id % LINE_LABELS.len()];
+            write!(formatter.labeled("graph").labeled(line), "{glyph}")?;
+            formatter.raw()?.write_all(space.as_bytes())
+        }
+        // The node symbol, the message text, and the line breaks are already
+        // formatted.
+        None => formatter.raw()?.write_all(text.as_bytes()),
     }
 }
 
@@ -116,7 +149,7 @@ impl GraphStyle {
 
 pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
     style: GraphStyle,
-    formatter: &'a mut dyn Write,
+    formatter: &'a mut dyn Formatter,
 ) -> Box<dyn GraphLog<K> + 'a> {
     let prefix_lines: Box<dyn PrefixLineRenderer<K>> = match style {
         GraphStyle::Ascii => Box::new(Ascii::new()),
@@ -136,13 +169,14 @@ pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
         },
         _ => |columns| columns.saturating_mul(2).saturating_add(1),
     };
-    let mut shaper = GraphRowShaper::new();
+    let allocator = build_line_id_allocator_from_rules("parent,incoming,free", LINE_LABELS.len());
+    let mut shaper = GraphRowShaper::new().with_line_id_allocator(allocator);
     shaper.options_mut().min_row_height = 0;
     Box::new(SaplingGraphLog {
         shaper,
         prefix_lines,
         text: PrefixLinesToText::new(),
         columns_to_chars,
-        writer: formatter,
+        formatter,
     })
 }

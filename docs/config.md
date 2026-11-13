@@ -768,6 +768,31 @@ log = "builtin_log_compact_full_description"
 graph.style = "square"
 ```
 
+#### Graph colors
+
+Each line of the graph can have its own color, so that you can follow a line
+from a fork to a merge. A line keeps its color when it moves to another column.
+Lines use the labels `graph line0` to `graph line11`, and a graph with more
+lines wraps around to `graph line0` again. The labels have no color by default.
+You can customize the line colors in the [`[colors]` table](#custom-colors-and-styles).
+For example, these are the default colors of `git log --graph`:
+
+```toml
+[colors]
+"graph line0" = "red"
+"graph line1" = "green"
+"graph line2" = "yellow"
+"graph line3" = "blue"
+"graph line4" = "magenta"
+"graph line5" = "cyan"
+"graph line6" = { fg = "red", bold = true }
+"graph line7" = { fg = "green", bold = true }
+"graph line8" = { fg = "yellow", bold = true }
+"graph line9" = { fg = "blue", bold = true }
+"graph line10" = { fg = "magenta", bold = true }
+"graph line11" = { fg = "cyan", bold = true }
+```
+
 #### Node style
 
 The symbols used to represent commits or operations can be customized via
