@@ -874,6 +874,70 @@ fn test_gerrit_upload_rejected_by_remote() -> TestResult {
 }
 
 #[test]
+fn test_gerrit_upload_ancestor_branch_fallback() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "main", &[]);
+    create_commit(&remote_dir, "release", &["main"]);
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+
+    create_commit(&local_dir, "fix_release", &["release@origin"]);
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "fix_release", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'release'.
+    Dry-run: Would push yqosqzyt 4e00fa20 fix_release | fix_release
+    [EOF]
+    ");
+
+    remote_dir
+        .run_jj(["bookmark", "create", "other", "-r", "release"])
+        .success();
+    local_dir.run_jj(["git", "fetch"]).success();
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "fix_release", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Multiple candidate remote branches found: other, release
+    Hint: Specify the target branch with --remote-branch
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Base commit has no remote branches pointing to it
+    create_commit(&local_dir, "on_root", &[]);
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "on_root", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: No target branch specified via --remote-branch, and no 'gerrit.default-remote-branch' was found
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Ambiguous base when merging multiple immutable heads
+    create_commit(&remote_dir, "other_root", &[]);
+    local_dir.run_jj(["git", "fetch"]).success();
+    create_commit(
+        &local_dir,
+        "merge_immutable",
+        &["other_root@origin", "release@origin"],
+    );
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "merge_immutable", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: No target branch specified via --remote-branch, and no 'gerrit.default-remote-branch' was found
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_gerrit_upload_empty_merge_commit() {
     let test_env = TestEnvironment::default();
     test_env
