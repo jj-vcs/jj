@@ -75,6 +75,10 @@ enum Tagged {
     // Opaque value, or its type if no value is available:
     OpaqueSome(Rc<dyn Any>),
     OpaqueNone(TypeId),
+    // We'll probably add List(Vec<TemplateValueRepr>) and the corresponding
+    // List(TemplateValueType) descriptor. Until then, a list is represented as
+    // a non-optional opaque value.
+    OpaqueList(Rc<dyn Any>),
 }
 
 impl TemplateValueRepr {
@@ -90,6 +94,7 @@ impl TemplateValueRepr {
             Tagged::Integer(_) => <Option<i64>>::value_type(),
             Tagged::OpaqueSome(opaque) => TemplateValueType::Option(Rc::as_ref(opaque).type_id()),
             Tagged::OpaqueNone(id) => TemplateValueType::Option(*id),
+            Tagged::OpaqueList(opaque) => TemplateValueType::Scalar(Rc::as_ref(opaque).type_id()),
         }
     }
 }
@@ -211,6 +216,40 @@ impl<T: OpaqueTemplateValue> TemplateValue for Option<T> {
         };
         TemplateValueRepr { tagged }
     }
+}
+
+macro_rules! impl_opaque_list_values {
+    ($( <$($gen:ident : $bound:path),*> $ty:ty; )*) => {$(
+        impl<$($gen: $bound),*> TemplateValue for $ty {
+            fn value_type() -> TemplateValueType {
+                TemplateValueType::Scalar(TypeId::of::<$ty>())
+            }
+
+            fn try_from_repr(
+                repr: TemplateValueRepr,
+            ) -> Result<Self, TemplateValueExtractionError> {
+                match repr.tagged {
+                    Tagged::OpaqueList(opaque) => downcast_value::<$ty>(opaque).map_err(|opaque| {
+                        let tagged = Tagged::OpaqueList(opaque);
+                        unexpected_type(&TemplateValueRepr { tagged })
+                    }),
+                    _ => Err(unexpected_type(&repr)),
+                }
+            }
+
+            fn into_repr(self) -> TemplateValueRepr {
+                let tagged = Tagged::OpaqueList(Rc::new(self));
+                TemplateValueRepr { tagged }
+            }
+        }
+    )*};
+}
+
+impl_opaque_list_values! {
+    <> Vec<BString>;
+    <> Vec<String>;
+    <T: OpaqueTemplateValue> Vec<T>;
+    <T: OpaqueTemplateValue> Vec<Option<T>>;
 }
 
 fn downcast_value<T: Clone + 'static>(opaque: Rc<dyn Any>) -> Result<T, Rc<dyn Any>> {
