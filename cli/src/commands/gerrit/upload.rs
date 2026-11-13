@@ -490,10 +490,6 @@ pub async fn cmd_gerrit_upload(
             .try_collect()
             .await?
     };
-    if revisions.is_empty() {
-        writeln!(ui.status(), "No revisions to upload.")?;
-        return Ok(());
-    }
 
     // If you have the changes main -> A -> B, then `jj gerrit upload -r B`
     // uploads both A and B. Thus, we need to ensure that A also has a
@@ -510,6 +506,10 @@ pub async fn cmd_gerrit_upload(
         .evaluate_to_commits()?
         .try_collect()
         .await?;
+    if to_upload.is_empty() {
+        writeln!(ui.status(), "No revisions to upload.")?;
+        return Ok(());
+    }
 
     // Note: This transaction is intentionally never finished. This way, the
     // `Change-Id` trailer is never part of the commit description in the user's
