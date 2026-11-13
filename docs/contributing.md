@@ -139,8 +139,10 @@ If your PR removes or renames an option, a command, or config option don't
 remove it immediately. Instead implement a warning that the command, command
 option, or config option is deprecated and will be removed in
 jj `v<current> + 6`. Also add a `// TODO: remove in jj<version+6>+` comment so
-other contributors can remove it later. As we currently release monthly this
-translates to a six month deprecation period. This is something the project
+other contributors can remove it later. When you finally remove it, add an
+entry to `REMOVED` in `cli/src/cli_util.rs` so users get a hint pointing at the
+replacement. As we currently release monthly this translates to a six month
+deprecation period. This is something the project
 does to not break workflows and gives users the the option to
 provide feedback on features we plan to remove or supersede with other
 approaches.
