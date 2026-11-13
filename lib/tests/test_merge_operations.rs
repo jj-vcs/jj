@@ -14,13 +14,16 @@
 
 use std::process::Command;
 
+use itertools::Itertools as _;
 use jj_core::op_store;
 use jj_core::operation::Operation;
 use jj_core::ref_name::WorkspaceName;
+use jj_lib::repo::Repo as _;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestResult;
+use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
 
@@ -125,5 +128,72 @@ fn run_merge_operations_deep_criss_cross(num_levels: usize) -> TestResult {
         )
         .block_on()?;
     assert!(!merged_repo.view().heads().is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_concurrent_rebases_form_rewrite_cycle() -> TestResult {
+    let test_repo = TestRepo::init();
+    let mut tx = test_repo.repo.start_transaction();
+    // Y
+    // |
+    // X  Z
+    let commit_x = create_random_commit(tx.repo_mut())
+        .set_description("X")
+        .write_unwrap();
+    let commit_y = create_random_commit(tx.repo_mut())
+        .set_description("Y")
+        .set_parents(vec![commit_x.id().clone()])
+        .write_unwrap();
+    let commit_z = create_random_commit(tx.repo_mut())
+        .set_description("Z")
+        .write_unwrap();
+    let base = tx.commit("base").block_on()?;
+
+    // Concurrently rebase X and its descendant onto Z, and Z onto Y.
+    let mut tx1 = base.start_transaction();
+    let commit_x1 = tx1
+        .repo_mut()
+        .rewrite_commit(&commit_x)
+        .set_parents(vec![commit_z.id().clone()])
+        .write_unwrap();
+    tx1.repo_mut().rebase_descendants().block_on()?;
+
+    let mut tx2 = base.start_transaction();
+    tx2.repo_mut()
+        .rewrite_commit(&commit_z)
+        .set_parents(vec![commit_y.id().clone()])
+        .write_unwrap();
+    tx2.repo_mut().rebase_descendants().block_on()?;
+
+    //     Z''
+    //     |
+    // Y'  Y''
+    //  \ /
+    //   X'
+    //   |
+    //   Z
+    let repo = commit_transactions(vec![tx1, tx2]);
+    assert_eq!(repo.view().heads().len(), 2);
+    let head_commits: Vec<_> = repo
+        .view()
+        .heads()
+        .iter()
+        .map(|id| repo.store().get_commit(id))
+        .try_collect()?;
+    let commit_z2 = head_commits
+        .iter()
+        .find(|c| c.change_id() == commit_z.change_id())
+        .unwrap();
+    let commit_y1 = head_commits
+        .iter()
+        .find(|c| c.change_id() == commit_y.change_id())
+        .unwrap();
+    assert_eq!(commit_z2.parent_ids().len(), 1);
+    let commit_y2 = commit_z2.parents().block_on()?[0].clone();
+    assert_eq!(commit_y2.change_id(), commit_y.change_id());
+    assert_eq!(commit_y2.parent_ids(), &[commit_x1.id().clone()]);
+    assert_eq!(commit_y1.parent_ids(), &[commit_x1.id().clone()]);
+    assert_eq!(commit_x1.parent_ids(), &[commit_z.id().clone()]);
     Ok(())
 }
