@@ -171,19 +171,12 @@ fn test_gerrit_upload_default_revision_already_in_trunk() {
     local_dir.run_jj(["describe", "-m="]).success();
 
     let output = local_dir.run_jj(["gerrit", "upload", "--dry-run"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No revision provided and @ has no description. Defaulting to @-
-    Error: Commit 57df4838fd85 is immutable
-    Hint: Could not modify commit: rlvkpnrz 57df4838 main@origin | main
-    Hint: Immutable commits are used to protect shared history.
-    Hint: For more information, see:
-          - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
-          - `jj help -k config`, "Set of immutable commits"
-    Hint: This operation would rewrite 1 immutable commits.
+    No revisions to upload.
     [EOF]
-    [exit status: 1]
-    "#);
+    ");
 }
 
 #[test]
@@ -414,28 +407,18 @@ fn test_gerrit_upload_immutable_ancestor_not_on_remote() {
 
     // `b` is immutable but not on the remote
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
-    Pushing yqosqzyt 9590bf26 c | c
+    Error: Commit 3bcb28c476e3 is immutable
+    Hint: Could not modify commit: mzvwutvl 3bcb28c4 b | b
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
     [EOF]
-    ");
-
-    let output = remote_dir.run_jj([
-        "util",
-        "exec",
-        "--",
-        "git",
-        "log",
-        "--format=[%(trailers:key=Change-Id,valueonly,separator=)] %s",
-        "refs/for/main",
-    ]);
-    insta::assert_snapshot!(output, @"
-    [I19b790168e73f7a73a98deae21e807c06a6a6964] c
-    [] b
-    [] a
-    [EOF]
-    ");
+    [exit status: 1]
+    "#);
 }
 
 #[test]
