@@ -16,6 +16,7 @@
 
 use std::any::Any;
 use std::any::TypeId;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -300,15 +301,21 @@ impl<T> ToTemplateCondition for Vec<T> {
 }
 
 type CastFn<T> = fn(TemplateValueRepr) -> Result<T, TemplateValueExtractionError>;
+type BinaryFn<T> =
+    fn(TemplateValueRepr, TemplateValueRepr) -> Result<T, TemplateValueExtractionError>;
 type ToConditionFn = CastFn<bool>;
 type ToTemplateFn = CastFn<Box<dyn Template>>;
 type ToSerializeFn = CastFn<Box<dyn erased_serde::Serialize>>;
+type EqFn = BinaryFn<bool>;
+type CmpFn = BinaryFn<Ordering>;
 
 pub struct TemplateTypeRegistry {
     type_names: HashMap<TemplateValueType, &'static str>,
     to_condition_fns: HashMap<TemplateValueType, ToConditionFn>,
     to_template_fns: HashMap<TemplateValueType, ToTemplateFn>,
     to_serialize_fns: HashMap<TemplateValueType, ToSerializeFn>,
+    eq_fns: HashMap<TemplateValueType, HashMap<TemplateValueType, EqFn>>,
+    cmp_fns: HashMap<TemplateValueType, CmpFn>,
 }
 
 impl TemplateTypeRegistry {
@@ -318,6 +325,8 @@ impl TemplateTypeRegistry {
             to_condition_fns: HashMap::new(),
             to_template_fns: HashMap::new(),
             to_serialize_fns: HashMap::new(),
+            eq_fns: HashMap::new(),
+            cmp_fns: HashMap::new(),
         }
     }
 
@@ -349,6 +358,16 @@ impl TemplateTypeRegistry {
 
     pub fn get_to_serialize_fn(&self, ty: &TemplateValueType) -> Option<ToSerializeFn> {
         self.to_serialize_fns.get(ty).copied()
+    }
+
+    pub fn get_eq_fn(&self, ty1: &TemplateValueType, ty2: &TemplateValueType) -> Option<EqFn> {
+        self.eq_fns.get(ty1)?.get(ty2).copied()
+    }
+
+    pub fn get_cmp_fn(&self, ty1: &TemplateValueType, ty2: &TemplateValueType) -> Option<CmpFn> {
+        (ty1 == ty2)
+            .then(|| self.cmp_fns.get(ty1).copied())
+            .flatten()
     }
 }
 
@@ -390,6 +409,50 @@ impl<T: TemplateValue> TemplateTypeRegistration<'_, T> {
             .insert(T::value_type(), try_into_serialize::<T>);
         self
     }
+
+    /// Registers this as an equality-comparable type.
+    pub fn equatable(self) -> Self
+    where
+        T: Eq,
+    {
+        self.registry
+            .eq_fns
+            .entry(T::value_type())
+            .or_default()
+            .insert(T::value_type(), try_eq::<T, T>);
+        self
+    }
+
+    /// Registers this and other as equality-comparable types.
+    ///
+    /// The comparison function is registered for both `self == other` and
+    /// `other == self`, allowing core types to be compared with non-core types.
+    pub fn equatable_with<U>(self) -> Self
+    where
+        T: PartialEq<U>,
+        U: PartialEq<T> + TemplateValue,
+    {
+        self.registry
+            .eq_fns
+            .entry(T::value_type())
+            .or_default()
+            .insert(U::value_type(), try_eq::<T, U>);
+        self.registry
+            .eq_fns
+            .entry(U::value_type())
+            .or_default()
+            .insert(T::value_type(), try_eq::<U, T>);
+        self
+    }
+
+    /// Registers this as an order-comparable type.
+    pub fn comparable(self) -> Self
+    where
+        T: Ord,
+    {
+        self.registry.cmp_fns.insert(T::value_type(), try_cmp::<T>);
+        self
+    }
 }
 
 fn try_into_condition<T: TemplateValue + ToTemplateCondition>(
@@ -411,6 +474,24 @@ fn try_into_serialize<T: TemplateValue + serde::Serialize>(
 ) -> Result<Box<dyn erased_serde::Serialize>, TemplateValueExtractionError> {
     let value = T::try_from_repr(repr)?;
     Ok(Box::new(value))
+}
+
+fn try_eq<T: TemplateValue + PartialEq<U>, U: TemplateValue>(
+    repr1: TemplateValueRepr,
+    repr2: TemplateValueRepr,
+) -> Result<bool, TemplateValueExtractionError> {
+    let value1 = T::try_from_repr(repr1)?;
+    let value2 = U::try_from_repr(repr2)?;
+    Ok(value1 == value2)
+}
+
+fn try_cmp<T: TemplateValue + Ord>(
+    repr1: TemplateValueRepr,
+    repr2: TemplateValueRepr,
+) -> Result<Ordering, TemplateValueExtractionError> {
+    let value1 = T::try_from_repr(repr1)?;
+    let value2 = T::try_from_repr(repr2)?;
+    Ok(value1.cmp(&value2))
 }
 
 #[cfg(test)]
