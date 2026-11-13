@@ -326,7 +326,7 @@ pub async fn show_op_diff(
             })
             .await?;
         if let Some(graph_style) = graph_style {
-            let mut graph = get_graphlog(graph_style, formatter);
+            let mut graph = get_graphlog(ui, graph_style, formatter);
             let mut graph_stream = TopoGroupedGraph::new(revset.stream_graph(), |id| id)
                 .stream()
                 .boxed_local();
@@ -359,11 +359,10 @@ pub async fn show_op_diff(
                 }
 
                 // TODO: customize node symbol?
-                let node_symbol = "○";
                 graph.add_node(
                     &commit_id,
                     &edges,
-                    node_symbol,
+                    &|formatter| write!(formatter, "○"),
                     &String::from_utf8_lossy(&buffer),
                 )?;
             }

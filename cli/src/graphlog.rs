@@ -33,6 +33,7 @@ use renderdag::pipeline::row_shape_to_prefix_lines::box_drawing::Square;
 
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
+use crate::ui::Ui;
 
 /// Color labels for graph lines, under the `graph` label. A line has the label
 /// that matches its line ID. Like Git, we support 12 styles before wrapping around.
@@ -46,20 +47,21 @@ pub trait GraphLog<K: Clone + Eq + Hash> {
         &mut self,
         id: &K,
         edges: &[GraphEdge<K>],
-        node_symbol: &str,
+        render_node_symbol: &dyn Fn(&mut dyn Formatter) -> io::Result<()>,
         text: &str,
     ) -> io::Result<()>;
 
     fn width(&self, id: &K, edges: &[GraphEdge<K>]) -> usize;
 }
 
-pub struct SaplingGraphLog<'writer, K> {
+pub struct SaplingGraphLog<'a, K> {
     shaper: GraphRowShaper<K>,
     prefix_lines: Box<dyn PrefixLineRenderer<K>>,
     text: PrefixLinesToText,
     /// Converts a width in columns to a width in characters.
     columns_to_chars: fn(u64) -> u64,
-    formatter: &'writer mut dyn Formatter,
+    formatter: &'a mut dyn Formatter,
+    ui: &'a Ui,
 }
 
 fn convert_graph_edge_into_ancestor<K: Clone>(e: &GraphEdge<K>) -> Ancestor<K> {
@@ -78,7 +80,7 @@ where
         &mut self,
         id: &K,
         edges: &[GraphEdge<K>],
-        node_symbol: &str,
+        render_node_symbol: &dyn Fn(&mut dyn Formatter) -> io::Result<()>,
         text: &str,
     ) -> io::Result<()> {
         let row_shape = self.shaper.next_row_shape(
@@ -86,6 +88,32 @@ where
             edges.iter().map(convert_graph_edge_into_ancestor).collect(),
         );
         let prefix_lines = self.prefix_lines.next_prefix_lines(&row_shape);
+        // Render the node symbol in the color of its line, unless the node
+        // labels set their own color.
+        let node_line_id = row_shape.line_ids.as_ref().map(|ids| {
+            ids.before_link[row_shape.node_column]
+                .iter()
+                .next()
+                .unwrap_or_else(|| {
+                    // Isolated nodes have no line ID. Prefer a lane that
+                    // isn't used by another line passing through this row.
+                    (0..LANE_LABELS.len())
+                        .find(|lane| {
+                            !ids.before_link
+                                .iter()
+                                .any(|ids| ids.iter().any(|id| id % LANE_LABELS.len() == *lane))
+                        })
+                        .unwrap_or(row_shape.node_column % LANE_LABELS.len())
+                })
+        });
+        let mut glyph = vec![];
+        let mut formatter = self.ui.new_formatter(&mut glyph);
+        formatter.push_label("graph");
+        if let Some(id) = node_line_id {
+            formatter.push_label(LANE_LABELS[id % LANE_LABELS.len()]);
+        }
+        render_node_symbol(formatter.as_mut())?;
+        drop(formatter);
         let mut result = Ok(());
         self.text.write_next_lines(
             |text, color| {
@@ -95,7 +123,7 @@ where
             },
             prefix_lines,
             row_shape.separator_line,
-            node_symbol,
+            &String::from_utf8_lossy(&glyph),
             text,
             self.shaper.options().min_row_height,
         );
@@ -147,6 +175,7 @@ impl GraphStyle {
 }
 
 pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
+    ui: &'a Ui,
     style: GraphStyle,
     formatter: &'a mut dyn Formatter,
 ) -> Box<dyn GraphLog<K> + 'a> {
@@ -175,5 +204,6 @@ pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
         text: PrefixLinesToText::new(),
         columns_to_chars,
         formatter,
+        ui,
     })
 }

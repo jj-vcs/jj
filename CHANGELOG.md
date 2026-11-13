@@ -28,7 +28,8 @@ and this project adheres to
   `jj op diff` can now be colored. Each line uses one of the labels
   `graph lane0` to `graph lane11`, and keeps its label when it moves to another
   column. The labels have no color by default. Set them in the `[colors]` table
-  to turn the colors on.
+  to turn the colors on. A node symbol takes the color of its line, unless a
+  node label sets its own color.
 
 * New `with(values..., |names...| body)` templating function which allows you to
   assign expressions to name bindings in a lambda. Expressions are re-evaluated
