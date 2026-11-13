@@ -260,6 +260,7 @@ pub enum RevsetExpression<St: ExpressionState> {
         roots: Arc<Self>,
         /// Range of generations to include, relative to `roots`.
         generation: Range<u64>,
+        parents_range: Range<u32>,
     },
     /// Commits that are ancestors of `heads` but not ancestors of `roots`.
     Range {
@@ -587,6 +588,27 @@ impl<St: ExpressionState> RevsetExpression<St> {
         Arc::new(Self::Descendants {
             roots: self.clone(),
             generation: generation_range,
+            parents_range: PARENTS_RANGE_FULL,
+        })
+    }
+
+    /// First-parent descendants of `self`, including `self`.
+    pub fn first_descendants(self: &Arc<Self>) -> Arc<Self> {
+        self.first_descendants_range(GENERATION_RANGE_FULL)
+    }
+
+    /// First-parent descendants of `self` at an offset of `generation` ahead
+    /// of `self`. The `generation` offset is zero-based starting from `self`.
+    pub fn first_descendants_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
+        self.first_descendants_range(generation..generation.saturating_add(1))
+    }
+
+    /// First-parent descendants of `self` in the given range.
+    pub fn first_descendants_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+        Arc::new(Self::Descendants {
+            roots: self.clone(),
+            generation: generation_range,
+            parents_range: 0..1,
         })
     }
 
@@ -918,6 +940,27 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             GENERATION_RANGE_FULL
         };
         Ok(heads.first_ancestors_range(generation))
+    });
+    map.insert("first_children", |diagnostics, function, context| {
+        let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
+        let expression = lower_expression(diagnostics, arg, context)?;
+        let depth = if let Some(depth_arg) = depth_opt_arg {
+            expect_literal("integer", depth_arg)?
+        } else {
+            1
+        };
+        Ok(expression.first_descendants_at(depth))
+    });
+    map.insert("first_descendants", |diagnostics, function, context| {
+        let ([roots_arg], [depth_opt_arg]) = function.expect_arguments()?;
+        let roots = lower_expression(diagnostics, roots_arg, context)?;
+        let generation = if let Some(depth_arg) = depth_opt_arg {
+            let depth = expect_literal("integer", depth_arg)?;
+            0..depth
+        } else {
+            GENERATION_RANGE_FULL
+        };
+        Ok(roots.first_descendants_range(generation))
     });
     map.insert("connected", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
@@ -1585,11 +1628,15 @@ fn try_transform_expression<St: ExpressionState, E>(
                 generation: generation.clone(),
                 parents_range: parents_range.clone(),
             }),
-            RevsetExpression::Descendants { roots, generation } => transform_rec(roots, pre, post)?
-                .map(|roots| RevsetExpression::Descendants {
-                    roots,
-                    generation: generation.clone(),
-                }),
+            RevsetExpression::Descendants {
+                roots,
+                generation,
+                parents_range,
+            } => transform_rec(roots, pre, post)?.map(|roots| RevsetExpression::Descendants {
+                roots,
+                generation: generation.clone(),
+                parents_range: parents_range.clone(),
+            }),
             RevsetExpression::Range {
                 roots,
                 heads,
@@ -1827,10 +1874,18 @@ where
             }
             .into()
         }
-        RevsetExpression::Descendants { roots, generation } => {
+        RevsetExpression::Descendants {
+            roots,
+            generation,
+            parents_range,
+        } => {
             let roots = folder.fold_expression(roots)?;
-            let generation = generation.clone();
-            RevsetExpression::Descendants { roots, generation }.into()
+            RevsetExpression::Descendants {
+                roots,
+                generation: generation.clone(),
+                parents_range: parents_range.clone(),
+            }
+            .into()
         }
         RevsetExpression::Range {
             roots,
@@ -2604,6 +2659,7 @@ fn fold_generation<St: ExpressionState>(
         RevsetExpression::Descendants {
             roots,
             generation: generation1,
+            parents_range: parents1,
         } => {
             match roots.as_ref() {
                 // (r+)+ -> descendants(descendants(r, 1), 1) -> descendants(r, 2)
@@ -2612,9 +2668,11 @@ fn fold_generation<St: ExpressionState>(
                 RevsetExpression::Descendants {
                     roots,
                     generation: generation2,
-                } => Some(Arc::new(RevsetExpression::Descendants {
+                    parents_range: parents2,
+                } if parents2 == parents1 => Some(Arc::new(RevsetExpression::Descendants {
                     roots: roots.clone(),
                     generation: add_generation(generation1, generation2),
+                    parents_range: parents1.clone(),
                 })),
                 _ => None,
             }
@@ -3218,10 +3276,15 @@ impl VisibilityResolutionContext<'_> {
                 generation: generation.clone(),
                 parents_range: parents_range.clone(),
             },
-            RevsetExpression::Descendants { roots, generation } => ResolvedExpression::DagRange {
+            RevsetExpression::Descendants {
+                roots,
+                generation,
+                parents_range,
+            } => ResolvedExpression::DagRange {
                 roots: self.resolve(roots).into(),
                 heads: self.resolve_visible_heads_or_referenced().into(),
                 generation_from_roots: generation.clone(),
+                parents_range: parents_range.clone(),
             },
             RevsetExpression::Range {
                 roots,
@@ -3238,6 +3301,7 @@ impl VisibilityResolutionContext<'_> {
                 roots: self.resolve(roots).into(),
                 heads: self.resolve(heads).into(),
                 generation_from_roots: GENERATION_RANGE_FULL,
+                parents_range: PARENTS_RANGE_FULL,
             },
             RevsetExpression::Reachable { sources, domain } => ResolvedExpression::Reachable {
                 sources: self.resolve(sources).into(),
@@ -3728,6 +3792,7 @@ mod tests {
         Descendants {
             roots: CommitRef(Symbol("foo")),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3735,6 +3800,7 @@ mod tests {
         Descendants {
             roots: CommitRef(Symbol("foo")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3985,6 +4051,7 @@ mod tests {
         Descendants {
             roots: CommitRef(Symbol("foo")),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         // Parse the "ancestors" operator
@@ -4000,6 +4067,7 @@ mod tests {
         Descendants {
             roots: CommitRef(Symbol("foo")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         // Parse the "dag range" operator
@@ -4798,6 +4866,7 @@ mod tests {
         Descendants {
             roots: CommitRef(Bookmarks(Pattern(Substring("")))),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -4813,6 +4882,7 @@ mod tests {
         Descendants {
             roots: CommitRef(Bookmarks(Pattern(Substring("")))),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -5761,6 +5831,7 @@ mod tests {
                 parents_range: 0..4294967295,
             },
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -5909,18 +5980,21 @@ mod tests {
         Descendants {
             roots: CommitRef(Symbol("foo")),
             generation: 2..3,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("(foo+++)::")?), @r#"
         Descendants {
             roots: CommitRef(Symbol("foo")),
             generation: 3..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("(foo::)+++")?), @r#"
         Descendants {
             roots: CommitRef(Symbol("foo")),
             generation: 3..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -5930,6 +6004,7 @@ mod tests {
             heads: Descendants {
                 roots: CommitRef(Symbol("foo")),
                 generation: 3..4,
+                parents_range: 0..4294967295,
             },
             generation: 1..2,
             parents_range: 0..4294967295,
@@ -5944,10 +6019,57 @@ mod tests {
             roots: Descendants {
                 roots: CommitRef(Symbol("foo")),
                 generation: 2..3,
+                parents_range: 0..4294967295,
             },
             heads: CommitRef(Symbol("bar")),
         }
         "#);
+
+        // Descendants can only be folded if parent ranges match.
+        insta::assert_debug_snapshot!(
+            optimize(parse("first_descendants(first_descendants(foo, 5), 5)").unwrap()), @r#"
+        Descendants {
+            roots: CommitRef(Symbol("foo")),
+            generation: 0..9,
+            parents_range: 0..1,
+        }
+        "#
+        );
+        insta::assert_debug_snapshot!(
+            optimize(parse("first_descendants(first_children(foo), 5)").unwrap()), @r#"
+        Descendants {
+            roots: CommitRef(Symbol("foo")),
+            generation: 1..6,
+            parents_range: 0..1,
+        }
+        "#
+        );
+        insta::assert_debug_snapshot!(
+            optimize(parse("first_descendants(descendants(foo, 5), 5)").unwrap()), @r#"
+        Descendants {
+            roots: Descendants {
+                roots: CommitRef(Symbol("foo")),
+                generation: 0..5,
+                parents_range: 0..4294967295,
+            },
+            generation: 0..5,
+            parents_range: 0..1,
+        }
+        "#
+        );
+        insta::assert_debug_snapshot!(
+            optimize(parse("descendants(first_descendants(foo, 5), 5)").unwrap()), @r#"
+        Descendants {
+            roots: Descendants {
+                roots: CommitRef(Symbol("foo")),
+                generation: 0..5,
+                parents_range: 0..1,
+            },
+            generation: 0..5,
+            parents_range: 0..4294967295,
+        }
+        "#
+        );
         Ok(())
     }
 

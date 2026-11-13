@@ -171,6 +171,11 @@ Thanks to the people who made this release happen!
   stdout. Use `--binary-as-text` to force text treatment, or `--skip-binary` to
   skip binary files entirely.
 
+* New `first_children()` and `first_descendants()` revset functions which are
+  similar to `children()` and `descendants()`, but only traverse first-parent
+  relations to commits. These serve as the dual to `first_parent()` and
+  `first_ancestors()`, walking the same revisions but in the other direction.
+
 ### Fixed bugs
 
 * `jj git push` no longer validates (e.g. for empty descriptions) commits that
