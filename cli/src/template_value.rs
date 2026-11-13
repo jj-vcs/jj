@@ -265,12 +265,48 @@ fn unexpected_type(repr: &TemplateValueRepr) -> TemplateValueExtractionError {
     TemplateValueExtractionError::UnexpectedType(repr.actual_value_type())
 }
 
+pub trait ToTemplateCondition {
+    fn to_condition(&self) -> bool;
+}
+
+impl ToTemplateCondition for BString {
+    fn to_condition(&self) -> bool {
+        !self.is_empty()
+    }
+}
+
+impl ToTemplateCondition for String {
+    fn to_condition(&self) -> bool {
+        !self.is_empty()
+    }
+}
+
+impl ToTemplateCondition for bool {
+    fn to_condition(&self) -> bool {
+        *self
+    }
+}
+
+impl<T> ToTemplateCondition for Option<T> {
+    fn to_condition(&self) -> bool {
+        self.is_some()
+    }
+}
+
+impl<T> ToTemplateCondition for Vec<T> {
+    fn to_condition(&self) -> bool {
+        !self.is_empty()
+    }
+}
+
 type CastFn<T> = fn(TemplateValueRepr) -> Result<T, TemplateValueExtractionError>;
+type ToConditionFn = CastFn<bool>;
 type ToTemplateFn = CastFn<Box<dyn Template>>;
 type ToSerializeFn = CastFn<Box<dyn erased_serde::Serialize>>;
 
 pub struct TemplateTypeRegistry {
     type_names: HashMap<TemplateValueType, &'static str>,
+    to_condition_fns: HashMap<TemplateValueType, ToConditionFn>,
     to_template_fns: HashMap<TemplateValueType, ToTemplateFn>,
     to_serialize_fns: HashMap<TemplateValueType, ToSerializeFn>,
 }
@@ -279,6 +315,7 @@ impl TemplateTypeRegistry {
     pub fn empty() -> Self {
         Self {
             type_names: HashMap::new(),
+            to_condition_fns: HashMap::new(),
             to_template_fns: HashMap::new(),
             to_serialize_fns: HashMap::new(),
         }
@@ -302,6 +339,10 @@ impl TemplateTypeRegistry {
         self.type_names.get(ty).copied()
     }
 
+    pub fn get_to_condition_fn(&self, ty: &TemplateValueType) -> Option<ToConditionFn> {
+        self.to_condition_fns.get(ty).copied()
+    }
+
     pub fn get_to_template_fn(&self, ty: &TemplateValueType) -> Option<ToTemplateFn> {
         self.to_template_fns.get(ty).copied()
     }
@@ -317,6 +358,17 @@ pub struct TemplateTypeRegistration<'a, T> {
 }
 
 impl<T: TemplateValue> TemplateTypeRegistration<'_, T> {
+    /// Registers this as a type convertible to boolean.
+    pub fn conditionable(self) -> Self
+    where
+        T: ToTemplateCondition,
+    {
+        self.registry
+            .to_condition_fns
+            .insert(T::value_type(), try_into_condition::<T>);
+        self
+    }
+
     /// Registers this as a formattable type.
     pub fn formattable(self) -> Self
     where
@@ -338,6 +390,13 @@ impl<T: TemplateValue> TemplateTypeRegistration<'_, T> {
             .insert(T::value_type(), try_into_serialize::<T>);
         self
     }
+}
+
+fn try_into_condition<T: TemplateValue + ToTemplateCondition>(
+    repr: TemplateValueRepr,
+) -> Result<bool, TemplateValueExtractionError> {
+    let value = T::try_from_repr(repr)?;
+    Ok(value.to_condition())
 }
 
 fn try_into_template<T: TemplateValue + Template>(
