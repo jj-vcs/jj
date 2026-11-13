@@ -1250,6 +1250,26 @@ fn test_git_init_with_invalid_gitlink() {
 }
 
 #[test]
+fn test_git_init_compat_object_format() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    init_git_repo(work_dir.root(), false);
+    let mut config = work_dir.read_file(".git/config");
+    config.extend(b"[core]\n\trepositoryformatversion = 1\n");
+    config.extend(b"[extensions]\n\tcompatObjectFormat = sha256\n");
+    work_dir.write_file(".git/config", config);
+
+    let output = work_dir.run_jj(["git", "init", "--colocate"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to access the repository
+    Caused by: Git repositories with extensions.compatObjectFormat are not supported
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_git_init_colocate_in_git_worktree() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");

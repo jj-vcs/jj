@@ -332,6 +332,30 @@ fn test_git_colocated_preserve_git_index() {
 }
 
 #[test]
+fn test_git_colocated_compat_object_format() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Enabling the extension in an existing repo makes jj refuse to load it
+    let mut config = work_dir.read_file(".git/config");
+    config.extend(b"[core]\n\trepositoryformatversion = 1\n");
+    config.extend(b"[extensions]\n\tcompatObjectFormat = sha256\n");
+    work_dir.write_file(".git/config", config);
+
+    let output = work_dir.run_jj(["log"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Internal error: The repository appears broken or inaccessible
+    Caused by: Git repositories with extensions.compatObjectFormat are not supported
+    [EOF]
+    [exit status: 255]
+    ");
+}
+
+#[test]
 fn test_git_colocated_unborn_bookmark() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");

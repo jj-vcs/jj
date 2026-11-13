@@ -121,6 +121,8 @@ pub enum GitBackendInitError {
     OpenRepository(#[source] gix::Error),
     #[error("Failed to encode git repository path")]
     EncodeRepositoryPath(#[source] BadPathEncoding),
+    #[error("Git repositories with extensions.compatObjectFormat are not supported")]
+    UnsupportedCompatObjectFormat,
     #[error(transparent)]
     Path(PathError),
 }
@@ -137,6 +139,8 @@ pub enum GitBackendLoadError {
     OpenRepository(#[source] gix::Error),
     #[error("Failed to decode git repository path")]
     DecodeRepositoryPath(#[source] BadPathEncoding),
+    #[error("Git repositories with extensions.compatObjectFormat are not supported")]
+    UnsupportedCompatObjectFormat,
     #[error(transparent)]
     Path(PathError),
 }
@@ -297,6 +301,9 @@ impl GitBackend {
         repo: gix::ThreadSafeRepository,
         settings: &GitBackendSettings,
     ) -> Result<Self, Box<GitBackendInitError>> {
+        if has_compat_object_format(&repo.to_thread_local()) {
+            return Err(Box::new(GitBackendInitError::UnsupportedCompatObjectFormat));
+        }
         let extra_path = store_path.join("extra");
         fs::create_dir(&extra_path)
             .context(&extra_path)
@@ -346,6 +353,9 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendLoadError::OpenRepository)?;
+        if has_compat_object_format(&repo.to_thread_local()) {
+            return Err(Box::new(GitBackendLoadError::UnsupportedCompatObjectFormat));
+        }
         let extra_metadata_store = TableStore::load(
             store_path.join("extra"),
             repo.to_thread_local().object_hash().len_in_bytes(),
@@ -669,6 +679,20 @@ fn gix_open_opts_from_settings(settings: &GitBackendSettings) -> gix::open::Opti
         .open_path_as_is(true)
         // Gitoxide recommends this when correctness is preferred
         .strict_config(true)
+}
+
+/// Returns true if the repository sets `extensions.compatObjectFormat`.
+///
+/// Git then records the id each new object has in the other object format.
+/// gix doesn't, so objects written by jj would be missing from Git's mapping.
+fn has_compat_object_format(repo: &gix::Repository) -> bool {
+    // Like Git, only look at the repository's own config file.
+    repo.config_snapshot()
+        .plumbing()
+        .string_filter("extensions.compatObjectFormat", |meta| {
+            meta.source == gix::config::Source::Local
+        })
+        .is_some()
 }
 
 /// Parses the `jj:conflict-labels` header value if present.
