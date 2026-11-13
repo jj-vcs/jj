@@ -45,6 +45,10 @@ and this project adheres to
   receiving invalid JSON objects on small terminals.
 
 ### Fixed bugs
+* `jj run` now captures subprocess output through temporary files on NetBSD,
+  where Tokio cannot poll child output pipes.
+  [#10342](https://github.com/jj-vcs/jj/issues/10342)
+
 
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
   changes from being exported to Git HEAD and refs.
