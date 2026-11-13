@@ -33,6 +33,7 @@ use renderdag::pipeline::row_shape_to_prefix_lines::box_drawing::Square;
 
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
+use crate::ui::Ui;
 
 /// Color labels for graph lines, under the `graph` label. A line has the label
 /// that matches its line ID. Twelve labels allow six basic terminal colors and
@@ -47,7 +48,7 @@ pub trait GraphLog<K: Clone + Eq + Hash> {
         &mut self,
         id: &K,
         edges: &[GraphEdge<K>],
-        node_symbol: &str,
+        render_node_symbol: &dyn Fn(&mut dyn Formatter) -> io::Result<()>,
         text: &str,
     ) -> io::Result<()>;
 
@@ -61,6 +62,7 @@ pub struct SaplingGraphLog<'writer, K> {
     /// Converts a width in columns to a width in characters.
     columns_to_chars: fn(u64) -> u64,
     formatter: &'writer mut dyn Formatter,
+    ui: &'writer Ui,
 }
 
 fn convert_graph_edge_into_ancestor<K: Clone>(e: &GraphEdge<K>) -> Ancestor<K> {
@@ -79,7 +81,7 @@ where
         &mut self,
         id: &K,
         edges: &[GraphEdge<K>],
-        node_symbol: &str,
+        render_node_symbol: &dyn Fn(&mut dyn Formatter) -> io::Result<()>,
         text: &str,
     ) -> io::Result<()> {
         let row_shape = self.shaper.next_row_shape(
@@ -87,6 +89,32 @@ where
             edges.iter().map(convert_graph_edge_into_ancestor).collect(),
         );
         let prefix_lines = self.prefix_lines.next_prefix_lines(&row_shape);
+        // Push the graph and line labels before rendering the node so that
+        // custom node labels take precedence.
+        let node_line_id = row_shape.line_ids.as_ref().map(|ids| {
+            ids.before_link[row_shape.node_column]
+                .iter()
+                .next()
+                .unwrap_or_else(|| {
+                    // Isolated nodes have no line ID. Use a line label that
+                    // doesn't pass through this row.
+                    (0..LINE_LABELS.len())
+                        .find(|line| {
+                            !ids.before_link
+                                .iter()
+                                .any(|ids| ids.iter().any(|id| id % LINE_LABELS.len() == *line))
+                        })
+                        .unwrap_or(row_shape.node_column % LINE_LABELS.len())
+                })
+        });
+        let mut glyph = vec![];
+        let mut glyph_formatter = self.ui.new_formatter(&mut glyph);
+        glyph_formatter.push_label("graph");
+        if let Some(id) = node_line_id {
+            glyph_formatter.push_label(LINE_LABELS[id % LINE_LABELS.len()]);
+        }
+        render_node_symbol(glyph_formatter.as_mut())?;
+        drop(glyph_formatter);
         let mut result = Ok(());
         self.text.write_next_lines(
             |text, color| {
@@ -96,7 +124,7 @@ where
             },
             prefix_lines,
             row_shape.separator_line,
-            node_symbol,
+            &String::from_utf8_lossy(&glyph),
             text,
             self.shaper.options().min_row_height,
         );
@@ -148,6 +176,7 @@ impl GraphStyle {
 }
 
 pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
+    ui: &'a Ui,
     style: GraphStyle,
     formatter: &'a mut dyn Formatter,
 ) -> Box<dyn GraphLog<K> + 'a> {
@@ -178,5 +207,6 @@ pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
         text: PrefixLinesToText::new(),
         columns_to_chars,
         formatter,
+        ui,
     })
 }
