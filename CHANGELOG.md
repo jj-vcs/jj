@@ -17,6 +17,11 @@ and this project adheres to
   (`git.private-commits`). Commits that are already on the remote being pushed
   to are still not checked.
 
+* `jj gerrit upload` now uploads the ancestors of the given revisions that are
+  not on the remote instead of their mutable ancestors. It fails if any of them
+  are immutable, since they need to be rewritten to add a `Change-Id` trailer.
+  Revisions that are already on the remote are no longer rejected as immutable.
+
 * Deleted `jj debug snapshot`. It was deprecated in 0.39.0. Use `jj util snapshot`
   instead.
 
