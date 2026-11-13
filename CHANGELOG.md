@@ -24,6 +24,12 @@ and this project adheres to
 
 ### New features
 
+* The graph lines in `jj log`, `jj evolog`, `jj op log`, `jj op show`, and
+  `jj op diff` can now be colored. Each line uses one of the labels
+  `graph lane0` to `graph lane11`, and keeps its label when it moves to another
+  column. The labels have no color by default. Set them in the `[colors]` table
+  to turn the colors on.
+
 * New `with(values..., |names...| body)` templating function which allows you to
   assign expressions to name bindings in a lambda. Expressions are re-evaluated
   for each use, so this is effectively the same as defining temporary template
