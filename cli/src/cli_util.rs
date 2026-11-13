@@ -161,8 +161,8 @@ use tracing_subscriber::prelude::*;
 
 use crate::cli_args::GlobalArgs;
 use crate::cli_args::command_name;
-use crate::cli_args::expand_args;
 use crate::cli_args::expand_args_for_completion;
+use crate::cli_args::expand_args_with_parser;
 use crate::cli_args::parse_args;
 use crate::cli_args::parse_early_args;
 use crate::cli_args::to_string_args;
@@ -4623,7 +4623,8 @@ impl<'a> CliRunner<'a> {
             return handle_shell_completion(&Ui::null(), &self.app, &config, &cwd);
         }
 
-        let string_args = expand_args(ui, &self.app, env::args_os(), &config)?;
+        let mut parser = self.app.clone();
+        let string_args = expand_args_with_parser(ui, &mut parser, env::args_os(), &config)?;
         let (args, config_layers) = parse_early_args(&self.app, &string_args)?;
         if !config_layers.is_empty() {
             raw_config.as_mut().extend_layers(config_layers);
@@ -4636,8 +4637,8 @@ impl<'a> CliRunner<'a> {
             warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
         }
 
-        let (matches, args) = parse_args(&self.app, &string_args)
-            .map_err(|err| map_clap_cli_error(err, ui, &config))?;
+        let (matches, args) =
+            parse_args(parser, &string_args).map_err(|err| map_clap_cli_error(err, ui, &config))?;
         if args.global_args.debug {
             // TODO: set up debug logging as early as possible
             self.tracing_subscription.enable_debug_logging()?;
