@@ -773,8 +773,9 @@ graph.style = "square"
 Each line of the graph can have its own color, so that you can follow a line
 from a fork to a merge. A line keeps its color when it moves to another column.
 Lines use the labels `graph lane0` to `graph lane11`, and a graph with more
-lines wraps around to `graph lane0` again. The labels have no color by default.
-You can customize the lane colors in the [`[colors]` table](#custom-colors-and-styles).
+lines wraps around to `graph lane0` again. Node symbols also receive the `graph`
+and line labels. The line labels have no color by default. You can customize
+the line colors in the [`[colors]` table](#custom-colors-and-styles).
 For example, these are the default colors of `git log --graph`:
 
 ```toml
