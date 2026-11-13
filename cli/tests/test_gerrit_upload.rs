@@ -396,6 +396,49 @@ fn test_gerrit_upload_local_implicit_change_ids() {
 }
 
 #[test]
+fn test_gerrit_upload_immutable_ancestor_not_on_remote() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    create_commit(&local_dir, "b", &["a@origin"]);
+    create_commit(&local_dir, "c", &["b"]);
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "builtin_immutable_heads() | b""#);
+
+    // `b` is immutable but not on the remote
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
+    Pushing yqosqzyt 9590bf26 c | c
+    [EOF]
+    ");
+
+    let output = remote_dir.run_jj([
+        "util",
+        "exec",
+        "--",
+        "git",
+        "log",
+        "--format=[%(trailers:key=Change-Id,valueonly,separator=)] %s",
+        "refs/for/main",
+    ]);
+    insta::assert_snapshot!(output, @"
+    [I19b790168e73f7a73a98deae21e807c06a6a6964] c
+    [] b
+    [] a
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_gerrit_upload_local_implicit_change_id_link() {
     let test_env = TestEnvironment::default();
     test_env.add_config(
