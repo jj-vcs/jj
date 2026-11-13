@@ -89,6 +89,16 @@
             "!binary_id(jj-cli::runner)"
           ];
 
+        # Build with the same cargo config as the other CI jobs, which disables
+        # debuginfo. The path has to be absolute: nixpkgs runs cargo through
+        # `cargo auditable`, which passes `--config` on to a `cargo metadata`
+        # call that runs in each crate's own directory.
+        preCheck =
+          (prev.preCheck or "")
+          + ''
+            appendToVar cargoTestFlags --config "$PWD/.cargo/config-ci.toml"
+          '';
+
         # By default, `flake check` will want to run the install phase, but
         # because we override the cargoBuildType, it fails to find the proper
         # binary. But we don't even care about the binary or even the buildPhase
