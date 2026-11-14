@@ -263,18 +263,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
-            CommitTemplatePropertyKind::RefSymbol(property) => {
-                // Forward to String methods, but the type_name is "RefSymbol"
-                let methods = &self.build_fn_table.core.methods;
-                let table = methods.get(&String::value_type()).expect("registered type");
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.map(|RefSymbolBuf(s)| s.into_repr()).into_dyn();
-                build(self, diagnostics, build_ctx, inner_property, function)
-            }
-            CommitTemplatePropertyKind::RefSymbolOpt(property) => {
-                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
-                self.build_method(diagnostics, build_ctx, inner_property, function)
-            }
             CommitTemplatePropertyKind::RepoPath(property) => {
                 let table = &self.build_fn_table.repo_path_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -435,6 +423,7 @@ impl OpaqueTemplateValue for Commit {}
 impl OpaqueTemplateValue for CommitEvolutionEntry {}
 impl OpaqueTemplateValue for Rc<CommitRef> {}
 impl OpaqueTemplateValue for WorkspaceRef {}
+impl OpaqueTemplateValue for RefSymbolBuf {}
 
 impl NoTemplateBooleanCast for Commit {}
 impl NoTemplateBooleanCast for CommitEvolutionEntry {}
@@ -457,8 +446,6 @@ impl NoTemplateBooleanCast for Trailer {}
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
-    RefSymbol(BoxedTemplateProperty<'repo, RefSymbolBuf>),
-    RefSymbolOpt(BoxedTemplateProperty<'repo, Option<RefSymbolBuf>>),
     RepoPath(BoxedTemplateProperty<'repo, RepoPathBuf>),
     RepoPathOpt(BoxedTemplateProperty<'repo, Option<RepoPathBuf>>),
     ChangeId(BoxedTemplateProperty<'repo, ChangeId>),
@@ -494,8 +481,6 @@ impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplateP
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
 template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
-    RefSymbol(RefSymbolBuf),
-    RefSymbolOpt(Option<RefSymbolBuf>),
     RepoPath(RepoPathBuf),
     RepoPathOpt(Option<RepoPathBuf>),
     ChangeId(ChangeId),
@@ -539,8 +524,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(registry),
-            Self::RefSymbol(_) => "RefSymbol",
-            Self::RefSymbolOpt(_) => "Option<RefSymbol>",
             Self::RepoPath(_) => "RepoPath",
             Self::RepoPathOpt(_) => "Option<RepoPath>",
             Self::ChangeId(_) => "ChangeId",
@@ -585,10 +568,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, String>, Self> {
         match self {
             Self::Core(property) => property.try_into_string(registry).map_err(Self::Core),
-            Self::RefSymbol(property) => Ok(property.map(|RefSymbolBuf(s)| s).into_dyn()),
-            Self::RefSymbolOpt(property) => Ok(property
-                .map(|opt| opt.map_or_else(String::new, |RefSymbolBuf(s)| s))
-                .into_dyn()),
             _ => Err(self),
         }
     }
@@ -599,8 +578,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
             Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
-            Self::RefSymbol(_) => Err(self),
-            Self::RefSymbolOpt(property) => Ok(option_to_boolean(property)),
             Self::RepoPath(_) => Err(self),
             Self::RepoPathOpt(property) => Ok(option_to_boolean(property)),
             Self::ChangeId(_) => Err(self),
@@ -657,8 +634,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(registry),
-            Self::RefSymbol(property) => Some(property.into_serialize()),
-            Self::RefSymbolOpt(property) => Some(property.into_serialize()),
             Self::RepoPath(property) => Some(property.into_serialize()),
             Self::RepoPathOpt(property) => Some(property.into_serialize()),
             Self::ChangeId(property) => Some(property.into_serialize()),
@@ -693,8 +668,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<Box<dyn Template + 'repo>> {
         match self {
             Self::Core(property) => property.try_into_template(registry),
-            Self::RefSymbol(property) => Some(property.into_template()),
-            Self::RefSymbolOpt(property) => Some(property.into_template()),
             Self::RepoPath(property) => Some(property.into_template()),
             Self::RepoPathOpt(property) => Some(property.into_template()),
             Self::ChangeId(property) => Some(property.into_template()),
@@ -728,66 +701,9 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         other: Self,
         registry: &TemplateTypeRegistry,
     ) -> Option<BoxedTemplateProperty<'repo, bool>> {
-        type Core<'repo> = CoreTemplatePropertyKind<'repo>;
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
-            (
-                Self::Core(Core::Value {
-                    ty: lty,
-                    property: lhs,
-                }),
-                Self::RefSymbol(rhs),
-            ) if lty == String::value_type() => {
-                let lhs = cast_value_property::<String>(lhs, registry);
-                Some((lhs, rhs).map(|(l, r)| RefSymbolBuf(l) == r).into_dyn())
-            }
-            (
-                Self::Core(Core::Value {
-                    ty: lty,
-                    property: lhs,
-                }),
-                Self::RefSymbolOpt(rhs),
-            ) if lty == String::value_type() => {
-                let lhs = cast_value_property::<String>(lhs, registry);
-                let out_property = (lhs, rhs).map(|(l, r)| Some(RefSymbolBuf(l)) == r);
-                Some(out_property.into_dyn())
-            }
-            (
-                Self::RefSymbol(lhs),
-                Self::Core(Core::Value {
-                    ty: rty,
-                    property: rhs,
-                }),
-            ) if rty == String::value_type() => {
-                let rhs = cast_value_property::<String>(rhs, registry);
-                Some((lhs, rhs).map(|(l, r)| l == RefSymbolBuf(r)).into_dyn())
-            }
-            (Self::RefSymbol(lhs), Self::RefSymbol(rhs)) => {
-                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
-            }
-            (Self::RefSymbol(lhs), Self::RefSymbolOpt(rhs)) => {
-                Some((lhs, rhs).map(|(l, r)| Some(l) == r).into_dyn())
-            }
-            (
-                Self::RefSymbolOpt(lhs),
-                Self::Core(Core::Value {
-                    ty: rty,
-                    property: rhs,
-                }),
-            ) if rty == String::value_type() => {
-                let rhs = cast_value_property::<String>(rhs, registry);
-                let out_property = (lhs, rhs).map(|(l, r)| l == Some(RefSymbolBuf(r)));
-                Some(out_property.into_dyn())
-            }
-            (Self::RefSymbolOpt(lhs), Self::RefSymbol(rhs)) => {
-                Some((lhs, rhs).map(|(l, r)| l == Some(r)).into_dyn())
-            }
-            (Self::RefSymbolOpt(lhs), Self::RefSymbolOpt(rhs)) => {
-                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
-            }
             (Self::Core(_), _) => None,
-            (Self::RefSymbol(_), _) => None,
-            (Self::RefSymbolOpt(_), _) => None,
             (Self::RepoPath(_), _) => None,
             (Self::RepoPathOpt(_), _) => None,
             (Self::ChangeId(_), _) => None,
@@ -824,8 +740,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::RefSymbol(_), _) => None,
-            (Self::RefSymbolOpt(_), _) => None,
             (Self::RepoPath(_), _) => None,
             (Self::RepoPathOpt(_), _) => None,
             (Self::ChangeId(_), _) => None,
@@ -902,6 +816,19 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
         .conditionable()
         .formattable()
         .serializable();
+    registry
+        .register::<RefSymbolBuf>("RefSymbol")
+        .newtype_of::<String>()
+        .formattable()
+        .serializable()
+        .equatable()
+        .equatable_with::<String>();
+    registry
+        .register::<Option<RefSymbolBuf>>("Option<RefSymbol>")
+        .conditionable()
+        .formattable()
+        .serializable()
+        .equatable();
 }
 
 fn register_methods<'repo>(
@@ -2275,6 +2202,24 @@ pub struct RefSymbolBuf(String);
 impl AsRef<str> for RefSymbolBuf {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl From<RefSymbolBuf> for String {
+    fn from(value: RefSymbolBuf) -> Self {
+        value.0
+    }
+}
+
+impl PartialEq<String> for RefSymbolBuf {
+    fn eq(&self, other: &String) -> bool {
+        &self.0 == other
+    }
+}
+
+impl PartialEq<RefSymbolBuf> for String {
+    fn eq(&self, other: &RefSymbolBuf) -> bool {
+        self == &other.0
     }
 }
 
