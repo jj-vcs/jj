@@ -1518,7 +1518,7 @@ fn test_git_push_revisions() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
-    test_env.add_config("revset-aliases.'immutable_heads()' = 'none()'");
+    test_env.add_config("revset-aliases.'shared_immutable_heads()' = 'none()'");
     let origin_dir = test_env.work_dir("origin");
     let work_dir = test_env.work_dir("local");
     // Add tracked tags

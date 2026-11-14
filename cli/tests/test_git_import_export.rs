@@ -150,7 +150,6 @@ fn test_git_export_undo() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Undid operation: 29447db431a3 (2001-02-03 08:05:10) export git refs
-    Restored to operation: 5142cb3d7c38 (2001-02-03 08:05:08) create bookmark a pointing to commit e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
     insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r#"

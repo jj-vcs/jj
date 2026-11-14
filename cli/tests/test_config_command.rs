@@ -1526,9 +1526,19 @@ fn test_config_get_yields_values_consistent_with_schema_defaults() -> TestResult
             // `LESSCHARSET` and gives the default as a plain string.
             "ui.pager" => insta::assert_snapshot!(schema_default, @r#""less -FRXK""#),
 
-            // The `immutable_heads()` revset actually defaults to `builtin_immutable_heads()` but
-            // this would be a poor starting point for a custom revset, so the schema "inlines"
-            // `builtin_immutable_heads()`.
+            // The `shared_immutable_heads()` and `immutable_heads()` revsets actually
+            // default to `builtin_shared_immutable_heads()` and `builtin_immutable_heads()`
+            // but those would be poor starting points for a custom revset, so the schema
+            // "inlines" them.
+            r#"revset-aliases."shared_immutable_heads()""# => {
+                let builtin_default =
+                    get_true_default("revset-aliases.'builtin_shared_immutable_heads()'");
+                assert!(
+                    builtin_default.to_string() == schema_default.to_string(),
+                    "{key}: the schema claims a default ({schema_default}) which is different \
+                     from what builtin_shared_immutable_heads() resolves to ({builtin_default})"
+                );
+            }
             r#"revset-aliases."immutable_heads()""# => {
                 let builtin_default =
                     get_true_default("revset-aliases.'builtin_immutable_heads()'");

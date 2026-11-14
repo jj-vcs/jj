@@ -28,9 +28,11 @@ use jj_lib::git::GitSubprocessOptions;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset::RemoteRefSymbolExpression;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
+use jj_lib::str_util::StringExpression;
 use jj_lib::trailer::Trailer;
 use jj_lib::trailer::parse_description_trailers;
 use percent_encoding::NON_ALPHANUMERIC;
@@ -50,8 +52,9 @@ use crate::ui::Ui;
 /// Upload changes to Gerrit for code review, or update existing changes
 ///
 /// Uploading a set of revisions to Gerrit creates a single "change" for each
-/// revision included in the revset and all their mutable ancestors. These
-/// changes will then be available for review on your Gerrit instance.
+/// revision included in the revset and all their ancestors that are not
+/// already on the remote. These changes will then be available for review on
+/// your Gerrit instance. All of the uploaded revisions must be mutable.
 ///
 /// If a change already exists for a given revision (i.e. it contains the
 /// same `Change-Id`), this command will update the contents of the existing
@@ -454,7 +457,7 @@ pub async fn cmd_gerrit_upload(
             }
             // This distinguishes between the "squash workflow" and "edit workflow".
             Some(commit) => {
-                let revisions = if commit.description().is_empty() {
+                if commit.description().is_empty() {
                     let parents = commit.parent_ids();
                     if parents.len() != 1 {
                         return Err(user_error(
@@ -471,44 +474,47 @@ pub async fn cmd_gerrit_upload(
                 } else {
                     writeln!(ui.status(), "No revision provided. Defaulting to @")?;
                     vec![commit.id().clone()]
-                };
-
-                workspace_command.check_rewritable(&revisions).await?;
-                revisions
+                }
             }
         }
     } else {
-        let target_expr = workspace_command
-            .parse_union_revsets(ui, &args.revisions)?
-            .resolve()?;
         workspace_command
-            .check_rewritable_expr(&target_expr)
-            .await?;
-        target_expr
+            .parse_union_revsets(ui, &args.revisions)?
+            .resolve()?
             .evaluate(workspace_command.repo().as_ref())?
             .stream()
             .try_collect()
             .await?
     };
-    if revisions.is_empty() {
-        writeln!(ui.status(), "No revisions to upload.")?;
-        return Ok(());
-    }
+    let remote = calculate_push_remote(
+        workspace_command.repo().store(),
+        command.settings(),
+        args.remote.as_deref(),
+    )?;
 
     // If you have the changes main -> A -> B, then `jj gerrit upload -r B`
     // uploads both A and B. Thus, we need to ensure that A also has a
-    // `Change-Id` trailer.
-    // We make an assumption here that all immutable commits already have a
-    // `Change-Id` trailer.
+    // `Change-Id` trailer. Commits that are already on the remote don't need
+    // one.
+    let on_remote = RevsetExpression::remote_bookmarks(
+        RemoteRefSymbolExpression {
+            name: StringExpression::all(),
+            remote: StringExpression::exact(&remote),
+        },
+        None,
+    )
+    .union(&RevsetExpression::root());
     let to_upload: Vec<Commit> = workspace_command
-        .attach_revset_evaluator(
-            workspace_command
-                .env()
-                .immutable_expression()
-                .range(&RevsetExpression::commits(revisions.clone())),
-        )
+        .attach_revset_evaluator(on_remote.range(&RevsetExpression::commits(revisions.clone())))
         .evaluate_to_commits()?
         .try_collect()
+        .await?;
+    if to_upload.is_empty() {
+        writeln!(ui.status(), "No revisions to upload.")?;
+        return Ok(());
+    }
+    workspace_command
+        .check_rewritable(to_upload.iter().map(|commit| commit.id()))
         .await?;
 
     // Note: This transaction is intentionally never finished. This way, the
@@ -527,7 +533,6 @@ pub async fn cmd_gerrit_upload(
         .map_err(internal_error)?;
 
     let subprocess_options = GitSubprocessOptions::from_settings(command.settings())?;
-    let remote = calculate_push_remote(&store, command.settings(), args.remote.as_deref())?;
     let remote_branch = calculate_push_ref(command.settings(), args.remote_branch.clone())?;
 
     // Immediately error and reject any commits that shouldn't be uploaded.
