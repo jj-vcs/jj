@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::io::Write as _;
 use std::sync::Arc;
@@ -29,6 +30,7 @@ use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::settings::SignBehavior;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use jj_lib::trailer::Trailer;
@@ -511,6 +513,22 @@ pub async fn cmd_gerrit_upload(
         .try_collect()
         .await?;
 
+    // Evaluate against local commits before adding trailers or rewriting parents.
+    let sign_on_upload = workspace_command.parse_revset(
+        ui,
+        &RevisionArg::from(command.settings().get_string("revsets.git-sign-on-push")?),
+    )?;
+    let commits_to_sign: HashSet<CommitId> = workspace_command
+        .attach_revset_evaluator(sign_on_upload.expression().intersection(
+            &RevsetExpression::commits(
+                to_upload.iter().map(|commit| commit.id().clone()).collect(),
+            ),
+        ))
+        .evaluate_to_commits()?
+        .map_ok(|commit| commit.id().clone())
+        .try_collect()
+        .await?;
+
     // Note: This transaction is intentionally never finished. This way, the
     // `Change-Id` trailer is never part of the commit description in the user's
     // local repo. This avoids scenarios where you have many commits with the
@@ -623,7 +641,9 @@ pub async fn cmd_gerrit_upload(
             .map(|id| old_to_new.get(id).map_or(id, |p| p.id()).clone())
             .collect();
 
-        if new_description == original_commit.description()
+        let sign_commit = !args.dry_run && commits_to_sign.contains(original_commit.id());
+        if !sign_commit
+            && new_description == original_commit.description()
             && new_parents == original_commit.parent_ids()
         {
             // map the old commit to itself
@@ -633,7 +653,7 @@ pub async fn cmd_gerrit_upload(
 
         // rewrite the set of parents to point to the commits that were
         // previously rewritten in toposort order
-        let new_commit = tx
+        let mut commit_builder = tx
             .repo_mut()
             .rewrite_commit(&original_commit)
             .set_description(new_description)
@@ -642,10 +662,14 @@ pub async fn cmd_gerrit_upload(
             // Otherwise, `jj gerrit upload @ && jj gerrit upload @` will upload
             // two patch sets with the only difference being the timestamp.
             .set_committer(original_commit.committer().clone())
-            .set_author(original_commit.author().clone())
-            .write()
-            .await?;
-
+            .set_author(original_commit.author().clone());
+        if sign_commit {
+            commit_builder = commit_builder.set_sign_behavior(SignBehavior::Force);
+        }
+        // Signing can reproduce the original commit ID. These upload-only commits
+        // don't need rewrite tracking, which requires a new commit ID.
+        let new_commit = commit_builder.detach().write_hidden().await?;
+        tx.repo_mut().add_head(&new_commit).await?;
         old_to_new.insert(original_commit.id().clone(), new_commit);
     }
 

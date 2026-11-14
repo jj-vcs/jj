@@ -905,3 +905,146 @@ fn test_gerrit_upload_empty_merge_commit() {
     [EOF]
     ");
 }
+
+#[test_case::test_case(None, false, None, false, false; "disabled by default")]
+#[test_case::test_case(Some("none()"), false, None, false, false; "explicitly disabled")]
+#[test_case::test_case(Some("mine()"), false, None, true, true; "sign rewritten uploads")]
+#[test_case::test_case(Some("mine()"), true, None, true, true; "sign unchanged uploads")]
+#[test_case::test_case(Some("b"), true, None, true, false; "select ancestor before rewriting")]
+#[test_case::test_case(Some("c"), false, None, false, true; "select head only")]
+#[test_case::test_case(Some("mine()"), true, Some("upload-key"), true, true; "already signed")]
+#[test_case::test_case(Some("mine()"), true, Some("old-key"), true, true; "change signing key")]
+fn test_gerrit_upload_sign_on_push(
+    revset: Option<&str>,
+    explicit_trailers: bool,
+    local_signing_key: Option<&str>,
+    sign_b: bool,
+    sign_c: bool,
+) {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(
+        r#"
+        signing.backend = "test"
+        signing.key = "upload-key"
+        signing.behavior = "drop"
+        "#,
+    );
+    if let Some(revset) = revset {
+        test_env.add_config(format!("revsets.git-sign-on-push = {revset:?}"));
+    }
+    if local_signing_key.is_some() {
+        test_env.add_config("experimental.record-predecessors-in-commit = false");
+    }
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    create_commit(&local_dir, "b", &["a@origin"]);
+    create_commit(&local_dir, "c", &["b"]);
+    if explicit_trailers {
+        for (name, id) in [
+            ("b", "I1111111111111111111111111111111111111111"),
+            ("c", "I2222222222222222222222222222222222222222"),
+        ] {
+            local_dir
+                .run_jj([
+                    "describe",
+                    name,
+                    "-m",
+                    &format!("{name}\n\nChange-Id: {id}"),
+                ])
+                .success();
+        }
+    }
+    if let Some(key) = local_signing_key {
+        local_dir
+            .run_jj(["sign", "-r", "b|c", "--key", key])
+            .success();
+    }
+    local_dir.run_jj(["new", "c"]).success();
+    let before = local_dir
+        .run_jj(["log", "--no-graph", "-r", "::c", "-T", "commit_id"])
+        .success();
+
+    // A dry run must not invoke the signer, even when uploads need signatures.
+    local_dir
+        .run_jj([
+            "gerrit",
+            "upload",
+            "-r",
+            "c",
+            "--remote-branch=main",
+            "--dry-run",
+            "--config=signing.backend='ssh'",
+            "--config=signing.key='missing-upload-signing-key'",
+        ])
+        .success();
+
+    // Cause an ordinary working-copy snapshot during upload. It must stay unsigned.
+    local_dir.write_file("unrelated", "not being uploaded\n");
+    local_dir
+        .run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"])
+        .success();
+    let local_signed = local_dir
+        .run_jj(["log", "--no-graph", "-r", "signed()", "-T", "commit_id"])
+        .success();
+    if local_signing_key.is_none() {
+        assert!(local_signed.stdout.is_empty());
+    }
+    let after = local_dir
+        .run_jj(["log", "--no-graph", "-r", "::c", "-T", "commit_id"])
+        .success();
+    // Only the unrelated working-copy snapshot changes locally.
+    assert_eq!(before.stdout.raw(), after.stdout.raw());
+
+    for (revision, expected_signed) in [
+        ("refs/for/main", sign_c),
+        ("refs/for/main^", sign_b),
+        ("refs/for/main^^", false),
+    ] {
+        let output = remote_dir
+            .run_jj(["util", "exec", "--", "git", "cat-file", "commit", revision])
+            .success();
+        assert_eq!(output.stdout.raw().contains("\ngpgsig "), expected_signed);
+        if revision != "refs/for/main^^" {
+            assert!(output.stdout.raw().contains("\nChange-Id: I"));
+        }
+    }
+    remote_dir
+        .run_jj([
+            "util",
+            "exec",
+            "--",
+            "git",
+            "update-ref",
+            "refs/heads/upload",
+            "refs/for/main",
+        ])
+        .success();
+    let signatures = remote_dir
+        .run_jj([
+            "log",
+            "--no-graph",
+            "-r",
+            "::upload ~ root()",
+            "-T",
+            r#"description.first_line() ++ ":" ++ if(signature, signature.status() ++ ":" ++ signature.key(), "unsigned") ++ "\n""#,
+        ])
+        .success();
+    let status = |signed| {
+        if signed {
+            "good:upload-key"
+        } else {
+            "unsigned"
+        }
+    };
+    assert_eq!(
+        signatures.stdout.raw(),
+        format!("c:{}\nb:{}\na:unsigned\n", status(sign_c), status(sign_b)),
+    );
+}

@@ -24,6 +24,9 @@ and this project adheres to
 
 ### New features
 
+* `jj gerrit upload` now uses `revsets.git-sign-on-push` to sign final upload
+  commits. Each upload attempt signs the selected commits again.
+
 * New `with(values..., |names...| body)` templating function which allows you to
   assign expressions to name bindings in a lambda. Expressions are re-evaluated
   for each use, so this is effectively the same as defining temporary template

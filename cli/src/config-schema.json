@@ -734,7 +734,7 @@
                 },
                 "git-sign-on-push": {
                     "type": "string",
-                    "description": "Set of revisions to sign before pushing with jj git push",
+                    "description": "Set of revisions to sign before pushing with jj git push or jj gerrit upload",
                     "default": "none()"
                 },
                 "log": {
