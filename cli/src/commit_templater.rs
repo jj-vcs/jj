@@ -263,20 +263,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
-            CommitTemplatePropertyKind::WorkspaceRef(property) => {
-                let table = &self.build_fn_table.workspace_ref_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
-            CommitTemplatePropertyKind::WorkspaceRefOpt(property) => {
-                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
-                self.build_method(diagnostics, build_ctx, inner_property, function)
-            }
-            CommitTemplatePropertyKind::WorkspaceRefList(property) => {
-                let table = &self.build_fn_table.workspace_ref_list_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
             CommitTemplatePropertyKind::RefSymbol(property) => {
                 // Forward to String methods, but the type_name is "RefSymbol"
                 let methods = &self.build_fn_table.core.methods;
@@ -448,6 +434,7 @@ impl OperationTemplateEnvironment for CommitTemplateLanguage<'_> {
 impl OpaqueTemplateValue for Commit {}
 impl OpaqueTemplateValue for CommitEvolutionEntry {}
 impl OpaqueTemplateValue for Rc<CommitRef> {}
+impl OpaqueTemplateValue for WorkspaceRef {}
 
 impl NoTemplateBooleanCast for Commit {}
 impl NoTemplateBooleanCast for CommitEvolutionEntry {}
@@ -470,9 +457,6 @@ impl NoTemplateBooleanCast for Trailer {}
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
-    WorkspaceRef(BoxedTemplateProperty<'repo, WorkspaceRef>),
-    WorkspaceRefOpt(BoxedTemplateProperty<'repo, Option<WorkspaceRef>>),
-    WorkspaceRefList(BoxedTemplateProperty<'repo, Vec<WorkspaceRef>>),
     RefSymbol(BoxedTemplateProperty<'repo, RefSymbolBuf>),
     RefSymbolOpt(BoxedTemplateProperty<'repo, Option<RefSymbolBuf>>),
     RepoPath(BoxedTemplateProperty<'repo, RepoPathBuf>),
@@ -510,9 +494,6 @@ impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplateP
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
 template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
-    WorkspaceRef(WorkspaceRef),
-    WorkspaceRefOpt(Option<WorkspaceRef>),
-    WorkspaceRefList(Vec<WorkspaceRef>),
     RefSymbol(RefSymbolBuf),
     RefSymbolOpt(Option<RefSymbolBuf>),
     RepoPath(RepoPathBuf),
@@ -558,9 +539,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(registry),
-            Self::WorkspaceRef(_) => "WorkspaceRef",
-            Self::WorkspaceRefOpt(_) => "Option<WorkspaceRef>",
-            Self::WorkspaceRefList(_) => "List<WorkspaceRef>",
             Self::RefSymbol(_) => "RefSymbol",
             Self::RefSymbolOpt(_) => "Option<RefSymbol>",
             Self::RepoPath(_) => "RepoPath",
@@ -621,9 +599,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
             Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
-            Self::WorkspaceRef(_) => Err(self),
-            Self::WorkspaceRefOpt(property) => Ok(option_to_boolean(property)),
-            Self::WorkspaceRefList(property) => Ok(list_to_boolean(property)),
             Self::RefSymbol(_) => Err(self),
             Self::RefSymbolOpt(property) => Ok(option_to_boolean(property)),
             Self::RepoPath(_) => Err(self),
@@ -682,9 +657,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(registry),
-            Self::WorkspaceRef(property) => Some(property.into_serialize()),
-            Self::WorkspaceRefOpt(property) => Some(property.into_serialize()),
-            Self::WorkspaceRefList(property) => Some(property.into_serialize()),
             Self::RefSymbol(property) => Some(property.into_serialize()),
             Self::RefSymbolOpt(property) => Some(property.into_serialize()),
             Self::RepoPath(property) => Some(property.into_serialize()),
@@ -721,9 +693,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<Box<dyn Template + 'repo>> {
         match self {
             Self::Core(property) => property.try_into_template(registry),
-            Self::WorkspaceRef(property) => Some(property.into_template()),
-            Self::WorkspaceRefOpt(property) => Some(property.into_template()),
-            Self::WorkspaceRefList(property) => Some(property.into_template()),
             Self::RefSymbol(property) => Some(property.into_template()),
             Self::RefSymbolOpt(property) => Some(property.into_template()),
             Self::RepoPath(property) => Some(property.into_template()),
@@ -817,9 +786,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
             (Self::Core(_), _) => None,
-            (Self::WorkspaceRef(_), _) => None,
-            (Self::WorkspaceRefOpt(_), _) => None,
-            (Self::WorkspaceRefList(_), _) => None,
             (Self::RefSymbol(_), _) => None,
             (Self::RefSymbolOpt(_), _) => None,
             (Self::RepoPath(_), _) => None,
@@ -858,9 +824,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::WorkspaceRef(_), _) => None,
-            (Self::WorkspaceRefOpt(_), _) => None,
-            (Self::WorkspaceRefList(_), _) => None,
             (Self::RefSymbol(_), _) => None,
             (Self::RefSymbolOpt(_), _) => None,
             (Self::RepoPath(_), _) => None,
@@ -925,6 +888,20 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
         .conditionable()
         .formattable()
         .serializable();
+    registry
+        .register::<WorkspaceRef>("WorkspaceRef")
+        .formattable()
+        .serializable();
+    registry
+        .register::<Option<WorkspaceRef>>("Option<WorkspaceRef>")
+        .conditionable()
+        .formattable()
+        .serializable();
+    registry
+        .register::<Vec<WorkspaceRef>>("List<WorkspaceRef>")
+        .conditionable()
+        .formattable()
+        .serializable();
 }
 
 fn register_methods<'repo>(
@@ -949,6 +926,11 @@ fn register_methods<'repo>(
         <Vec<Rc<CommitRef>>>::value_type(),
         builtin_formattable_value_list_methods::<_, Rc<CommitRef>>(),
     );
+    methods.insert(WorkspaceRef::value_type(), builtin_workspace_ref_methods());
+    methods.insert(
+        <Vec<WorkspaceRef>>::value_type(),
+        builtin_formattable_value_list_methods::<_, WorkspaceRef>(),
+    );
 }
 
 /// Table of functions that translate method call node of self type `T`.
@@ -961,8 +943,6 @@ type CommitTemplateBuildValueMethodFnMap<'repo> =
 /// Symbol table of methods available in the commit template.
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
-    pub workspace_ref_methods: CommitTemplateBuildMethodFnMap<'repo, WorkspaceRef>,
-    pub workspace_ref_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<WorkspaceRef>>,
     pub repo_path_methods: CommitTemplateBuildMethodFnMap<'repo, RepoPathBuf>,
     pub change_id_methods: CommitTemplateBuildMethodFnMap<'repo, ChangeId>,
     pub commit_id_methods: CommitTemplateBuildMethodFnMap<'repo, CommitId>,
@@ -988,8 +968,6 @@ impl CommitTemplateBuildFnTable<'_> {
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
-            workspace_ref_methods: HashMap::new(),
-            workspace_ref_list_methods: HashMap::new(),
             repo_path_methods: HashMap::new(),
             change_id_methods: HashMap::new(),
             commit_id_methods: HashMap::new(),
@@ -1014,8 +992,6 @@ impl CommitTemplateBuildFnTable<'_> {
     fn merge(&mut self, other: Self) {
         let Self {
             core,
-            workspace_ref_methods,
-            workspace_ref_list_methods,
             repo_path_methods,
             change_id_methods,
             commit_id_methods,
@@ -1037,11 +1013,6 @@ impl CommitTemplateBuildFnTable<'_> {
         } = other;
 
         self.core.merge(core);
-        merge_fn_map(&mut self.workspace_ref_methods, workspace_ref_methods);
-        merge_fn_map(
-            &mut self.workspace_ref_list_methods,
-            workspace_ref_list_methods,
-        );
         merge_fn_map(&mut self.repo_path_methods, repo_path_methods);
         merge_fn_map(&mut self.change_id_methods, change_id_methods);
         merge_fn_map(&mut self.commit_id_methods, commit_id_methods);
@@ -1085,8 +1056,6 @@ impl CommitTemplateBuildFnTable<'_> {
         register_methods(&mut core);
         Self {
             core,
-            workspace_ref_methods: builtin_workspace_ref_methods(),
-            workspace_ref_list_methods: template_builder::builtin_formattable_list_methods(),
             repo_path_methods: builtin_repo_path_methods(),
             change_id_methods: builtin_change_id_methods(),
             commit_id_methods: builtin_commit_id_methods(),
@@ -2022,11 +1991,13 @@ impl Template for Vec<WorkspaceRef> {
     }
 }
 
-fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, WorkspaceRef> {
-    let mut map = CommitTemplateBuildMethodFnMap::<WorkspaceRef>::new();
+fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
+    type T = WorkspaceRef;
+    let mut map = CommitTemplateBuildValueMethodFnMap::new();
     map.insert(
         "name",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|ws_ref| RefSymbolBuf(ws_ref.name.into()));
             Ok(out_property.into_dyn_wrapped())
@@ -2035,6 +2006,7 @@ fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'rep
     map.insert(
         "current_workspace",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let current_workspace_name = language.workspace_name.clone();
             let out_property =
@@ -2044,7 +2016,8 @@ fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'rep
     );
     map.insert(
         "target",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|ws_ref| ws_ref.target);
             Ok(out_property.into_dyn_wrapped())
@@ -2053,6 +2026,7 @@ fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'rep
     map.insert(
         "root",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let workspace_store = language.repo.base_repo().loader().workspace_store();
             // Workspaces created before jj 0.38.0 may not have a recorded path. List
