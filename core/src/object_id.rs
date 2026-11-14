@@ -217,6 +217,26 @@ impl HexPrefix {
         &self.min_prefix_bytes
     }
 
+    /// Smallest bytes that are greater than every id matching this prefix
+    /// (e.g. "abd0" for "abc", and "ac" for "abff"), or `None` if there are no
+    /// such bytes because the prefix consists only of "f"s.
+    ///
+    /// Together with [`min_prefix_bytes()`](Self::min_prefix_bytes), this
+    /// gives the range of ids matching this prefix, which can be used to scan
+    /// sorted storage such as a database index.
+    pub fn upper_bound_bytes(&self) -> Option<Vec<u8>> {
+        let mut bytes = self.min_prefix_bytes.clone();
+        let mut increment = if self.has_odd_byte { 0x10 } else { 1 };
+        while let Some(last) = bytes.pop() {
+            if let Some(incremented) = last.checked_add(increment) {
+                bytes.push(incremented);
+                return Some(bytes);
+            }
+            increment = 1;
+        }
+        None
+    }
+
     /// Returns the bytes representation if this prefix can be a full id.
     pub fn as_full_bytes(&self) -> Option<&[u8]> {
         (!self.has_odd_byte).then_some(&self.min_prefix_bytes)
@@ -327,6 +347,23 @@ mod tests {
 
         let bad_prefix = HexPrefix::try_from_hex("foobar");
         assert_eq!(bad_prefix, None);
+    }
+
+    #[test]
+    fn test_hex_prefix_upper_bound_bytes() {
+        let upper_bound = |hex: &str| HexPrefix::try_from_hex(hex).unwrap().upper_bound_bytes();
+        assert_eq!(upper_bound("1"), Some(b"\x20".to_vec()));
+        assert_eq!(upper_bound("12"), Some(b"\x13".to_vec()));
+        assert_eq!(upper_bound("123"), Some(b"\x12\x40".to_vec()));
+        // Carries into the preceding digits
+        assert_eq!(upper_bound("1f"), Some(b"\x20".to_vec()));
+        assert_eq!(upper_bound("12f"), Some(b"\x13".to_vec()));
+        assert_eq!(upper_bound("12ff"), Some(b"\x13".to_vec()));
+        // All "f"s
+        assert_eq!(upper_bound(""), None);
+        assert_eq!(upper_bound("f"), None);
+        assert_eq!(upper_bound("ff"), None);
+        assert_eq!(upper_bound("fff"), None);
     }
 
     #[test]
