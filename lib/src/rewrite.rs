@@ -17,6 +17,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::slice;
+use std::sync::Mutex;
 
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
@@ -29,6 +30,7 @@ use itertools::Itertools as _;
 use jj_core::backend::BackendError;
 use jj_core::backend::BackendResult;
 use jj_core::backend::CommitId;
+use jj_core::backend::TreeValue;
 use jj_core::commit::Commit;
 use jj_core::commit::CommitIteratorExt as _;
 use jj_core::commit::conflict_label_for_commits;
@@ -37,12 +39,17 @@ use jj_core::index::Index;
 use jj_core::index::IndexResult;
 use jj_core::index::ResolvedChangeTargets;
 use jj_core::iter_util::fallible_any;
+use jj_core::matchers::FilesMatcher;
+use jj_core::matchers::IntersectionMatcher;
 use jj_core::matchers::Matcher;
+use jj_core::matchers::PrefixMatcher;
+use jj_core::matchers::UnionMatcher;
 use jj_core::matchers::Visit;
 use jj_core::merge::Diff;
 use jj_core::merge::Merge;
 use jj_core::merged_tree::MergedTree;
 use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
 use jj_core::revset_backend::RevsetStreamExt as _;
 
 use crate::commit_builder::CommitBuilder;
@@ -75,6 +82,9 @@ pub async fn restore_tree(
         // Optimization for a common case
         return Ok(source.clone());
     }
+    let Some(matcher) = narrow_matcher_for_restore(source, destination, matcher).await? else {
+        return Ok(destination.clone());
+    };
 
     const RESTORE_BASE_LABEL: &str = "base files for restore";
 
@@ -104,21 +114,131 @@ pub async fn restore_tree(
     // TODO: using a merge is required for retaining conflict labels when restoring
     // from/into conflicted trees, but maybe we could optimize the case where both
     // trees are already resolved.
+    let (base_filtered, source_filtered) = try_join!(
+        base_tree.filtered(matcher.as_ref()),
+        source.filtered(matcher.as_ref()),
+    )?;
     MergedTree::merge(Merge::from_vec(vec![
         (
             destination.clone(),
             format!("{destination_label} (restore destination)"),
         ),
         (
-            base_tree.filtered(matcher).await?,
+            base_filtered,
             format!("{RESTORE_BASE_LABEL} (from {destination_label})"),
         ),
         (
-            source.filtered(matcher).await?,
+            source_filtered,
             format!("restored files (from {source_label})"),
         ),
     ]))
     .await
+}
+
+#[derive(Debug)]
+struct DiffNarrowingMatcher<'a> {
+    inner: &'a dyn Matcher,
+    // `conflicts_matching()` checks `matches()` rather than `visit()` on mixed
+    // file/tree conflicts, so treat directory-visitable paths as matching there.
+    visit_non_trees: bool,
+    prefixes: Mutex<Vec<RepoPathBuf>>,
+}
+
+impl<'a> DiffNarrowingMatcher<'a> {
+    fn new(inner: &'a dyn Matcher, visit_non_trees: bool) -> Self {
+        Self {
+            inner,
+            visit_non_trees,
+            prefixes: Mutex::new(Vec::new()),
+        }
+    }
+}
+
+impl Matcher for DiffNarrowingMatcher<'_> {
+    fn matches(&self, file: &RepoPath) -> bool {
+        self.inner.matches(file) || (self.visit_non_trees && !self.inner.visit(file).is_nothing())
+    }
+
+    fn visit(&self, dir: &RepoPath) -> Visit {
+        match self.inner.visit(dir) {
+            Visit::AllRecursively => {
+                self.prefixes.lock().unwrap().push(dir.to_owned());
+                Visit::Nothing
+            }
+            visit => visit,
+        }
+    }
+}
+
+/// Narrows `matcher` to paths where `destination` and `source` differ (or have
+/// unresolved conflicts), avoiding full-tree walks in `MergedTree::filtered()`
+/// for unchanged resolved subtrees.
+async fn narrow_matcher_for_restore<'a>(
+    source: &MergedTree,
+    destination: &MergedTree,
+    matcher: &'a dyn Matcher,
+) -> BackendResult<Option<Box<dyn Matcher + 'a>>> {
+    if matcher.visit(RepoPath::root()).is_nothing()
+        || source.tree_ids_and_labels() == destination.tree_ids_and_labels()
+    {
+        return Ok(None);
+    }
+
+    let diff_matcher = DiffNarrowingMatcher::new(matcher, false);
+    let mut files: Vec<RepoPathBuf> = destination
+        .diff(source, &diff_matcher)
+        .map(|entry| entry.values.map(|_| entry.path))
+        .try_collect()
+        .await?;
+    let mut prefixes = diff_matcher.prefixes.into_inner().unwrap();
+
+    // `MergedTree::diff()` skips entries where `before == after` (which still
+    // matter when both trees are conflicted, e.g. to preserve `source`'s
+    // conflict labels or simplify multi-file conflicts) and does not descend
+    // into intra-commit mixed file/tree conflicts. Scan conflicted subtrees
+    // (skipping resolved subtrees in O(1)) to include those paths too.
+    let both_conflicted = destination.has_conflict() && source.has_conflict();
+    let conflict_trees: &[&MergedTree] = if destination.tree_ids() == source.tree_ids() {
+        &[destination]
+    } else {
+        &[destination, source]
+    };
+    for tree in conflict_trees {
+        if !tree.has_conflict() {
+            continue;
+        }
+        let conflict_matcher = DiffNarrowingMatcher::new(matcher, true);
+        let mut conflicts = tree.conflicts_matching(&conflict_matcher);
+        while let Some((path, value)) = conflicts.next().await {
+            let value = value?;
+            if both_conflicted && matcher.matches(&path) {
+                files.push(path.clone());
+            }
+            if value
+                .iter()
+                .flatten()
+                .any(|v| matches!(v, TreeValue::Tree(_)))
+                && !matcher.visit(&path).is_nothing()
+            {
+                prefixes.push(path);
+            }
+        }
+        drop(conflicts);
+        prefixes.extend(conflict_matcher.prefixes.into_inner().unwrap());
+    }
+
+    let narrowed: Box<dyn Matcher + 'a> = match (files.is_empty(), prefixes.is_empty()) {
+        (true, true) => return Ok(None),
+        (false, true) => Box::new(FilesMatcher::new(files)),
+        (_, false) => Box::new(IntersectionMatcher::new(
+            matcher,
+            UnionMatcher::new(FilesMatcher::new(files), PrefixMatcher::new(prefixes)),
+        )),
+    };
+    if narrowed.visit(RepoPath::root()).is_nothing() {
+        return Ok(None);
+    }
+    Ok(Some(narrowed))
 }
 
 /// Rebases `old_commit` onto `new_parents`.
