@@ -1,0 +1,45 @@
+name: nix
+
+# `nix flake check` is slow and sometimes times out, and it rarely catches
+# anything that the other CI jobs don't. It therefore only runs on pull requests
+# that touch the Nix files or `Cargo.lock`, plus on pushes to `main`. It's
+# deliberately not part of the merge queue so it can't kick pull requests out of
+# the queue.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - "**/*.nix"
+      - "flake.lock"
+      - "Cargo.lock"
+      - ".github/workflows/nix.yml"
+
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{
+      github.event.pull_request.number
+      || github.sha
+    }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  build-nix:
+    name: nix flake
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b
+      - run: nix flake check -L --show-trace
