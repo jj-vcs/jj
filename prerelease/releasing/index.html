@@ -1765,13 +1765,41 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#update-changelog-and-cargo-versions" class="md-nav__link">
+  <a href="#create-release-pr" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Update changelog and Cargo versions
+        Create release PR
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Create release PR">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#update-changelog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update changelog
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#update-cargo-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update Cargo versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1791,6 +1819,17 @@
     <span class="md-ellipsis">
       
         Publish the crates to crates.io
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discord-announcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discord announcement
       
     </span>
   </a>
@@ -2228,13 +2267,41 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#update-changelog-and-cargo-versions" class="md-nav__link">
+  <a href="#create-release-pr" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Update changelog and Cargo versions
+        Create release PR
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Create release PR">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#update-changelog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update changelog
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#update-cargo-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update Cargo versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2254,6 +2321,17 @@
     <span class="md-ellipsis">
       
         Publish the crates to crates.io
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discord-announcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discord announcement
       
     </span>
   </a>
@@ -2286,27 +2364,50 @@
 
 
 <h1 id="how-to-do-a-release">How to do a release<a class="headerlink" href="#how-to-do-a-release" title="Permanent link">&para;</a></h1>
-<h2 id="update-changelog-and-cargo-versions">Update changelog and Cargo versions<a class="headerlink" href="#update-changelog-and-cargo-versions" title="Permanent link">&para;</a></h2>
-<p>Send a PR similar to <a href="https://github.com/jj-vcs/jj/pull/7954">https://github.com/jj-vcs/jj/pull/7954</a>. Feel free to
-copy-edit the changelog in order to:</p>
+<h2 id="create-release-pr">Create release PR<a class="headerlink" href="#create-release-pr" title="Permanent link">&para;</a></h2>
+<p>Create a PR with the following steps, and get it reviewed and merged as usual.
+See <a href="https://github.com/jj-vcs/jj/pull/7954">https://github.com/jj-vcs/jj/pull/7954</a> for an example, or see
+<a href="https://github.com/jj-vcs/jj/pulls?q=is:pr+release+in:title">https://github.com/jj-vcs/jj/pulls?q=is:pr+release+in:title</a> for all previous
+release PRs.</p>
+<p>For ease of explanation, the following will use <code>$OLD_VERSION</code> and
+<code>$NEW_VERSION</code> as placeholders. For example, <code>$OLD_VERSION</code> could be <code>0.32.0</code>
+and <code>$NEW_VERSION</code> could be <code>0.33.0</code>.</p>
+<h3 id="update-changelog">Update changelog<a class="headerlink" href="#update-changelog" title="Permanent link">&para;</a></h3>
+<p>At the top, replace the <code>Unreleased</code> header with:</p>
+<div class="highlight"><pre><span></span><code><span class="gu">## [Unreleased]</span>
+
+<span class="gu">### Release highlights</span>
+
+<span class="gu">### Breaking changes</span>
+
+<span class="gu">### Deprecations</span>
+
+<span class="gu">### New features</span>
+
+<span class="gu">### Fixed bugs</span>
+
+<span class="gu">## [$NEW_VERSION] - YYYY-MM-DD</span>
+</code></pre></div>
+<p>Feel free to copy-edit the changelog entries in order to:</p>
 <ul>
 <li>Populate "Release highlights" if relevant</li>
+<li>Remove empty sections</li>
 <li>Put more important items first so the reader doesn't miss them</li>
 <li>Make items consistent when it comes to language and formatting</li>
-<li>Catch any misplaced changelog items by looking at the CHANGELOG diff.</li>
+<li>Catch any misplaced changelog items by looking at the CHANGELOG diff</li>
 </ul>
 <p>To get the CHANGELOG diff, you can run</p>
-<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(tags())&#39;</span><span class="w">  </span><span class="c1"># Check that this shows the previous version</span>
-jj<span class="w"> </span>diff<span class="w"> </span>--from<span class="w"> </span><span class="s1">&#39;heads(tags())&#39;</span><span class="w"> </span>--to<span class="w"> </span>main<span class="w"> </span>CHANGELOG.md
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(remote_tags())&#39;</span><span class="w">  </span><span class="c1"># Check that this shows $OLD_VERSION</span>
+jj<span class="w"> </span>diff<span class="w"> </span>--from<span class="w"> </span><span class="s1">&#39;heads(remote_tags())&#39;</span><span class="w"> </span>--to<span class="w"> </span>main<span class="w"> </span>CHANGELOG.md
 </code></pre></div>
 <p>Make sure to add a corresponding reference link at the bottom of the
 CHANGELOG for the new version's tag. It should be the GitHub URL comparing
-the previous version tag with the new version tag
-(e.g. <code>https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0</code>). Also update the
-<code>[unreleased]</code> link accordingly, comparing the newest version against <code>HEAD</code>.</p>
+<code>$OLD_VERSION</code> with <code>$NEW_VERSION</code> (e.g.,
+<code>https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0</code>). Also update the
+<code>[unreleased]</code> link accordingly, comparing <code>$NEW_VERSION</code> against <code>HEAD</code>.</p>
 <p>Producing the list of contributors is a bit annoying. The current suggestion is
 to run something like this:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">root</span><span class="o">=</span><span class="k">$(</span>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(tags(glob:&quot;v*.*.*&quot;) &amp; ::trunk())&#39;</span><span class="w"> </span>-T<span class="w"> </span>commit_id<span class="k">)</span>
+<div class="highlight"><pre><span></span><code><span class="nv">root</span><span class="o">=</span><span class="k">$(</span>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(remote_tags(glob:&quot;v*.*.*&quot;) &amp; ::trunk())&#39;</span><span class="w"> </span>-T<span class="w"> </span>commit_id<span class="k">)</span>
 <span class="nv">filter</span><span class="o">=</span><span class="s1">&#39;</span>
 <span class="s1">map(.commits[] | select(.author.login | (. != null and endswith(&quot;[bot]&quot;) | not)))</span>
 <span class="s1">  | unique_by(if .author.login != null then .author.login else .author.email end)</span>
@@ -2320,22 +2421,58 @@ gh<span class="w"> </span>api<span class="w"> </span><span class="s2">&quot;/rep
 </code></pre></div>
 <p><a href="https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#compare-two-commits">https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#compare-two-commits</a></p>
 <p>Alternatively, the list can be produced locally:</p>
-<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(tags())..main&#39;</span><span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;&quot;* &quot; ++ author ++ &quot;\n&quot;&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-fu
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(remote_tags())..trunk()&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>-T<span class="w"> </span><span class="s1">&#39;if(!self.author().name().ends_with(&quot;[bot]&quot;), &quot;* &quot; ++ self.author() ++ &quot;\n&quot;)&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-fu
 </code></pre></div>
 <p>Then try to find the right GitHub username for each person and copy their name
-and username from the GitHub page for the person
-(e.g. <a href="https://github.com/martinvonz">https://github.com/martinvonz</a>).</p>
-<p>Get the PR through review and get it merged as usual.</p>
+and username from their GitHub profile (e.g., <a href="https://github.com/martinvonz">https://github.com/martinvonz</a>).</p>
+<p>It might be good to cross-reference both of these outputs just in case.</p>
+<p>Add the list of contributors under the last subsection for this version (usually
+<code>Fixed bugs</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="gu">### Contributors</span>
+
+Thanks to the people who made this release happen!
+
+
+<span class="k">*</span><span class="w"> </span>Name 1 (@github1)
+<span class="k">*</span><span class="w"> </span>Name 2 (@github2)
+<span class="k">*</span><span class="w"> </span>...
+</code></pre></div>
+<h3 id="update-cargo-versions">Update Cargo versions<a class="headerlink" href="#update-cargo-versions" title="Permanent link">&para;</a></h3>
+<p>Search and replace <code>$OLD_VERSION</code> for <code>$NEW_VERSION</code> in <code>Cargo.toml</code>, then run
+<code>cargo check</code> to update <code>Cargo.lock</code> (don't do that one manually). For example:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Escape the dots in the pattern so it doesn&#39;t match as a wildcard.</span>
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/&quot;0\.32\.0&quot;/&quot;0.33.0&quot;/g&#39;</span><span class="w"> </span>Cargo.toml
+<span class="c1"># On macOS, pass an empty &#39;extension&#39; to `-i`:</span>
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="s1">&#39;s/&quot;0\.32\.0&quot;/&quot;0.33.0&quot;/g&#39;</span><span class="w"> </span>Cargo.toml
+</code></pre></div>
+<p>The version changes in <code>Cargo.toml</code> should update <code>workspace.package.version</code>
+and all <code>workspace.dependencies.jj-*.version</code> values. Make sure to check that
+other packages aren't affected.</p>
 <h2 id="create-a-tag-and-a-github-release">Create a tag and a GitHub release<a class="headerlink" href="#create-a-tag-and-a-github-release" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Go to <a href="https://github.com/jj-vcs/jj/releases">https://github.com/jj-vcs/jj/releases</a> and click "Draft a new release"</li>
-<li>Click "Choose a tag" and enter "v0.\&lt;number&gt;.0" (e.g. "v0.26.0") to create a
+<li>Click "Select tag" and enter "v0.\&lt;number&gt;.0" (e.g. "v0.33.0") to create a
    new tag</li>
 <li>Click "Target", then "Recent commits", and select the commit from your merged
    PR</li>
-<li>Use the name (e.g. "v0.26.0") as "Release title". Paste the changelog entries
-   into the message body</li>
-<li>Check "Create a discussion for this release"</li>
+<li>Use the name (e.g. "v0.33.0") as "Release title"</li>
+<li>
+<p>Paste this header into the message body. Note that it includes a pinned docs
+   link to <code>$NEW_VERSION</code>:
+   <div class="highlight"><pre><span></span><code><span class="gu">### About</span>
+
+jj is a Git-compatible version control system that is both simple and powerful.
+See the [<span class="nt">installation instructions</span>](<span class="na">https://docs.jj-vcs.dev/v$NEW_VERSION/install-and-setup/</span>) to get started.
+</code></pre></div></p>
+</li>
+<li>
+<p>After that, paste everything in the changelog for the current version from
+   your PR in the rest of the message body (only include the level-3 headings)</p>
+</li>
+<li>Keep "Latest" selected for "Release label" (should be default)</li>
+<li>Check "Create a discussion for this release" (Category: General)</li>
 <li>Click "Publish release"</li>
 </ol>
 <h2 id="publish-the-crates-to-cratesio">Publish the crates to crates.io<a class="headerlink" href="#publish-the-crates-to-cratesio" title="Permanent link">&para;</a></h2>
@@ -2348,6 +2485,10 @@ jj<span class="w"> </span>new<span class="w"> </span>v0.&lt;number&gt;.0
 <p>Publish each crate:</p>
 <div class="highlight"><pre><span></span><code>cargo<span class="w"> </span>publish<span class="w"> </span>--workspace
 </code></pre></div>
+<h2 id="discord-announcement">Discord announcement<a class="headerlink" href="#discord-announcement" title="Permanent link">&para;</a></h2>
+<p>In the <a href="https://discord.com/channels/968932220549103686/1245847953726378124">#announcements</a> channel, post a message about the new version release
+with a link to the releases page (e.g.,
+<a href="https://github.com/jj-vcs/jj/releases/tag/v0.33.0">https://github.com/jj-vcs/jj/releases/tag/v0.33.0</a>).</p>
 <div class="footnote">
 <hr />
 <ol>
