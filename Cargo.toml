@@ -203,6 +203,10 @@ codegen-units = 1
 debug = "line-tables-only"
 opt-level = 3
 
+[profile.test]
+# CLI tests benefit from the faster runtime of opt-level 1
+opt-level = 1
+
 [profile.release]
 strip = "debuginfo"
 codegen-units = 1
