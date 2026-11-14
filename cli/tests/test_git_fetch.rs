@@ -626,6 +626,39 @@ fn test_git_fetch_nonexistent_remote_from_config() {
 }
 
 #[test]
+fn test_git_fetch_object_format_mismatch() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = gix::ThreadSafeRepository::init_opts(
+        test_env.env_root().join("sha256"),
+        gix::create::Kind::WithWorktree,
+        gix::create::Options {
+            object_hash: Some(gix::hash::Kind::Sha256),
+            ..Default::default()
+        },
+        gix::open::Options::isolated(),
+    )
+    .unwrap()
+    .to_thread_local();
+    add_commit_to_branch(&git_repo, "main", "message");
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "../sha256"])
+        .success();
+
+    let output = work_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Fetching from Git remotes: origin
+    Error: The remote repository uses a different object format
+    Hint: This repository uses the sha1 object format and the remote uses sha256. jj cannot convert between object formats.
+    Hint: To use this remote, clone it into a new repository with `jj git clone --object-hash sha256`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_git_fetch_from_remote_named_git() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.bar.auto-track-bookmarks = '*'");

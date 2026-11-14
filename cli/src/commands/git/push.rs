@@ -77,6 +77,7 @@ use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
 use crate::git_util::GitSubprocessUi;
+use crate::git_util::object_format_mismatch_error;
 use crate::git_util::print_push_stats;
 use crate::progress::ProgressWriter;
 use crate::revset_util::parse_bookmark_name;
@@ -587,7 +588,13 @@ pub async fn cmd_git_push(
             ref_updates,
             &mut GitSubprocessUi::new(ui),
             &options,
-        )?;
+        )
+        .map_err(|err| match err {
+            err if err.is_object_format_mismatch() => {
+                object_format_mismatch_error(err, tx.repo().store())
+            }
+            err => err.into(),
+        })?;
 
         print_push_stats(ui, &push_stats)?;
 

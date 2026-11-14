@@ -304,6 +304,37 @@ fn test_gerrit_upload_failure() {
 }
 
 #[test]
+fn test_gerrit_upload_object_format_mismatch() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--object-hash=sha256", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    local_dir
+        .run_jj(["git", "remote", "add", "origin", "../remote"])
+        .success();
+    create_commit(&local_dir, "b", &[]);
+
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
+    Pushing royxmykx 00398bf1 b | b
+    Error: The remote repository uses a different object format
+    Hint: This repository uses the sha256 object format and the remote uses sha1. jj cannot convert between object formats.
+    Hint: To use this remote, clone it into a new repository with `jj git clone --object-hash sha1`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_gerrit_upload_local_implicit_change_ids() {
     let test_env = TestEnvironment::default();
     test_env

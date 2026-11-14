@@ -187,6 +187,33 @@ impl GitSubprocessCallback for GitSubprocessUi<'_> {
     }
 }
 
+/// Creates an error for a fetch or push that failed because the remote uses a
+/// different object format than the local repository.
+pub fn object_format_mismatch_error(
+    err: impl Into<Box<dyn error::Error + Send + Sync>>,
+    store: &Store,
+) -> CommandError {
+    let err = user_error(err);
+    let Ok(git_repo) = git::get_git_repo(store) else {
+        return err;
+    };
+    // There are only two object formats, so the remote uses the other one.
+    let local = git_repo.object_hash();
+    let remote = match local {
+        gix::hash::Kind::Sha1 => gix::hash::Kind::Sha256,
+        gix::hash::Kind::Sha256 => gix::hash::Kind::Sha1,
+        _ => return err,
+    };
+    err.hinted(format!(
+        "This repository uses the {local} object format and the remote uses {remote}. jj cannot \
+         convert between object formats."
+    ))
+    .hinted(format!(
+        "To use this remote, clone it into a new repository with `jj git clone --object-hash \
+         {remote}`."
+    ))
+}
+
 pub fn load_git_import_options(
     ui: &Ui,
     git_settings: &GitSettings,

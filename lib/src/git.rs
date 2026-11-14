@@ -3610,6 +3610,17 @@ pub enum GitPushError {
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
+impl GitPushError {
+    /// Returns true if the push failed because the remote repository uses a
+    /// different object format.
+    pub fn is_object_format_mismatch(&self) -> bool {
+        matches!(
+            self,
+            Self::Subprocess(GitSubprocessError::ObjectFormatMismatch)
+        )
+    }
+}
+
 /// Bookmarks and tags to push, as expected and new targets.
 #[derive(Clone, Debug, Default)]
 pub struct GitPushRefTargets {
