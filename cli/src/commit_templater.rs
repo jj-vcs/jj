@@ -178,7 +178,8 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         conflict_marker_style: ConflictMarkerStyle,
         extensions: &[impl AsRef<dyn CommitTemplateLanguageExtension>],
     ) -> Self {
-        let type_registry = template_builder::new_core_type_registry();
+        let mut type_registry = template_builder::new_core_type_registry();
+        operation_templater::register_types(&mut type_registry);
         let mut build_fn_table = CommitTemplateBuildFnTable::builtin();
         let mut cache_extensions = ExtensionsMap::empty();
 
@@ -1170,6 +1171,7 @@ impl CommitTemplateBuildFnTable<'_> {
     fn builtin() -> Self {
         let mut core = CoreTemplateBuildFnTable::builtin();
         merge_fn_map(&mut core.functions, builtin_commit_template_functions());
+        operation_templater::register_methods(&mut core);
         Self {
             core,
             operation: OperationTemplateBuildFnTable::builtin(),

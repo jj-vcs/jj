@@ -39,12 +39,16 @@ use pollster::FutureExt as _;
 
 use crate::template_builder;
 use crate::template_builder::BuildContext;
+use crate::template_builder::BuildValueMethodFnMap;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::builtin_unformattable_value_list_methods;
+use crate::template_builder::cast_value_property;
 use crate::template_builder::merge_fn_map;
+use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
 use crate::template_value::TemplateValue;
 use crate::templater::BoxedAnyProperty;
@@ -55,8 +59,6 @@ use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::WrapTemplateProperty;
-use crate::templater::list_to_boolean;
-use crate::templater::option_to_boolean;
 
 pub trait OperationTemplateLanguageExtension {
     fn build_fn_table(&self) -> OperationTemplateLanguageBuildFnTable;
@@ -89,7 +91,8 @@ impl OperationTemplateLanguage {
         current_dir: &Path,
         extensions: &[impl AsRef<dyn OperationTemplateLanguageExtension>],
     ) -> Self {
-        let type_registry = template_builder::new_core_type_registry();
+        let mut type_registry = template_builder::new_core_type_registry();
+        register_types(&mut type_registry);
         let mut build_fn_table = OperationTemplateLanguageBuildFnTable::builtin();
         let mut cache_extensions = ExtensionsMap::empty();
 
@@ -183,14 +186,13 @@ where
 {
 }
 
+impl OpaqueTemplateValue for Operation {}
+
 impl NoTemplateBooleanCast for Operation {}
 impl NoTemplateBooleanCast for OperationId {}
 
 /// Tagged union of the operation template property types.
 pub enum OperationTemplatePropertyKind<'a> {
-    Operation(BoxedTemplateProperty<'a, Operation>),
-    OperationOpt(BoxedTemplateProperty<'a, Option<Operation>>),
-    OperationList(BoxedTemplateProperty<'a, Vec<Operation>>),
     OperationId(BoxedTemplateProperty<'a, OperationId>),
 }
 
@@ -201,9 +203,6 @@ pub enum OperationTemplatePropertyKind<'a> {
 macro_rules! impl_operation_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
-            Operation(jj_lib::operation::Operation),
-            OperationOpt(Option<jj_lib::operation::Operation>),
-            OperationList(Vec<jj_lib::operation::Operation>),
             OperationId(jj_lib::op_store::OperationId),
         });
     };
@@ -216,9 +215,6 @@ impl_operation_property_wrappers!(<'a> OperationTemplatePropertyKind<'a>);
 impl<'a> OperationTemplatePropertyKind<'a> {
     pub fn type_name(&self) -> &'static str {
         match self {
-            Self::Operation(_) => "Operation",
-            Self::OperationOpt(_) => "Option<Operation>",
-            Self::OperationList(_) => "List<Operation>",
             Self::OperationId(_) => "OperationId",
         }
     }
@@ -233,9 +229,6 @@ impl<'a> OperationTemplatePropertyKind<'a> {
 
     pub fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
         match self {
-            Self::Operation(_) => Err(self),
-            Self::OperationOpt(property) => Ok(option_to_boolean(property)),
-            Self::OperationList(property) => Ok(list_to_boolean(property)),
             Self::OperationId(_) => Err(self),
         }
     }
@@ -250,27 +243,18 @@ impl<'a> OperationTemplatePropertyKind<'a> {
 
     pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
         match self {
-            Self::Operation(property) => Some(property.into_serialize()),
-            Self::OperationOpt(property) => Some(property.into_serialize()),
-            Self::OperationList(property) => Some(property.into_serialize()),
             Self::OperationId(property) => Some(property.into_serialize()),
         }
     }
 
     pub fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
         match self {
-            Self::Operation(_) => None,
-            Self::OperationOpt(_) => None,
-            Self::OperationList(_) => None,
             Self::OperationId(property) => Some(property.into_template()),
         }
     }
 
     pub fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
-            (Self::Operation(_), _) => None,
-            (Self::OperationOpt(_), _) => None,
-            (Self::OperationList(_), _) => None,
             (Self::OperationId(_), _) => None,
         }
     }
@@ -280,18 +264,12 @@ impl<'a> OperationTemplatePropertyKind<'a> {
         other: CoreTemplatePropertyKind<'a>,
     ) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
-            (Self::Operation(_), _) => None,
-            (Self::OperationOpt(_), _) => None,
-            (Self::OperationList(_), _) => None,
             (Self::OperationId(_), _) => None,
         }
     }
 
     pub fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         match (self, other) {
-            (Self::Operation(_), _) => None,
-            (Self::OperationOpt(_), _) => None,
-            (Self::OperationList(_), _) => None,
             (Self::OperationId(_), _) => None,
         }
     }
@@ -301,9 +279,6 @@ impl<'a> OperationTemplatePropertyKind<'a> {
         other: CoreTemplatePropertyKind<'a>,
     ) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         match (self, other) {
-            (Self::Operation(_), _) => None,
-            (Self::OperationOpt(_), _) => None,
-            (Self::OperationList(_), _) => None,
             (Self::OperationId(_), _) => None,
         }
     }
@@ -442,31 +417,48 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
 
 impl OperationTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind {}
 
+pub fn register_types(registry: &mut TemplateTypeRegistry) {
+    registry.register::<Operation>("Operation").serializable();
+    registry
+        .register::<Option<Operation>>("Option<Operation>")
+        .conditionable()
+        .serializable();
+    registry
+        .register::<Vec<Operation>>("List<Operation>")
+        .conditionable()
+        .serializable();
+}
+
+pub fn register_methods<'a, L>(table: &mut CoreTemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
+    L::Property: OperationTemplatePropertyVar<'a>,
+{
+    let methods = &mut table.methods;
+    methods.insert(Operation::value_type(), builtin_operation_methods());
+    methods.insert(
+        <Vec<Operation>>::value_type(),
+        builtin_unformattable_value_list_methods::<_, Operation>(),
+    );
+}
+
 /// Symbol table for the operation template property types.
 pub struct OperationTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
-    pub operation_methods: TemplateBuildMethodFnMap<'a, L, Operation, P>,
-    pub operation_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<Operation>, P>,
     pub operation_id_methods: TemplateBuildMethodFnMap<'a, L, OperationId, P>,
 }
 
 impl<L: ?Sized, P> OperationTemplateBuildFnTable<'_, L, P> {
     pub fn empty() -> Self {
         Self {
-            operation_methods: HashMap::new(),
-            operation_list_methods: HashMap::new(),
             operation_id_methods: HashMap::new(),
         }
     }
 
     pub fn merge(&mut self, other: Self) {
         let Self {
-            operation_methods,
-            operation_list_methods,
             operation_id_methods,
         } = other;
 
-        merge_fn_map(&mut self.operation_methods, operation_methods);
-        merge_fn_map(&mut self.operation_list_methods, operation_list_methods);
         merge_fn_map(&mut self.operation_id_methods, operation_id_methods);
     }
 }
@@ -479,8 +471,6 @@ where
     /// Creates new symbol table containing the builtin methods.
     pub fn builtin() -> Self {
         Self {
-            operation_methods: builtin_operation_methods(),
-            operation_list_methods: template_builder::builtin_unformattable_list_methods(),
             operation_id_methods: builtin_operation_id_methods(),
         }
     }
@@ -497,20 +487,6 @@ where
     ) -> TemplateParseResult<L::Property> {
         let type_name = property.type_name();
         match property {
-            OperationTemplatePropertyKind::Operation(property) => {
-                let table = &self.operation_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
-            }
-            OperationTemplatePropertyKind::OperationOpt(property) => {
-                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
-                self.build_method(language, diagnostics, build_ctx, inner_property, function)
-            }
-            OperationTemplatePropertyKind::OperationList(property) => {
-                let table = &self.operation_list_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
-            }
             OperationTemplatePropertyKind::OperationId(property) => {
                 let table = &self.operation_id_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -543,24 +519,28 @@ impl OperationTemplateLanguageBuildFnTable {
 
     /// Creates new symbol table containing the builtin methods.
     fn builtin() -> Self {
+        let mut core = CoreTemplateBuildFnTable::builtin();
+        register_methods(&mut core);
         Self {
-            core: CoreTemplateBuildFnTable::builtin(),
+            core,
             operation: OperationTemplateBuildFnTable::builtin(),
         }
     }
 }
 
-fn builtin_operation_methods<'a, L>() -> TemplateBuildMethodFnMap<'a, L, Operation>
+fn builtin_operation_methods<'a, L>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
     L::Property: OperationTemplatePropertyVar<'a>,
 {
+    type T = Operation;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, Operation>::new();
+    let mut map = BuildValueMethodFnMap::<L>::new();
     map.insert(
         "current_operation",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let current_op_id = language.current_op_id().cloned();
             let out_property = self_property.map(move |op| Some(op.id()) == current_op_id.as_ref());
@@ -569,7 +549,8 @@ where
     );
     map.insert(
         "description",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.metadata().description.clone());
             Ok(out_property.into_dyn_wrapped())
@@ -577,7 +558,8 @@ where
     );
     map.insert(
         "id",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.id().clone());
             Ok(out_property.into_dyn_wrapped())
@@ -585,7 +567,8 @@ where
     );
     map.insert(
         "attributes",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| {
                 // TODO: introduce map type
@@ -601,7 +584,8 @@ where
     // TODO: Remove in jj 0.47+
     map.insert(
         "tags",
-        |_language, diagnostics, _build_ctx, self_property, function| {
+        |language, diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             diagnostics.add_warning(TemplateParseError::expression(
                 "operation.tags() is deprecated; use .attributes() instead",
                 function.name_span,
@@ -620,7 +604,8 @@ where
     );
     map.insert(
         "snapshot",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.metadata().is_snapshot);
             Ok(out_property.into_dyn_wrapped())
@@ -628,7 +613,8 @@ where
     );
     map.insert(
         "workspace_name",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| {
                 op.metadata()
@@ -642,7 +628,8 @@ where
     );
     map.insert(
         "time",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.metadata().time.clone());
             Ok(out_property.into_dyn_wrapped())
@@ -650,7 +637,8 @@ where
     );
     map.insert(
         "user",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| {
                 // TODO: introduce dedicated type and provide accessors?
@@ -662,6 +650,7 @@ where
     map.insert(
         "root",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let op_store = language.repo_loader().op_store();
             let root_op_id = op_store.root_operation_id().clone();
@@ -671,7 +660,8 @@ where
     );
     map.insert(
         "parents",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|op| {
                 let ops = op.parents().block_on()?;
