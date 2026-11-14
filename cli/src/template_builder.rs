@@ -46,6 +46,7 @@ use jj_lib::template_parser::TemplateParseErrorKind;
 use jj_lib::template_parser::TemplateParseResult;
 use jj_lib::template_parser::UnaryOp;
 use jj_lib::time_util::DatePattern;
+use maplit::hashmap;
 use serde::Deserialize;
 use serde::de::IntoDeserializer as _;
 
@@ -277,7 +278,6 @@ pub enum CoreTemplatePropertyKind<'a> {
     ByteStringList(BoxedTemplateProperty<'a, Vec<BString>>),
     String(BoxedTemplateProperty<'a, String>),
     StringList(BoxedTemplateProperty<'a, Vec<String>>),
-    Boolean(BoxedTemplateProperty<'a, bool>),
     Integer(BoxedTemplateProperty<'a, i64>),
     IntegerOpt(BoxedTemplateProperty<'a, Option<i64>>),
     ConfigValue(BoxedTemplateProperty<'a, ConfigValue>),
@@ -326,7 +326,6 @@ macro_rules! impl_core_property_wrappers {
             ByteStringList(Vec<bstr::BString>),
             String(String),
             StringList(Vec<String>),
-            Boolean(bool),
             Integer(i64),
             IntegerOpt(Option<i64>),
             ConfigValue(jj_lib::config::ConfigValue),
@@ -367,7 +366,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteStringList(_) => "List<ByteString>",
             Self::String(_) => "String",
             Self::StringList(_) => "List<String>",
-            Self::Boolean(_) => "Boolean",
             Self::Integer(_) => "Integer",
             Self::IntegerOpt(_) => "Option<Integer>",
             Self::ConfigValue(_) => "ConfigValue",
@@ -420,7 +418,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteStringList(property) => Ok(list_to_boolean(property)),
             Self::String(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
             Self::StringList(property) => Ok(list_to_boolean(property)),
-            Self::Boolean(property) => Ok(property),
             Self::Integer(_) => Err(self),
             Self::IntegerOpt(property) => Ok(option_to_boolean(property)),
             Self::ConfigValue(_) => Err(self),
@@ -478,7 +475,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteStringList(property) => Some(property.into_serialize()),
             Self::String(property) => Some(property.into_serialize()),
             Self::StringList(property) => Some(property.into_serialize()),
-            Self::Boolean(property) => Some(property.into_serialize()),
             Self::Integer(property) => Some(property.into_serialize()),
             Self::IntegerOpt(property) => Some(property.into_serialize()),
             Self::ConfigValue(property) => {
@@ -514,7 +510,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteStringList(property) => Some(property.into_template()),
             Self::String(property) => Some(property.into_template()),
             Self::StringList(property) => Some(property.into_template()),
-            Self::Boolean(property) => Some(property.into_template()),
             Self::Integer(property) => Some(property.into_template()),
             Self::IntegerOpt(property) => Some(property.into_template()),
             Self::ConfigValue(property) => Some(property.into_template()),
@@ -597,9 +592,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::String(lhs), Self::Email(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r.0).into_dyn())
             }
-            (Self::Boolean(lhs), Self::Boolean(rhs)) => {
-                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
-            }
             (Self::Integer(lhs), Self::Integer(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
@@ -623,7 +615,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
             (Self::StringList(_), _) => None,
-            (Self::Boolean(_), _) => None,
             (Self::Integer(_), _) => None,
             (Self::IntegerOpt(_), _) => None,
             (Self::ConfigValue(_), _) => None,
@@ -706,7 +697,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
             (Self::StringList(_), _) => None,
-            (Self::Boolean(_), _) => None,
             (Self::Integer(_), _) => None,
             (Self::IntegerOpt(_), _) => None,
             (Self::ConfigValue(_), _) => None,
@@ -728,7 +718,21 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 
 /// Creates the registry of types available to a template language.
 pub fn new_core_type_registry() -> TemplateTypeRegistry {
-    TemplateTypeRegistry::empty()
+    let mut registry = TemplateTypeRegistry::empty();
+    registry
+        .register::<bool>("Boolean")
+        .conditionable()
+        .formattable()
+        .serializable()
+        .equatable();
+    registry
+}
+
+fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L>> {
+    hashmap! {
+        bool::value_type() => hashmap! {},
+    }
 }
 
 /// Function that translates global function call node.
@@ -785,7 +789,6 @@ pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a
     pub byte_string_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<BString>, P>,
     pub string_methods: TemplateBuildMethodFnMap<'a, L, String, P>,
     pub string_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<String>, P>,
-    pub boolean_methods: TemplateBuildMethodFnMap<'a, L, bool, P>,
     pub integer_methods: TemplateBuildMethodFnMap<'a, L, i64, P>,
     pub config_value_methods: TemplateBuildMethodFnMap<'a, L, ConfigValue, P>,
     pub fs_path_methods: TemplateBuildMethodFnMap<'a, L, PathBuf, P>,
@@ -849,7 +852,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             byte_string_list_methods: HashMap::new(),
             string_methods: HashMap::new(),
             string_list_methods: HashMap::new(),
-            boolean_methods: HashMap::new(),
             integer_methods: HashMap::new(),
             config_value_methods: HashMap::new(),
             fs_path_methods: HashMap::new(),
@@ -874,7 +876,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             byte_string_list_methods,
             string_methods,
             string_list_methods,
-            boolean_methods,
             integer_methods,
             config_value_methods,
             fs_path_methods,
@@ -899,7 +900,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         merge_fn_map(&mut self.byte_string_list_methods, byte_string_list_methods);
         merge_fn_map(&mut self.string_methods, string_methods);
         merge_fn_map(&mut self.string_list_methods, string_list_methods);
-        merge_fn_map(&mut self.boolean_methods, boolean_methods);
         merge_fn_map(&mut self.integer_methods, integer_methods);
         merge_fn_map(&mut self.config_value_methods, config_value_methods);
         merge_fn_map(&mut self.fs_path_methods, fs_path_methods);
@@ -923,12 +923,11 @@ where
     pub fn builtin() -> Self {
         Self {
             functions: builtin_functions(),
-            methods: HashMap::new(),
+            methods: builtin_methods(),
             byte_string_methods: builtin_byte_string_methods(),
             byte_string_list_methods: builtin_formattable_list_methods(),
             string_methods: builtin_string_methods(),
             string_list_methods: builtin_formattable_list_methods(),
-            boolean_methods: HashMap::new(),
             integer_methods: HashMap::new(),
             config_value_methods: builtin_config_value_methods(),
             fs_path_methods: builtin_fs_path_methods(),
@@ -999,11 +998,6 @@ where
             }
             CoreTemplatePropertyKind::StringList(property) => {
                 let table = &self.string_list_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
-            }
-            CoreTemplatePropertyKind::Boolean(property) => {
-                let table = &self.boolean_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
             }

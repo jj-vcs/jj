@@ -75,7 +75,7 @@ enum Tagged {
     // Inline common value types:
     // ByteString(BString),
     // String(String),
-    // Boolean(bool),
+    Boolean(bool),
     // Integer(Option<i64>),
     // Opaque value, or its type if no value is available:
     OpaqueSome(Rc<dyn Any>),
@@ -95,7 +95,7 @@ impl TemplateValueRepr {
         match &self.tagged {
             // Tagged::ByteString(_) => BString::value_type(),
             // Tagged::String(_) => String::value_type(),
-            // Tagged::Boolean(_) => bool::value_type(),
+            Tagged::Boolean(_) => bool::value_type(),
             // Tagged::Integer(_) => <Option<i64>>::value_type(),
             Tagged::OpaqueSome(opaque) => TemplateValueType::Option(Rc::as_ref(opaque).type_id()),
             Tagged::OpaqueNone(id) => TemplateValueType::Option(*id),
@@ -173,7 +173,7 @@ macro_rules! impl_inline_optional_values {
 impl_inline_scalar_values! {
     // ByteString(BString),
     // String(String),
-    // Boolean(bool),
+    Boolean(bool),
 }
 
 impl_inline_optional_values! {
