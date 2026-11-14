@@ -517,7 +517,7 @@ impl CommitIndexSegment for ReadonlyCommitIndexSegment {
     }
 
     fn resolve_commit_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<CommitId> {
-        self.commit_id_byte_prefix_to_lookup_pos(prefix.min_prefix_bytes())
+        self.commit_id_byte_prefix_to_lookup_pos(prefix.lower_bound_bytes())
             .prefix_matches(prefix, |pos| {
                 let local_pos = self.commit_lookup_pos(pos);
                 let entry = self.graph_entry(local_pos);
@@ -538,7 +538,7 @@ impl CommitIndexSegment for ReadonlyCommitIndexSegment {
         &self,
         prefix: &HexPrefix,
     ) -> PrefixResolution<(ChangeId, SmallLocalCommitPositionsVec)> {
-        self.change_id_byte_prefix_to_lookup_pos(prefix.min_prefix_bytes())
+        self.change_id_byte_prefix_to_lookup_pos(prefix.lower_bound_bytes())
             .prefix_matches(prefix, |pos| self.change_lookup_id(pos))
             .map(|(id, lookup_pos)| {
                 let change_pos = self.change_lookup_pos(lookup_pos);

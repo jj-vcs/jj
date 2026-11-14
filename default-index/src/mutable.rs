@@ -405,7 +405,7 @@ impl CommitIndexSegment for MutableCommitIndexSegment {
     }
 
     fn resolve_commit_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<CommitId> {
-        let min_bytes_prefix = CommitId::from_bytes(prefix.min_prefix_bytes());
+        let min_bytes_prefix = CommitId::from_bytes(prefix.lower_bound_bytes());
         resolve_id_prefix(&self.commit_lookup, prefix, &min_bytes_prefix).map(|(id, _)| id.clone())
     }
 
@@ -421,7 +421,7 @@ impl CommitIndexSegment for MutableCommitIndexSegment {
         &self,
         prefix: &HexPrefix,
     ) -> PrefixResolution<(ChangeId, SmallLocalCommitPositionsVec)> {
-        let min_bytes_prefix = ChangeId::from_bytes(prefix.min_prefix_bytes());
+        let min_bytes_prefix = ChangeId::from_bytes(prefix.lower_bound_bytes());
         resolve_id_prefix(&self.change_lookup, prefix, &min_bytes_prefix)
             .map(|(id, positions)| (id.clone(), positions.clone()))
     }

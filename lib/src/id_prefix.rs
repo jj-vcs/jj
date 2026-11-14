@@ -426,7 +426,7 @@ where
             }
         }
 
-        let min_bytes = prefix.min_prefix_bytes();
+        let min_bytes = prefix.lower_bound_bytes();
         if min_bytes.is_empty() {
             // We consider an empty prefix ambiguous even if the index has a single entry.
             return PrefixResolution::AmbiguousMatch;
