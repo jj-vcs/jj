@@ -12,13 +12,42 @@ and this project adheres to
 
 ### Breaking changes
 
+* `jj workspace add` now creates the new working-copy commit on top of the
+  closest immutable ancestor (`heads(::@ & immutable())`) instead of on the
+  parents of the current working-copy commit. Pass `-r @-` for the old behavior.
+
 * `jj git push` now checks commits in `immutable()` for empty descriptions,
   missing author/committer, conflicts, and being private
   (`git.private-commits`). Commits that are already on the remote being pushed
   to are still not checked.
 
+* `jj gerrit upload` now uploads the ancestors of the given revisions that are
+  not on the remote instead of their mutable ancestors. It fails if any of them
+  are immutable, since they need to be rewritten to add a `Change-Id` trailer.
+  Revisions that are already on the remote are no longer rejected as immutable.
+
 * Deleted `jj debug snapshot`. It was deprecated in 0.39.0. Use `jj util snapshot`
   instead.
+
+* The default `jj log` revset, the default `revsets.short-prefixes`, and the
+  default `revsets.op-diff-changes-in` now use the new `shared_immutable_heads()`
+  revset alias instead of `immutable_heads()`. If you have overridden
+  `immutable_heads()`, you may want to override `shared_immutable_heads()`
+  instead (or as well). For example, if you have overridden it as
+  `builtin_immutable_heads() | release@origin`, you probably want to override
+  `shared_immutable_heads()` as `builtin_shared_immutable_heads() |
+  release@origin` instead.
+  See [docs](docs/config.md#set-of-immutable-commits)
+
+* The working-copy commits of other workspaces (and their ancestors) are now
+  considered immutable by default, so you don't accidentally make the other
+  workspaces stale. This is done by adding `working_copies() ~ present(@)` to
+  `builtin_immutable_heads()`. If you have overridden `immutable_heads()` in
+  terms of `builtin_immutable_heads()` (e.g. as `builtin_immutable_heads() |
+  release@origin`), you will get the new behavior too. If you have overridden
+  it without referring to `builtin_immutable_heads()`, you won't get the new
+  behavior unless you add `| (working_copies() ~ present(@))` to your
+  definition. See [docs](docs/config.md#set-of-immutable-commits)
 
 ### Deprecations
 
@@ -43,6 +72,11 @@ and this project adheres to
   emits a warning that the output may be broken due to potential wrapping in the
   middle of JSON output. Users should set the config option to `false` to avoid
   receiving invalid JSON objects on small terminals.
+
+* New `shared_immutable_heads()` revset alias for commits that have been shared
+  with others, such as commits on remotes. Shared commits are immutable by
+  default.
+  See [docs](docs/config.md#set-of-immutable-commits)
 
 ### Fixed bugs
 

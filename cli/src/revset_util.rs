@@ -166,7 +166,12 @@ pub(super) fn warn_user_redefined_builtin(
     config: &StackedConfig,
     table_name: &ConfigNamePathBuf,
 ) -> io::Result<()> {
-    let checked_mutability_builtins = ["mutable()", "immutable()", "builtin_immutable_heads()"];
+    let checked_mutability_builtins = [
+        "mutable()",
+        "immutable()",
+        "builtin_immutable_heads()",
+        "builtin_shared_immutable_heads()",
+    ];
     for layer in config
         .layers()
         .iter()
@@ -182,7 +187,7 @@ pub(super) fn warn_user_redefined_builtin(
             writeln!(
                 ui.warning_default(),
                 "Redefining `{table_name}.{decl}` is not recommended; redefine \
-                 `immutable_heads()` instead.",
+                 `shared_immutable_heads()` or `immutable_heads()` instead.",
             )?;
         }
     }
