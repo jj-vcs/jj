@@ -362,7 +362,15 @@ pub async fn show_op_diff(
                 graph.add_node(
                     &commit_id,
                     &edges,
-                    &|formatter| write!(formatter, "○"),
+                    &|formatter| {
+                        write!(
+                            formatter
+                                .labeled("op_diff")
+                                .labeled("commit")
+                                .labeled("node"),
+                            "○"
+                        )
+                    },
                     &String::from_utf8_lossy(&buffer),
                 )?;
             }
