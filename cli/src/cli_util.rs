@@ -138,6 +138,7 @@ use jj_lib::transaction::Transaction;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::ui_path::UiPathParseError;
 use jj_lib::working_copy;
+use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
@@ -1278,6 +1279,18 @@ impl<'a> CliRunnerEventHandler<'a> {
         let ui = self.ui;
         match event {
             RunnerEvent::NothingChanged => writeln!(ui.status(), "Nothing changed.")?,
+            RunnerEvent::ConcurrentCheckout => {
+                writeln!(
+                    ui.warning_default(),
+                    "The working copy was concurrently modified while this command was running."
+                )?;
+                writeln!(
+                    ui.hint_default(),
+                    "The operation's result was recorded, but the working copy stayed on the \
+                     commit left by the other process. Run `jj log` to see both; they may be \
+                     divergent."
+                )?;
+            }
             RunnerEvent::DescendantsRebased {
                 num_rebased,
                 reason,
@@ -2040,25 +2053,33 @@ impl WorkspaceOperationRunner {
 
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)
-        // don't leave the working copy in a stale state.
+        // don't leave the working copy in a stale state. A failed update is
+        // returned after the remaining events are reported, since the
+        // operation itself has already been committed.
+        let mut update_working_copy_result = Ok(());
         if self.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
-                let stats = update_working_copy(
+                let result = update_working_copy(
                     self.user_repo.repo(),
                     &mut self.workspace,
                     maybe_old_wc_commit.as_ref(),
                     new_commit,
                 )
-                .await?;
-                event_handler
-                    .event(RunnerEvent::WorkingCopyUpdated {
-                        repo: self.user_repo.clone(),
-                        old_commit: maybe_old_wc_commit.clone(),
-                        new_commit: new_commit.clone(),
-                        stats,
-                    })
-                    .await
-                    .map_err(RunnerError::EventHandling)?;
+                .await;
+                match result {
+                    Ok(stats) => {
+                        event_handler
+                            .event(RunnerEvent::WorkingCopyUpdated {
+                                repo: self.user_repo.clone(),
+                                old_commit: maybe_old_wc_commit.clone(),
+                                new_commit: new_commit.clone(),
+                                stats,
+                            })
+                            .await
+                            .map_err(RunnerError::EventHandling)?;
+                    }
+                    Err(err) => update_working_copy_result = Err(err),
+                }
             } else {
                 // It seems the workspace was deleted, so we shouldn't try to
                 // update it.
@@ -2095,7 +2116,7 @@ impl WorkspaceOperationRunner {
                 .await
                 .map_err(RunnerError::EventHandling)?;
         }
-        Ok(())
+        update_working_copy_result
     }
 }
 
@@ -3274,7 +3295,17 @@ impl WorkspaceCommandTransaction<'_> {
 
     pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
         let Self { helper, tx, .. } = self;
-        helper.finish_transaction(ui, tx, description).await?;
+        match helper.finish_transaction(ui, tx, description).await {
+            Err(RunnerError::CheckOut {
+                source: CheckoutError::ConcurrentCheckout,
+                ..
+            }) => {
+                CliRunnerEventHandler::new(ui, &helper.env, &helper.commit_summary_template_text)
+                    .print_event(RunnerEvent::ConcurrentCheckout)
+                    .await?;
+            }
+            result => result?,
+        }
         Ok(())
     }
 
