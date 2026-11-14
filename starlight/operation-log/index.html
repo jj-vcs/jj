@@ -250,7 +250,7 @@ access the repo via a distributed file system (as long as the file system
 guarantees that a write is only visible once previous writes are visible). When
 you run a <code dir="auto">jj</code> command, it will start by loading the repo at the latest
 operation. It will not see any changes written by concurrent commands. If there
-are conflicts, you will be informed of them by subsequent <code dir="auto">jj st</code> and/or
+are conflicts, you will be informed of them by subsequent <code dir="auto">jj status</code> and/or
 <code dir="auto">jj log</code> commands.</p>
 <p>As an example, let’s say you had started editing the description of a change and
 then also update the contents of the change (maybe because you had forgotten the
@@ -268,7 +268,7 @@ operation’s view (which is actually how it always works — it’s just the
 snapshotting that’s skipped with <code dir="auto">--at-op</code>).</p>
 <p>As a top-level option, <code dir="auto">--at-op</code> can be passed to any command. However, you
 will typically only want to run read-only commands. For example, <code dir="auto">jj log</code>,
-<code dir="auto">jj st</code>, and <code dir="auto">jj diff</code> all make sense. It’s still possible to run e.g.
+<code dir="auto">jj status</code>, and <code dir="auto">jj diff</code> all make sense. It’s still possible to run e.g.
 <code dir="auto">jj --at-op=&#x3C;some operation ID> describe</code>. That’s equivalent to having started
 <code dir="auto">jj describe</code> back when the specified operation was the most recent operation
 and then let it run until now (which can be done for that particular command by
