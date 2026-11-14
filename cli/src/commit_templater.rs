@@ -102,9 +102,7 @@ use crate::diff_util::DiffStatOptions;
 use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
 use crate::operation_templater;
-use crate::operation_templater::OperationTemplateBuildFnTable;
 use crate::operation_templater::OperationTemplateEnvironment;
-use crate::operation_templater::OperationTemplatePropertyKind;
 use crate::operation_templater::OperationTemplatePropertyVar;
 use crate::revset_util;
 use crate::revset_util::UserRevsetEvaluationError;
@@ -258,10 +256,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
         match property {
             CommitTemplatePropertyKind::Core(property) => {
                 let table = &self.build_fn_table.core;
-                table.build_method(self, diagnostics, build_ctx, property, function)
-            }
-            CommitTemplatePropertyKind::Operation(property) => {
-                let table = &self.build_fn_table.operation;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::Commit(property) => {
@@ -505,7 +499,6 @@ impl NoTemplateBooleanCast for Trailer {}
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
-    Operation(OperationTemplatePropertyKind<'repo>),
     Commit(BoxedTemplateProperty<'repo, Commit>),
     CommitOpt(BoxedTemplateProperty<'repo, Option<Commit>>),
     CommitList(BoxedTemplateProperty<'repo, Vec<Commit>>),
@@ -553,7 +546,6 @@ impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplateP
 }
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
-operation_templater::impl_operation_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Operation);
 template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
     Commit(Commit),
     CommitOpt(Option<Commit>),
@@ -611,7 +603,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(registry),
-            Self::Operation(property) => property.type_name(),
             Self::Commit(_) => "Commit",
             Self::CommitOpt(_) => "Option<Commit>",
             Self::CommitList(_) => "List<Commit>",
@@ -659,7 +650,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, BString>, Self> {
         match self {
             Self::Core(property) => property.try_into_byte_string(registry).map_err(Self::Core),
-            Self::Operation(property) => property.try_into_byte_string().map_err(Self::Operation),
             _ => Err(self),
         }
     }
@@ -670,7 +660,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, String>, Self> {
         match self {
             Self::Core(property) => property.try_into_string(registry).map_err(Self::Core),
-            Self::Operation(property) => property.try_into_string().map_err(Self::Operation),
             Self::RefSymbol(property) => Ok(property.map(|RefSymbolBuf(s)| s).into_dyn()),
             Self::RefSymbolOpt(property) => Ok(property
                 .map(|opt| opt.map_or_else(String::new, |RefSymbolBuf(s)| s))
@@ -685,7 +674,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
             Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
-            Self::Operation(property) => property.try_into_boolean().map_err(Self::Operation),
             Self::Commit(_) => Err(self),
             Self::CommitOpt(property) => Ok(option_to_boolean(property)),
             Self::CommitList(property) => Ok(list_to_boolean(property)),
@@ -735,7 +723,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, i64>, Self> {
         match self {
             Self::Core(property) => property.try_into_integer(registry).map_err(Self::Core),
-            Self::Operation(property) => property.try_into_integer().map_err(Self::Operation),
             _ => Err(self),
         }
     }
@@ -746,7 +733,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, Timestamp>, Self> {
         match self {
             Self::Core(property) => property.try_into_timestamp(registry).map_err(Self::Core),
-            Self::Operation(property) => property.try_into_timestamp().map_err(Self::Operation),
             _ => Err(self),
         }
     }
@@ -757,7 +743,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(registry),
-            Self::Operation(property) => property.try_into_serialize(),
             Self::Commit(property) => Some(property.into_serialize()),
             Self::CommitOpt(property) => Some(property.into_serialize()),
             Self::CommitList(property) => Some(property.into_serialize()),
@@ -805,7 +790,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<Box<dyn Template + 'repo>> {
         match self {
             Self::Core(property) => property.try_into_template(registry),
-            Self::Operation(property) => property.try_into_template(),
             Self::Commit(_) => None,
             Self::CommitOpt(_) => None,
             Self::CommitList(_) => None,
@@ -855,7 +839,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         type Core<'repo> = CoreTemplatePropertyKind<'repo>;
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
-            (Self::Core(lhs), Self::Operation(rhs)) => rhs.try_into_eq_core(lhs),
             (
                 Self::Core(Core::Value {
                     ty: lty,
@@ -877,8 +860,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
                 let out_property = (lhs, rhs).map(|(l, r)| Some(RefSymbolBuf(l)) == r);
                 Some(out_property.into_dyn())
             }
-            (Self::Operation(lhs), Self::Core(rhs)) => lhs.try_into_eq_core(rhs),
-            (Self::Operation(lhs), Self::Operation(rhs)) => lhs.try_into_eq(rhs),
             (
                 Self::RefSymbol(lhs),
                 Self::Core(Core::Value {
@@ -913,7 +894,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
             (Self::Core(_), _) => None,
-            (Self::Operation(_), _) => None,
             (Self::Commit(_), _) => None,
             (Self::CommitOpt(_), _) => None,
             (Self::CommitList(_), _) => None,
@@ -962,13 +942,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedTemplateProperty<'repo, Ordering>> {
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
-            (Self::Core(lhs), Self::Operation(rhs)) => rhs
-                .try_into_cmp_core(lhs)
-                .map(|property| property.map(Ordering::reverse).into_dyn()),
-            (Self::Operation(lhs), Self::Core(rhs)) => lhs.try_into_cmp_core(rhs),
-            (Self::Operation(lhs), Self::Operation(rhs)) => lhs.try_into_cmp(rhs),
             (Self::Core(_), _) => None,
-            (Self::Operation(_), _) => None,
             (Self::Commit(_), _) => None,
             (Self::CommitOpt(_), _) => None,
             (Self::CommitList(_), _) => None,
@@ -1020,7 +994,6 @@ pub type CommitTemplateBuildMethodFnMap<'repo, T> =
 /// Symbol table of methods available in the commit template.
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
-    pub operation: OperationTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
     pub commit_methods: CommitTemplateBuildMethodFnMap<'repo, Commit>,
     pub commit_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Commit>>,
     pub commit_opt_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Option<Commit>>>,
@@ -1054,7 +1027,6 @@ impl CommitTemplateBuildFnTable<'_> {
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
-            operation: OperationTemplateBuildFnTable::empty(),
             commit_methods: HashMap::new(),
             commit_list_methods: HashMap::new(),
             commit_opt_list_methods: HashMap::new(),
@@ -1087,7 +1059,6 @@ impl CommitTemplateBuildFnTable<'_> {
     fn merge(&mut self, other: Self) {
         let Self {
             core,
-            operation,
             commit_methods,
             commit_list_methods,
             commit_opt_list_methods,
@@ -1117,7 +1088,6 @@ impl CommitTemplateBuildFnTable<'_> {
         } = other;
 
         self.core.merge(core);
-        self.operation.merge(operation);
         merge_fn_map(&mut self.commit_methods, commit_methods);
         merge_fn_map(&mut self.commit_list_methods, commit_list_methods);
         merge_fn_map(&mut self.commit_opt_list_methods, commit_opt_list_methods);
@@ -1174,7 +1144,6 @@ impl CommitTemplateBuildFnTable<'_> {
         operation_templater::register_methods(&mut core);
         Self {
             core,
-            operation: OperationTemplateBuildFnTable::builtin(),
             commit_methods: builtin_commit_methods(),
             commit_list_methods: template_builder::builtin_unformattable_list_methods(),
             commit_opt_list_methods: template_builder::builtin_unformattable_list_methods(),
