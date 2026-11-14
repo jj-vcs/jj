@@ -71,12 +71,33 @@
         default = self.packages.${system}.jujutsu;
       };
 
-      checks.jujutsu = self.packages.${system}.jujutsu.overrideAttrs ({...}: {
+      checks.jujutsu = self.packages.${system}.jujutsu.overrideAttrs (prev: {
         # The default Rust infrastructure runs all builds in the release
         # profile, which is significantly slower. Run this under the `test`
         # profile instead, which matches all our other CI systems, Cargo, etc.
         cargoBuildType = "test";
         cargoCheckType = "test";
+
+        # On macOS, don't run `jj-cli::runner`. It spawns thousands of `jj`
+        # subprocesses, which is very slow inside the Nix sandbox there, and it
+        # is already run by the main `test` CI matrix. Everything is still
+        # compiled, including the `jj` binary; only this test binary is skipped.
+        cargoTestFlags =
+          prev.cargoTestFlags
+          ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+            "-E"
+            "!binary_id(jj-cli::runner)"
+          ];
+
+        # Build with the same cargo config as the other CI jobs, which disables
+        # debuginfo. The path has to be absolute: nixpkgs runs cargo through
+        # `cargo auditable`, which passes `--config` on to a `cargo metadata`
+        # call that runs in each crate's own directory.
+        preCheck =
+          (prev.preCheck or "")
+          + ''
+            appendToVar cargoTestFlags --config "$PWD/.cargo/config-ci.toml"
+          '';
 
         # By default, `flake check` will want to run the install phase, but
         # because we override the cargoBuildType, it fails to find the proper
