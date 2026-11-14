@@ -33,7 +33,7 @@ pub async fn cmd_git_remote_list(
     command: &CommandHelper,
     _args: &GitRemoteListArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui).await?;
+    let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
     let git_repo = git::get_git_repo(workspace_command.repo().store())?;
     for remote_name in git_repo.remote_names() {
         let Ok(remote_name) = str::from_utf8(&remote_name).map(RemoteName::new) else {
