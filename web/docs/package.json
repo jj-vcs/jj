@@ -12,7 +12,7 @@
   "dependencies": {
     "@astrojs/markdown-remark": "^7.3.5",
     "@astrojs/starlight": "^0.42.8",
-    "astro": "^7.4.5",
+    "astro": "^7.4.12",
     "astro-mermaid": "^2.2.0",
     "js-yaml": "^4.3.2",
     "marked": "^18.1.3",
