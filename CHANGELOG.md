@@ -46,6 +46,11 @@ and this project adheres to
 
 ### Fixed bugs
 
+* Initializing a workspace from, or importing `HEAD` in, a Git repository that
+  uses an unsupported reference storage backend such as `reftable` now fails
+  with an error instead of leaving an incomplete `.jj` directory or treating
+  `HEAD` as unborn.
+
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
   changes from being exported to Git HEAD and refs.
 

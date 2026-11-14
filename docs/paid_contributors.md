@@ -31,6 +31,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * aspotashev
 * axelrasmussen
 * brychanrobot
+* Capstan
 * daehyeok
 * drieber
 * durin42

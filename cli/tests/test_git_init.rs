@@ -979,6 +979,57 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
 }
 
 #[test]
+fn test_git_init_colocated_unsupported_ref_storage_reftable() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    init_git_repo(work_dir.root(), false);
+    // Simulate unsupported ref storage backend (e.g. reftable writes "ref: refs/heads/.invalid\n")
+    work_dir.write_file(".git/HEAD", "ref: refs/heads/.invalid\n");
+
+    let output = test_env.run_jj_in(".", ["git", "init", "--colocate", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to open git repository
+    Caused by:
+    1: The reference at "HEAD" could not be decoded
+    2: Could not decode reference, input="ref: refs/heads/.invalid\n"
+    3: This reference uses an unsupported storage backend, such as reftable
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    assert!(!work_dir.root().join(".jj").exists());
+}
+
+#[test]
+fn test_git_import_colocated_unsupported_ref_storage_reftable() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    init_git_repo(work_dir.root(), false);
+    work_dir.run_jj(["git", "init", "--colocate"]).success();
+
+    // Simulate backend migration to reftable (e.g. `git refs migrate --ref-format=reftable`)
+    work_dir.write_file(".git/HEAD", "ref: refs/heads/.invalid\n");
+
+    // Loading the repo without importing git refs succeeds.
+    work_dir
+        .run_jj(["status", "--ignore-working-copy"])
+        .success();
+
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to import refs from underlying Git repo
+    Caused by:
+    1: The reference at "HEAD" could not be decoded
+    2: Could not decode reference, input="ref: refs/heads/.invalid\n"
+    3: This reference uses an unsupported storage backend, such as reftable
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
+#[test]
 fn test_git_init_colocated_via_config_git_dir_exists() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
