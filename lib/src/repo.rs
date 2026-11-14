@@ -1234,11 +1234,10 @@ impl MutableRepo {
                         dependents.push(parent);
                         continue;
                     };
-                    if let Some(rewrite) = self.parent_mapping.get(parent.id()) {
-                        for target in rewrite.new_parent_ids() {
-                            if to_visit_set.contains(target) && !visited.contains(target) {
-                                dependents.push(store.get_commit_async(target).await);
-                            }
+                    // Follow replacements through abandoned parents and rewritten sources.
+                    for target in self.new_parents(slice::from_ref(parent.id())) {
+                        if to_visit_set.contains(&target) && !visited.contains(&target) {
+                            dependents.push(store.get_commit_async(&target).await);
                         }
                     }
                     if to_visit_set.contains(parent.id()) {
