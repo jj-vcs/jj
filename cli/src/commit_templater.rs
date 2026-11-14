@@ -115,6 +115,7 @@ use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::TemplateBuildFunctionFnMap;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::builtin_formattable_value_list_methods;
 use crate::template_builder::builtin_unformattable_value_list_methods;
 use crate::template_builder::cast_value_property;
 use crate::template_builder::expect_stringify_expression;
@@ -261,20 +262,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
             CommitTemplatePropertyKind::Core(property) => {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
-            }
-            CommitTemplatePropertyKind::CommitRef(property) => {
-                let table = &self.build_fn_table.commit_ref_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
-            CommitTemplatePropertyKind::CommitRefOpt(property) => {
-                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
-                self.build_method(diagnostics, build_ctx, inner_property, function)
-            }
-            CommitTemplatePropertyKind::CommitRefList(property) => {
-                let table = &self.build_fn_table.commit_ref_list_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::WorkspaceRef(property) => {
                 let table = &self.build_fn_table.workspace_ref_methods;
@@ -460,6 +447,7 @@ impl OperationTemplateEnvironment for CommitTemplateLanguage<'_> {
 
 impl OpaqueTemplateValue for Commit {}
 impl OpaqueTemplateValue for CommitEvolutionEntry {}
+impl OpaqueTemplateValue for Rc<CommitRef> {}
 
 impl NoTemplateBooleanCast for Commit {}
 impl NoTemplateBooleanCast for CommitEvolutionEntry {}
@@ -482,9 +470,6 @@ impl NoTemplateBooleanCast for Trailer {}
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
-    CommitRef(BoxedTemplateProperty<'repo, Rc<CommitRef>>),
-    CommitRefOpt(BoxedTemplateProperty<'repo, Option<Rc<CommitRef>>>),
-    CommitRefList(BoxedTemplateProperty<'repo, Vec<Rc<CommitRef>>>),
     WorkspaceRef(BoxedTemplateProperty<'repo, WorkspaceRef>),
     WorkspaceRefOpt(BoxedTemplateProperty<'repo, Option<WorkspaceRef>>),
     WorkspaceRefList(BoxedTemplateProperty<'repo, Vec<WorkspaceRef>>),
@@ -525,9 +510,6 @@ impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplateP
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
 template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
-    CommitRef(Rc<CommitRef>),
-    CommitRefOpt(Option<Rc<CommitRef>>),
-    CommitRefList(Vec<Rc<CommitRef>>),
     WorkspaceRef(WorkspaceRef),
     WorkspaceRefOpt(Option<WorkspaceRef>),
     WorkspaceRefList(Vec<WorkspaceRef>),
@@ -576,9 +558,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(registry),
-            Self::CommitRef(_) => "CommitRef",
-            Self::CommitRefOpt(_) => "Option<CommitRef>",
-            Self::CommitRefList(_) => "List<CommitRef>",
             Self::WorkspaceRef(_) => "WorkspaceRef",
             Self::WorkspaceRefOpt(_) => "Option<WorkspaceRef>",
             Self::WorkspaceRefList(_) => "List<WorkspaceRef>",
@@ -642,9 +621,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
             Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
-            Self::CommitRef(_) => Err(self),
-            Self::CommitRefOpt(property) => Ok(option_to_boolean(property)),
-            Self::CommitRefList(property) => Ok(list_to_boolean(property)),
             Self::WorkspaceRef(_) => Err(self),
             Self::WorkspaceRefOpt(property) => Ok(option_to_boolean(property)),
             Self::WorkspaceRefList(property) => Ok(list_to_boolean(property)),
@@ -706,9 +682,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(registry),
-            Self::CommitRef(property) => Some(property.into_serialize()),
-            Self::CommitRefOpt(property) => Some(property.into_serialize()),
-            Self::CommitRefList(property) => Some(property.into_serialize()),
             Self::WorkspaceRef(property) => Some(property.into_serialize()),
             Self::WorkspaceRefOpt(property) => Some(property.into_serialize()),
             Self::WorkspaceRefList(property) => Some(property.into_serialize()),
@@ -748,9 +721,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<Box<dyn Template + 'repo>> {
         match self {
             Self::Core(property) => property.try_into_template(registry),
-            Self::CommitRef(property) => Some(property.into_template()),
-            Self::CommitRefOpt(property) => Some(property.into_template()),
-            Self::CommitRefList(property) => Some(property.into_template()),
             Self::WorkspaceRef(property) => Some(property.into_template()),
             Self::WorkspaceRefOpt(property) => Some(property.into_template()),
             Self::WorkspaceRefList(property) => Some(property.into_template()),
@@ -847,9 +817,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
             (Self::Core(_), _) => None,
-            (Self::CommitRef(_), _) => None,
-            (Self::CommitRefOpt(_), _) => None,
-            (Self::CommitRefList(_), _) => None,
             (Self::WorkspaceRef(_), _) => None,
             (Self::WorkspaceRefOpt(_), _) => None,
             (Self::WorkspaceRefList(_), _) => None,
@@ -891,9 +858,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::CommitRef(_), _) => None,
-            (Self::CommitRefOpt(_), _) => None,
-            (Self::CommitRefList(_), _) => None,
             (Self::WorkspaceRef(_), _) => None,
             (Self::WorkspaceRefOpt(_), _) => None,
             (Self::WorkspaceRefList(_), _) => None,
@@ -947,6 +911,20 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
     registry
         .register::<CommitEvolutionEntry>("CommitEvolutionEntry")
         .serializable();
+    registry
+        .register::<Rc<CommitRef>>("CommitRef")
+        .formattable()
+        .serializable();
+    registry
+        .register::<Option<Rc<CommitRef>>>("Option<CommitRef>")
+        .conditionable()
+        .formattable()
+        .serializable();
+    registry
+        .register::<Vec<Rc<CommitRef>>>("List<CommitRef>")
+        .conditionable()
+        .formattable()
+        .serializable();
 }
 
 fn register_methods<'repo>(
@@ -966,6 +944,11 @@ fn register_methods<'repo>(
         CommitEvolutionEntry::value_type(),
         builtin_commit_evolution_entry_methods(),
     );
+    methods.insert(<Rc<CommitRef>>::value_type(), builtin_commit_ref_methods());
+    methods.insert(
+        <Vec<Rc<CommitRef>>>::value_type(),
+        builtin_formattable_value_list_methods::<_, Rc<CommitRef>>(),
+    );
 }
 
 /// Table of functions that translate method call node of self type `T`.
@@ -978,8 +961,6 @@ type CommitTemplateBuildValueMethodFnMap<'repo> =
 /// Symbol table of methods available in the commit template.
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
-    pub commit_ref_methods: CommitTemplateBuildMethodFnMap<'repo, Rc<CommitRef>>,
-    pub commit_ref_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Rc<CommitRef>>>,
     pub workspace_ref_methods: CommitTemplateBuildMethodFnMap<'repo, WorkspaceRef>,
     pub workspace_ref_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<WorkspaceRef>>,
     pub repo_path_methods: CommitTemplateBuildMethodFnMap<'repo, RepoPathBuf>,
@@ -1007,8 +988,6 @@ impl CommitTemplateBuildFnTable<'_> {
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
-            commit_ref_methods: HashMap::new(),
-            commit_ref_list_methods: HashMap::new(),
             workspace_ref_methods: HashMap::new(),
             workspace_ref_list_methods: HashMap::new(),
             repo_path_methods: HashMap::new(),
@@ -1035,8 +1014,6 @@ impl CommitTemplateBuildFnTable<'_> {
     fn merge(&mut self, other: Self) {
         let Self {
             core,
-            commit_ref_methods,
-            commit_ref_list_methods,
             workspace_ref_methods,
             workspace_ref_list_methods,
             repo_path_methods,
@@ -1060,8 +1037,6 @@ impl CommitTemplateBuildFnTable<'_> {
         } = other;
 
         self.core.merge(core);
-        merge_fn_map(&mut self.commit_ref_methods, commit_ref_methods);
-        merge_fn_map(&mut self.commit_ref_list_methods, commit_ref_list_methods);
         merge_fn_map(&mut self.workspace_ref_methods, workspace_ref_methods);
         merge_fn_map(
             &mut self.workspace_ref_list_methods,
@@ -1110,8 +1085,6 @@ impl CommitTemplateBuildFnTable<'_> {
         register_methods(&mut core);
         Self {
             core,
-            commit_ref_methods: builtin_commit_ref_methods(),
-            commit_ref_list_methods: template_builder::builtin_formattable_list_methods(),
             workspace_ref_methods: builtin_workspace_ref_methods(),
             workspace_ref_list_methods: template_builder::builtin_formattable_list_methods(),
             repo_path_methods: builtin_repo_path_methods(),
@@ -2105,13 +2078,15 @@ where
     target.serialize(serializer)
 }
 
-fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc<CommitRef>> {
+fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
+    type T = Rc<CommitRef>;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildMethodFnMap::<Rc<CommitRef>>::new();
+    let mut map = CommitTemplateBuildValueMethodFnMap::new();
     map.insert(
         "name",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.name.clone());
             Ok(out_property.into_dyn_wrapped())
@@ -2119,7 +2094,8 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "remote",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.remote.clone());
             Ok(out_property.into_dyn_wrapped())
@@ -2127,7 +2103,8 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "present",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.is_present());
             Ok(out_property.into_dyn_wrapped())
@@ -2135,7 +2112,8 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "conflict",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| !commit_ref.is_resolved());
             Ok(out_property.into_dyn_wrapped())
@@ -2144,6 +2122,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     map.insert(
         "normal_target",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
@@ -2156,6 +2135,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     map.insert(
         "removed_targets",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
@@ -2171,6 +2151,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     map.insert(
         "added_targets",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
@@ -2185,7 +2166,8 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "tracked",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.is_tracked());
             Ok(out_property.into_dyn_wrapped())
@@ -2193,7 +2175,8 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "tracking_present",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.is_tracking_present());
             Ok(out_property.into_dyn_wrapped())
@@ -2202,6 +2185,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     map.insert(
         "tracking_ahead_count",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property =
@@ -2212,6 +2196,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     map.insert(
         "tracking_behind_count",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property =
@@ -2221,7 +2206,8 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "synced",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.synced);
             Ok(out_property.into_dyn_wrapped())
