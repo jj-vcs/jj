@@ -1771,7 +1771,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c93ead32f1aded3f2ce985c3af4b4492f403a3f0d433250362eb845732d74893"
 dependencies = [
  "bstr",
- "hashbrown 0.15.5",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -4311,12 +4311,19 @@ dependencies = [
 
 [[package]]
 name = "sapling-renderdag"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32f8bbb5761950b84f34b4aadad6a4a7b38f2e752ee80ff606d4fb0a98812406"
+checksum = "aeb41466e19a4ed9da7ec81375cc33e8b6e289197c1c7f3beab3be93f4443d2c"
 dependencies = [
  "bitflags 2.13.2",
+ "sapling-small-set",
 ]
+
+[[package]]
+name = "sapling-small-set"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "525818609812696aff43051eeaba49366799b9740ac35f959667f1781b97ed2f"
 
 [[package]]
 name = "sapling-streampager"
