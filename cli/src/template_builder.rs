@@ -2293,6 +2293,7 @@ fn builtin_any_list_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildAnyM
 }
 
 /// Creates new symbol table for printable list property.
+// TODO: Migrate to type-erased value types and remove this function
 pub fn builtin_formattable_list_methods<'a, L, O>() -> TemplateBuildMethodFnMap<'a, L, Vec<O>>
 where
     L: TemplateLanguage<'a> + ?Sized,
@@ -2319,6 +2320,7 @@ where
 }
 
 /// Creates new symbol table for unprintable list property.
+// TODO: Migrate to type-erased value types and remove this function
 pub fn builtin_unformattable_list_methods<'a, L, O>() -> TemplateBuildMethodFnMap<'a, L, Vec<O>>
 where
     L: TemplateLanguage<'a> + ?Sized,
@@ -2432,18 +2434,21 @@ where
 }
 
 /// Creates new symbol table for printable value list property.
-pub fn builtin_formattable_value_list_methods<'a, L, O>() -> TemplateBuildMethodFnMap<'a, L, Vec<O>>
+pub fn builtin_formattable_value_list_methods<'a, L, O>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + ?Sized,
     L::Property: WrapTemplateProperty<'a, O>,
     L::Property: WrapTemplateProperty<'a, Vec<O>>,
     L::Property: WrapTemplateProperty<'a, O::Optional>,
     O: OptionalTemplateValue + Template + Clone + 'a,
+    Vec<O>: TemplateValue,
 {
-    let mut map = builtin_unformattable_list_methods::<L, O>();
+    let mut map = builtin_unformattable_value_list_methods::<L, O>();
     map.insert(
         "join",
         |language, diagnostics, build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let [separator_node] = function.expect_exact_arguments()?;
             let separator =
                 expect_template_expression(language, diagnostics, build_ctx, separator_node)?;
@@ -2458,21 +2463,23 @@ where
 }
 
 /// Creates new symbol table for unprintable value list property.
-pub fn builtin_unformattable_value_list_methods<'a, L, O>()
--> TemplateBuildMethodFnMap<'a, L, Vec<O>>
+pub fn builtin_unformattable_value_list_methods<'a, L, O>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + ?Sized,
     L::Property: WrapTemplateProperty<'a, O>,
     L::Property: WrapTemplateProperty<'a, Vec<O>>,
     L::Property: WrapTemplateProperty<'a, O::Optional>,
     O: OptionalTemplateValue + Clone + 'a,
+    Vec<O>: TemplateValue,
 {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, Vec<O>>::new();
+    let mut map = BuildValueMethodFnMap::<L>::new();
     map.insert(
         "len",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|items| Ok(i64::try_from(items.len())?));
             Ok(out_property.into_dyn_wrapped())
@@ -2481,6 +2488,8 @@ where
     map.insert(
         "filter",
         |language, diagnostics, build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let out_property: BoxedTemplateProperty<'a, Vec<O>> =
                 build_filter_operation(language, diagnostics, build_ctx, self_property, function)?;
             Ok(L::Property::wrap_property(out_property))
@@ -2489,6 +2498,8 @@ where
     map.insert(
         "map",
         |language, diagnostics, build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let map_result =
                 build_map_operation(language, diagnostics, build_ctx, self_property, function)?;
             Ok(L::Property::wrap_any_list(map_result))
@@ -2497,6 +2508,8 @@ where
     map.insert(
         "any",
         |language, diagnostics, build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let out_property =
                 build_any_operation(language, diagnostics, build_ctx, self_property, function)?;
             Ok(out_property.into_dyn_wrapped())
@@ -2505,6 +2518,8 @@ where
     map.insert(
         "all",
         |language, diagnostics, build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let out_property =
                 build_all_operation(language, diagnostics, build_ctx, self_property, function)?;
             Ok(out_property.into_dyn_wrapped())
@@ -2512,7 +2527,9 @@ where
     );
     map.insert(
         "first",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|items| O::from_option(items.into_iter().next()));
             Ok(L::Property::wrap_property(out_property.into_dyn()))
@@ -2520,7 +2537,9 @@ where
     );
     map.insert(
         "last",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|mut items| O::from_option(items.pop()));
             Ok(L::Property::wrap_property(out_property.into_dyn()))
@@ -2529,6 +2548,8 @@ where
     map.insert(
         "get",
         |language, diagnostics, build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let [index_node] = function.expect_exact_arguments()?;
             let index = expect_usize_expression(language, diagnostics, build_ctx, index_node)?;
             let out_property = (self_property, index).map(|(mut items, index)| {
@@ -2539,7 +2560,9 @@ where
     );
     map.insert(
         "reverse",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|mut items| {
                 items.reverse();
@@ -2551,6 +2574,8 @@ where
     map.insert(
         "skip",
         |language, diagnostics, build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let [count_node] = function.expect_exact_arguments()?;
             let count = expect_usize_expression(language, diagnostics, build_ctx, count_node)?;
             let out_property = (self_property, count)
@@ -2561,6 +2586,8 @@ where
     map.insert(
         "take",
         |language, diagnostics, build_ctx, self_property, function| {
+            let self_property =
+                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let [count_node] = function.expect_exact_arguments()?;
             let count = expect_usize_expression(language, diagnostics, build_ctx, count_node)?;
             let out_property = (self_property, count)
