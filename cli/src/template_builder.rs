@@ -3565,16 +3565,16 @@ mod tests {
     use super::*;
     use crate::formatter;
     use crate::formatter::ColorFormatter;
-    use crate::generic_templater;
     use crate::generic_templater::GenericTemplateLanguage;
+    use crate::template_value::OpaqueTemplateValue;
 
     #[derive(Clone, Debug, serde::Serialize)]
     struct Context;
 
+    impl OpaqueTemplateValue for Context {}
+
     type TestTemplateLanguage = GenericTemplateLanguage<'static, Context>;
     type TestTemplatePropertyKind = <TestTemplateLanguage as TemplateLanguage<'static>>::Property;
-
-    generic_templater::impl_self_property_wrapper!(Context);
 
     /// Helper to set up template evaluation environment.
     struct TestTemplateEnv {
