@@ -26,8 +26,8 @@ use crate::command_error::CommandError;
 use crate::complete;
 use crate::config::AnnotatedValue;
 use crate::config::resolved_config_values;
-use crate::generic_templater;
 use crate::generic_templater::GenericTemplateLanguage;
+use crate::template_value::OpaqueTemplateValue;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -125,7 +125,7 @@ pub async fn cmd_config_list(
 
 type ConfigTemplateLanguage = GenericTemplateLanguage<'static, AnnotatedValue>;
 
-generic_templater::impl_self_property_wrapper!(AnnotatedValue);
+impl OpaqueTemplateValue for AnnotatedValue {}
 
 // AnnotatedValue will be cloned internally in the templater. If the cloning
 // cost matters, wrap it with Rc.
