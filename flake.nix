@@ -86,6 +86,9 @@
         installPhase = "touch $out";
       });
 
+      # Ensure `nix flake check` builds the development shell
+      checks.devShell = self.devShells.${system}.default;
+
       devShells.default = let
         packages = with pkgs; [
           rustShellToolchain
