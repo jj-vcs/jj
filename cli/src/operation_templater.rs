@@ -16,7 +16,6 @@
 
 use std::any::Any;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
@@ -30,7 +29,6 @@ use jj_lib::op_store::OperationId;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
 use jj_lib::settings::UserSettings;
-use jj_lib::template_parser;
 use jj_lib::template_parser::FunctionCallNode;
 use jj_lib::template_parser::TemplateDiagnostics;
 use jj_lib::template_parser::TemplateParseError;
@@ -43,11 +41,9 @@ use crate::template_builder::BuildValueMethodFnMap;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar;
-use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::builtin_unformattable_value_list_methods;
 use crate::template_builder::cast_value_property;
-use crate::template_builder::merge_fn_map;
 use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
 use crate::template_value::TemplateValue;
@@ -187,14 +183,13 @@ where
 }
 
 impl OpaqueTemplateValue for Operation {}
+impl OpaqueTemplateValue for OperationId {}
 
 impl NoTemplateBooleanCast for Operation {}
 impl NoTemplateBooleanCast for OperationId {}
 
 /// Tagged union of the operation template property types.
-pub enum OperationTemplatePropertyKind<'a> {
-    OperationId(BoxedTemplateProperty<'a, OperationId>),
-}
+pub struct OperationTemplatePropertyKind<'a>(&'a std::convert::Infallible);
 
 /// Implements `WrapTemplateProperty<type>` for operation property types.
 ///
@@ -203,7 +198,6 @@ pub enum OperationTemplatePropertyKind<'a> {
 macro_rules! impl_operation_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
-            OperationId(jj_lib::op_store::OperationId),
         });
     };
 }
@@ -214,9 +208,7 @@ impl_operation_property_wrappers!(<'a> OperationTemplatePropertyKind<'a>);
 
 impl<'a> OperationTemplatePropertyKind<'a> {
     pub fn type_name(&self) -> &'static str {
-        match self {
-            Self::OperationId(_) => "OperationId",
-        }
+        match *self.0 {}
     }
 
     pub fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'a, BString>, Self> {
@@ -228,9 +220,7 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     }
 
     pub fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
-        match self {
-            Self::OperationId(_) => Err(self),
-        }
+        match *self.0 {}
     }
 
     pub fn try_into_integer(self) -> Result<BoxedTemplateProperty<'a, i64>, Self> {
@@ -242,45 +232,33 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     }
 
     pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
-        match self {
-            Self::OperationId(property) => Some(property.into_serialize()),
-        }
+        match *self.0 {}
     }
 
     pub fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
-        match self {
-            Self::OperationId(property) => Some(property.into_template()),
-        }
+        match *self.0 {}
     }
 
-    pub fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
-        match (self, other) {
-            (Self::OperationId(_), _) => None,
-        }
+    pub fn try_into_eq(self, _other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
+        match *self.0 {}
     }
 
     pub fn try_into_eq_core(
         self,
-        other: CoreTemplatePropertyKind<'a>,
+        _other: CoreTemplatePropertyKind<'a>,
     ) -> Option<BoxedTemplateProperty<'a, bool>> {
-        match (self, other) {
-            (Self::OperationId(_), _) => None,
-        }
+        match *self.0 {}
     }
 
-    pub fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
-        match (self, other) {
-            (Self::OperationId(_), _) => None,
-        }
+    pub fn try_into_cmp(self, _other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
+        match *self.0 {}
     }
 
     pub fn try_into_cmp_core(
         self,
-        other: CoreTemplatePropertyKind<'a>,
+        _other: CoreTemplatePropertyKind<'a>,
     ) -> Option<BoxedTemplateProperty<'a, Ordering>> {
-        match (self, other) {
-            (Self::OperationId(_), _) => None,
-        }
+        match *self.0 {}
     }
 }
 
@@ -427,6 +405,10 @@ pub fn register_types(registry: &mut TemplateTypeRegistry) {
         .register::<Vec<Operation>>("List<Operation>")
         .conditionable()
         .serializable();
+    registry
+        .register::<OperationId>("OperationId")
+        .formattable()
+        .serializable();
 }
 
 pub fn register_methods<'a, L>(table: &mut CoreTemplateBuildFnTable<'a, L>)
@@ -440,27 +422,22 @@ where
         <Vec<Operation>>::value_type(),
         builtin_unformattable_value_list_methods::<_, Operation>(),
     );
+    methods.insert(OperationId::value_type(), builtin_operation_id_methods());
 }
 
 /// Symbol table for the operation template property types.
 pub struct OperationTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
-    pub operation_id_methods: TemplateBuildMethodFnMap<'a, L, OperationId, P>,
+    phantom: std::marker::PhantomData<fn(&L, &'a P)>,
 }
 
 impl<L: ?Sized, P> OperationTemplateBuildFnTable<'_, L, P> {
     pub fn empty() -> Self {
         Self {
-            operation_id_methods: HashMap::new(),
+            phantom: std::marker::PhantomData,
         }
     }
 
-    pub fn merge(&mut self, other: Self) {
-        let Self {
-            operation_id_methods,
-        } = other;
-
-        merge_fn_map(&mut self.operation_id_methods, operation_id_methods);
-    }
+    pub fn merge(&mut self, _other: Self) {}
 }
 
 impl<'a, L> OperationTemplateBuildFnTable<'a, L, L::Property>
@@ -471,7 +448,7 @@ where
     /// Creates new symbol table containing the builtin methods.
     pub fn builtin() -> Self {
         Self {
-            operation_id_methods: builtin_operation_id_methods(),
+            phantom: std::marker::PhantomData,
         }
     }
 
@@ -479,20 +456,13 @@ where
     /// this symbol table.
     pub fn build_method(
         &self,
-        language: &L,
-        diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<L::Property>,
+        _language: &L,
+        _diagnostics: &mut TemplateDiagnostics,
+        _build_ctx: &BuildContext<L::Property>,
         property: OperationTemplatePropertyKind<'a>,
-        function: &FunctionCallNode,
+        _function: &FunctionCallNode,
     ) -> TemplateParseResult<L::Property> {
-        let type_name = property.type_name();
-        match property {
-            OperationTemplatePropertyKind::OperationId(property) => {
-                let table = &self.operation_id_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
-            }
-        }
+        match *property.0 {}
     }
 }
 
@@ -679,17 +649,19 @@ impl Template for OperationId {
     }
 }
 
-fn builtin_operation_id_methods<'a, L>() -> TemplateBuildMethodFnMap<'a, L, OperationId>
+fn builtin_operation_id_methods<'a, L>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
     L::Property: OperationTemplatePropertyVar<'a>,
 {
+    type T = OperationId;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, OperationId>::new();
+    let mut map = BuildValueMethodFnMap::<L>::new();
     map.insert(
         "short",
         |language, diagnostics, build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([], [len_node]) = function.expect_arguments()?;
             let len_property = len_node
                 .map(|node| {
