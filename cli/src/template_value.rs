@@ -76,7 +76,7 @@ enum Tagged {
     // ByteString(BString),
     // String(String),
     Boolean(bool),
-    // Integer(Option<i64>),
+    Integer(Option<i64>),
     // Opaque value, or its type if no value is available:
     OpaqueSome(Rc<dyn Any>),
     OpaqueNone(TypeId),
@@ -96,7 +96,7 @@ impl TemplateValueRepr {
             // Tagged::ByteString(_) => BString::value_type(),
             // Tagged::String(_) => String::value_type(),
             Tagged::Boolean(_) => bool::value_type(),
-            // Tagged::Integer(_) => <Option<i64>>::value_type(),
+            Tagged::Integer(_) => <Option<i64>>::value_type(),
             Tagged::OpaqueSome(opaque) => TemplateValueType::Option(Rc::as_ref(opaque).type_id()),
             Tagged::OpaqueNone(id) => TemplateValueType::Option(*id),
             Tagged::OpaqueList(opaque) => TemplateValueType::Scalar(Rc::as_ref(opaque).type_id()),
@@ -177,7 +177,7 @@ impl_inline_scalar_values! {
 }
 
 impl_inline_optional_values! {
-    // Integer(i64),
+    Integer(i64),
 }
 
 impl<T: OpaqueTemplateValue> TemplateValue for T {
