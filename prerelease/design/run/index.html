@@ -2852,7 +2852,7 @@ command)</li>
 <ul>
 <li><code>jj log</code>: No special handling needed</li>
 <li><code>jj diff</code>: No special handling needed</li>
-<li><code>jj st</code>: For now reprint the final output of <code>jj run</code></li>
+<li><code>jj status</code>: For now reprint the final output of <code>jj run</code></li>
 <li><code>jj op log</code>: No special handling needed, but awaits further discussion in
   <a href="https://github.com/jj-vcs/jj/issues/963">#963</a></li>
 <li><code>jj undo/jj op revert</code>: No special handling needed</li>
@@ -2874,7 +2874,7 @@ to materialize.</li>
 <li>Customized failure messages, this may be useful for bots, it could be similar
 to Bazel's <code>select(..., message = "arch not supported for $project")</code>.</li>
 <li>Make <code>jj run</code> asynchronous by spawning a <code>main</code> process, directly return to the
-user and incrementally updating the output of <code>jj st</code>.</li>
+user and incrementally updating the output of <code>jj status</code>.</li>
 </ul>
 
 

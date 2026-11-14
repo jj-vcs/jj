@@ -2317,7 +2317,7 @@ access the repo via a distributed file system (as long as the file system
 guarantees that a write is only visible once previous writes are visible). When
 you run a <code>jj</code> command, it will start by loading the repo at the latest
 operation. It will not see any changes written by concurrent commands. If there
-are conflicts, you will be informed of them by subsequent <code>jj st</code> and/or
+are conflicts, you will be informed of them by subsequent <code>jj status</code> and/or
 <code>jj log</code> commands.</p>
 <p>As an example, let's say you had started editing the description of a change and
 then also update the contents of the change (maybe because you had forgotten the
@@ -2335,7 +2335,7 @@ operation's view (which is actually how it always works -- it's just the
 snapshotting that's skipped with <code>--at-op</code>).</p>
 <p>As a top-level option, <code>--at-op</code> can be passed to any command. However, you
 will typically only want to run read-only commands. For example, <code>jj log</code>,
-<code>jj st</code>, and <code>jj diff</code> all make sense. It's still possible to run e.g.
+<code>jj status</code>, and <code>jj diff</code> all make sense. It's still possible to run e.g.
 <code>jj --at-op=&lt;some operation ID&gt; describe</code>. That's equivalent to having started
 <code>jj describe</code> back when the specified operation was the most recent operation
 and then let it run until now (which can be done for that particular command by

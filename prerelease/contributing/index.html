@@ -3837,10 +3837,10 @@ turns on <code>debug</code> log level for <code>jj-lib</code> and <code>jj-cli</
 <p>jj uses the <code>tracing</code> crate with Chrome Trace Format output.</p>
 <p>Set the <code>JJ_TRACE</code> environment variable to generate a trace file:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Generate trace with auto-generated filename (jj-trace-{timestamp}.json)</span>
-<span class="nv">JJ_TRACE</span><span class="o">=</span><span class="w"> </span>jj<span class="w"> </span>st
+<span class="nv">JJ_TRACE</span><span class="o">=</span><span class="w"> </span>jj<span class="w"> </span>status
 
 <span class="c1"># Generate trace with specific filename</span>
-<span class="nv">JJ_TRACE</span><span class="o">=</span>/tmp/trace.json<span class="w"> </span>jj<span class="w"> </span>st
+<span class="nv">JJ_TRACE</span><span class="o">=</span>/tmp/trace.json<span class="w"> </span>jj<span class="w"> </span>status
 </code></pre></div>
 <p>To include function argument values in the trace (useful for detailed
 debugging):</p>

@@ -2451,8 +2451,8 @@ Parent<span class="w"> </span>commit<span class="w"> </span><span class="o">(</s
 Added<span class="w"> </span><span class="m">1</span><span class="w"> </span>files,<span class="w"> </span>modified<span class="w"> </span><span class="m">0</span><span class="w"> </span>files,<span class="w"> </span>removed<span class="w"> </span><span class="m">0</span><span class="w"> </span>files
 $<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>Hello-World
 </code></pre></div>
-<p>Running <code>jj st</code> (short for <code>jj status</code>) now yields something like this:</p>
-<div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>st
+<p>Running <code>jj status</code> now yields something like this:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>status
 The<span class="w"> </span>working<span class="w"> </span>copy<span class="w"> </span>has<span class="w"> </span>no<span class="w"> </span>changes.
 Working<span class="w"> </span>copy<span class="w">  </span><span class="o">(</span>@<span class="o">)</span><span class="w"> </span>:<span class="w"> </span>kntqzsqt<span class="w"> </span>d7439b06<span class="w"> </span><span class="o">(</span>empty<span class="o">)</span><span class="w"> </span><span class="o">(</span>no<span class="w"> </span>description<span class="w"> </span><span class="nb">set</span><span class="o">)</span>
 Parent<span class="w"> </span>commit<span class="w"> </span><span class="o">(</span>@-<span class="o">)</span>:<span class="w"> </span>orrkosyo<span class="w"> </span>7fd1a60b<span class="w"> </span>master<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">(</span>empty<span class="o">)</span><span class="w"> </span>Merge<span class="w"> </span>pull<span class="w"> </span>request<span class="w"> </span><span class="c1">#6 from Spaceghost/patch-1</span>
@@ -2499,7 +2499,7 @@ Parent<span class="w"> </span>commit<span class="w"> </span><span class="o">(</s
 <p>Now make the change in the README:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Adjust as necessary for compatibility with your flavor of `sed`</span>
 $<span class="w"> </span>sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/Hello/Goodbye/&#39;</span><span class="w"> </span>README
-$<span class="w"> </span>jj<span class="w"> </span>st
+$<span class="w"> </span>jj<span class="w"> </span>status
 Working<span class="w"> </span>copy<span class="w"> </span>changes:
 M<span class="w"> </span>README
 Working<span class="w"> </span>copy<span class="w">  </span><span class="o">(</span>@<span class="o">)</span><span class="w"> </span>:<span class="w"> </span>kntqzsqt<span class="w"> </span>5d39e19d<span class="w"> </span>Say<span class="w"> </span>goodbye
@@ -2535,7 +2535,7 @@ is for the working-copy changes.</p>
 <div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>new
 Working<span class="w"> </span>copy<span class="w">  </span><span class="o">(</span>@<span class="o">)</span><span class="w"> </span>now<span class="w"> </span>at:<span class="w"> </span>mpqrykyp<span class="w"> </span>aef4df99<span class="w"> </span><span class="o">(</span>empty<span class="o">)</span><span class="w"> </span><span class="o">(</span>no<span class="w"> </span>description<span class="w"> </span><span class="nb">set</span><span class="o">)</span>
 Parent<span class="w"> </span>commit<span class="w"> </span><span class="o">(</span>@-<span class="o">)</span><span class="w">      </span>:<span class="w"> </span>kntqzsqt<span class="w"> </span>5d39e19d<span class="w"> </span>Say<span class="w"> </span>goodbye
-$<span class="w"> </span>jj<span class="w"> </span>st
+$<span class="w"> </span>jj<span class="w"> </span>status
 The<span class="w"> </span>working<span class="w"> </span>copy<span class="w"> </span>has<span class="w"> </span>no<span class="w"> </span>changes.
 Working<span class="w"> </span>copy<span class="w">  </span><span class="o">(</span>@<span class="o">)</span><span class="w"> </span>:<span class="w"> </span>mpqrykyp<span class="w"> </span>aef4df99<span class="w"> </span><span class="o">(</span>empty<span class="o">)</span><span class="w"> </span><span class="o">(</span>no<span class="w"> </span>description<span class="w"> </span><span class="nb">set</span><span class="o">)</span>
 Parent<span class="w"> </span>commit<span class="w"> </span><span class="o">(</span>@-<span class="o">)</span>:<span class="w"> </span>kntqzsqt<span class="w"> </span>5d39e19d<span class="w"> </span>Say<span class="w"> </span>goodbye
@@ -2686,7 +2686,7 @@ Added<span class="w"> </span><span class="m">0</span><span class="w"> </span>fil
 Warning:<span class="w"> </span>There<span class="w"> </span>are<span class="w"> </span>unresolved<span class="w"> </span>conflicts<span class="w"> </span>at<span class="w"> </span>these<span class="w"> </span>paths:
 file1<span class="w">    </span><span class="m">2</span>-sided<span class="w"> </span>conflict
 
-$<span class="w"> </span>jj<span class="w"> </span>st
+$<span class="w"> </span>jj<span class="w"> </span>status
 The<span class="w"> </span>working<span class="w"> </span>copy<span class="w"> </span>has<span class="w"> </span>no<span class="w"> </span>changes.
 Working<span class="w"> </span>copy<span class="w">  </span><span class="o">(</span>@<span class="o">)</span><span class="w"> </span>:<span class="w"> </span>zxoosnnp<span class="w"> </span>c7068d1c<span class="w"> </span><span class="o">(</span>conflict<span class="o">)</span><span class="w"> </span><span class="o">(</span>empty<span class="o">)</span><span class="w"> </span><span class="o">(</span>no<span class="w"> </span>description<span class="w"> </span><span class="nb">set</span><span class="o">)</span>
 Parent<span class="w"> </span>commit<span class="w"> </span><span class="o">(</span>@-<span class="o">)</span>:<span class="w"> </span>puqltutt<span class="w"> </span>f7fb5943<span class="w"> </span><span class="o">(</span>conflict<span class="o">)</span><span class="w"> </span>B2
@@ -2711,7 +2711,7 @@ b2
 
 $<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>resolved<span class="w"> </span>&gt;<span class="w"> </span>file1
 
-$<span class="w"> </span>jj<span class="w"> </span>st
+$<span class="w"> </span>jj<span class="w"> </span>status
 Working<span class="w"> </span>copy<span class="w"> </span>changes:
 M<span class="w"> </span>file1
 Working<span class="w"> </span>copy<span class="w">  </span><span class="o">(</span>@<span class="o">)</span><span class="w"> </span>:<span class="w"> </span>zxoosnnp<span class="w"> </span>c2a31a06<span class="w"> </span><span class="o">(</span>no<span class="w"> </span>description<span class="w"> </span><span class="nb">set</span><span class="o">)</span>
@@ -2756,7 +2756,7 @@ commands to interact with it. To list the operations, use <code>jj op log</code>
 │<span class="w">  </span>args:<span class="w"> </span>jj<span class="w"> </span>squash
 ○<span class="w">  </span>6fc1873c1180<span class="w"> </span>martinvonz@vonz.svl.corp.google.com<span class="w"> </span><span class="m">3</span><span class="w"> </span>minutes<span class="w"> </span>ago,<span class="w"> </span>lasted<span class="w"> </span><span class="m">1</span><span class="w"> </span>milliseconds
 │<span class="w">  </span>snapshot<span class="w"> </span>working<span class="w"> </span>copy
-│<span class="w">  </span>args:<span class="w"> </span>jj<span class="w"> </span>st
+│<span class="w">  </span>args:<span class="w"> </span>jj<span class="w"> </span>status
 ○<span class="w">  </span>ed91f7bcc1fb<span class="w"> </span>martinvonz@vonz.svl.corp.google.com<span class="w"> </span><span class="m">6</span><span class="w"> </span>minutes<span class="w"> </span>ago,<span class="w"> </span>lasted<span class="w"> </span><span class="m">1</span><span class="w"> </span>milliseconds
 │<span class="w">  </span>new<span class="w"> </span>empty<span class="w"> </span>commit
 │<span class="w">  </span>args:<span class="w"> </span>jj<span class="w"> </span>new<span class="w"> </span>puqltutt
