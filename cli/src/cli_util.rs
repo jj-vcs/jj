@@ -1837,6 +1837,25 @@ to the current parents may contain changes from multiple commits.
         self.env.lock_git_import_export(&self.workspace)
     }
 
+    /// Snapshots the working copy like [`Self::snapshot_impl()`] if it may be
+    /// snapshotted. Otherwise, returns empty stats.
+    ///
+    /// Note that unless you have a good reason not to do so, you should always
+    /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
+    /// this function to present possible untracked files to the user.
+    pub async fn maybe_snapshot(
+        &mut self,
+        event_handler: &mut dyn RunnerEventHandler,
+        config: &SnapshotConfig,
+    ) -> Result<SnapshotStats, RunnerError> {
+        if !self.may_snapshot_working_copy {
+            return Ok(SnapshotStats::default());
+        }
+        let git_import_export_lock = self.lock_git_import_export()?;
+        self.snapshot_impl(event_handler, config, &git_import_export_lock)
+            .await
+    }
+
     /// Note that unless you have a good reason not to do so, you should always
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
@@ -2393,20 +2412,6 @@ impl WorkspaceCommandHelper {
         self.runner.get_wc_commit().await
     }
 
-    /// Snapshots the working copy and imports from Git, printing events to
-    /// `ui`. See [`WorkspaceOperationRunner::snapshot_impl()`].
-    async fn snapshot_impl(
-        &mut self,
-        ui: &Ui,
-        config: &SnapshotConfig,
-        git_import_export_lock: &GitImportExportLock,
-    ) -> Result<SnapshotStats, RunnerError> {
-        let mut event_handler = CliRunnerEventHandler::new(ui, &self.env);
-        self.runner
-            .snapshot_impl(&mut event_handler, config, git_import_export_lock)
-            .await
-    }
-
     /// Snapshots the working copy or recovers it if it's stale, printing
     /// events to `ui`. See
     /// [`WorkspaceOperationRunner::snapshot_or_recover_stale()`].
@@ -2450,13 +2455,11 @@ impl WorkspaceCommandHelper {
     /// working copy is colocated with Git.
     #[instrument(skip_all)]
     pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<(), CommandError> {
-        if !self.runner.may_snapshot_working_copy {
-            return Ok(());
-        }
         let config = self.load_snapshot_config(ui)?;
-        let git_import_export_lock = self.runner.lock_git_import_export()?;
+        let mut event_handler = CliRunnerEventHandler::new(ui, &self.env);
         let stats = self
-            .snapshot_impl(ui, &config, &git_import_export_lock)
+            .runner
+            .maybe_snapshot(&mut event_handler, &config)
             .await?;
         print_snapshot_stats(ui, &stats, self.env().path_converter())?;
         Ok(())
@@ -2536,7 +2539,7 @@ impl WorkspaceCommandHelper {
         Ok(FilesetExpression::union_all(expressions))
     }
 
-    /// Loads configuration needed by [`Self::snapshot_impl()`].
+    /// Loads configuration needed by [`Self::maybe_snapshot()`].
     fn load_snapshot_config(&self, ui: &Ui) -> Result<SnapshotConfig, CommandError> {
         self.env.load_snapshot_config(ui, self.repo().store())
     }
