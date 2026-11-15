@@ -16,8 +16,9 @@ use std::sync::Arc;
 
 use futures::TryStreamExt as _;
 use jj_cli::cli_util::CliRunner;
-use jj_cli::commit_templater::CommitTemplateBuildFnTable;
+use jj_cli::commit_templater::CommitTemplateLanguage;
 use jj_cli::commit_templater::CommitTemplateLanguageExtension;
+use jj_cli::template_builder::CoreTemplateBuildFnTable;
 use jj_cli::template_builder::TemplateLanguage as _;
 use jj_cli::template_builder::cast_value_property;
 use jj_cli::template_value::TemplateValue as _;
@@ -125,10 +126,12 @@ impl SymbolResolverExtension for TheDigitest {
 }
 
 impl CommitTemplateLanguageExtension for HexCounter {
-    fn build_fn_table<'repo>(&self) -> CommitTemplateBuildFnTable<'repo> {
+    fn build_fn_table<'repo>(
+        &self,
+    ) -> CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>> {
         type T = Commit;
-        let mut fn_table = CommitTemplateBuildFnTable::empty();
-        let table = fn_table.core.methods.entry(T::value_type()).or_default();
+        let mut fn_table = CoreTemplateBuildFnTable::<CommitTemplateLanguage>::empty();
+        let table = fn_table.methods.entry(T::value_type()).or_default();
         table.insert(
             "has_most_digits",
             |language, _diagnostics, _build_context, property, call| {

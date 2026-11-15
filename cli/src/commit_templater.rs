@@ -15,7 +15,6 @@
 //! Template environment for `jj log`, `jj evolog` and similar.
 
 use std::any::Any;
-use std::cmp::Ordering;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt;
@@ -35,7 +34,6 @@ use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::MergedTreeValue;
 use jj_lib::backend::MergedTreeValueExt as _;
-use jj_lib::backend::Timestamp;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
@@ -103,7 +101,6 @@ use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
 use crate::operation_templater;
 use crate::operation_templater::OperationTemplateEnvironment;
-use crate::operation_templater::OperationTemplatePropertyVar;
 use crate::revset_util;
 use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_builder;
@@ -111,9 +108,8 @@ use crate::template_builder::BuildContext;
 use crate::template_builder::BuildValueMethodFnMap;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
-use crate::template_builder::CoreTemplatePropertyVar;
+use crate::template_builder::CoreTemplatePropertyVar as _;
 use crate::template_builder::TemplateBuildFunctionFnMap;
-use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::builtin_formattable_list_methods;
 use crate::template_builder::builtin_unformattable_list_methods;
@@ -124,8 +120,6 @@ use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
 use crate::template_value::TemplateValue;
 use crate::templater;
-use crate::templater::BoxedAnyProperty;
-use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::Literal;
 use crate::templater::NoTemplateBooleanCast;
@@ -134,10 +128,11 @@ use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
-use crate::templater::WrapTemplateProperty;
 
 pub trait CommitTemplateLanguageExtension {
-    fn build_fn_table<'repo>(&self) -> CommitTemplateBuildFnTable<'repo>;
+    fn build_fn_table<'repo>(
+        &self,
+    ) -> CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>;
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
@@ -159,7 +154,7 @@ pub struct CommitTemplateLanguage<'repo> {
     immutable_expression: Arc<UserRevsetExpression>,
     conflict_marker_style: ConflictMarkerStyle,
     type_registry: TemplateTypeRegistry,
-    build_fn_table: CommitTemplateBuildFnTable<'repo>,
+    build_fn_table: CoreTemplateBuildFnTable<'repo, Self>,
     keyword_cache: CommitKeywordCache,
     cache_extensions: ExtensionsMap,
 }
@@ -181,9 +176,15 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         let mut type_registry = template_builder::new_core_type_registry();
         operation_templater::register_types(&mut type_registry);
         register_types(&mut type_registry);
-        let mut build_fn_table = CommitTemplateBuildFnTable::builtin();
-        let mut cache_extensions = ExtensionsMap::empty();
+        let mut build_fn_table = CoreTemplateBuildFnTable::builtin();
+        merge_fn_map(
+            &mut build_fn_table.functions,
+            builtin_commit_template_functions(),
+        );
+        operation_templater::register_methods(&mut build_fn_table);
+        register_methods(&mut build_fn_table);
 
+        let mut cache_extensions = ExtensionsMap::empty();
         for extension in extensions {
             build_fn_table.merge(extension.as_ref().build_fn_table());
             extension
@@ -223,7 +224,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
 }
 
 impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
-    type Property = CommitTemplatePropertyKind<'repo>;
+    type Property = CoreTemplatePropertyKind<'repo>;
 
     fn settings(&self) -> &UserSettings {
         self.repo.base_repo().settings()
@@ -244,7 +245,7 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
         build_ctx: &BuildContext<Self::Property>,
         function: &FunctionCallNode,
     ) -> TemplateParseResult<Self::Property> {
-        let table = &self.build_fn_table.core;
+        let table = &self.build_fn_table;
         table.build_function(self, diagnostics, build_ctx, function)
     }
 
@@ -255,12 +256,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
         property: Self::Property,
         function: &FunctionCallNode,
     ) -> TemplateParseResult<Self::Property> {
-        match property {
-            CommitTemplatePropertyKind::Core(property) => {
-                let table = &self.build_fn_table.core;
-                table.build_method(self, diagnostics, build_ctx, property, function)
-            }
-        }
+        let table = &self.build_fn_table;
+        table.build_method(self, diagnostics, build_ctx, property, function)
     }
 }
 
@@ -332,123 +329,6 @@ impl NoTemplateBooleanCast for DiffStatEntry {}
 impl NoTemplateBooleanCast for CryptographicSignature {}
 impl NoTemplateBooleanCast for AnnotationLine {}
 impl NoTemplateBooleanCast for Trailer {}
-
-pub enum CommitTemplatePropertyKind<'repo> {
-    Core(CoreTemplatePropertyKind<'repo>),
-}
-
-impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplatePropertyKind<'repo> {
-    fn wrap_property(property: BoxedTemplateProperty<'repo, O>) -> Self {
-        Self::Core(CoreTemplatePropertyKind::wrap_property(property))
-    }
-}
-
-template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
-
-impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {
-    fn wrap_template(template: Box<dyn Template + 'repo>) -> Self {
-        Self::Core(CoreTemplatePropertyKind::wrap_template(template))
-    }
-
-    fn wrap_any(property: BoxedAnyProperty<'repo>) -> Self {
-        Self::Core(CoreTemplatePropertyKind::wrap_any(property))
-    }
-
-    fn wrap_any_list(property: BoxedAnyProperty<'repo>) -> Self {
-        Self::Core(CoreTemplatePropertyKind::wrap_any_list(property))
-    }
-
-    fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
-        match self {
-            Self::Core(property) => property.type_name(registry),
-        }
-    }
-
-    fn try_into_byte_string(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Result<BoxedTemplateProperty<'repo, BString>, Self> {
-        match self {
-            Self::Core(property) => property.try_into_byte_string(registry).map_err(Self::Core),
-        }
-    }
-
-    fn try_into_string(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Result<BoxedTemplateProperty<'repo, String>, Self> {
-        match self {
-            Self::Core(property) => property.try_into_string(registry).map_err(Self::Core),
-        }
-    }
-
-    fn try_into_boolean(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
-        match self {
-            Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
-        }
-    }
-
-    fn try_into_integer(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Result<BoxedTemplateProperty<'repo, i64>, Self> {
-        match self {
-            Self::Core(property) => property.try_into_integer(registry).map_err(Self::Core),
-        }
-    }
-
-    fn try_into_timestamp(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Result<BoxedTemplateProperty<'repo, Timestamp>, Self> {
-        match self {
-            Self::Core(property) => property.try_into_timestamp(registry).map_err(Self::Core),
-        }
-    }
-
-    fn try_into_serialize(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Option<BoxedSerializeProperty<'repo>> {
-        match self {
-            Self::Core(property) => property.try_into_serialize(registry),
-        }
-    }
-
-    fn try_into_template(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Option<Box<dyn Template + 'repo>> {
-        match self {
-            Self::Core(property) => property.try_into_template(registry),
-        }
-    }
-
-    fn try_into_eq(
-        self,
-        other: Self,
-        registry: &TemplateTypeRegistry,
-    ) -> Option<BoxedTemplateProperty<'repo, bool>> {
-        match (self, other) {
-            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
-        }
-    }
-
-    fn try_into_cmp(
-        self,
-        other: Self,
-        registry: &TemplateTypeRegistry,
-    ) -> Option<BoxedTemplateProperty<'repo, Ordering>> {
-        match (self, other) {
-            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
-        }
-    }
-}
-
-impl<'repo> OperationTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {}
 
 fn register_types(registry: &mut TemplateTypeRegistry) {
     registry.register::<Commit>("Commit").serializable();
@@ -655,40 +535,8 @@ fn register_methods<'repo>(
     methods.insert(<Vec<Trailer>>::value_type(), builtin_trailer_list_methods());
 }
 
-/// Table of functions that translate method call node of self type `T`.
-pub type CommitTemplateBuildMethodFnMap<'repo, T> =
-    TemplateBuildMethodFnMap<'repo, CommitTemplateLanguage<'repo>, T>;
-
 type CommitTemplateBuildValueMethodFnMap<'repo> =
     BuildValueMethodFnMap<'repo, CommitTemplateLanguage<'repo>>;
-
-/// Symbol table of methods available in the commit template.
-pub struct CommitTemplateBuildFnTable<'repo> {
-    pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
-}
-
-impl CommitTemplateBuildFnTable<'_> {
-    pub fn empty() -> Self {
-        Self {
-            core: CoreTemplateBuildFnTable::empty(),
-        }
-    }
-
-    fn merge(&mut self, other: Self) {
-        let Self { core } = other;
-
-        self.core.merge(core);
-    }
-
-    /// Creates new symbol table containing the builtin methods.
-    fn builtin() -> Self {
-        let mut core = CoreTemplateBuildFnTable::builtin();
-        merge_fn_map(&mut core.functions, builtin_commit_template_functions());
-        operation_templater::register_methods(&mut core);
-        register_methods(&mut core);
-        Self { core }
-    }
-}
 
 #[derive(Default)]
 pub struct CommitKeywordCache {
@@ -2250,7 +2098,7 @@ where
 
 fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
     type T = TreeDiff;
-    type P<'repo> = CommitTemplatePropertyKind<'repo>;
+    type P<'repo> = CoreTemplatePropertyKind<'repo>;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildValueMethodFnMap::new();
@@ -3064,14 +2912,15 @@ mod tests {
 
     use super::*;
     use crate::templater::TemplateRenderer;
+    use crate::templater::WrapTemplateProperty;
 
     // TemplateBuildFunctionFn defined for<'a>
     type BuildFunctionFn = for<'a> fn(
         &CommitTemplateLanguage<'a>,
         &mut TemplateDiagnostics,
-        &BuildContext<CommitTemplatePropertyKind<'a>>,
+        &BuildContext<CoreTemplatePropertyKind<'a>>,
         &FunctionCallNode,
-    ) -> TemplateParseResult<CommitTemplatePropertyKind<'a>>;
+    ) -> TemplateParseResult<CoreTemplatePropertyKind<'a>>;
 
     struct CommitTemplateTestEnv {
         test_workspace: TestWorkspace,
@@ -3147,7 +2996,7 @@ mod tests {
             );
             // Not using .extend() to infer lifetime of f
             for (&name, &f) in &self.extra_functions {
-                language.build_fn_table.core.functions.insert(name, f);
+                language.build_fn_table.functions.insert(name, f);
             }
             language
         }
@@ -3155,7 +3004,7 @@ mod tests {
         fn parse<'a, C>(&'a self, text: &str) -> TemplateParseResult<TemplateRenderer<'a, C>>
         where
             C: Clone + 'a,
-            CommitTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
+            CoreTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
         {
             let language = self.new_language();
             let mut diagnostics = TemplateDiagnostics::new();
@@ -3170,7 +3019,7 @@ mod tests {
         fn render_ok<'a, C>(&'a self, text: &str, context: &C) -> BString
         where
             C: Clone + 'a,
-            CommitTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
+            CoreTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
         {
             let template = self.parse(text).unwrap();
             template.format_plain_text(context).into()
