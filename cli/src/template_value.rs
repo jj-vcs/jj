@@ -16,6 +16,7 @@
 
 use std::any::Any;
 use std::any::TypeId;
+use std::assert_matches;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -303,6 +304,7 @@ impl<T> ToTemplateCondition for Vec<T> {
 type CastFn<T> = fn(TemplateValueRepr) -> Result<T, TemplateValueExtractionError>;
 type BinaryFn<T> =
     fn(TemplateValueRepr, TemplateValueRepr) -> Result<T, TemplateValueExtractionError>;
+type TransformFn = CastFn<TemplateValueRepr>;
 type ToConditionFn = CastFn<bool>;
 type ToTemplateFn = CastFn<Box<dyn Template>>;
 type ToSerializeFn = CastFn<Box<dyn erased_serde::Serialize>>;
@@ -311,6 +313,7 @@ type CmpFn = BinaryFn<Ordering>;
 
 pub struct TemplateTypeRegistry {
     type_names: HashMap<TemplateValueType, &'static str>,
+    newtypes: HashMap<TemplateValueType, (TemplateValueType, TransformFn)>,
     to_condition_fns: HashMap<TemplateValueType, ToConditionFn>,
     to_template_fns: HashMap<TemplateValueType, ToTemplateFn>,
     to_serialize_fns: HashMap<TemplateValueType, ToSerializeFn>,
@@ -322,6 +325,7 @@ impl TemplateTypeRegistry {
     pub fn empty() -> Self {
         Self {
             type_names: HashMap::new(),
+            newtypes: HashMap::new(),
             to_condition_fns: HashMap::new(),
             to_template_fns: HashMap::new(),
             to_serialize_fns: HashMap::new(),
@@ -346,6 +350,10 @@ impl TemplateTypeRegistry {
 
     pub fn get_type_name(&self, ty: &TemplateValueType) -> Option<&'static str> {
         self.type_names.get(ty).copied()
+    }
+
+    pub fn get_newtype(&self, ty: &TemplateValueType) -> Option<(&TemplateValueType, TransformFn)> {
+        self.newtypes.get(ty).map(|(ty, f)| (ty, *f))
     }
 
     pub fn get_to_condition_fn(&self, ty: &TemplateValueType) -> Option<ToConditionFn> {
@@ -377,6 +385,28 @@ pub struct TemplateTypeRegistration<'a, T> {
 }
 
 impl<T: TemplateValue> TemplateTypeRegistration<'_, T> {
+    /// Registers this type as a newtype of `U`.
+    ///
+    /// A newtype value can be coerced to its underlying type when the expected
+    /// type is known. If this type lacks a method table, `U`'s method table is
+    /// used instead. Other conversions and comparison functions do not trigger
+    /// this coercion and must be implemented for the newtype as needed.
+    #[track_caller]
+    pub fn newtype_of<U>(self) -> Self
+    where
+        T: Into<U>,
+        U: TemplateValue,
+    {
+        let outer_ty = T::value_type();
+        let inner_ty = U::value_type();
+        assert_matches!(outer_ty, TemplateValueType::Scalar(_));
+        assert_matches!(inner_ty, TemplateValueType::Scalar(_));
+        self.registry
+            .newtypes
+            .insert(outer_ty, (inner_ty, try_newtype_into_inner::<T, U>));
+        self
+    }
+
     /// Registers this as a type convertible to boolean.
     pub fn conditionable(self) -> Self
     where
@@ -453,6 +483,13 @@ impl<T: TemplateValue> TemplateTypeRegistration<'_, T> {
         self.registry.cmp_fns.insert(T::value_type(), try_cmp::<T>);
         self
     }
+}
+
+fn try_newtype_into_inner<T: TemplateValue + Into<U>, U: TemplateValue>(
+    repr: TemplateValueRepr,
+) -> Result<TemplateValueRepr, TemplateValueExtractionError> {
+    let value = T::try_from_repr(repr)?;
+    Ok(Into::<U>::into(value).into_repr())
 }
 
 fn try_into_condition<T: TemplateValue + ToTemplateCondition>(

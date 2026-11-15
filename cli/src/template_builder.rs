@@ -370,8 +370,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         registry: &TemplateTypeRegistry,
     ) -> Result<BoxedTemplateProperty<'a, BString>, Self> {
         match self {
-            Self::Value { ty, property } if ty == BString::value_type() => {
-                Ok(cast_value_property(property, registry).into_dyn())
+            Self::Value { ty, property } => {
+                try_unwrap_value_property_or_default::<BString>(&ty, property, registry)
+                    .map_err(|property| Self::Value { ty, property })
             }
             _ => Err(self),
         }
@@ -382,8 +383,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         registry: &TemplateTypeRegistry,
     ) -> Result<BoxedTemplateProperty<'a, String>, Self> {
         match self {
-            Self::Value { ty, property } if ty == String::value_type() => {
-                Ok(cast_value_property(property, registry).into_dyn())
+            Self::Value { ty, property } => {
+                try_unwrap_value_property_or_default::<String>(&ty, property, registry)
+                    .map_err(|property| Self::Value { ty, property })
             }
             _ => Err(self),
         }
@@ -423,10 +425,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         registry: &TemplateTypeRegistry,
     ) -> Result<BoxedTemplateProperty<'a, i64>, Self> {
         match self {
-            Self::Value { ty, property }
-                if ty == i64::value_type() || ty == <Option<i64>>::value_type() =>
-            {
-                Ok(cast_value_property(property, registry).into_dyn())
+            Self::Value { ty, property } => {
+                try_unwrap_value_property::<i64>(&ty, property, registry)
+                    .map_err(|property| Self::Value { ty, property })
             }
             _ => Err(self),
         }
@@ -784,6 +785,60 @@ pub fn cast_value_property<'a, T: TemplateValue>(
     property.and_then(move |repr| reject_missing_value(T::try_from_repr(repr), type_name))
 }
 
+/// Coerces a type-erased property of type `ty` to `T` if its inner type
+/// matches.
+fn try_unwrap_value_property<'a, T: TemplateValue>(
+    ty: &TemplateValueType,
+    property: BoxedTemplateProperty<'a, TemplateValueRepr>,
+    registry: &TemplateTypeRegistry,
+) -> Result<BoxedTemplateProperty<'a, T>, BoxedTemplateProperty<'a, TemplateValueRepr>> {
+    try_unwrap_value_property_with(ty, property, registry, reject_missing_value)
+}
+
+/// Coerces a type-erased property of type `ty` to `T` if its inner type
+/// matches, falling back to a default value if the value is missing.
+///
+/// For example, a `None` value of a string newtype can be converted to `""`.
+fn try_unwrap_value_property_or_default<'a, T: Default + TemplateValue>(
+    ty: &TemplateValueType,
+    property: BoxedTemplateProperty<'a, TemplateValueRepr>,
+    registry: &TemplateTypeRegistry,
+) -> Result<BoxedTemplateProperty<'a, T>, BoxedTemplateProperty<'a, TemplateValueRepr>> {
+    try_unwrap_value_property_with(ty, property, registry, |r, _| Ok(ignore_missing_value(r)))
+}
+
+fn try_unwrap_value_property_with<'a, T, F>(
+    ty: &TemplateValueType,
+    property: BoxedTemplateProperty<'a, TemplateValueRepr>,
+    registry: &TemplateTypeRegistry,
+    process: F,
+) -> Result<BoxedTemplateProperty<'a, T>, BoxedTemplateProperty<'a, TemplateValueRepr>>
+where
+    T: TemplateValue,
+    F: Fn(Result<T, TemplateValueExtractionError>, &str) -> Result<T, TemplatePropertyError> + 'a,
+{
+    let unwrapped_ty = match ty {
+        TemplateValueType::Scalar(_) => ty,
+        TemplateValueType::Option(id) => &TemplateValueType::Scalar(*id),
+    };
+    let type_name = registry
+        .get_type_name(unwrapped_ty)
+        .expect("registered type");
+    if *unwrapped_ty == T::value_type() {
+        let inner_property =
+            property.and_then(move |repr| process(T::try_from_repr(repr), type_name));
+        Ok(inner_property.into_dyn())
+    } else if let Some((inner_ty, cast)) = registry.get_newtype(unwrapped_ty)
+        && *inner_ty == T::value_type()
+    {
+        let inner_property = property
+            .and_then(move |repr| process(cast(repr).and_then(T::try_from_repr), type_name));
+        Ok(inner_property.into_dyn())
+    } else {
+        Err(property)
+    }
+}
+
 fn reject_missing_value<T>(
     result: Result<T, TemplateValueExtractionError>,
     type_name: &str,
@@ -928,9 +983,21 @@ where
                 let type_name = registry
                     .get_type_name(&unwrapped_ty)
                     .expect("registered type");
-                let table = self.methods.get(&unwrapped_ty).expect("registered type");
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
+                if let Some(table) = self.methods.get(&unwrapped_ty) {
+                    let build = template_parser::lookup_method(type_name, table, function)?;
+                    build(language, diagnostics, build_ctx, property, function)
+                } else if let Some((inner_ty, cast)) = registry.get_newtype(&unwrapped_ty)
+                    && let Some(table) = self.methods.get(inner_ty)
+                {
+                    // Use the original type name for error
+                    let build = template_parser::lookup_method(type_name, table, function)?;
+                    let inner_property = property
+                        .and_then(move |repr| reject_missing_value(cast(repr), type_name))
+                        .into_dyn();
+                    build(language, diagnostics, build_ctx, inner_property, function)
+                } else {
+                    panic!("no method table registered for type: {unwrapped_ty:?}");
+                }
             }
             CoreTemplatePropertyKind::ConfigValue(property) => {
                 let table = &self.config_value_methods;

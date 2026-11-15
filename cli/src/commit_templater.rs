@@ -3630,6 +3630,26 @@ mod tests {
 
         // JSON
         insta::assert_snapshot!(env.render_ok("json(self)", &sym("foo bar")), @r#""foo bar""#);
+
+        // coerce to integer
+        insta::assert_snapshot!(env.parse::<RefSymbolBuf>("fill(self, '')").err().unwrap(), @"
+         --> 1:6
+          |
+        1 | fill(self, '')
+          |      ^--^
+          |
+          = Expected expression of type `Integer`, but actual type is `RefSymbol`
+        ");
+
+        // unknown method
+        insta::assert_snapshot!(env.parse::<RefSymbolBuf>("self.foo()").err().unwrap(), @"
+         --> 1:6
+          |
+        1 | self.foo()
+          |      ^-^
+          |
+          = Method `foo` doesn't exist for type `RefSymbol`
+        ");
     }
 
     #[test]
