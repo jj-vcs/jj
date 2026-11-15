@@ -489,38 +489,22 @@ impl CommandHelper {
             .is_working_copy_writable()
             .then(|| env.base.lock_git_import_export(&workspace))
             .transpose()?;
-        let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+        let workspace_command = self.load_from_workspace(ui, workspace, env).await?;
         let Some(git_import_export_lock) = git_import_export_lock else {
             return Ok((workspace_command, SnapshotStats::default(), false));
         };
 
         let old_repo = workspace_command.repo().clone();
         let snapshot_config = workspace_command.load_snapshot_config(ui)?;
-        let (workspace_command, stats) = match workspace_command
-            .snapshot_impl(ui, &snapshot_config, &git_import_export_lock)
-            .await
-        {
-            Ok(stats) => (workspace_command, stats),
-            Err(err @ RunnerError::StaleWorkingCopy(_)) => {
-                let auto_update_stale = self.settings().get_bool("snapshot.auto-update-stale")?;
-                if !auto_update_stale {
-                    return Err(err.into());
-                }
-
-                // We detected the working copy was stale and the client is configured to
-                // auto-update-stale, so let's do that now. We need to do it up here, not at a
-                // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
-                // of the working copy.
-                let WorkspaceCommandHelper {
-                    runner: WorkspaceOperationRunner { workspace, .. },
-                    env,
-                    ..
-                } = workspace_command;
-                self.recover_stale_working_copy_impl(ui, workspace, env, &git_import_export_lock)
-                    .await?
-            }
-            Err(err) => return Err(err.into()),
-        };
+        let auto_update_stale = workspace_command.env().base.auto_update_stale()?;
+        let (workspace_command, stats) = workspace_command
+            .snapshot_or_recover_stale(
+                ui,
+                &snapshot_config,
+                &git_import_export_lock,
+                auto_update_stale,
+            )
+            .await?;
 
         let changed = old_repo.op_id() != workspace_command.repo().op_id();
         Ok((workspace_command, stats, changed))
@@ -626,19 +610,8 @@ impl CommandHelper {
         ui: &Ui,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let workspace = self.load_workspace()?;
-        let env = self.workspace_environment(ui, &workspace)?;
+        let mut env = self.workspace_environment(ui, &workspace)?;
         let git_import_export_lock = env.base.lock_git_import_export(&workspace)?;
-        self.recover_stale_working_copy_impl(ui, workspace, env, &git_import_export_lock)
-            .await
-    }
-
-    async fn recover_stale_working_copy_impl(
-        &self,
-        ui: &Ui,
-        workspace: Workspace,
-        mut env: WorkspaceCommandEnvironment,
-        git_import_export_lock: &GitImportExportLock,
-    ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let snapshot_config = env.load_snapshot_config(ui, workspace.repo_loader().store())?;
         let mut event_handler = CliRunnerEventHandler::new(ui, &env);
         let (runner, stats) = WorkspaceOperationRunner::recover_stale_working_copy(
@@ -647,7 +620,7 @@ impl CommandHelper {
             env.base.clone(),
             self.runner_options(),
             &snapshot_config,
-            git_import_export_lock,
+            &git_import_export_lock,
         )
         .await?;
         // The runner may have updated the environment.
@@ -1672,6 +1645,48 @@ impl WorkspaceOperationRunner {
         }
     }
 
+    /// Snapshots the working copy if it may be snapshotted. If it's stale and
+    /// `auto_update_stale` is set, it's recovered with
+    /// [`Self::recover_stale_working_copy()`] instead. Returns the runner and
+    /// the stats from snapshotting.
+    pub async fn snapshot_or_recover_stale(
+        mut self,
+        event_handler: &mut dyn RunnerEventHandler,
+        config: &SnapshotConfig,
+        git_import_export_lock: &GitImportExportLock,
+        auto_update_stale: bool,
+    ) -> Result<(Self, SnapshotStats), RunnerError> {
+        if !self.may_snapshot_working_copy {
+            return Ok((self, SnapshotStats::default()));
+        }
+        match self
+            .snapshot_impl(event_handler, config, git_import_export_lock)
+            .await
+        {
+            Ok(stats) => Ok((self, stats)),
+            Err(RunnerError::StaleWorkingCopy(_)) if auto_update_stale => {
+                // This is done here rather than inside snapshot_working_copy()
+                // to avoid recursive locking of the working copy.
+                let Self {
+                    workspace,
+                    env,
+                    options,
+                    ..
+                } = self;
+                Self::recover_stale_working_copy(
+                    event_handler,
+                    workspace,
+                    env,
+                    options,
+                    config,
+                    git_import_export_lock,
+                )
+                .await
+            }
+            Err(err) => Err(err),
+        }
+    }
+
     /// Updates the stale working copy from `stale_wc_commit` to the current
     /// working-copy commit.
     async fn update_stale_working_copy(
@@ -2390,6 +2405,31 @@ impl WorkspaceCommandHelper {
         self.runner
             .snapshot_impl(&mut event_handler, config, git_import_export_lock)
             .await
+    }
+
+    /// Snapshots the working copy or recovers it if it's stale, printing
+    /// events to `ui`. See
+    /// [`WorkspaceOperationRunner::snapshot_or_recover_stale()`].
+    async fn snapshot_or_recover_stale(
+        self,
+        ui: &Ui,
+        config: &SnapshotConfig,
+        git_import_export_lock: &GitImportExportLock,
+        auto_update_stale: bool,
+    ) -> Result<(Self, SnapshotStats), RunnerError> {
+        let Self { runner, mut env } = self;
+        let mut event_handler = CliRunnerEventHandler::new(ui, &env);
+        let (runner, stats) = runner
+            .snapshot_or_recover_stale(
+                &mut event_handler,
+                config,
+                git_import_export_lock,
+                auto_update_stale,
+            )
+            .await?;
+        // The runner may have updated the environment.
+        env.base = runner.env().clone();
+        Ok((Self { runner, env }, stats))
     }
 
     /// Finishes `tx`, printing events to `ui`. See

@@ -300,6 +300,12 @@ impl WorkspaceEnvironment {
         self.conflict_marker_style
     }
 
+    /// Whether a stale working copy should be updated automatically instead
+    /// of failing, from `snapshot.auto-update-stale`.
+    pub fn auto_update_stale(&self) -> Result<bool, ConfigGetError> {
+        self.settings.get_bool("snapshot.auto-update-stale")
+    }
+
     fn load_immutable_heads_expression(
         &self,
         diagnostics: &mut RevsetDiagnostics,
