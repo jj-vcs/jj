@@ -135,8 +135,6 @@ use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::WrapTemplateProperty;
-use crate::templater::list_to_boolean;
-use crate::templater::option_to_boolean;
 
 pub trait CommitTemplateLanguageExtension {
     fn build_fn_table<'repo>(&self) -> CommitTemplateBuildFnTable<'repo>;
@@ -257,25 +255,10 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
         property: Self::Property,
         function: &FunctionCallNode,
     ) -> TemplateParseResult<Self::Property> {
-        let type_name = property.type_name(self.type_registry());
         match property {
             CommitTemplatePropertyKind::Core(property) => {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
-            }
-            CommitTemplatePropertyKind::Trailer(property) => {
-                let table = &self.build_fn_table.trailer_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
-            CommitTemplatePropertyKind::TrailerOpt(property) => {
-                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
-                self.build_method(diagnostics, build_ctx, inner_property, function)
-            }
-            CommitTemplatePropertyKind::TrailerList(property) => {
-                let table = &self.build_fn_table.trailer_list_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
             }
         }
     }
@@ -329,6 +312,7 @@ impl OpaqueTemplateValue for DiffStatsFormatted {}
 impl OpaqueTemplateValue for DiffStatEntry {}
 impl OpaqueTemplateValue for CryptographicSignature {}
 impl OpaqueTemplateValue for AnnotationLine {}
+impl OpaqueTemplateValue for Trailer {}
 
 impl NoTemplateBooleanCast for Commit {}
 impl NoTemplateBooleanCast for CommitEvolutionEntry {}
@@ -351,9 +335,6 @@ impl NoTemplateBooleanCast for Trailer {}
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
-    Trailer(BoxedTemplateProperty<'repo, Trailer>),
-    TrailerOpt(BoxedTemplateProperty<'repo, Option<Trailer>>),
-    TrailerList(BoxedTemplateProperty<'repo, Vec<Trailer>>),
 }
 
 impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplatePropertyKind<'repo> {
@@ -363,11 +344,6 @@ impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplateP
 }
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
-template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
-    Trailer(Trailer),
-    TrailerOpt(Option<Trailer>),
-    TrailerList(Vec<Trailer>),
-});
 
 impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {
     fn wrap_template(template: Box<dyn Template + 'repo>) -> Self {
@@ -385,9 +361,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(registry),
-            Self::Trailer(_) => "Trailer",
-            Self::TrailerOpt(_) => "Option<Trailer>",
-            Self::TrailerList(_) => "List<Trailer>",
         }
     }
 
@@ -397,7 +370,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, BString>, Self> {
         match self {
             Self::Core(property) => property.try_into_byte_string(registry).map_err(Self::Core),
-            _ => Err(self),
         }
     }
 
@@ -407,7 +379,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, String>, Self> {
         match self {
             Self::Core(property) => property.try_into_string(registry).map_err(Self::Core),
-            _ => Err(self),
         }
     }
 
@@ -417,9 +388,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
             Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
-            Self::Trailer(_) => Err(self),
-            Self::TrailerOpt(property) => Ok(option_to_boolean(property)),
-            Self::TrailerList(property) => Ok(list_to_boolean(property)),
         }
     }
 
@@ -429,7 +397,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, i64>, Self> {
         match self {
             Self::Core(property) => property.try_into_integer(registry).map_err(Self::Core),
-            _ => Err(self),
         }
     }
 
@@ -439,7 +406,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, Timestamp>, Self> {
         match self {
             Self::Core(property) => property.try_into_timestamp(registry).map_err(Self::Core),
-            _ => Err(self),
         }
     }
 
@@ -449,9 +415,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(registry),
-            Self::Trailer(_) => None,
-            Self::TrailerOpt(_) => None,
-            Self::TrailerList(_) => None,
         }
     }
 
@@ -461,9 +424,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<Box<dyn Template + 'repo>> {
         match self {
             Self::Core(property) => property.try_into_template(registry),
-            Self::Trailer(property) => Some(property.into_template()),
-            Self::TrailerOpt(property) => Some(property.into_template()),
-            Self::TrailerList(property) => Some(property.into_template()),
         }
     }
 
@@ -474,10 +434,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedTemplateProperty<'repo, bool>> {
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
-            (Self::Core(_), _) => None,
-            (Self::Trailer(_), _) => None,
-            (Self::TrailerOpt(_), _) => None,
-            (Self::TrailerList(_), _) => None,
         }
     }
 
@@ -488,10 +444,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedTemplateProperty<'repo, Ordering>> {
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
-            (Self::Core(_), _) => None,
-            (Self::Trailer(_), _) => None,
-            (Self::TrailerOpt(_), _) => None,
-            (Self::TrailerList(_), _) => None,
         }
     }
 }
@@ -615,6 +567,15 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
         .register::<Option<CryptographicSignature>>("Option<CryptographicSignature>")
         .conditionable();
     registry.register::<AnnotationLine>("AnnotationLine");
+    registry.register::<Trailer>("Trailer").formattable();
+    registry
+        .register::<Option<Trailer>>("Option<Trailer>")
+        .conditionable()
+        .formattable();
+    registry
+        .register::<Vec<Trailer>>("List<Trailer>")
+        .conditionable()
+        .formattable();
 }
 
 fn register_methods<'repo>(
@@ -690,6 +651,8 @@ fn register_methods<'repo>(
         AnnotationLine::value_type(),
         builtin_annotation_line_methods(),
     );
+    methods.insert(Trailer::value_type(), builtin_trailer_methods());
+    methods.insert(<Vec<Trailer>>::value_type(), builtin_trailer_list_methods());
 }
 
 /// Table of functions that translate method call node of self type `T`.
@@ -702,29 +665,19 @@ type CommitTemplateBuildValueMethodFnMap<'repo> =
 /// Symbol table of methods available in the commit template.
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
-    pub trailer_methods: CommitTemplateBuildMethodFnMap<'repo, Trailer>,
-    pub trailer_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Trailer>>,
 }
 
 impl CommitTemplateBuildFnTable<'_> {
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
-            trailer_methods: HashMap::new(),
-            trailer_list_methods: HashMap::new(),
         }
     }
 
     fn merge(&mut self, other: Self) {
-        let Self {
-            core,
-            trailer_methods,
-            trailer_list_methods,
-        } = other;
+        let Self { core } = other;
 
         self.core.merge(core);
-        merge_fn_map(&mut self.trailer_methods, trailer_methods);
-        merge_fn_map(&mut self.trailer_list_methods, trailer_list_methods);
     }
 
     /// Creates new symbol table containing the builtin methods.
@@ -733,11 +686,7 @@ impl CommitTemplateBuildFnTable<'_> {
         merge_fn_map(&mut core.functions, builtin_commit_template_functions());
         operation_templater::register_methods(&mut core);
         register_methods(&mut core);
-        Self {
-            core,
-            trailer_methods: builtin_trailer_methods(),
-            trailer_list_methods: builtin_trailer_list_methods(),
-        }
+        Self { core }
     }
 }
 
@@ -3048,11 +2997,13 @@ impl Template for Vec<Trailer> {
     }
 }
 
-fn builtin_trailer_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Trailer> {
-    let mut map = CommitTemplateBuildMethodFnMap::<Trailer>::new();
+fn builtin_trailer_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
+    type T = Trailer;
+    let mut map = CommitTemplateBuildValueMethodFnMap::new();
     map.insert(
         "key",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|trailer| trailer.key);
             Ok(out_property.into_dyn_wrapped())
@@ -3060,7 +3011,8 @@ fn builtin_trailer_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Tra
     );
     map.insert(
         "value",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|trailer| trailer.value);
             Ok(out_property.into_dyn_wrapped())
@@ -3069,12 +3021,14 @@ fn builtin_trailer_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Tra
     map
 }
 
-fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Vec<Trailer>> {
-    let mut map: CommitTemplateBuildMethodFnMap<Vec<Trailer>> =
-        template_builder::builtin_formattable_list_methods();
+fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
+    type T = Vec<Trailer>;
+    let mut map: CommitTemplateBuildValueMethodFnMap =
+        builtin_formattable_value_list_methods::<_, Trailer>();
     map.insert(
         "contains_key",
         |language, diagnostics, build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [key_node] = function.expect_exact_arguments()?;
             let key_property =
                 expect_stringify_expression(language, diagnostics, build_ctx, key_node)?;
