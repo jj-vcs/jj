@@ -329,8 +329,6 @@ macro_rules! impl_core_property_wrappers {
     };
 }
 
-pub(crate) use impl_core_property_wrappers;
-
 impl_core_property_wrappers!(<'a> CoreTemplatePropertyKind<'a>);
 
 impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
