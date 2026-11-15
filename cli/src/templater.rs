@@ -665,12 +665,6 @@ pub trait AnyTemplateProperty<'a> {
 }
 pub type BoxedAnyProperty<'a> = Box<dyn AnyTemplateProperty<'a> + 'a>;
 
-pub fn list_to_boolean<'a, T: 'a>(
-    property: BoxedTemplateProperty<'a, Vec<T>>,
-) -> BoxedTemplateProperty<'a, bool> {
-    property.map(|list| !list.is_empty()).into_dyn()
-}
-
 pub fn option_to_boolean<'a, T: 'a>(
     property: BoxedTemplateProperty<'a, Option<T>>,
 ) -> BoxedTemplateProperty<'a, bool> {
