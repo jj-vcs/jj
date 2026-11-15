@@ -1596,7 +1596,7 @@ fn builtin_commit_evolution_entry_methods<'repo>() -> CommitTemplateBuildValueMe
                     from_tree,
                     to_tree,
                     matcher: matcher.clone(),
-                    copy_records: CopyRecords::default(), // TODO: copy tracking
+                    copy_records: Rc::new(CopyRecords::default()), // TODO: copy tracking
                 })
             });
             Ok(out_property.into_dyn_wrapped())
@@ -2428,12 +2428,12 @@ fn builtin_shortest_id_prefix_methods<'repo>() -> CommitTemplateBuildValueMethod
 }
 
 /// Pair of trees to be diffed.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TreeDiff {
     from_tree: MergedTree,
     to_tree: MergedTree,
     matcher: Rc<dyn Matcher>,
-    copy_records: CopyRecords,
+    copy_records: Rc<CopyRecords>,
 }
 
 impl TreeDiff {
@@ -2452,7 +2452,7 @@ impl TreeDiff {
             from_tree: commit.parent_tree(repo.index()).await?,
             to_tree: commit.tree(),
             matcher,
-            copy_records,
+            copy_records: Rc::new(copy_records),
         })
     }
 
