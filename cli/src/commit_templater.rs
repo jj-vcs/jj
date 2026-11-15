@@ -263,15 +263,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
-            CommitTemplatePropertyKind::CryptographicSignature(property) => {
-                let table = &self.build_fn_table.cryptographic_signature_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
-            CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
-                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
-                self.build_method(diagnostics, build_ctx, inner_property, function)
-            }
             CommitTemplatePropertyKind::AnnotationLine(property) => {
                 let table = &self.build_fn_table.annotation_line_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -341,6 +332,7 @@ impl OpaqueTemplateValue for TreeEntry {}
 impl OpaqueTemplateValue for TreeValue {}
 impl OpaqueTemplateValue for DiffStatsFormatted {}
 impl OpaqueTemplateValue for DiffStatEntry {}
+impl OpaqueTemplateValue for CryptographicSignature {}
 
 impl NoTemplateBooleanCast for Commit {}
 impl NoTemplateBooleanCast for CommitEvolutionEntry {}
@@ -363,8 +355,6 @@ impl NoTemplateBooleanCast for Trailer {}
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
-    CryptographicSignature(BoxedTemplateProperty<'repo, CryptographicSignature>),
-    CryptographicSignatureOpt(BoxedTemplateProperty<'repo, Option<CryptographicSignature>>),
     AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
     Trailer(BoxedTemplateProperty<'repo, Trailer>),
     TrailerOpt(BoxedTemplateProperty<'repo, Option<Trailer>>),
@@ -379,8 +369,6 @@ impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplateP
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
 template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
-    CryptographicSignature(CryptographicSignature),
-    CryptographicSignatureOpt(Option<CryptographicSignature>),
     AnnotationLine(AnnotationLine),
     Trailer(Trailer),
     TrailerOpt(Option<Trailer>),
@@ -403,8 +391,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(registry),
-            Self::CryptographicSignature(_) => "CryptographicSignature",
-            Self::CryptographicSignatureOpt(_) => "Option<CryptographicSignature>",
             Self::AnnotationLine(_) => "AnnotationLine",
             Self::Trailer(_) => "Trailer",
             Self::TrailerOpt(_) => "Option<Trailer>",
@@ -438,8 +424,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
             Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
-            Self::CryptographicSignature(_) => Err(self),
-            Self::CryptographicSignatureOpt(property) => Ok(option_to_boolean(property)),
             Self::AnnotationLine(_) => Err(self),
             Self::Trailer(_) => Err(self),
             Self::TrailerOpt(property) => Ok(option_to_boolean(property)),
@@ -473,8 +457,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(registry),
-            Self::CryptographicSignature(_) => None,
-            Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
             Self::Trailer(_) => None,
             Self::TrailerOpt(_) => None,
@@ -488,8 +470,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<Box<dyn Template + 'repo>> {
         match self {
             Self::Core(property) => property.try_into_template(registry),
-            Self::CryptographicSignature(_) => None,
-            Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
             Self::Trailer(property) => Some(property.into_template()),
             Self::TrailerOpt(property) => Some(property.into_template()),
@@ -505,8 +485,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::CryptographicSignature(_), _) => None,
-            (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
             (Self::TrailerOpt(_), _) => None,
@@ -522,8 +500,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::CryptographicSignature(_), _) => None,
-            (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
             (Self::TrailerOpt(_), _) => None,
@@ -646,6 +622,10 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
     registry
         .register::<Vec<DiffStatEntry>>("List<DiffStatEntry>")
         .conditionable();
+    registry.register::<CryptographicSignature>("CryptographicSignature");
+    registry
+        .register::<Option<CryptographicSignature>>("Option<CryptographicSignature>")
+        .conditionable();
 }
 
 fn register_methods<'repo>(
@@ -713,6 +693,10 @@ fn register_methods<'repo>(
         <Vec<DiffStatEntry>>::value_type(),
         builtin_unformattable_value_list_methods::<_, DiffStatEntry>(),
     );
+    methods.insert(
+        CryptographicSignature::value_type(),
+        builtin_cryptographic_signature_methods(),
+    );
 }
 
 /// Table of functions that translate method call node of self type `T`.
@@ -725,8 +709,6 @@ type CommitTemplateBuildValueMethodFnMap<'repo> =
 /// Symbol table of methods available in the commit template.
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
-    pub cryptographic_signature_methods:
-        CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
     pub annotation_line_methods: CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>,
     pub trailer_methods: CommitTemplateBuildMethodFnMap<'repo, Trailer>,
     pub trailer_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Trailer>>,
@@ -736,7 +718,6 @@ impl CommitTemplateBuildFnTable<'_> {
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
-            cryptographic_signature_methods: HashMap::new(),
             annotation_line_methods: HashMap::new(),
             trailer_methods: HashMap::new(),
             trailer_list_methods: HashMap::new(),
@@ -746,17 +727,12 @@ impl CommitTemplateBuildFnTable<'_> {
     fn merge(&mut self, other: Self) {
         let Self {
             core,
-            cryptographic_signature_methods,
             annotation_line_methods,
             trailer_methods,
             trailer_list_methods,
         } = other;
 
         self.core.merge(core);
-        merge_fn_map(
-            &mut self.cryptographic_signature_methods,
-            cryptographic_signature_methods,
-        );
         merge_fn_map(&mut self.annotation_line_methods, annotation_line_methods);
         merge_fn_map(&mut self.trailer_methods, trailer_methods);
         merge_fn_map(&mut self.trailer_list_methods, trailer_list_methods);
@@ -770,7 +746,6 @@ impl CommitTemplateBuildFnTable<'_> {
         register_methods(&mut core);
         Self {
             core,
-            cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
             annotation_line_methods: builtin_annotation_line_methods(),
             trailer_methods: builtin_trailer_methods(),
             trailer_list_methods: builtin_trailer_list_methods(),
@@ -2939,7 +2914,7 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnM
     map
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CryptographicSignature {
     commit: Commit,
 }
@@ -2973,14 +2948,15 @@ impl CryptographicSignature {
     }
 }
 
-fn builtin_cryptographic_signature_methods<'repo>()
--> CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature> {
+fn builtin_cryptographic_signature_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
+    type T = CryptographicSignature;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildMethodFnMap::<CryptographicSignature>::new();
+    let mut map = CommitTemplateBuildValueMethodFnMap::new();
     map.insert(
         "status",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|sig| match sig.status() {
                 Ok(status) => Ok(status.to_string()),
@@ -2992,7 +2968,8 @@ fn builtin_cryptographic_signature_methods<'repo>()
     );
     map.insert(
         "key",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|sig| Ok(sig.key()?));
             Ok(out_property.into_dyn_wrapped())
@@ -3000,7 +2977,8 @@ fn builtin_cryptographic_signature_methods<'repo>()
     );
     map.insert(
         "display",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|sig| Ok(sig.display()?));
             Ok(out_property.into_dyn_wrapped())
