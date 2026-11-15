@@ -263,11 +263,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
-            CommitTemplatePropertyKind::ShortestIdPrefix(property) => {
-                let table = &self.build_fn_table.shortest_id_prefix_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
             CommitTemplatePropertyKind::TreeDiff(property) => {
                 let table = &self.build_fn_table.tree_diff_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -408,6 +403,7 @@ impl OpaqueTemplateValue for RefSymbolBuf {}
 impl OpaqueTemplateValue for RepoPathBuf {}
 impl OpaqueTemplateValue for ChangeId {}
 impl OpaqueTemplateValue for CommitId {}
+impl OpaqueTemplateValue for ShortestIdPrefix {}
 
 impl NoTemplateBooleanCast for Commit {}
 impl NoTemplateBooleanCast for CommitEvolutionEntry {}
@@ -430,7 +426,6 @@ impl NoTemplateBooleanCast for Trailer {}
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
-    ShortestIdPrefix(BoxedTemplateProperty<'repo, ShortestIdPrefix>),
     TreeDiff(BoxedTemplateProperty<'repo, TreeDiff>),
     TreeDiffEntry(BoxedTemplateProperty<'repo, TreeDiffEntry>),
     TreeDiffEntryOpt(BoxedTemplateProperty<'repo, Option<TreeDiffEntry>>),
@@ -461,7 +456,6 @@ impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplateP
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
 template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
-    ShortestIdPrefix(ShortestIdPrefix),
     TreeDiff(TreeDiff),
     TreeDiffEntry(TreeDiffEntry),
     TreeDiffEntryOpt(Option<TreeDiffEntry>),
@@ -500,7 +494,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(registry),
-            Self::ShortestIdPrefix(_) => "ShortestIdPrefix",
             Self::TreeDiff(_) => "TreeDiff",
             Self::TreeDiffEntry(_) => "TreeDiffEntry",
             Self::TreeDiffEntryOpt(_) => "Option<TreeDiffEntry>",
@@ -550,7 +543,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
             Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
-            Self::ShortestIdPrefix(_) => Err(self),
             // TODO: boolean cast could be implemented, but explicit
             // diff.empty() method might be better.
             Self::TreeDiff(_) => Err(self),
@@ -602,7 +594,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(registry),
-            Self::ShortestIdPrefix(property) => Some(property.into_serialize()),
             Self::TreeDiff(_) => None,
             Self::TreeDiffEntry(_) => None,
             Self::TreeDiffEntryOpt(_) => None,
@@ -632,7 +623,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<Box<dyn Template + 'repo>> {
         match self {
             Self::Core(property) => property.try_into_template(registry),
-            Self::ShortestIdPrefix(property) => Some(property.into_template()),
             Self::TreeDiff(_) => None,
             Self::TreeDiffEntry(_) => None,
             Self::TreeDiffEntryOpt(_) => None,
@@ -664,7 +654,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::ShortestIdPrefix(_), _) => None,
             (Self::TreeDiff(_), _) => None,
             (Self::TreeDiffEntry(_), _) => None,
             (Self::TreeDiffEntryOpt(_), _) => None,
@@ -696,7 +685,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::ShortestIdPrefix(_), _) => None,
             (Self::TreeDiff(_), _) => None,
             (Self::TreeDiffEntry(_), _) => None,
             (Self::TreeDiffEntryOpt(_), _) => None,
@@ -798,6 +786,10 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
         .register::<CommitId>("CommitId")
         .formattable()
         .serializable();
+    registry
+        .register::<ShortestIdPrefix>("ShortestIdPrefix")
+        .formattable()
+        .serializable();
 }
 
 fn register_methods<'repo>(
@@ -830,6 +822,10 @@ fn register_methods<'repo>(
     methods.insert(RepoPathBuf::value_type(), builtin_repo_path_methods());
     methods.insert(ChangeId::value_type(), builtin_change_id_methods());
     methods.insert(CommitId::value_type(), builtin_commit_id_methods());
+    methods.insert(
+        ShortestIdPrefix::value_type(),
+        builtin_shortest_id_prefix_methods(),
+    );
 }
 
 /// Table of functions that translate method call node of self type `T`.
@@ -842,7 +838,6 @@ type CommitTemplateBuildValueMethodFnMap<'repo> =
 /// Symbol table of methods available in the commit template.
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
-    pub shortest_id_prefix_methods: CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix>,
     pub tree_diff_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiff>,
     pub tree_diff_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiffEntry>,
     pub tree_diff_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<TreeDiffEntry>>,
@@ -864,7 +859,6 @@ impl CommitTemplateBuildFnTable<'_> {
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
-            shortest_id_prefix_methods: HashMap::new(),
             tree_diff_methods: HashMap::new(),
             tree_diff_entry_methods: HashMap::new(),
             tree_diff_entry_list_methods: HashMap::new(),
@@ -885,7 +879,6 @@ impl CommitTemplateBuildFnTable<'_> {
     fn merge(&mut self, other: Self) {
         let Self {
             core,
-            shortest_id_prefix_methods,
             tree_diff_methods,
             tree_diff_entry_methods,
             tree_diff_entry_list_methods,
@@ -903,10 +896,6 @@ impl CommitTemplateBuildFnTable<'_> {
         } = other;
 
         self.core.merge(core);
-        merge_fn_map(
-            &mut self.shortest_id_prefix_methods,
-            shortest_id_prefix_methods,
-        );
         merge_fn_map(&mut self.tree_diff_methods, tree_diff_methods);
         merge_fn_map(&mut self.tree_diff_entry_methods, tree_diff_entry_methods);
         merge_fn_map(
@@ -943,7 +932,6 @@ impl CommitTemplateBuildFnTable<'_> {
         register_methods(&mut core);
         Self {
             core,
-            shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
             tree_diff_methods: builtin_tree_diff_methods(),
             tree_diff_entry_methods: builtin_tree_diff_entry_methods(),
             tree_diff_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
@@ -2395,14 +2383,15 @@ impl ShortestIdPrefix {
     }
 }
 
-fn builtin_shortest_id_prefix_methods<'repo>()
--> CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix> {
+fn builtin_shortest_id_prefix_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
+    type T = ShortestIdPrefix;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildMethodFnMap::<ShortestIdPrefix>::new();
+    let mut map = CommitTemplateBuildValueMethodFnMap::new();
     map.insert(
         "prefix",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.prefix);
             Ok(out_property.into_dyn_wrapped())
@@ -2410,7 +2399,8 @@ fn builtin_shortest_id_prefix_methods<'repo>()
     );
     map.insert(
         "rest",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.rest);
             Ok(out_property.into_dyn_wrapped())
@@ -2418,7 +2408,8 @@ fn builtin_shortest_id_prefix_methods<'repo>()
     );
     map.insert(
         "upper",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.to_upper());
             Ok(out_property.into_dyn_wrapped())
@@ -2426,7 +2417,8 @@ fn builtin_shortest_id_prefix_methods<'repo>()
     );
     map.insert(
         "lower",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.to_lower());
             Ok(out_property.into_dyn_wrapped())
