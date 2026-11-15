@@ -704,9 +704,9 @@ fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
 -> HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L>> {
     hashmap! {
         BString::value_type() => builtin_byte_string_methods(),
-        <Vec<BString>>::value_type() => builtin_formattable_value_list_methods::<_, BString>(),
+        <Vec<BString>>::value_type() => builtin_formattable_list_methods::<_, BString>(),
         String::value_type() => builtin_string_methods(),
-        <Vec<String>>::value_type() => builtin_formattable_value_list_methods::<_, String>(),
+        <Vec<String>>::value_type() => builtin_formattable_list_methods::<_, String>(),
         bool::value_type() => hashmap! {},
         i64::value_type() => hashmap! {},
     }
@@ -2356,7 +2356,7 @@ fn builtin_any_list_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildAnyM
 }
 
 /// Creates new symbol table for printable value list property.
-pub fn builtin_formattable_value_list_methods<'a, L, O>() -> BuildValueMethodFnMap<'a, L>
+pub fn builtin_formattable_list_methods<'a, L, O>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + ?Sized,
     L::Property: WrapTemplateProperty<'a, O>,
@@ -2365,7 +2365,7 @@ where
     O: OptionalTemplateValue + Template + Clone + 'a,
     Vec<O>: TemplateValue,
 {
-    let mut map = builtin_unformattable_value_list_methods::<L, O>();
+    let mut map = builtin_unformattable_list_methods::<L, O>();
     map.insert(
         "join",
         |language, diagnostics, build_ctx, self_property, function| {
@@ -2385,7 +2385,7 @@ where
 }
 
 /// Creates new symbol table for unprintable value list property.
-pub fn builtin_unformattable_value_list_methods<'a, L, O>() -> BuildValueMethodFnMap<'a, L>
+pub fn builtin_unformattable_list_methods<'a, L, O>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + ?Sized,
     L::Property: WrapTemplateProperty<'a, O>,
