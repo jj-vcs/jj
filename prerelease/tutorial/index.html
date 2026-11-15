@@ -2593,8 +2593,9 @@ and <code>~</code> for difference. For example:</p>
 the "root commit". It's the root commit of every repo. The <code>root()</code>
 function in the revset matches it.</p>
 <p>There are also operators for getting the parents (<code>foo-</code>), children (<code>foo+</code>),
-ancestors (<code>::foo</code>), descendants (<code>foo::</code>), DAG range (<code>foo::bar</code>, like
-<code>git log --ancestry-path</code>), range (<code>foo..bar</code>, same as Git's). See
+ancestors (<code>::foo</code>), descendants (<code>foo::</code>), DAG range (<code>foo::bar</code>, similar to
+<code>git log --ancestry-path foo..bar</code>, except that Git excludes <code>foo</code>) and range
+(<code>foo..bar</code>, same as Git's). See
 <a href="../revsets/">the revset documentation</a> for all revset operators and functions.</p>
 <blockquote>
 <p><strong>Hint:</strong> If the default <code>jj log</code> omits some commits you expect to see, you

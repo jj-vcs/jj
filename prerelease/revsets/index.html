@@ -2567,14 +2567,23 @@ y) | z</code> or <code>x &amp; (y | z)</code>.</p>
    <code>root()::x</code>.</li>
 <li><code>..x</code>: Ancestors of <code>x</code>, including the commits in <code>x</code> itself, but excluding
    the root commit. Shorthand for <code>root()..x</code>. Equivalent to <code>::x ~ root()</code>.</li>
-<li><code>x::y</code>: Descendants of <code>x</code> that are also ancestors of <code>y</code>. Equivalent
-    to <code>x:: &amp; ::y</code>. This is what <code>git log</code> calls <code>--ancestry-path x..y</code>.</li>
-<li><code>x..y</code>: Ancestors of <code>y</code> that are not also ancestors of <code>x</code>. Equivalent to
+<li>
+<p><code>x::y</code>: Descendants of <code>x</code> that are also ancestors of <code>y</code>. Equivalent
+   to <code>x:: &amp; ::y</code>. For single commits <code>x</code> and <code>y</code>, this is similar to
+   <code>git log --ancestry-path x..y</code>, except that Git excludes <code>x</code> itself.</p>
+<p>This is called the DAG (directed acyclic graph) range operator.</p>
+</li>
+<li>
+<p><code>x..y</code>: Ancestors of <code>y</code> that are not also ancestors of <code>x</code>. Equivalent to
    <code>::y ~ ::x</code>. This is what <code>git log</code> calls <code>x..y</code> (i.e. the same as we call it).
    Note that this is <em>not</em> a "path" between <code>x</code> and <code>y</code> in the commit graph -- <code>x</code>
-   and <code>y</code> do not need to be related by ancestry.</li>
-<li><code>::</code>: All visible commits in the repo. Equivalent to <code>all()</code>, and
-   <code>root()::visible_heads()</code> if no hidden revisions are mentioned.</li>
+   and <code>y</code> do not need to be related by ancestry.</p>
+<p>This is called the range operator.</p>
+</li>
+<li>
+<p><code>::</code>: All visible commits in the repo. Equivalent to <code>all()</code>, and
+   <code>root()::visible_heads()</code> if no hidden revisions are mentioned.</p>
+</li>
 <li><code>..</code>: All visible commits in the repo, but excluding the root commit.
    Equivalent to <code>~root()</code>, and <code>root()..visible_heads()</code> if no hidden revisions
    are mentioned.</li>
