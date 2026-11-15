@@ -38,7 +38,7 @@ use crate::template_builder::BuildValueMethodFnMap;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::TemplateLanguage;
-use crate::template_builder::builtin_unformattable_value_list_methods;
+use crate::template_builder::builtin_unformattable_list_methods;
 use crate::template_builder::cast_value_property;
 use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
@@ -201,7 +201,7 @@ where
     methods.insert(Operation::value_type(), builtin_operation_methods());
     methods.insert(
         <Vec<Operation>>::value_type(),
-        builtin_unformattable_value_list_methods::<_, Operation>(),
+        builtin_unformattable_list_methods::<_, Operation>(),
     );
     methods.insert(OperationId::value_type(), builtin_operation_id_methods());
 }

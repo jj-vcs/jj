@@ -115,8 +115,8 @@ use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::TemplateBuildFunctionFnMap;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
-use crate::template_builder::builtin_formattable_value_list_methods;
-use crate::template_builder::builtin_unformattable_value_list_methods;
+use crate::template_builder::builtin_formattable_list_methods;
+use crate::template_builder::builtin_unformattable_list_methods;
 use crate::template_builder::cast_value_property;
 use crate::template_builder::expect_stringify_expression;
 use crate::template_builder::merge_fn_map;
@@ -585,11 +585,11 @@ fn register_methods<'repo>(
     methods.insert(Commit::value_type(), builtin_commit_methods());
     methods.insert(
         <Vec<Commit>>::value_type(),
-        builtin_unformattable_value_list_methods::<_, Commit>(),
+        builtin_unformattable_list_methods::<_, Commit>(),
     );
     methods.insert(
         <Vec<Option<Commit>>>::value_type(),
-        builtin_unformattable_value_list_methods::<_, Option<Commit>>(),
+        builtin_unformattable_list_methods::<_, Option<Commit>>(),
     );
     methods.insert(
         CommitEvolutionEntry::value_type(),
@@ -598,12 +598,12 @@ fn register_methods<'repo>(
     methods.insert(<Rc<CommitRef>>::value_type(), builtin_commit_ref_methods());
     methods.insert(
         <Vec<Rc<CommitRef>>>::value_type(),
-        builtin_formattable_value_list_methods::<_, Rc<CommitRef>>(),
+        builtin_formattable_list_methods::<_, Rc<CommitRef>>(),
     );
     methods.insert(WorkspaceRef::value_type(), builtin_workspace_ref_methods());
     methods.insert(
         <Vec<WorkspaceRef>>::value_type(),
-        builtin_formattable_value_list_methods::<_, WorkspaceRef>(),
+        builtin_formattable_list_methods::<_, WorkspaceRef>(),
     );
     methods.insert(RepoPathBuf::value_type(), builtin_repo_path_methods());
     methods.insert(ChangeId::value_type(), builtin_change_id_methods());
@@ -619,17 +619,17 @@ fn register_methods<'repo>(
     );
     methods.insert(
         <Vec<TreeDiffEntry>>::value_type(),
-        builtin_unformattable_value_list_methods::<_, TreeDiffEntry>(),
+        builtin_unformattable_list_methods::<_, TreeDiffEntry>(),
     );
     methods.insert(TreeEntry::value_type(), builtin_tree_entry_methods());
     methods.insert(
         <Vec<TreeEntry>>::value_type(),
-        builtin_unformattable_value_list_methods::<_, TreeEntry>(),
+        builtin_unformattable_list_methods::<_, TreeEntry>(),
     );
     methods.insert(TreeValue::value_type(), builtin_tree_value_methods());
     methods.insert(
         <Vec<Option<TreeValue>>>::value_type(),
-        builtin_formattable_value_list_methods::<_, Option<TreeValue>>(),
+        builtin_formattable_list_methods::<_, Option<TreeValue>>(),
     );
     methods.insert(
         DiffStatsFormatted::value_type(),
@@ -641,7 +641,7 @@ fn register_methods<'repo>(
     );
     methods.insert(
         <Vec<DiffStatEntry>>::value_type(),
-        builtin_unformattable_value_list_methods::<_, DiffStatEntry>(),
+        builtin_unformattable_list_methods::<_, DiffStatEntry>(),
     );
     methods.insert(
         CryptographicSignature::value_type(),
@@ -3024,7 +3024,7 @@ fn builtin_trailer_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo
 fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
     type T = Vec<Trailer>;
     let mut map: CommitTemplateBuildValueMethodFnMap =
-        builtin_formattable_value_list_methods::<_, Trailer>();
+        builtin_formattable_list_methods::<_, Trailer>();
     map.insert(
         "contains_key",
         |language, diagnostics, build_ctx, self_property, function| {
