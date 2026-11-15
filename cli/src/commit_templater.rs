@@ -263,20 +263,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
-            CommitTemplatePropertyKind::DiffStatEntry(property) => {
-                let table = &self.build_fn_table.diff_stat_entry_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
-            CommitTemplatePropertyKind::DiffStatEntryOpt(property) => {
-                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
-                self.build_method(diagnostics, build_ctx, inner_property, function)
-            }
-            CommitTemplatePropertyKind::DiffStatEntryList(property) => {
-                let table = &self.build_fn_table.diff_stat_entry_list_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
             CommitTemplatePropertyKind::CryptographicSignature(property) => {
                 let table = &self.build_fn_table.cryptographic_signature_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -354,6 +340,7 @@ impl OpaqueTemplateValue for TreeDiffEntry {}
 impl OpaqueTemplateValue for TreeEntry {}
 impl OpaqueTemplateValue for TreeValue {}
 impl OpaqueTemplateValue for DiffStatsFormatted {}
+impl OpaqueTemplateValue for DiffStatEntry {}
 
 impl NoTemplateBooleanCast for Commit {}
 impl NoTemplateBooleanCast for CommitEvolutionEntry {}
@@ -376,9 +363,6 @@ impl NoTemplateBooleanCast for Trailer {}
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
-    DiffStatEntry(BoxedTemplateProperty<'repo, DiffStatEntry>),
-    DiffStatEntryOpt(BoxedTemplateProperty<'repo, Option<DiffStatEntry>>),
-    DiffStatEntryList(BoxedTemplateProperty<'repo, Vec<DiffStatEntry>>),
     CryptographicSignature(BoxedTemplateProperty<'repo, CryptographicSignature>),
     CryptographicSignatureOpt(BoxedTemplateProperty<'repo, Option<CryptographicSignature>>),
     AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
@@ -395,9 +379,6 @@ impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplateP
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
 template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
-    DiffStatEntry(DiffStatEntry),
-    DiffStatEntryOpt(Option<DiffStatEntry>),
-    DiffStatEntryList(Vec<DiffStatEntry>),
     CryptographicSignature(CryptographicSignature),
     CryptographicSignatureOpt(Option<CryptographicSignature>),
     AnnotationLine(AnnotationLine),
@@ -422,9 +403,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(registry),
-            Self::DiffStatEntry(_) => "DiffStatEntry",
-            Self::DiffStatEntryOpt(_) => "Option<DiffStatEntry>",
-            Self::DiffStatEntryList(_) => "List<DiffStatEntry>",
             Self::CryptographicSignature(_) => "CryptographicSignature",
             Self::CryptographicSignatureOpt(_) => "Option<CryptographicSignature>",
             Self::AnnotationLine(_) => "AnnotationLine",
@@ -460,9 +438,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
             Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
-            Self::DiffStatEntry(_) => Err(self),
-            Self::DiffStatEntryOpt(property) => Ok(option_to_boolean(property)),
-            Self::DiffStatEntryList(property) => Ok(list_to_boolean(property)),
             Self::CryptographicSignature(_) => Err(self),
             Self::CryptographicSignatureOpt(property) => Ok(option_to_boolean(property)),
             Self::AnnotationLine(_) => Err(self),
@@ -498,9 +473,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(registry),
-            Self::DiffStatEntry(_) => None,
-            Self::DiffStatEntryOpt(_) => None,
-            Self::DiffStatEntryList(_) => None,
             Self::CryptographicSignature(_) => None,
             Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
@@ -516,9 +488,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<Box<dyn Template + 'repo>> {
         match self {
             Self::Core(property) => property.try_into_template(registry),
-            Self::DiffStatEntry(_) => None,
-            Self::DiffStatEntryOpt(_) => None,
-            Self::DiffStatEntryList(_) => None,
             Self::CryptographicSignature(_) => None,
             Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
@@ -536,9 +505,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::DiffStatEntry(_), _) => None,
-            (Self::DiffStatEntryOpt(_), _) => None,
-            (Self::DiffStatEntryList(_), _) => None,
             (Self::CryptographicSignature(_), _) => None,
             (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
@@ -556,9 +522,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::DiffStatEntry(_), _) => None,
-            (Self::DiffStatEntryOpt(_), _) => None,
-            (Self::DiffStatEntryList(_), _) => None,
             (Self::CryptographicSignature(_), _) => None,
             (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
@@ -676,6 +639,13 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
     registry
         .register::<DiffStatsFormatted>("DiffStats")
         .formattable();
+    registry.register::<DiffStatEntry>("DiffStatEntry");
+    registry
+        .register::<Option<DiffStatEntry>>("Option<DiffStatEntry>")
+        .conditionable();
+    registry
+        .register::<Vec<DiffStatEntry>>("List<DiffStatEntry>")
+        .conditionable();
 }
 
 fn register_methods<'repo>(
@@ -735,6 +705,14 @@ fn register_methods<'repo>(
         DiffStatsFormatted::value_type(),
         builtin_diff_stats_methods(),
     );
+    methods.insert(
+        DiffStatEntry::value_type(),
+        builtin_diff_stat_entry_methods(),
+    );
+    methods.insert(
+        <Vec<DiffStatEntry>>::value_type(),
+        builtin_unformattable_value_list_methods::<_, DiffStatEntry>(),
+    );
 }
 
 /// Table of functions that translate method call node of self type `T`.
@@ -747,8 +725,6 @@ type CommitTemplateBuildValueMethodFnMap<'repo> =
 /// Symbol table of methods available in the commit template.
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
-    pub diff_stat_entry_methods: CommitTemplateBuildMethodFnMap<'repo, DiffStatEntry>,
-    pub diff_stat_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<DiffStatEntry>>,
     pub cryptographic_signature_methods:
         CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
     pub annotation_line_methods: CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>,
@@ -760,8 +736,6 @@ impl CommitTemplateBuildFnTable<'_> {
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
-            diff_stat_entry_methods: HashMap::new(),
-            diff_stat_entry_list_methods: HashMap::new(),
             cryptographic_signature_methods: HashMap::new(),
             annotation_line_methods: HashMap::new(),
             trailer_methods: HashMap::new(),
@@ -772,8 +746,6 @@ impl CommitTemplateBuildFnTable<'_> {
     fn merge(&mut self, other: Self) {
         let Self {
             core,
-            diff_stat_entry_methods,
-            diff_stat_entry_list_methods,
             cryptographic_signature_methods,
             annotation_line_methods,
             trailer_methods,
@@ -781,11 +753,6 @@ impl CommitTemplateBuildFnTable<'_> {
         } = other;
 
         self.core.merge(core);
-        merge_fn_map(&mut self.diff_stat_entry_methods, diff_stat_entry_methods);
-        merge_fn_map(
-            &mut self.diff_stat_entry_list_methods,
-            diff_stat_entry_list_methods,
-        );
         merge_fn_map(
             &mut self.cryptographic_signature_methods,
             cryptographic_signature_methods,
@@ -803,8 +770,6 @@ impl CommitTemplateBuildFnTable<'_> {
         register_methods(&mut core);
         Self {
             core,
-            diff_stat_entry_methods: builtin_diff_stat_entry_methods(),
-            diff_stat_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
             cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
             annotation_line_methods: builtin_annotation_line_methods(),
             trailer_methods: builtin_trailer_methods(),
@@ -2892,14 +2857,15 @@ fn builtin_diff_stats_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'r
     map
 }
 
-fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, DiffStatEntry>
-{
+fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
+    type T = DiffStatEntry;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildMethodFnMap::<DiffStatEntry>::new();
+    let mut map = CommitTemplateBuildValueMethodFnMap::new();
     map.insert(
         "path",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.path.target);
             Ok(out_property.into_dyn_wrapped())
@@ -2908,6 +2874,7 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
     map.insert(
         "display_diff_path",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let path_converter = language.path_converter;
             let out_property =
@@ -2917,7 +2884,8 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
     );
     map.insert(
         "status",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.status.label().to_owned());
             Ok(out_property.into_dyn_wrapped())
@@ -2925,7 +2893,8 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
     );
     map.insert(
         "status_char",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.status.char().to_string());
             Ok(out_property.into_dyn_wrapped())
@@ -2933,7 +2902,8 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
     );
     map.insert(
         "lines_added",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|entry| {
                 Ok(i64::try_from(
@@ -2945,7 +2915,8 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
     );
     map.insert(
         "lines_removed",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|entry| {
                 Ok(i64::try_from(
@@ -2957,7 +2928,8 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
     );
     map.insert(
         "bytes_delta",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|entry| Ok(i64::try_from(entry.bytes_delta)?));
