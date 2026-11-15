@@ -263,20 +263,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
-            CommitTemplatePropertyKind::TreeEntry(property) => {
-                let table = &self.build_fn_table.tree_entry_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
-            CommitTemplatePropertyKind::TreeEntryOpt(property) => {
-                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
-                self.build_method(diagnostics, build_ctx, inner_property, function)
-            }
-            CommitTemplatePropertyKind::TreeEntryList(property) => {
-                let table = &self.build_fn_table.tree_entry_list_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
             CommitTemplatePropertyKind::TreeValue(property) => {
                 let table = &self.build_fn_table.tree_value_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -387,6 +373,7 @@ impl OpaqueTemplateValue for CommitId {}
 impl OpaqueTemplateValue for ShortestIdPrefix {}
 impl OpaqueTemplateValue for TreeDiff {}
 impl OpaqueTemplateValue for TreeDiffEntry {}
+impl OpaqueTemplateValue for TreeEntry {}
 
 impl NoTemplateBooleanCast for Commit {}
 impl NoTemplateBooleanCast for CommitEvolutionEntry {}
@@ -409,9 +396,6 @@ impl NoTemplateBooleanCast for Trailer {}
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
-    TreeEntry(BoxedTemplateProperty<'repo, TreeEntry>),
-    TreeEntryOpt(BoxedTemplateProperty<'repo, Option<TreeEntry>>),
-    TreeEntryList(BoxedTemplateProperty<'repo, Vec<TreeEntry>>),
     TreeValue(BoxedTemplateProperty<'repo, TreeValue>),
     TreeValueOpt(BoxedTemplateProperty<'repo, Option<TreeValue>>),
     TreeValueOptList(BoxedTemplateProperty<'repo, Vec<Option<TreeValue>>>),
@@ -435,9 +419,6 @@ impl<'repo, O: TemplateValue> WrapTemplateProperty<'repo, O> for CommitTemplateP
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
 template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
-    TreeEntry(TreeEntry),
-    TreeEntryOpt(Option<TreeEntry>),
-    TreeEntryList(Vec<TreeEntry>),
     TreeValue(TreeValue),
     TreeValueOpt(Option<TreeValue>),
     TreeValueOptList(Vec<Option<TreeValue>>),
@@ -469,9 +450,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(registry),
-            Self::TreeEntry(_) => "TreeEntry",
-            Self::TreeEntryOpt(_) => "Option<TreeEntry>",
-            Self::TreeEntryList(_) => "List<TreeEntry>",
             Self::TreeValue(_) => "TreeValue",
             Self::TreeValueOpt(_) => "Option<TreeValue>",
             Self::TreeValueOptList(_) => "List<Option<TreeValue>>",
@@ -514,9 +492,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
             Self::Core(property) => property.try_into_boolean(registry).map_err(Self::Core),
-            Self::TreeEntry(_) => Err(self),
-            Self::TreeEntryOpt(property) => Ok(option_to_boolean(property)),
-            Self::TreeEntryList(property) => Ok(list_to_boolean(property)),
             Self::TreeValue(_) => Err(self),
             Self::TreeValueOpt(property) => Ok(option_to_boolean(property)),
             Self::TreeValueOptList(property) => Ok(list_to_boolean(property)),
@@ -559,9 +534,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(registry),
-            Self::TreeEntry(_) => None,
-            Self::TreeEntryOpt(_) => None,
-            Self::TreeEntryList(_) => None,
             Self::TreeValue(_) => None,
             Self::TreeValueOpt(_) => None,
             Self::TreeValueOptList(_) => None,
@@ -584,9 +556,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     ) -> Option<Box<dyn Template + 'repo>> {
         match self {
             Self::Core(property) => property.try_into_template(registry),
-            Self::TreeEntry(_) => None,
-            Self::TreeEntryOpt(_) => None,
-            Self::TreeEntryList(_) => None,
             Self::TreeValue(property) => Some(property.into_template()),
             Self::TreeValueOpt(property) => Some(property.into_template()),
             Self::TreeValueOptList(_) => None,
@@ -611,9 +580,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::TreeEntry(_), _) => None,
-            (Self::TreeEntryOpt(_), _) => None,
-            (Self::TreeEntryList(_), _) => None,
             (Self::TreeValue(_), _) => None,
             (Self::TreeValueOpt(_), _) => None,
             (Self::TreeValueOptList(_), _) => None,
@@ -638,9 +604,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs, registry),
             (Self::Core(_), _) => None,
-            (Self::TreeEntry(_), _) => None,
-            (Self::TreeEntryOpt(_), _) => None,
-            (Self::TreeEntryList(_), _) => None,
             (Self::TreeValue(_), _) => None,
             (Self::TreeValueOpt(_), _) => None,
             (Self::TreeValueOptList(_), _) => None,
@@ -747,6 +710,13 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
     registry
         .register::<Vec<TreeDiffEntry>>("List<TreeDiffEntry>")
         .conditionable();
+    registry.register::<TreeEntry>("TreeEntry");
+    registry
+        .register::<Option<TreeEntry>>("Option<TreeEntry>")
+        .conditionable();
+    registry
+        .register::<Vec<TreeEntry>>("List<TreeEntry>")
+        .conditionable();
 }
 
 fn register_methods<'repo>(
@@ -792,6 +762,11 @@ fn register_methods<'repo>(
         <Vec<TreeDiffEntry>>::value_type(),
         builtin_unformattable_value_list_methods::<_, TreeDiffEntry>(),
     );
+    methods.insert(TreeEntry::value_type(), builtin_tree_entry_methods());
+    methods.insert(
+        <Vec<TreeEntry>>::value_type(),
+        builtin_unformattable_value_list_methods::<_, TreeEntry>(),
+    );
 }
 
 /// Table of functions that translate method call node of self type `T`.
@@ -804,8 +779,6 @@ type CommitTemplateBuildValueMethodFnMap<'repo> =
 /// Symbol table of methods available in the commit template.
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
-    pub tree_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeEntry>,
-    pub tree_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<TreeEntry>>,
     pub tree_value_methods: CommitTemplateBuildMethodFnMap<'repo, TreeValue>,
     pub tree_value_opt_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Option<TreeValue>>>,
     pub diff_stats_methods: CommitTemplateBuildMethodFnMap<'repo, DiffStats>,
@@ -822,8 +795,6 @@ impl CommitTemplateBuildFnTable<'_> {
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
-            tree_entry_methods: HashMap::new(),
-            tree_entry_list_methods: HashMap::new(),
             tree_value_methods: HashMap::new(),
             tree_value_opt_list_methods: HashMap::new(),
             diff_stats_methods: HashMap::new(),
@@ -839,8 +810,6 @@ impl CommitTemplateBuildFnTable<'_> {
     fn merge(&mut self, other: Self) {
         let Self {
             core,
-            tree_entry_methods,
-            tree_entry_list_methods,
             tree_value_methods,
             tree_value_opt_list_methods,
             diff_stats_methods,
@@ -853,8 +822,6 @@ impl CommitTemplateBuildFnTable<'_> {
         } = other;
 
         self.core.merge(core);
-        merge_fn_map(&mut self.tree_entry_methods, tree_entry_methods);
-        merge_fn_map(&mut self.tree_entry_list_methods, tree_entry_list_methods);
         merge_fn_map(&mut self.tree_value_methods, tree_value_methods);
         merge_fn_map(
             &mut self.tree_value_opt_list_methods,
@@ -883,8 +850,6 @@ impl CommitTemplateBuildFnTable<'_> {
         register_methods(&mut core);
         Self {
             core,
-            tree_entry_methods: builtin_tree_entry_methods(),
-            tree_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
             tree_value_methods: builtin_tree_value_methods(),
             tree_value_opt_list_methods: template_builder::builtin_formattable_list_methods(),
             diff_stats_methods: builtin_diff_stats_methods(),
@@ -2756,13 +2721,15 @@ pub struct TreeEntry {
     pub value: MergedTreeValue,
 }
 
-fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, TreeEntry> {
+fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
+    type T = TreeEntry;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildMethodFnMap::<TreeEntry>::new();
+    let mut map = CommitTemplateBuildValueMethodFnMap::new();
     map.insert(
         "path",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.path);
             Ok(out_property.into_dyn_wrapped())
@@ -2770,7 +2737,8 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "normal_value",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.value.as_normal().cloned());
             Ok(out_property.into_dyn_wrapped())
@@ -2778,7 +2746,8 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "removed_values",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|entry| entry.value.simplify().removes().cloned().collect_vec());
@@ -2787,7 +2756,8 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "added_values",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|entry| entry.value.simplify().adds().cloned().collect_vec());
@@ -2796,7 +2766,8 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "conflict",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| !entry.value.is_resolved());
             Ok(out_property.into_dyn_wrapped())
@@ -2804,7 +2775,8 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "conflict_side_count",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property
                 .and_then(|entry| Ok(i64::try_from(entry.value.simplify().num_sides())?));
@@ -2813,7 +2785,8 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "file_type",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|entry| describe_file_type(&entry.value).to_owned());
@@ -2822,7 +2795,8 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     );
     map.insert(
         "executable",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|entry| is_executable_file(&entry.value).unwrap_or_default());
