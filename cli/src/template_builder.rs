@@ -49,6 +49,7 @@ use maplit::hashmap;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
+use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
 use crate::template_value::TemplateValue;
 use crate::template_value::TemplateValueExtractionError;
@@ -255,6 +256,8 @@ where
     ) -> Option<BoxedTemplateProperty<'a, Ordering>>;
 }
 
+impl OpaqueTemplateValue for ConfigValueWrapper {}
+
 impl NoTemplateBooleanCast for i64 {}
 impl NoTemplateBooleanCast for ConfigValueWrapper {}
 impl NoTemplateBooleanCast for PathBuf {}
@@ -270,8 +273,6 @@ pub enum CoreTemplatePropertyKind<'a> {
         property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     },
 
-    ConfigValue(BoxedTemplateProperty<'a, ConfigValueWrapper>),
-    ConfigValueOpt(BoxedTemplateProperty<'a, Option<ConfigValueWrapper>>),
     FsPath(BoxedTemplateProperty<'a, PathBuf>),
     FsPathOpt(BoxedTemplateProperty<'a, Option<PathBuf>>),
     Signature(BoxedTemplateProperty<'a, Signature>),
@@ -312,8 +313,6 @@ impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyK
 macro_rules! impl_core_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
-            ConfigValue($crate::templater::ConfigValueWrapper),
-            ConfigValueOpt(Option<$crate::templater::ConfigValueWrapper>),
             FsPath(std::path::PathBuf),
             FsPathOpt(Option<std::path::PathBuf>),
             Signature(jj_lib::backend::Signature),
@@ -344,8 +343,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Value { ty, property: _ } => registry.get_type_name(ty).expect("registered type"),
-            Self::ConfigValue(_) => "ConfigValue",
-            Self::ConfigValueOpt(_) => "Option<ConfigValue>",
             Self::FsPath(_) => "FsPath",
             Self::FsPathOpt(_) => "Option<FsPath>",
             Self::Signature(_) => "Signature",
@@ -396,8 +393,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Ok(out_property.into_dyn())
             }
             Self::Value { .. } => Err(self),
-            Self::ConfigValue(_) => Err(self),
-            Self::ConfigValueOpt(property) => Ok(option_to_boolean(property)),
             Self::FsPath(_) => Err(self),
             Self::FsPathOpt(property) => Ok(option_to_boolean(property)),
             Self::Signature(_) => Err(self),
@@ -448,8 +443,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_dyn())
             }
-            Self::ConfigValue(property) => Some(property.into_serialize()),
-            Self::ConfigValueOpt(property) => Some(property.into_serialize()),
             Self::FsPath(property) => Some(property.into_serialize()),
             Self::FsPathOpt(property) => Some(property.into_serialize()),
             Self::Signature(property) => Some(property.into_serialize()),
@@ -471,8 +464,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_template())
             }
-            Self::ConfigValue(property) => Some(property.into_template()),
-            Self::ConfigValueOpt(property) => Some(property.into_template()),
             Self::FsPath(property) => Some(property.into_template()),
             Self::FsPathOpt(property) => Some(property.into_template()),
             Self::Signature(property) => Some(property.into_template()),
@@ -560,8 +551,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some((lhs, rhs).map(|(l, r)| l.0 == r).into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::ConfigValue(_), _) => None,
-            (Self::ConfigValueOpt(_), _) => None,
             (Self::FsPath(_), _) => None,
             (Self::FsPathOpt(_), _) => None,
             (Self::Signature(_), _) => None,
@@ -624,8 +613,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some(out_property.into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::ConfigValue(_), _) => None,
-            (Self::ConfigValueOpt(_), _) => None,
             (Self::FsPath(_), _) => None,
             (Self::FsPathOpt(_), _) => None,
             (Self::Signature(_), _) => None,
@@ -687,6 +674,15 @@ pub fn new_core_type_registry() -> TemplateTypeRegistry {
         .equatable()
         .comparable();
     registry
+        .register::<ConfigValueWrapper>("ConfigValue")
+        .formattable()
+        .serializable();
+    registry
+        .register::<Option<ConfigValueWrapper>>("Option<ConfigValue>")
+        .conditionable()
+        .formattable()
+        .serializable();
+    registry
 }
 
 fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
@@ -698,6 +694,7 @@ fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         <Vec<String>>::value_type() => builtin_formattable_list_methods::<_, String>(),
         bool::value_type() => hashmap! {},
         i64::value_type() => hashmap! {},
+        ConfigValueWrapper::value_type() => builtin_config_value_methods(),
     }
 }
 
@@ -751,7 +748,6 @@ pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
 pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
     pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L, P>>,
-    pub config_value_methods: TemplateBuildMethodFnMap<'a, L, ConfigValueWrapper, P>,
     pub fs_path_methods: TemplateBuildMethodFnMap<'a, L, PathBuf, P>,
     pub email_methods: TemplateBuildMethodFnMap<'a, L, Email, P>,
     pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature, P>,
@@ -863,7 +859,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         Self {
             functions: HashMap::new(),
             methods: HashMap::new(),
-            config_value_methods: HashMap::new(),
             fs_path_methods: HashMap::new(),
             signature_methods: HashMap::new(),
             email_methods: HashMap::new(),
@@ -882,7 +877,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         let Self {
             functions,
             methods,
-            config_value_methods,
             fs_path_methods,
             signature_methods,
             email_methods,
@@ -901,7 +895,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             merge_fn_map(base_table, table);
         }
 
-        merge_fn_map(&mut self.config_value_methods, config_value_methods);
         merge_fn_map(&mut self.fs_path_methods, fs_path_methods);
         merge_fn_map(&mut self.signature_methods, signature_methods);
         merge_fn_map(&mut self.email_methods, email_methods);
@@ -924,7 +917,6 @@ where
         Self {
             functions: builtin_functions(),
             methods: builtin_methods(),
-            config_value_methods: builtin_config_value_methods(),
             fs_path_methods: builtin_fs_path_methods(),
             signature_methods: builtin_signature_methods(),
             email_methods: builtin_email_methods(),
@@ -987,15 +979,6 @@ where
                 } else {
                     panic!("no method table registered for type: {unwrapped_ty:?}");
                 }
-            }
-            CoreTemplatePropertyKind::ConfigValue(property) => {
-                let table = &self.config_value_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
-            }
-            CoreTemplatePropertyKind::ConfigValueOpt(property) => {
-                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
-                self.build_method(language, diagnostics, build_ctx, inner_property, function)
             }
             CoreTemplatePropertyKind::FsPath(property) => {
                 let table = &self.fs_path_methods;
@@ -1934,17 +1917,19 @@ fn string_index_to_char_boundary(s: &str, i: isize) -> usize {
 }
 
 fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> TemplateBuildMethodFnMap<'a, L, ConfigValueWrapper> {
+-> BuildValueMethodFnMap<'a, L> {
+    type T = ConfigValueWrapper;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, ConfigValueWrapper>::new();
+    let mut map = BuildValueMethodFnMap::<L>::new();
     // These methods are called "as_<type>", not "to_<type>" to clarify that
     // they'll never convert types (e.g. integer to string.) Since templater
     // doesn't provide binding syntax, there's no need to distinguish between
     // reference and consuming access.
     map.insert(
         "as_boolean",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(ConfigValueWrapper::extract::<bool>);
             Ok(out_property.into_dyn_wrapped())
@@ -1952,7 +1937,8 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "as_integer",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(ConfigValueWrapper::extract::<i64>);
             Ok(out_property.into_dyn_wrapped())
@@ -1960,7 +1946,8 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "as_string",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(ConfigValueWrapper::extract::<String>);
             Ok(out_property.into_dyn_wrapped())
@@ -1968,7 +1955,8 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "as_string_list",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(ConfigValueWrapper::extract::<Vec<String>>);
             Ok(out_property.into_dyn_wrapped())
@@ -3475,7 +3463,6 @@ mod tests {
     use crate::formatter;
     use crate::formatter::ColorFormatter;
     use crate::generic_templater::GenericTemplateLanguage;
-    use crate::template_value::OpaqueTemplateValue;
 
     #[derive(Clone, Debug, serde::Serialize)]
     struct Context;
