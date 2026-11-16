@@ -258,6 +258,7 @@ where
 impl OpaqueTemplateValue for ConfigValueWrapper {}
 impl OpaqueTemplateValue for PathBuf {}
 impl OpaqueTemplateValue for Signature {}
+impl OpaqueTemplateValue for Email {}
 
 impl NoTemplateBooleanCast for i64 {}
 impl NoTemplateBooleanCast for ConfigValueWrapper {}
@@ -274,7 +275,6 @@ pub enum CoreTemplatePropertyKind<'a> {
         property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     },
 
-    Email(BoxedTemplateProperty<'a, Email>),
     SizeHint(BoxedTemplateProperty<'a, SizeHint>),
     RegexCaptures(BoxedTemplateProperty<'a, RegexCaptures>),
     Timestamp(BoxedTemplateProperty<'a, Timestamp>),
@@ -311,7 +311,6 @@ impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyK
 macro_rules! impl_core_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
-            Email($crate::templater::Email),
             SizeHint($crate::templater::SizeHint),
             RegexCaptures($crate::templater::RegexCaptures),
             Timestamp(jj_lib::backend::Timestamp),
@@ -338,7 +337,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Value { ty, property: _ } => registry.get_type_name(ty).expect("registered type"),
-            Self::Email(_) => "Email",
             Self::SizeHint(_) => "SizeHint",
             Self::RegexCaptures(_) => "RegexCaptures",
             Self::Timestamp(_) => "Timestamp",
@@ -385,7 +383,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Ok(out_property.into_dyn())
             }
             Self::Value { .. } => Err(self),
-            Self::Email(property) => Ok(property.map(|e| !e.0.is_empty()).into_dyn()),
             Self::SizeHint(_) => Err(self),
             Self::RegexCaptures(_) => Err(self),
             Self::Timestamp(_) => Err(self),
@@ -432,7 +429,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_dyn())
             }
-            Self::Email(property) => Some(property.into_serialize()),
             Self::SizeHint(property) => Some(property.into_serialize()),
             Self::RegexCaptures(_) => None,
             Self::Timestamp(property) => Some(property.into_serialize()),
@@ -450,7 +446,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_template())
             }
-            Self::Email(property) => Some(property.into_template()),
             Self::SizeHint(_) => None,
             Self::RegexCaptures(_) => None,
             Self::Timestamp(property) => Some(property.into_template()),
@@ -510,31 +505,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = (lhs, rhs).map(move |(l, r)| ignore_missing_value(eq(l, r)));
                 Some(out_property.into_dyn())
             }
-            (
-                Self::Value {
-                    ty: lty,
-                    property: lhs,
-                },
-                Self::Email(rhs),
-            ) if lty == String::value_type() => {
-                let lhs = cast_value_property::<String>(lhs, registry);
-                Some((lhs, rhs).map(|(l, r)| l == r.0).into_dyn())
-            }
-            (Self::Email(lhs), Self::Email(rhs)) => {
-                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
-            }
-            (
-                Self::Email(lhs),
-                Self::Value {
-                    ty: rty,
-                    property: rhs,
-                },
-            ) if rty == String::value_type() => {
-                let rhs = cast_value_property::<String>(rhs, registry);
-                Some((lhs, rhs).map(|(l, r)| l.0 == r).into_dyn())
-            }
             (Self::Value { .. }, _) => None,
-            (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
             (Self::RegexCaptures(_), _) => None,
             (Self::Timestamp(_), _) => None,
@@ -593,7 +564,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some(out_property.into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
             (Self::RegexCaptures(_), _) => None,
             (Self::Timestamp(_), _) => None,
@@ -673,6 +643,13 @@ pub fn new_core_type_registry() -> TemplateTypeRegistry {
         .formattable()
         .serializable();
     registry
+        .register::<Email>("Email")
+        .conditionable()
+        .formattable()
+        .serializable()
+        .equatable()
+        .equatable_with::<String>();
+    registry
 }
 
 fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
@@ -687,6 +664,7 @@ fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         ConfigValueWrapper::value_type() => builtin_config_value_methods(),
         PathBuf::value_type() => builtin_fs_path_methods(),
         Signature::value_type() => builtin_signature_methods(),
+        Email::value_type() => builtin_email_methods(),
     }
 }
 
@@ -740,7 +718,6 @@ pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
 pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
     pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L, P>>,
-    pub email_methods: TemplateBuildMethodFnMap<'a, L, Email, P>,
     pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint, P>,
     pub regex_captures_methods: TemplateBuildMethodFnMap<'a, L, RegexCaptures, P>,
     pub timestamp_methods: TemplateBuildMethodFnMap<'a, L, Timestamp, P>,
@@ -849,7 +826,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         Self {
             functions: HashMap::new(),
             methods: HashMap::new(),
-            email_methods: HashMap::new(),
             size_hint_methods: HashMap::new(),
             regex_captures_methods: HashMap::new(),
             timestamp_methods: HashMap::new(),
@@ -865,7 +841,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         let Self {
             functions,
             methods,
-            email_methods,
             size_hint_methods,
             regex_captures_methods,
             timestamp_methods,
@@ -881,7 +856,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             merge_fn_map(base_table, table);
         }
 
-        merge_fn_map(&mut self.email_methods, email_methods);
         merge_fn_map(&mut self.size_hint_methods, size_hint_methods);
         merge_fn_map(&mut self.regex_captures_methods, regex_captures_methods);
         merge_fn_map(&mut self.timestamp_methods, timestamp_methods);
@@ -901,7 +875,6 @@ where
         Self {
             functions: builtin_functions(),
             methods: builtin_methods(),
-            email_methods: builtin_email_methods(),
             size_hint_methods: builtin_size_hint_methods(),
             regex_captures_methods: builtin_regex_captures_methods(),
             timestamp_methods: builtin_timestamp_methods(),
@@ -961,11 +934,6 @@ where
                 } else {
                     panic!("no method table registered for type: {unwrapped_ty:?}");
                 }
-            }
-            CoreTemplatePropertyKind::Email(property) => {
-                let table = &self.email_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::SizeHint(property) => {
                 let table = &self.size_hint_methods;
@@ -1999,14 +1967,15 @@ fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildVal
     map
 }
 
-fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> TemplateBuildMethodFnMap<'a, L, Email> {
+fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMethodFnMap<'a, L> {
+    type T = Email;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, Email>::new();
+    let mut map = BuildValueMethodFnMap::<L>::new();
     map.insert(
         "local",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|email| {
                 let (local, _) = text_util::split_email(&email.0);
@@ -2017,7 +1986,8 @@ fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "domain",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|email| {
                 let (_, domain) = text_util::split_email(&email.0);
