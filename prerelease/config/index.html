@@ -1581,6 +1581,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#alias-arbitrary-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alias arbitrary commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#disabling-aliases" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3105,6 +3116,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../project-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../design_docs/" class="md-nav__link">
         
   
@@ -4163,6 +4202,17 @@
     <span class="md-ellipsis">
       
         Alias descriptions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alias-arbitrary-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alias arbitrary commands
       
     </span>
   </a>
@@ -5868,10 +5918,11 @@ as a table with <code>.doc</code> and <code>.definition</code> properties. For e
 <span class="n">l</span><span class="p">.</span><span class="n">definition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;log&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-r&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;(main..@):: | (main..@)-&quot;</span><span class="p">]</span>
 <span class="n">l</span><span class="p">.</span><span class="n">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;Log pending changes&quot;</span>
 </code></pre></div>
-<p>This alias syntax can only run a single jj command. However, you may want to
-execute multiple jj commands with a single alias, or run arbitrary scripts that
-complement your version control workflow. This can be done, but be aware of the
-danger:</p>
+<h3 id="alias-arbitrary-commands">Alias arbitrary commands<a class="headerlink" href="#alias-arbitrary-commands" title="Permanent link">&para;</a></h3>
+<p>The alias syntax above can only run a single jj command. However, you may want
+to execute multiple jj commands with a single alias, or run arbitrary scripts
+that complement your version control workflow. This can be done, but be aware of
+the danger:</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>The following technique just provides a convenient syntax for running
