@@ -129,58 +129,6 @@ pub trait TemplateLanguage<'a> {
     ) -> TemplateParseResult<Self::Property>;
 }
 
-/// Implements [`WrapTemplateProperty<'a, O>`] for property types.
-///
-/// - `impl_property_wrappers!(Kind { Foo(Foo), FooList(Vec<Foo>), .. });` to
-///   implement conversion from types `Foo`, `Vec<Foo>`, ...
-/// - `impl_property_wrappers!(<'a> Kind<'a> { .. });` for types with lifetime.
-/// - `impl_property_wrappers!(Kind => Core { .. });` to forward conversion to
-///   `Kind::Core(_)`.
-macro_rules! impl_property_wrappers {
-    ($kind:path $(=> $var:ident)? { $($body:tt)* }) => {
-        $crate::template_builder::_impl_property_wrappers_many!(
-            [], 'static, $kind $(=> $var)?, { $($body)* });
-    };
-    // capture the first lifetime as the lifetime of template objects.
-    (<$a:lifetime $(, $p:lifetime)* $(, $q:ident)*>
-     $kind:path $(=> $var:ident)? { $($body:tt)* }) => {
-        $crate::template_builder::_impl_property_wrappers_many!(
-            [$a, $($p,)* $($q,)*], $a, $kind $(=> $var)?, { $($body)* });
-    };
-}
-
-macro_rules! _impl_property_wrappers_many {
-    // lifetime/type parameters are packed in order to disable zipping.
-    // https://github.com/rust-lang/rust/issues/96184#issuecomment-1294999418
-    ($ps:tt, $a:lifetime, $kind:path, { $( $var:ident($ty:ty), )* }) => {
-        $(
-            $crate::template_builder::_impl_property_wrappers_one!(
-                $ps, $a, $kind, $var, $ty, std::convert::identity);
-        )*
-    };
-    // variant part in body is ignored so the same body can be reused for
-    // implementing forwarding conversion.
-    ($ps:tt, $a:lifetime, $kind:path => $var:ident, { $( $ignored_var:ident($ty:ty), )* }) => {
-        $(
-            $crate::template_builder::_impl_property_wrappers_one!(
-                $ps, $a, $kind, $var, $ty, $crate::templater::WrapTemplateProperty::wrap_property);
-        )*
-    };
-}
-
-macro_rules! _impl_property_wrappers_one {
-    ([$($p:tt)*], $a:lifetime, $kind:path, $var:ident, $ty:ty, $inner:path) => {
-        impl<$($p)*> $crate::templater::WrapTemplateProperty<$a, $ty> for $kind {
-            fn wrap_property(property: $crate::templater::BoxedTemplateProperty<$a, $ty>) -> Self {
-                Self::$var($inner(property))
-            }
-        }
-    };
-}
-
-pub(crate) use _impl_property_wrappers_many;
-pub(crate) use impl_property_wrappers;
-
 /// Wrapper for the core template property types.
 pub trait CoreTemplatePropertyVar<'a>
 where
@@ -301,19 +249,6 @@ impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyK
         }
     }
 }
-
-/// Implements `WrapTemplateProperty<type>` for core property types.
-///
-/// Use `impl_core_property_wrappers!(<'a> Kind<'a> => Core);` to implement
-/// forwarding conversion.
-macro_rules! impl_core_property_wrappers {
-    ($($head:tt)+) => {
-        $crate::template_builder::impl_property_wrappers!($($head)+ {
-        });
-    };
-}
-
-impl_core_property_wrappers!(<'a> CoreTemplatePropertyKind<'a>);
 
 impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self {
@@ -684,10 +619,6 @@ pub type BuildAnyMethodFn<'a, L, P> = BuildMethodFn<'a, L, BoxedAnyProperty<'a>,
 /// Table of functions that translate global function call node.
 pub type TemplateBuildFunctionFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
     HashMap<&'static str, TemplateBuildFunctionFn<'a, L, P>>;
-
-/// Table of functions that translate method call node of self type `T`.
-pub type TemplateBuildMethodFnMap<'a, L, T, P = <L as TemplateLanguage<'a>>::Property> =
-    HashMap<&'static str, TemplateBuildMethodFn<'a, L, T, P>>;
 
 /// Table of functions that translate method call node of type-erased value types.
 pub type BuildValueMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
