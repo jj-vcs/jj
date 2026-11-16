@@ -81,7 +81,7 @@ where
 
     /// Registers new function that translates keyword to property.
     ///
-    /// A keyword function returns `Self::Property`, which is basically a
+    /// A keyword function returns `TemplatePropertyKind<'a>`, which is basically a
     /// closure tagged by its return type. The inner closure is usually wrapped
     /// by `TemplateFunction`.
     ///
@@ -103,8 +103,6 @@ impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C>
 where
     C: OpaqueTemplateValue + serde::Serialize,
 {
-    type Property = TemplatePropertyKind<'a>;
-
     fn settings(&self) -> &UserSettings {
         &self.settings
     }
@@ -120,9 +118,9 @@ where
     fn build_function(
         &self,
         diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<Self::Property>,
+        build_ctx: &BuildContext<'a, '_>,
         function: &FunctionCallNode,
-    ) -> TemplateParseResult<Self::Property> {
+    ) -> TemplateParseResult<TemplatePropertyKind<'a>> {
         let table = &self.build_fn_table.core;
         table.build_function(self, diagnostics, build_ctx, function)
     }
@@ -130,10 +128,10 @@ where
     fn build_method(
         &self,
         diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<Self::Property>,
-        property: Self::Property,
+        build_ctx: &BuildContext<'a, '_>,
+        property: TemplatePropertyKind<'a>,
         function: &FunctionCallNode,
-    ) -> TemplateParseResult<Self::Property> {
+    ) -> TemplateParseResult<TemplatePropertyKind<'a>> {
         let type_name = property.type_name(self.type_registry());
         match property {
             TemplatePropertyKind::Value { ty, property } if ty == C::value_type() => {
@@ -166,6 +164,6 @@ pub type GenericTemplateBuildKeywordFnMap<'a, C> =
 
 /// Symbol table of methods available in the general-purpose template.
 struct GenericTemplateBuildFnTable<'a, C> {
-    core: TemplateBuildFnTable<'a, GenericTemplateLanguage<'a, C>, TemplatePropertyKind<'a>>,
+    core: TemplateBuildFnTable<'a, GenericTemplateLanguage<'a, C>>,
     keywords: GenericTemplateBuildKeywordFnMap<'a, C>,
 }

@@ -222,8 +222,6 @@ impl<'repo> CommitTemplateLanguage<'repo> {
 }
 
 impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
-    type Property = TemplatePropertyKind<'repo>;
-
     fn settings(&self) -> &UserSettings {
         self.repo.base_repo().settings()
     }
@@ -240,9 +238,9 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
     fn build_function(
         &self,
         diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<Self::Property>,
+        build_ctx: &BuildContext<'repo, '_>,
         function: &FunctionCallNode,
-    ) -> TemplateParseResult<Self::Property> {
+    ) -> TemplateParseResult<TemplatePropertyKind<'repo>> {
         let table = &self.build_fn_table;
         table.build_function(self, diagnostics, build_ctx, function)
     }
@@ -250,10 +248,10 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
     fn build_method(
         &self,
         diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<Self::Property>,
-        property: Self::Property,
+        build_ctx: &BuildContext<'repo, '_>,
+        property: TemplatePropertyKind<'repo>,
         function: &FunctionCallNode,
-    ) -> TemplateParseResult<Self::Property> {
+    ) -> TemplateParseResult<TemplatePropertyKind<'repo>> {
         let table = &self.build_fn_table;
         table.build_method(self, diagnostics, build_ctx, property, function)
     }
@@ -2914,7 +2912,7 @@ mod tests {
     type BuildFunctionFn = for<'a> fn(
         &CommitTemplateLanguage<'a>,
         &mut TemplateDiagnostics,
-        &BuildContext<TemplatePropertyKind<'a>>,
+        &BuildContext<'a, '_>,
         &FunctionCallNode,
     ) -> TemplateParseResult<TemplatePropertyKind<'a>>;
 

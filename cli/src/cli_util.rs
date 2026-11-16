@@ -199,6 +199,7 @@ use crate::revset_util::RevsetExpressionEvaluator;
 use crate::revset_util::parse_union_name_patterns;
 use crate::template_builder;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::TemplatePropertyKind;
 use crate::templater::TemplateRenderer;
 use crate::templater::WrapTemplateProperty;
 use crate::text_util;
@@ -421,7 +422,7 @@ impl CommandHelper {
     where
         C: Clone + 'a,
         L: TemplateLanguage<'a> + ?Sized,
-        L::Property: WrapTemplateProperty<'a, C>,
+        TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
     {
         let mut diagnostics = TemplateDiagnostics::new();
         let aliases = load_template_aliases(ui, self.settings().config())?;
@@ -1173,7 +1174,7 @@ impl WorkspaceCommandEnvironment {
     where
         C: Clone + 'a,
         L: TemplateLanguage<'a> + ?Sized,
-        L::Property: WrapTemplateProperty<'a, C>,
+        TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
     {
         template_builder::parse(
             language,
@@ -1194,7 +1195,7 @@ impl WorkspaceCommandEnvironment {
     where
         C: Clone + 'a,
         L: TemplateLanguage<'a> + ?Sized,
-        L::Property: WrapTemplateProperty<'a, C>,
+        TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
     {
         let mut diagnostics = TemplateDiagnostics::new();
         let template = template_builder::parse(
@@ -2618,7 +2619,7 @@ to the current parents may contain changes from multiple commits.
     where
         C: Clone + 'a,
         L: TemplateLanguage<'a> + ?Sized,
-        L::Property: WrapTemplateProperty<'a, C>,
+        TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
     {
         self.env.parse_template(ui, language, template_text)
     }
