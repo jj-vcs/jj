@@ -106,11 +106,11 @@ use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_builder;
 use crate::template_builder::BuildContext;
 use crate::template_builder::BuildValueMethodFnMap;
-use crate::template_builder::CoreTemplateBuildFnTable;
-use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar as _;
+use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateBuildFunctionFnMap;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::TemplatePropertyKind;
 use crate::template_builder::builtin_formattable_list_methods;
 use crate::template_builder::builtin_unformattable_list_methods;
 use crate::template_builder::cast_value_property;
@@ -130,9 +130,7 @@ use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 
 pub trait CommitTemplateLanguageExtension {
-    fn build_fn_table<'repo>(
-        &self,
-    ) -> CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>;
+    fn build_fn_table<'repo>(&self) -> TemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>;
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
@@ -154,7 +152,7 @@ pub struct CommitTemplateLanguage<'repo> {
     immutable_expression: Arc<UserRevsetExpression>,
     conflict_marker_style: ConflictMarkerStyle,
     type_registry: TemplateTypeRegistry,
-    build_fn_table: CoreTemplateBuildFnTable<'repo, Self>,
+    build_fn_table: TemplateBuildFnTable<'repo, Self>,
     keyword_cache: CommitKeywordCache,
     cache_extensions: ExtensionsMap,
 }
@@ -176,7 +174,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         let mut type_registry = template_builder::new_core_type_registry();
         operation_templater::register_types(&mut type_registry);
         register_types(&mut type_registry);
-        let mut build_fn_table = CoreTemplateBuildFnTable::builtin();
+        let mut build_fn_table = TemplateBuildFnTable::builtin();
         merge_fn_map(
             &mut build_fn_table.functions,
             builtin_commit_template_functions(),
@@ -224,7 +222,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
 }
 
 impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
-    type Property = CoreTemplatePropertyKind<'repo>;
+    type Property = TemplatePropertyKind<'repo>;
 
     fn settings(&self) -> &UserSettings {
         self.repo.base_repo().settings()
@@ -458,9 +456,7 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
         .formattable();
 }
 
-fn register_methods<'repo>(
-    table: &mut CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
-) {
+fn register_methods<'repo>(table: &mut TemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>) {
     let methods = &mut table.methods;
     methods.insert(Commit::value_type(), builtin_commit_methods());
     methods.insert(
@@ -2098,7 +2094,7 @@ where
 
 fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
     type T = TreeDiff;
-    type P<'repo> = CoreTemplatePropertyKind<'repo>;
+    type P<'repo> = TemplatePropertyKind<'repo>;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildValueMethodFnMap::new();
@@ -2918,9 +2914,9 @@ mod tests {
     type BuildFunctionFn = for<'a> fn(
         &CommitTemplateLanguage<'a>,
         &mut TemplateDiagnostics,
-        &BuildContext<CoreTemplatePropertyKind<'a>>,
+        &BuildContext<TemplatePropertyKind<'a>>,
         &FunctionCallNode,
-    ) -> TemplateParseResult<CoreTemplatePropertyKind<'a>>;
+    ) -> TemplateParseResult<TemplatePropertyKind<'a>>;
 
     struct CommitTemplateTestEnv {
         test_workspace: TestWorkspace,
@@ -3004,7 +3000,7 @@ mod tests {
         fn parse<'a, C>(&'a self, text: &str) -> TemplateParseResult<TemplateRenderer<'a, C>>
         where
             C: Clone + 'a,
-            CoreTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
+            TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
         {
             let language = self.new_language();
             let mut diagnostics = TemplateDiagnostics::new();
@@ -3019,7 +3015,7 @@ mod tests {
         fn render_ok<'a, C>(&'a self, text: &str, context: &C) -> BString
         where
             C: Clone + 'a,
-            CoreTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
+            TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
         {
             let template = self.parse(text).unwrap();
             template.format_plain_text(context).into()
