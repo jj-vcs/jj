@@ -88,7 +88,6 @@ use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
 use crate::templater::TryList;
 use crate::templater::WrapTemplateProperty;
-use crate::templater::option_to_boolean;
 use crate::text_util;
 use crate::text_util::write_replaced;
 use crate::time_util;
@@ -257,6 +256,7 @@ where
 }
 
 impl OpaqueTemplateValue for ConfigValueWrapper {}
+impl OpaqueTemplateValue for PathBuf {}
 
 impl NoTemplateBooleanCast for i64 {}
 impl NoTemplateBooleanCast for ConfigValueWrapper {}
@@ -273,8 +273,6 @@ pub enum CoreTemplatePropertyKind<'a> {
         property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     },
 
-    FsPath(BoxedTemplateProperty<'a, PathBuf>),
-    FsPathOpt(BoxedTemplateProperty<'a, Option<PathBuf>>),
     Signature(BoxedTemplateProperty<'a, Signature>),
     Email(BoxedTemplateProperty<'a, Email>),
     SizeHint(BoxedTemplateProperty<'a, SizeHint>),
@@ -313,8 +311,6 @@ impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyK
 macro_rules! impl_core_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
-            FsPath(std::path::PathBuf),
-            FsPathOpt(Option<std::path::PathBuf>),
             Signature(jj_lib::backend::Signature),
             Email($crate::templater::Email),
             SizeHint($crate::templater::SizeHint),
@@ -343,8 +339,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Value { ty, property: _ } => registry.get_type_name(ty).expect("registered type"),
-            Self::FsPath(_) => "FsPath",
-            Self::FsPathOpt(_) => "Option<FsPath>",
             Self::Signature(_) => "Signature",
             Self::Email(_) => "Email",
             Self::SizeHint(_) => "SizeHint",
@@ -393,8 +387,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Ok(out_property.into_dyn())
             }
             Self::Value { .. } => Err(self),
-            Self::FsPath(_) => Err(self),
-            Self::FsPathOpt(property) => Ok(option_to_boolean(property)),
             Self::Signature(_) => Err(self),
             Self::Email(property) => Ok(property.map(|e| !e.0.is_empty()).into_dyn()),
             Self::SizeHint(_) => Err(self),
@@ -443,8 +435,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_dyn())
             }
-            Self::FsPath(property) => Some(property.into_serialize()),
-            Self::FsPathOpt(property) => Some(property.into_serialize()),
             Self::Signature(property) => Some(property.into_serialize()),
             Self::Email(property) => Some(property.into_serialize()),
             Self::SizeHint(property) => Some(property.into_serialize()),
@@ -464,8 +454,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_template())
             }
-            Self::FsPath(property) => Some(property.into_template()),
-            Self::FsPathOpt(property) => Some(property.into_template()),
             Self::Signature(property) => Some(property.into_template()),
             Self::Email(property) => Some(property.into_template()),
             Self::SizeHint(_) => None,
@@ -551,8 +539,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some((lhs, rhs).map(|(l, r)| l.0 == r).into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::FsPath(_), _) => None,
-            (Self::FsPathOpt(_), _) => None,
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
@@ -613,8 +599,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some(out_property.into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::FsPath(_), _) => None,
-            (Self::FsPathOpt(_), _) => None,
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
@@ -683,6 +667,15 @@ pub fn new_core_type_registry() -> TemplateTypeRegistry {
         .formattable()
         .serializable();
     registry
+        .register::<PathBuf>("FsPath")
+        .formattable()
+        .serializable();
+    registry
+        .register::<Option<PathBuf>>("Option<FsPath>")
+        .conditionable()
+        .formattable()
+        .serializable();
+    registry
 }
 
 fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
@@ -695,6 +688,7 @@ fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         bool::value_type() => hashmap! {},
         i64::value_type() => hashmap! {},
         ConfigValueWrapper::value_type() => builtin_config_value_methods(),
+        PathBuf::value_type() => builtin_fs_path_methods(),
     }
 }
 
@@ -748,7 +742,6 @@ pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
 pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
     pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L, P>>,
-    pub fs_path_methods: TemplateBuildMethodFnMap<'a, L, PathBuf, P>,
     pub email_methods: TemplateBuildMethodFnMap<'a, L, Email, P>,
     pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature, P>,
     pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint, P>,
@@ -859,7 +852,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         Self {
             functions: HashMap::new(),
             methods: HashMap::new(),
-            fs_path_methods: HashMap::new(),
             signature_methods: HashMap::new(),
             email_methods: HashMap::new(),
             size_hint_methods: HashMap::new(),
@@ -877,7 +869,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         let Self {
             functions,
             methods,
-            fs_path_methods,
             signature_methods,
             email_methods,
             size_hint_methods,
@@ -895,7 +886,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             merge_fn_map(base_table, table);
         }
 
-        merge_fn_map(&mut self.fs_path_methods, fs_path_methods);
         merge_fn_map(&mut self.signature_methods, signature_methods);
         merge_fn_map(&mut self.email_methods, email_methods);
         merge_fn_map(&mut self.size_hint_methods, size_hint_methods);
@@ -917,7 +907,6 @@ where
         Self {
             functions: builtin_functions(),
             methods: builtin_methods(),
-            fs_path_methods: builtin_fs_path_methods(),
             signature_methods: builtin_signature_methods(),
             email_methods: builtin_email_methods(),
             size_hint_methods: builtin_size_hint_methods(),
@@ -979,15 +968,6 @@ where
                 } else {
                     panic!("no method table registered for type: {unwrapped_ty:?}");
                 }
-            }
-            CoreTemplatePropertyKind::FsPath(property) => {
-                let table = &self.fs_path_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
-            }
-            CoreTemplatePropertyKind::FsPathOpt(property) => {
-                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
-                self.build_method(language, diagnostics, build_ctx, inner_property, function)
             }
             CoreTemplatePropertyKind::Signature(property) => {
                 let table = &self.signature_methods;
@@ -1967,14 +1947,15 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     map
 }
 
-fn builtin_fs_path_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> TemplateBuildMethodFnMap<'a, L, PathBuf> {
+fn builtin_fs_path_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMethodFnMap<'a, L> {
+    type T = PathBuf;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, PathBuf>::new();
+    let mut map = BuildValueMethodFnMap::<L>::new();
     map.insert(
         "absolute",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let cwd = language.current_dir().to_owned();
             let out_property = self_property.map(move |path| cwd.join(path));
@@ -1984,6 +1965,7 @@ fn builtin_fs_path_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     map.insert(
         "relative",
         |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let cwd = language.current_dir().to_owned();
             let out_property = self_property.map(move |path| file_util::relative_path(&cwd, &path));
