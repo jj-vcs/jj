@@ -24,7 +24,6 @@ use jj_lib::template_parser::TemplateParseResult;
 
 use crate::template_builder;
 use crate::template_builder::BuildContext;
-use crate::template_builder::CoreTemplatePropertyVar as _;
 use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::TemplatePropertyKind;

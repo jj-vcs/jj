@@ -106,7 +106,6 @@ use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_builder;
 use crate::template_builder::BuildContext;
 use crate::template_builder::BuildValueMethodFnMap;
-use crate::template_builder::CoreTemplatePropertyVar as _;
 use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateBuildFunctionFnMap;
 use crate::template_builder::TemplateLanguage;

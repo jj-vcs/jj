@@ -47,7 +47,6 @@ use crate::templater::NoTemplateBooleanCast;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyExt as _;
-use crate::templater::WrapTemplateProperty;
 
 pub trait OperationTemplateLanguageExtension {
     fn build_fn_table(&self) -> TemplateBuildFnTable<'static, OperationTemplateLanguage>;
@@ -156,23 +155,11 @@ impl OperationTemplateLanguage {
     }
 }
 
-/// Wrapper for the operation template property types.
-pub trait OperationTemplatePropertyVar<'a>
-where
-    Self: WrapTemplateProperty<'a, Operation>,
-    Self: WrapTemplateProperty<'a, Option<Operation>>,
-    Self: WrapTemplateProperty<'a, Vec<Operation>>,
-    Self: WrapTemplateProperty<'a, OperationId>,
-{
-}
-
 impl OpaqueTemplateValue for Operation {}
 impl OpaqueTemplateValue for OperationId {}
 
 impl NoTemplateBooleanCast for Operation {}
 impl NoTemplateBooleanCast for OperationId {}
-
-impl<'a> OperationTemplatePropertyVar<'a> for TemplatePropertyKind<'a> {}
 
 pub fn register_types(registry: &mut TemplateTypeRegistry) {
     registry.register::<Operation>("Operation").serializable();
@@ -193,7 +180,6 @@ pub fn register_types(registry: &mut TemplateTypeRegistry) {
 pub fn register_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
-    TemplatePropertyKind<'a>: OperationTemplatePropertyVar<'a>,
 {
     let methods = &mut table.methods;
     methods.insert(Operation::value_type(), builtin_operation_methods());
@@ -207,7 +193,6 @@ where
 fn builtin_operation_methods<'a, L>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
-    TemplatePropertyKind<'a>: OperationTemplatePropertyVar<'a>,
 {
     type T = Operation;
     // Not using maplit::hashmap!{} or custom declarative macro here because
@@ -358,7 +343,6 @@ impl Template for OperationId {
 fn builtin_operation_id_methods<'a, L>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
-    TemplatePropertyKind<'a>: OperationTemplatePropertyVar<'a>,
 {
     type T = OperationId;
     // Not using maplit::hashmap!{} or custom declarative macro here because
