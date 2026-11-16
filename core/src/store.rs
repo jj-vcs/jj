@@ -273,6 +273,12 @@ impl Store {
         self.backend.write_symlink(path, contents).await
     }
 
+    /// Persists objects written to the backend since the last flush. See
+    /// [`Backend::flush()`].
+    pub fn flush(&self) -> BackendResult<()> {
+        self.backend.flush()
+    }
+
     /// Clear cached objects. Mainly intended for testing.
     pub fn clear_caches(&self) {
         self.commit_cache.clear();

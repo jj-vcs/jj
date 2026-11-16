@@ -1071,6 +1071,9 @@ pub enum TreeStateError {
     /// Error from the filesystem monitor.
     #[error("Filesystem monitor error")]
     Fsmonitor(#[source] Box<dyn Error + Send + Sync>),
+    /// Error from persisting tree objects to the backend.
+    #[error("Failed to persist tree objects")]
+    PersistTreeObjects(#[source] BackendError),
 }
 
 impl TreeState {
@@ -1232,6 +1235,13 @@ impl TreeState {
     /// Writes the tree state to the `tree_state` file in the state directory.
     #[expect(clippy::assigning_clones, clippy::field_reassign_with_default)]
     pub fn save(&mut self) -> Result<(), TreeStateError> {
+        // The saved state refers to the tree by ID, so the tree (and everything
+        // it refers to) must be persisted before other processes or a fresh
+        // `Store` can load it.
+        self.store
+            .flush()
+            .map_err(TreeStateError::PersistTreeObjects)?;
+
         let mut proto: crate::protos::local_working_copy::TreeState = Default::default();
         proto.tree_ids = self
             .tree
