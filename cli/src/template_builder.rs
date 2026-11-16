@@ -257,6 +257,7 @@ where
 
 impl OpaqueTemplateValue for ConfigValueWrapper {}
 impl OpaqueTemplateValue for PathBuf {}
+impl OpaqueTemplateValue for Signature {}
 
 impl NoTemplateBooleanCast for i64 {}
 impl NoTemplateBooleanCast for ConfigValueWrapper {}
@@ -273,7 +274,6 @@ pub enum CoreTemplatePropertyKind<'a> {
         property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     },
 
-    Signature(BoxedTemplateProperty<'a, Signature>),
     Email(BoxedTemplateProperty<'a, Email>),
     SizeHint(BoxedTemplateProperty<'a, SizeHint>),
     RegexCaptures(BoxedTemplateProperty<'a, RegexCaptures>),
@@ -311,7 +311,6 @@ impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyK
 macro_rules! impl_core_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
-            Signature(jj_lib::backend::Signature),
             Email($crate::templater::Email),
             SizeHint($crate::templater::SizeHint),
             RegexCaptures($crate::templater::RegexCaptures),
@@ -339,7 +338,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Value { ty, property: _ } => registry.get_type_name(ty).expect("registered type"),
-            Self::Signature(_) => "Signature",
             Self::Email(_) => "Email",
             Self::SizeHint(_) => "SizeHint",
             Self::RegexCaptures(_) => "RegexCaptures",
@@ -387,7 +385,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Ok(out_property.into_dyn())
             }
             Self::Value { .. } => Err(self),
-            Self::Signature(_) => Err(self),
             Self::Email(property) => Ok(property.map(|e| !e.0.is_empty()).into_dyn()),
             Self::SizeHint(_) => Err(self),
             Self::RegexCaptures(_) => Err(self),
@@ -435,7 +432,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_dyn())
             }
-            Self::Signature(property) => Some(property.into_serialize()),
             Self::Email(property) => Some(property.into_serialize()),
             Self::SizeHint(property) => Some(property.into_serialize()),
             Self::RegexCaptures(_) => None,
@@ -454,7 +450,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_template())
             }
-            Self::Signature(property) => Some(property.into_template()),
             Self::Email(property) => Some(property.into_template()),
             Self::SizeHint(_) => None,
             Self::RegexCaptures(_) => None,
@@ -539,7 +534,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some((lhs, rhs).map(|(l, r)| l.0 == r).into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
             (Self::RegexCaptures(_), _) => None,
@@ -599,7 +593,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some(out_property.into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
             (Self::RegexCaptures(_), _) => None,
@@ -676,6 +669,10 @@ pub fn new_core_type_registry() -> TemplateTypeRegistry {
         .formattable()
         .serializable();
     registry
+        .register::<Signature>("Signature")
+        .formattable()
+        .serializable();
+    registry
 }
 
 fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
@@ -689,6 +686,7 @@ fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         i64::value_type() => hashmap! {},
         ConfigValueWrapper::value_type() => builtin_config_value_methods(),
         PathBuf::value_type() => builtin_fs_path_methods(),
+        Signature::value_type() => builtin_signature_methods(),
     }
 }
 
@@ -743,7 +741,6 @@ pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
     pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L, P>>,
     pub email_methods: TemplateBuildMethodFnMap<'a, L, Email, P>,
-    pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature, P>,
     pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint, P>,
     pub regex_captures_methods: TemplateBuildMethodFnMap<'a, L, RegexCaptures, P>,
     pub timestamp_methods: TemplateBuildMethodFnMap<'a, L, Timestamp, P>,
@@ -852,7 +849,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         Self {
             functions: HashMap::new(),
             methods: HashMap::new(),
-            signature_methods: HashMap::new(),
             email_methods: HashMap::new(),
             size_hint_methods: HashMap::new(),
             regex_captures_methods: HashMap::new(),
@@ -869,7 +865,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         let Self {
             functions,
             methods,
-            signature_methods,
             email_methods,
             size_hint_methods,
             regex_captures_methods,
@@ -886,7 +881,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             merge_fn_map(base_table, table);
         }
 
-        merge_fn_map(&mut self.signature_methods, signature_methods);
         merge_fn_map(&mut self.email_methods, email_methods);
         merge_fn_map(&mut self.size_hint_methods, size_hint_methods);
         merge_fn_map(&mut self.regex_captures_methods, regex_captures_methods);
@@ -907,7 +901,6 @@ where
         Self {
             functions: builtin_functions(),
             methods: builtin_methods(),
-            signature_methods: builtin_signature_methods(),
             email_methods: builtin_email_methods(),
             size_hint_methods: builtin_size_hint_methods(),
             regex_captures_methods: builtin_regex_captures_methods(),
@@ -968,11 +961,6 @@ where
                 } else {
                     panic!("no method table registered for type: {unwrapped_ty:?}");
                 }
-            }
-            CoreTemplatePropertyKind::Signature(property) => {
-                let table = &self.signature_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::Email(property) => {
                 let table = &self.email_methods;
@@ -1975,14 +1963,16 @@ fn builtin_fs_path_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValue
     map
 }
 
-fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> TemplateBuildMethodFnMap<'a, L, Signature> {
+fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMethodFnMap<'a, L>
+{
+    type T = Signature;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, Signature>::new();
+    let mut map = BuildValueMethodFnMap::<L>::new();
     map.insert(
         "name",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|signature| signature.name);
             Ok(out_property.into_dyn_wrapped())
@@ -1990,7 +1980,8 @@ fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "email",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|signature| Email(signature.email));
             Ok(out_property.into_dyn_wrapped())
@@ -1998,7 +1989,8 @@ fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "timestamp",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|signature| signature.timestamp);
             Ok(out_property.into_dyn_wrapped())
