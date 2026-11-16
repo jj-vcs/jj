@@ -87,7 +87,6 @@ use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
 use crate::templater::TryList;
-use crate::templater::WrapTemplateProperty;
 use crate::text_util;
 use crate::text_util::write_replaced;
 use crate::time_util;
@@ -124,79 +123,6 @@ pub trait TemplateLanguage<'a> {
         property: TemplatePropertyKind<'a>,
         function: &FunctionCallNode,
     ) -> TemplateParseResult<TemplatePropertyKind<'a>>;
-}
-
-/// Wrapper for the core template property types.
-pub trait CoreTemplatePropertyVar<'a>
-where
-    Self: WrapTemplateProperty<'a, BString>,
-    Self: WrapTemplateProperty<'a, Vec<BString>>,
-    Self: WrapTemplateProperty<'a, String>,
-    Self: WrapTemplateProperty<'a, Vec<String>>,
-    Self: WrapTemplateProperty<'a, bool>,
-    Self: WrapTemplateProperty<'a, i64>,
-    Self: WrapTemplateProperty<'a, Option<i64>>,
-    Self: WrapTemplateProperty<'a, ConfigValueWrapper>,
-    Self: WrapTemplateProperty<'a, Option<ConfigValueWrapper>>,
-    Self: WrapTemplateProperty<'a, PathBuf>,
-    Self: WrapTemplateProperty<'a, Option<PathBuf>>,
-    Self: WrapTemplateProperty<'a, Signature>,
-    Self: WrapTemplateProperty<'a, Email>,
-    Self: WrapTemplateProperty<'a, SizeHint>,
-    Self: WrapTemplateProperty<'a, RegexCaptures>,
-    Self: WrapTemplateProperty<'a, Timestamp>,
-    Self: WrapTemplateProperty<'a, TimestampRange>,
-{
-    fn wrap_template(template: Box<dyn Template + 'a>) -> Self;
-    fn wrap_any(property: BoxedAnyProperty<'a>) -> Self;
-    fn wrap_any_list(property: BoxedAnyProperty<'a>) -> Self;
-
-    /// Type name of the property output.
-    fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str;
-
-    /// Extracts property of `ByteString` type or newtype.
-    fn try_into_byte_string(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Result<BoxedTemplateProperty<'a, BString>, Self>;
-    /// Extracts property of `String` type or newtype.
-    fn try_into_string(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Result<BoxedTemplateProperty<'a, String>, Self>;
-    // TODO: rename try_into_boolean() because it isn't a pure extraction fn?
-    fn try_into_boolean(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Result<BoxedTemplateProperty<'a, bool>, Self>;
-    fn try_into_integer(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Result<BoxedTemplateProperty<'a, i64>, Self>;
-    fn try_into_timestamp(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self>;
-
-    fn try_into_serialize(
-        self,
-        registry: &TemplateTypeRegistry,
-    ) -> Option<BoxedSerializeProperty<'a>>;
-    fn try_into_template(self, registry: &TemplateTypeRegistry) -> Option<Box<dyn Template + 'a>>;
-
-    /// Transforms into a property that will evaluate to `self == other`.
-    fn try_into_eq(
-        self,
-        other: Self,
-        registry: &TemplateTypeRegistry,
-    ) -> Option<BoxedTemplateProperty<'a, bool>>;
-
-    /// Transforms into a property that will evaluate to an [`Ordering`].
-    fn try_into_cmp(
-        self,
-        other: Self,
-        registry: &TemplateTypeRegistry,
-    ) -> Option<BoxedTemplateProperty<'a, Ordering>>;
 }
 
 impl OpaqueTemplateValue for ConfigValueWrapper {}
@@ -238,29 +164,30 @@ pub enum TemplatePropertyKind<'a> {
     AnyList(BoxedAnyProperty<'a>),
 }
 
-impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for TemplatePropertyKind<'a> {
-    fn wrap_property(property: BoxedTemplateProperty<'a, O>) -> Self {
+impl<'a> TemplatePropertyKind<'a> {
+    pub fn wrap_property<O: TemplateValue>(
+        property: impl TemplateProperty<Output = O> + 'a,
+    ) -> Self {
         Self::Value {
             ty: O::value_type(),
             property: property.map(O::into_repr).into_dyn(),
         }
     }
-}
 
-impl<'a> CoreTemplatePropertyVar<'a> for TemplatePropertyKind<'a> {
-    fn wrap_template(template: Box<dyn Template + 'a>) -> Self {
+    pub fn wrap_template(template: Box<dyn Template + 'a>) -> Self {
         Self::Template(template)
     }
 
-    fn wrap_any(property: BoxedAnyProperty<'a>) -> Self {
+    pub fn wrap_any(property: BoxedAnyProperty<'a>) -> Self {
         Self::Any(property)
     }
 
-    fn wrap_any_list(property: BoxedAnyProperty<'a>) -> Self {
+    pub fn wrap_any_list(property: BoxedAnyProperty<'a>) -> Self {
         Self::AnyList(property)
     }
 
-    fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
+    /// Type name of the property output.
+    pub fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Value { ty, property: _ } => registry.get_type_name(ty).expect("registered type"),
             Self::Template(_) => "Template",
@@ -269,6 +196,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for TemplatePropertyKind<'a> {
         }
     }
 
+    /// Extracts property of `ByteString` type or newtype.
     fn try_into_byte_string(
         self,
         registry: &TemplateTypeRegistry,
@@ -282,6 +210,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for TemplatePropertyKind<'a> {
         }
     }
 
+    /// Extracts property of `String` type or newtype.
     fn try_into_string(
         self,
         registry: &TemplateTypeRegistry,
@@ -873,6 +802,7 @@ impl<'a> Expression<'a> {
         self.property.type_name(registry)
     }
 
+    // TODO: rename try_into_boolean() because it isn't a pure extraction fn?
     pub fn try_into_boolean(
         self,
         registry: &TemplateTypeRegistry,
@@ -954,6 +884,7 @@ impl<'a> Expression<'a> {
         }
     }
 
+    /// Transforms into a property that will evaluate to `self == other`.
     pub fn try_into_eq(
         self,
         other: Self,
