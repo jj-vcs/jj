@@ -259,6 +259,7 @@ impl OpaqueTemplateValue for ConfigValueWrapper {}
 impl OpaqueTemplateValue for PathBuf {}
 impl OpaqueTemplateValue for Signature {}
 impl OpaqueTemplateValue for Email {}
+impl OpaqueTemplateValue for SizeHint {}
 
 impl NoTemplateBooleanCast for i64 {}
 impl NoTemplateBooleanCast for ConfigValueWrapper {}
@@ -275,7 +276,6 @@ pub enum CoreTemplatePropertyKind<'a> {
         property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     },
 
-    SizeHint(BoxedTemplateProperty<'a, SizeHint>),
     RegexCaptures(BoxedTemplateProperty<'a, RegexCaptures>),
     Timestamp(BoxedTemplateProperty<'a, Timestamp>),
     TimestampRange(BoxedTemplateProperty<'a, TimestampRange>),
@@ -311,7 +311,6 @@ impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyK
 macro_rules! impl_core_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
-            SizeHint($crate::templater::SizeHint),
             RegexCaptures($crate::templater::RegexCaptures),
             Timestamp(jj_lib::backend::Timestamp),
             TimestampRange(jj_lib::op_store::TimestampRange),
@@ -337,7 +336,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Value { ty, property: _ } => registry.get_type_name(ty).expect("registered type"),
-            Self::SizeHint(_) => "SizeHint",
             Self::RegexCaptures(_) => "RegexCaptures",
             Self::Timestamp(_) => "Timestamp",
             Self::TimestampRange(_) => "TimestampRange",
@@ -383,7 +381,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Ok(out_property.into_dyn())
             }
             Self::Value { .. } => Err(self),
-            Self::SizeHint(_) => Err(self),
             Self::RegexCaptures(_) => Err(self),
             Self::Timestamp(_) => Err(self),
             Self::TimestampRange(_) => Err(self),
@@ -429,7 +426,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_dyn())
             }
-            Self::SizeHint(property) => Some(property.into_serialize()),
             Self::RegexCaptures(_) => None,
             Self::Timestamp(property) => Some(property.into_serialize()),
             Self::TimestampRange(property) => Some(property.into_serialize()),
@@ -446,7 +442,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_template())
             }
-            Self::SizeHint(_) => None,
             Self::RegexCaptures(_) => None,
             Self::Timestamp(property) => Some(property.into_template()),
             Self::TimestampRange(property) => Some(property.into_template()),
@@ -506,7 +501,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some(out_property.into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::SizeHint(_), _) => None,
             (Self::RegexCaptures(_), _) => None,
             (Self::Timestamp(_), _) => None,
             (Self::TimestampRange(_), _) => None,
@@ -564,7 +558,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some(out_property.into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::SizeHint(_), _) => None,
             (Self::RegexCaptures(_), _) => None,
             (Self::Timestamp(_), _) => None,
             (Self::TimestampRange(_), _) => None,
@@ -649,6 +642,7 @@ pub fn new_core_type_registry() -> TemplateTypeRegistry {
         .serializable()
         .equatable()
         .equatable_with::<String>();
+    registry.register::<SizeHint>("SizeHint").serializable();
     registry
 }
 
@@ -665,6 +659,7 @@ fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         PathBuf::value_type() => builtin_fs_path_methods(),
         Signature::value_type() => builtin_signature_methods(),
         Email::value_type() => builtin_email_methods(),
+        SizeHint::value_type() => builtin_size_hint_methods(),
     }
 }
 
@@ -718,7 +713,6 @@ pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
 pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
     pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L, P>>,
-    pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint, P>,
     pub regex_captures_methods: TemplateBuildMethodFnMap<'a, L, RegexCaptures, P>,
     pub timestamp_methods: TemplateBuildMethodFnMap<'a, L, Timestamp, P>,
     pub timestamp_range_methods: TemplateBuildMethodFnMap<'a, L, TimestampRange, P>,
@@ -826,7 +820,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         Self {
             functions: HashMap::new(),
             methods: HashMap::new(),
-            size_hint_methods: HashMap::new(),
             regex_captures_methods: HashMap::new(),
             timestamp_methods: HashMap::new(),
             timestamp_range_methods: HashMap::new(),
@@ -841,7 +834,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         let Self {
             functions,
             methods,
-            size_hint_methods,
             regex_captures_methods,
             timestamp_methods,
             timestamp_range_methods,
@@ -856,7 +848,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             merge_fn_map(base_table, table);
         }
 
-        merge_fn_map(&mut self.size_hint_methods, size_hint_methods);
         merge_fn_map(&mut self.regex_captures_methods, regex_captures_methods);
         merge_fn_map(&mut self.timestamp_methods, timestamp_methods);
         merge_fn_map(&mut self.timestamp_range_methods, timestamp_range_methods);
@@ -875,7 +866,6 @@ where
         Self {
             functions: builtin_functions(),
             methods: builtin_methods(),
-            size_hint_methods: builtin_size_hint_methods(),
             regex_captures_methods: builtin_regex_captures_methods(),
             timestamp_methods: builtin_timestamp_methods(),
             timestamp_range_methods: builtin_timestamp_range_methods(),
@@ -934,11 +924,6 @@ where
                 } else {
                     panic!("no method table registered for type: {unwrapped_ty:?}");
                 }
-            }
-            CoreTemplatePropertyKind::SizeHint(property) => {
-                let table = &self.size_hint_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::RegexCaptures(property) => {
                 let table = &self.regex_captures_methods;
@@ -1999,14 +1984,16 @@ fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMe
     map
 }
 
-fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> TemplateBuildMethodFnMap<'a, L, SizeHint> {
+fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMethodFnMap<'a, L>
+{
+    type T = SizeHint;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, SizeHint>::new();
+    let mut map = BuildValueMethodFnMap::<L>::new();
     map.insert(
         "lower",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|(lower, _)| Ok(i64::try_from(lower)?));
             Ok(out_property.into_dyn_wrapped())
@@ -2014,7 +2001,8 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "upper",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|(_, upper)| Ok(upper.map(i64::try_from).transpose()?));
@@ -2023,7 +2011,8 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "exact",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|(lower, upper)| {
                 let exact = (Some(lower) == upper).then_some(lower);
@@ -2034,7 +2023,8 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "zero",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|(_, upper)| upper == Some(0));
             Ok(out_property.into_dyn_wrapped())
