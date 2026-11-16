@@ -42,6 +42,7 @@ use crate::formatter::FormatterExt as _;
 use crate::formatter::LabeledScope;
 use crate::formatter::PlainTextFormatter;
 use crate::template_value::TemplateTypeRegistry;
+use crate::template_value::ToTemplateCondition;
 use crate::text_util;
 use crate::time_util;
 
@@ -149,6 +150,25 @@ impl serde::Serialize for ConfigValueWrapper {
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 #[serde(transparent)]
 pub struct Email(pub String);
+
+// TODO: Should we introduce Option<Email> instead?
+impl ToTemplateCondition for Email {
+    fn to_condition(&self) -> bool {
+        !self.0.is_empty()
+    }
+}
+
+impl PartialEq<String> for Email {
+    fn eq(&self, other: &String) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<Email> for String {
+    fn eq(&self, other: &Email) -> bool {
+        *self == other.0
+    }
+}
 
 impl Template for Email {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
