@@ -109,8 +109,7 @@ pub trait TemplateLanguage<'a> {
 
     /// Translates the given global `function` call to a property.
     ///
-    /// This should be delegated to
-    /// `CoreTemplateBuildFnTable::build_function()`.
+    /// This should be delegated to `TemplateBuildFnTable::build_function()`.
     fn build_function(
         &self,
         diagnostics: &mut TemplateDiagnostics,
@@ -220,7 +219,7 @@ impl NoTemplateBooleanCast for RegexCaptures {}
 impl NoTemplateBooleanCast for Timestamp {}
 impl NoTemplateBooleanCast for TimestampRange {}
 
-pub enum CoreTemplatePropertyKind<'a> {
+pub enum TemplatePropertyKind<'a> {
     Value {
         ty: TemplateValueType,
         property: BoxedTemplateProperty<'a, TemplateValueRepr>,
@@ -241,7 +240,7 @@ pub enum CoreTemplatePropertyKind<'a> {
     AnyList(BoxedAnyProperty<'a>),
 }
 
-impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyKind<'a> {
+impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for TemplatePropertyKind<'a> {
     fn wrap_property(property: BoxedTemplateProperty<'a, O>) -> Self {
         Self::Value {
             ty: O::value_type(),
@@ -250,7 +249,7 @@ impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyK
     }
 }
 
-impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
+impl<'a> CoreTemplatePropertyVar<'a> for TemplatePropertyKind<'a> {
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self {
         Self::Template(template)
     }
@@ -632,8 +631,8 @@ pub type BuildTemplateMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Proper
 pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
     HashMap<&'static str, BuildAnyMethodFn<'a, L, P>>;
 
-/// Symbol table of functions and methods available in the core template.
-pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
+/// Symbol table of functions and methods.
+pub struct TemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
     pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L, P>>,
     pub template_methods: BuildTemplateMethodFnMap<'a, L, P>,
@@ -735,7 +734,7 @@ pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'
     }
 }
 
-impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
+impl<L: ?Sized, P> TemplateBuildFnTable<'_, L, P> {
     pub fn empty() -> Self {
         Self {
             functions: HashMap::new(),
@@ -768,7 +767,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
     }
 }
 
-impl<'a, L> CoreTemplateBuildFnTable<'a, L, L::Property>
+impl<'a, L> TemplateBuildFnTable<'a, L, L::Property>
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -803,13 +802,13 @@ where
         language: &L,
         diagnostics: &mut TemplateDiagnostics,
         build_ctx: &BuildContext<L::Property>,
-        property: CoreTemplatePropertyKind<'a>,
+        property: TemplatePropertyKind<'a>,
         function: &FunctionCallNode,
     ) -> TemplateParseResult<L::Property> {
         let registry = language.type_registry();
         let type_name = property.type_name(registry);
         match property {
-            CoreTemplatePropertyKind::Value { ty, property } => {
+            TemplatePropertyKind::Value { ty, property } => {
                 let unwrapped_ty = match ty {
                     TemplateValueType::Scalar(_) => ty,
                     TemplateValueType::Option(id) => TemplateValueType::Scalar(id),
@@ -833,17 +832,17 @@ where
                     panic!("no method table registered for type: {unwrapped_ty:?}");
                 }
             }
-            CoreTemplatePropertyKind::Template(template) => {
+            TemplatePropertyKind::Template(template) => {
                 let table = &self.template_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, template, function)
             }
-            CoreTemplatePropertyKind::Any(property) => {
+            TemplatePropertyKind::Any(property) => {
                 let table = &self.any_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
             }
-            CoreTemplatePropertyKind::AnyList(property) => {
+            TemplatePropertyKind::AnyList(property) => {
                 let table = &self.any_list_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)

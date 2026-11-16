@@ -35,9 +35,9 @@ use pollster::FutureExt as _;
 use crate::template_builder;
 use crate::template_builder::BuildContext;
 use crate::template_builder::BuildValueMethodFnMap;
-use crate::template_builder::CoreTemplateBuildFnTable;
-use crate::template_builder::CoreTemplatePropertyKind;
+use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::TemplatePropertyKind;
 use crate::template_builder::builtin_unformattable_list_methods;
 use crate::template_builder::cast_value_property;
 use crate::template_value::OpaqueTemplateValue;
@@ -50,7 +50,7 @@ use crate::templater::TemplatePropertyExt as _;
 use crate::templater::WrapTemplateProperty;
 
 pub trait OperationTemplateLanguageExtension {
-    fn build_fn_table(&self) -> CoreTemplateBuildFnTable<'static, OperationTemplateLanguage>;
+    fn build_fn_table(&self) -> TemplateBuildFnTable<'static, OperationTemplateLanguage>;
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
@@ -67,7 +67,7 @@ pub struct OperationTemplateLanguage {
     current_op_id: Option<OperationId>,
     current_dir: PathBuf,
     type_registry: TemplateTypeRegistry,
-    build_fn_table: CoreTemplateBuildFnTable<'static, Self>,
+    build_fn_table: TemplateBuildFnTable<'static, Self>,
     cache_extensions: ExtensionsMap,
 }
 
@@ -82,7 +82,7 @@ impl OperationTemplateLanguage {
     ) -> Self {
         let mut type_registry = template_builder::new_core_type_registry();
         register_types(&mut type_registry);
-        let mut build_fn_table = CoreTemplateBuildFnTable::builtin();
+        let mut build_fn_table = TemplateBuildFnTable::builtin();
         register_methods(&mut build_fn_table);
 
         let mut cache_extensions = ExtensionsMap::empty();
@@ -106,7 +106,7 @@ impl OperationTemplateLanguage {
 }
 
 impl TemplateLanguage<'static> for OperationTemplateLanguage {
-    type Property = CoreTemplatePropertyKind<'static>;
+    type Property = TemplatePropertyKind<'static>;
 
     fn settings(&self) -> &UserSettings {
         self.repo_loader.settings()
@@ -174,7 +174,7 @@ impl OpaqueTemplateValue for OperationId {}
 impl NoTemplateBooleanCast for Operation {}
 impl NoTemplateBooleanCast for OperationId {}
 
-impl<'a> OperationTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {}
+impl<'a> OperationTemplatePropertyVar<'a> for TemplatePropertyKind<'a> {}
 
 pub fn register_types(registry: &mut TemplateTypeRegistry) {
     registry.register::<Operation>("Operation").serializable();
@@ -192,7 +192,7 @@ pub fn register_types(registry: &mut TemplateTypeRegistry) {
         .serializable();
 }
 
-pub fn register_methods<'a, L>(table: &mut CoreTemplateBuildFnTable<'a, L>)
+pub fn register_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
     L::Property: OperationTemplatePropertyVar<'a>,

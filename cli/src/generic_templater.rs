@@ -24,10 +24,10 @@ use jj_lib::template_parser::TemplateParseResult;
 
 use crate::template_builder;
 use crate::template_builder::BuildContext;
-use crate::template_builder::CoreTemplateBuildFnTable;
-use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar as _;
+use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::TemplatePropertyKind;
 use crate::template_builder::cast_value_property;
 use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
@@ -73,7 +73,7 @@ where
             current_dir: current_dir.to_owned(),
             type_registry,
             build_fn_table: GenericTemplateBuildFnTable {
-                core: CoreTemplateBuildFnTable::builtin(),
+                core: TemplateBuildFnTable::builtin(),
                 keywords,
             },
         }
@@ -93,8 +93,7 @@ where
     /// ```
     pub fn add_keyword<F>(&mut self, name: &'static str, build: F)
     where
-        F: Fn(BoxedTemplateProperty<'a, C>) -> TemplateParseResult<CoreTemplatePropertyKind<'a>>
-            + 'a,
+        F: Fn(BoxedTemplateProperty<'a, C>) -> TemplateParseResult<TemplatePropertyKind<'a>> + 'a,
     {
         self.build_fn_table.keywords.insert(name, Box::new(build));
     }
@@ -104,7 +103,7 @@ impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C>
 where
     C: OpaqueTemplateValue + serde::Serialize,
 {
-    type Property = CoreTemplatePropertyKind<'a>;
+    type Property = TemplatePropertyKind<'a>;
 
     fn settings(&self) -> &UserSettings {
         &self.settings
@@ -137,7 +136,7 @@ where
     ) -> TemplateParseResult<Self::Property> {
         let type_name = property.type_name(self.type_registry());
         match property {
-            CoreTemplatePropertyKind::Value { ty, property } if ty == C::value_type() => {
+            TemplatePropertyKind::Value { ty, property } if ty == C::value_type() => {
                 let table = &self.build_fn_table.keywords;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 // For simplicity, only 0-ary method is supported.
@@ -158,9 +157,8 @@ where
 ///
 /// Because the `GenericTemplateLanguage` doesn't provide a way to pass around
 /// global resources, the keyword function is allowed to capture resources.
-pub type GenericTemplateBuildKeywordFn<'a, C> = Box<
-    dyn Fn(BoxedTemplateProperty<'a, C>) -> TemplateParseResult<CoreTemplatePropertyKind<'a>> + 'a,
->;
+pub type GenericTemplateBuildKeywordFn<'a, C> =
+    Box<dyn Fn(BoxedTemplateProperty<'a, C>) -> TemplateParseResult<TemplatePropertyKind<'a>> + 'a>;
 
 /// Table of functions that translate keyword node.
 pub type GenericTemplateBuildKeywordFnMap<'a, C> =
@@ -168,7 +166,6 @@ pub type GenericTemplateBuildKeywordFnMap<'a, C> =
 
 /// Symbol table of methods available in the general-purpose template.
 struct GenericTemplateBuildFnTable<'a, C> {
-    core:
-        CoreTemplateBuildFnTable<'a, GenericTemplateLanguage<'a, C>, CoreTemplatePropertyKind<'a>>,
+    core: TemplateBuildFnTable<'a, GenericTemplateLanguage<'a, C>, TemplatePropertyKind<'a>>,
     keywords: GenericTemplateBuildKeywordFnMap<'a, C>,
 }

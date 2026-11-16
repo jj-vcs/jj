@@ -15,7 +15,7 @@
 use jj_cli::cli_util::CliRunner;
 use jj_cli::operation_templater::OperationTemplateLanguage;
 use jj_cli::operation_templater::OperationTemplateLanguageExtension;
-use jj_cli::template_builder::CoreTemplateBuildFnTable;
+use jj_cli::template_builder::TemplateBuildFnTable;
 use jj_cli::template_builder::TemplateLanguage as _;
 use jj_cli::template_builder::cast_value_property;
 use jj_cli::template_value::TemplateValue as _;
@@ -50,9 +50,9 @@ fn num_char_in_id(operation: Operation, ch_match: char) -> i64 {
 }
 
 impl OperationTemplateLanguageExtension for HexCounter {
-    fn build_fn_table(&self) -> CoreTemplateBuildFnTable<'static, OperationTemplateLanguage> {
+    fn build_fn_table(&self) -> TemplateBuildFnTable<'static, OperationTemplateLanguage> {
         type T = Operation;
-        let mut fn_table = CoreTemplateBuildFnTable::<OperationTemplateLanguage>::empty();
+        let mut fn_table = TemplateBuildFnTable::<OperationTemplateLanguage>::empty();
         let table = fn_table.methods.entry(T::value_type()).or_default();
         table.insert(
             "num_digits_in_id",
