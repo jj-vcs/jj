@@ -179,7 +179,6 @@ macro_rules! _impl_property_wrappers_one {
 }
 
 pub(crate) use _impl_property_wrappers_many;
-pub(crate) use _impl_property_wrappers_one;
 pub(crate) use impl_property_wrappers;
 
 /// Wrapper for the core template property types.
@@ -262,6 +261,7 @@ impl OpaqueTemplateValue for Email {}
 impl OpaqueTemplateValue for SizeHint {}
 impl OpaqueTemplateValue for RegexCaptures {}
 impl OpaqueTemplateValue for Timestamp {}
+impl OpaqueTemplateValue for TimestampRange {}
 
 impl NoTemplateBooleanCast for i64 {}
 impl NoTemplateBooleanCast for ConfigValueWrapper {}
@@ -277,8 +277,6 @@ pub enum CoreTemplatePropertyKind<'a> {
         ty: TemplateValueType,
         property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     },
-
-    TimestampRange(BoxedTemplateProperty<'a, TimestampRange>),
 
     // Both TemplateProperty and Template can represent a value to be evaluated
     // dynamically, which suggests that `Box<dyn Template + 'a>` could be
@@ -311,7 +309,6 @@ impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyK
 macro_rules! impl_core_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
-            TimestampRange(jj_lib::op_store::TimestampRange),
         });
     };
 }
@@ -334,7 +331,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
         match self {
             Self::Value { ty, property: _ } => registry.get_type_name(ty).expect("registered type"),
-            Self::TimestampRange(_) => "TimestampRange",
             Self::Template(_) => "Template",
             Self::Any(_) => "Any",
             Self::AnyList(_) => "AnyList",
@@ -377,7 +373,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Ok(out_property.into_dyn())
             }
             Self::Value { .. } => Err(self),
-            Self::TimestampRange(_) => Err(self),
             // Template and AnyList types could also be evaluated to boolean,
             // but it's less likely to apply label() or .map() and use the
             // result as conditional.
@@ -423,7 +418,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_dyn())
             }
-            Self::TimestampRange(property) => Some(property.into_serialize()),
             Self::Template(_) => None,
             Self::Any(property) => property.try_into_serialize(registry),
             Self::AnyList(property) => property.try_into_serialize(registry),
@@ -437,7 +431,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_template())
             }
-            Self::TimestampRange(property) => Some(property.into_template()),
             Self::Template(template) => Some(template),
             Self::Any(property) => property.try_into_template(registry),
             Self::AnyList(property) => property.try_into_template(registry),
@@ -494,7 +487,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some(out_property.into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
             (Self::Any(_), _) => None,
             (Self::AnyList(_), _) => None,
@@ -549,7 +541,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 Some(out_property.into_dyn())
             }
             (Self::Value { .. }, _) => None,
-            (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
             (Self::Any(_), _) => None,
             (Self::AnyList(_), _) => None,
@@ -638,6 +629,10 @@ pub fn new_core_type_registry() -> TemplateTypeRegistry {
         .formattable()
         .serializable();
     registry
+        .register::<TimestampRange>("TimestampRange")
+        .formattable()
+        .serializable();
+    registry
 }
 
 fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
@@ -656,6 +651,7 @@ fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         SizeHint::value_type() => builtin_size_hint_methods(),
         RegexCaptures::value_type() => builtin_regex_captures_methods(),
         Timestamp::value_type() => builtin_timestamp_methods(),
+        TimestampRange::value_type() => builtin_timestamp_range_methods(),
     }
 }
 
@@ -709,7 +705,6 @@ pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
 pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
     pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L, P>>,
-    pub timestamp_range_methods: TemplateBuildMethodFnMap<'a, L, TimestampRange, P>,
     pub template_methods: BuildTemplateMethodFnMap<'a, L, P>,
     pub any_methods: BuildAnyMethodFnMap<'a, L, P>,
     pub any_list_methods: BuildAnyMethodFnMap<'a, L, P>,
@@ -814,7 +809,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         Self {
             functions: HashMap::new(),
             methods: HashMap::new(),
-            timestamp_range_methods: HashMap::new(),
             template_methods: HashMap::new(),
             any_methods: HashMap::new(),
             any_list_methods: HashMap::new(),
@@ -826,7 +820,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         let Self {
             functions,
             methods,
-            timestamp_range_methods,
             template_methods,
             any_methods,
             any_list_methods,
@@ -838,7 +831,6 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             merge_fn_map(base_table, table);
         }
 
-        merge_fn_map(&mut self.timestamp_range_methods, timestamp_range_methods);
         merge_fn_map(&mut self.template_methods, template_methods);
         merge_fn_map(&mut self.any_methods, any_methods);
         merge_fn_map(&mut self.any_list_methods, any_list_methods);
@@ -854,7 +846,6 @@ where
         Self {
             functions: builtin_functions(),
             methods: builtin_methods(),
-            timestamp_range_methods: builtin_timestamp_range_methods(),
             template_methods: HashMap::new(),
             any_methods: HashMap::new(),
             any_list_methods: builtin_any_list_methods(),
@@ -910,11 +901,6 @@ where
                 } else {
                     panic!("no method table registered for type: {unwrapped_ty:?}");
                 }
-            }
-            CoreTemplatePropertyKind::TimestampRange(property) => {
-                let table = &self.timestamp_range_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::Template(template) => {
                 let table = &self.template_methods;
@@ -2182,13 +2168,15 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildVal
 }
 
 fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> TemplateBuildMethodFnMap<'a, L, TimestampRange> {
+-> BuildValueMethodFnMap<'a, L> {
+    type T = TimestampRange;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, TimestampRange>::new();
+    let mut map = BuildValueMethodFnMap::<L>::new();
     map.insert(
         "start",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|time_range| time_range.start);
             Ok(out_property.into_dyn_wrapped())
@@ -2196,7 +2184,8 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "end",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let out_property = self_property.map(|time_range| time_range.end);
             Ok(out_property.into_dyn_wrapped())
@@ -2204,7 +2193,8 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "duration",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             // TODO: Introduce duration type, and move formatting to it.
             let out_property = self_property.and_then(|time_range| {
