@@ -106,8 +106,6 @@ impl OperationTemplateLanguage {
 }
 
 impl TemplateLanguage<'static> for OperationTemplateLanguage {
-    type Property = TemplatePropertyKind<'static>;
-
     fn settings(&self) -> &UserSettings {
         self.repo_loader.settings()
     }
@@ -123,9 +121,9 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
     fn build_function(
         &self,
         diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<Self::Property>,
+        build_ctx: &BuildContext<'static, '_>,
         function: &FunctionCallNode,
-    ) -> TemplateParseResult<Self::Property> {
+    ) -> TemplateParseResult<TemplatePropertyKind<'static>> {
         let table = &self.build_fn_table;
         table.build_function(self, diagnostics, build_ctx, function)
     }
@@ -133,10 +131,10 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
     fn build_method(
         &self,
         diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<Self::Property>,
-        property: Self::Property,
+        build_ctx: &BuildContext<'static, '_>,
+        property: TemplatePropertyKind<'static>,
         function: &FunctionCallNode,
-    ) -> TemplateParseResult<Self::Property> {
+    ) -> TemplateParseResult<TemplatePropertyKind<'static>> {
         self.build_fn_table
             .build_method(self, diagnostics, build_ctx, property, function)
     }
@@ -195,7 +193,7 @@ pub fn register_types(registry: &mut TemplateTypeRegistry) {
 pub fn register_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
-    L::Property: OperationTemplatePropertyVar<'a>,
+    TemplatePropertyKind<'a>: OperationTemplatePropertyVar<'a>,
 {
     let methods = &mut table.methods;
     methods.insert(Operation::value_type(), builtin_operation_methods());
@@ -209,7 +207,7 @@ where
 fn builtin_operation_methods<'a, L>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
-    L::Property: OperationTemplatePropertyVar<'a>,
+    TemplatePropertyKind<'a>: OperationTemplatePropertyVar<'a>,
 {
     type T = Operation;
     // Not using maplit::hashmap!{} or custom declarative macro here because
@@ -360,7 +358,7 @@ impl Template for OperationId {
 fn builtin_operation_id_methods<'a, L>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
-    L::Property: OperationTemplatePropertyVar<'a>,
+    TemplatePropertyKind<'a>: OperationTemplatePropertyVar<'a>,
 {
     type T = OperationId;
     // Not using maplit::hashmap!{} or custom declarative macro here because
