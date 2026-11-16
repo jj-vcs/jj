@@ -5142,7 +5142,7 @@ mod tests {
           |           ^-------^
           |
           = Invalid date pattern
-        expected unsupported identifier as position 0..7
+        expected a weekday, month name, or relative time unit at position 0..7
         ");
         insta::assert_snapshot!(env.parse_err("t0.before('invalid')"), @"
          --> 1:11
@@ -5151,7 +5151,7 @@ mod tests {
           |           ^-------^
           |
           = Invalid date pattern
-        expected unsupported identifier as position 0..7
+        expected a weekday, month name, or relative time unit at position 0..7
         ");
 
         // Can only compare timestamps against string literals
