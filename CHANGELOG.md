@@ -66,6 +66,12 @@ and this project adheres to
   now treated as a file conflict when the directory terms cancel out, so it is
   materialized with conflict markers.
 
+* `jj op abandon` now updates the working-copy operation when it is rewritten
+  but isn't the head operation, for example after commands run with
+  `--ignore-working-copy`. Previously, the next command would snapshot onto the
+  orphaned operation, which could resurrect the abandoned operations, create
+  divergent commits, or fail with "Newly-created commit ... already exists".
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
