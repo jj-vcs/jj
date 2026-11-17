@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::assert_matches;
+use std::collections::HashMap;
 use std::path::Path;
 use std::slice;
 use std::sync::Arc;
@@ -321,6 +322,13 @@ fn test_reparent_range_linear() -> TestResult {
     assert_eq!(new_op_c.metadata(), repo_c.operation().metadata());
     assert_eq!(new_op_c.view_id(), repo_c.operation().view_id());
     assert_eq!(new_op_c.parent_ids(), slice::from_ref(repo_a.op_id()));
+    assert_eq!(
+        stats.rewritten_ids,
+        HashMap::from([
+            (repo_c.op_id().clone(), new_op_c.id().clone()),
+            (repo_d.op_id().clone(), new_op_d.id().clone()),
+        ])
+    );
 
     // Reparent empty range onto A
     let stats = op_walk::reparent_range(
