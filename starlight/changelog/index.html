@@ -239,6 +239,12 @@ missing author/committer, conflicts, and being private
 to are still not checked.</p>
 </li>
 <li>
+<p><code dir="auto">jj gerrit upload</code> now uploads the ancestors of the given revisions that are
+not on the remote instead of their mutable ancestors. It fails if any of them
+are immutable, since they need to be rewritten to add a <code dir="auto">Change-Id</code> trailer.
+Revisions that are already on the remote are no longer rejected as immutable.</p>
+</li>
+<li>
 <p>Deleted <code dir="auto">jj debug snapshot</code>. It was deprecated in 0.39.0. Use <code dir="auto">jj util snapshot</code>
 instead.</p>
 </li>
