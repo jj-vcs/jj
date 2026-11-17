@@ -26,7 +26,6 @@ use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
-use jj_lib::config::ConfigValue;
 use jj_lib::content_hash::blake2b_hash;
 use jj_lib::file_util;
 use jj_lib::hex_util;
@@ -47,10 +46,7 @@ use jj_lib::template_parser::TemplateParseResult;
 use jj_lib::template_parser::UnaryOp;
 use jj_lib::time_util::DatePattern;
 use maplit::hashmap;
-use serde::Deserialize;
-use serde::de::IntoDeserializer as _;
 
-use crate::config;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::template_value::TemplateTypeRegistry;
@@ -65,6 +61,7 @@ use crate::templater::BoxedTemplateProperty;
 use crate::templater::CoalesceTemplate;
 use crate::templater::ConcatTemplate;
 use crate::templater::ConditionalProperty;
+use crate::templater::ConfigValueWrapper;
 use crate::templater::Email;
 use crate::templater::HyperlinkTemplate;
 use crate::templater::JoinTemplate;
@@ -195,8 +192,8 @@ where
     Self: WrapTemplateProperty<'a, bool>,
     Self: WrapTemplateProperty<'a, i64>,
     Self: WrapTemplateProperty<'a, Option<i64>>,
-    Self: WrapTemplateProperty<'a, ConfigValue>,
-    Self: WrapTemplateProperty<'a, Option<ConfigValue>>,
+    Self: WrapTemplateProperty<'a, ConfigValueWrapper>,
+    Self: WrapTemplateProperty<'a, Option<ConfigValueWrapper>>,
     Self: WrapTemplateProperty<'a, PathBuf>,
     Self: WrapTemplateProperty<'a, Option<PathBuf>>,
     Self: WrapTemplateProperty<'a, Signature>,
@@ -259,7 +256,7 @@ where
 }
 
 impl NoTemplateBooleanCast for i64 {}
-impl NoTemplateBooleanCast for ConfigValue {}
+impl NoTemplateBooleanCast for ConfigValueWrapper {}
 impl NoTemplateBooleanCast for PathBuf {}
 impl NoTemplateBooleanCast for Signature {}
 impl NoTemplateBooleanCast for SizeHint {}
@@ -273,8 +270,8 @@ pub enum CoreTemplatePropertyKind<'a> {
         property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     },
 
-    ConfigValue(BoxedTemplateProperty<'a, ConfigValue>),
-    ConfigValueOpt(BoxedTemplateProperty<'a, Option<ConfigValue>>),
+    ConfigValue(BoxedTemplateProperty<'a, ConfigValueWrapper>),
+    ConfigValueOpt(BoxedTemplateProperty<'a, Option<ConfigValueWrapper>>),
     FsPath(BoxedTemplateProperty<'a, PathBuf>),
     FsPathOpt(BoxedTemplateProperty<'a, Option<PathBuf>>),
     Signature(BoxedTemplateProperty<'a, Signature>),
@@ -315,8 +312,8 @@ impl<'a, O: TemplateValue> WrapTemplateProperty<'a, O> for CoreTemplatePropertyK
 macro_rules! impl_core_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
-            ConfigValue(jj_lib::config::ConfigValue),
-            ConfigValueOpt(Option<jj_lib::config::ConfigValue>),
+            ConfigValue($crate::templater::ConfigValueWrapper),
+            ConfigValueOpt(Option<$crate::templater::ConfigValueWrapper>),
             FsPath(std::path::PathBuf),
             FsPathOpt(Option<std::path::PathBuf>),
             Signature(jj_lib::backend::Signature),
@@ -451,14 +448,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let out_property = property.map(move |repr| cast(repr).expect("valid type"));
                 Some(out_property.into_dyn())
             }
-            Self::ConfigValue(property) => {
-                Some(property.map(config::to_serializable_value).into_serialize())
-            }
-            Self::ConfigValueOpt(property) => Some(
-                property
-                    .map(|opt| opt.map(config::to_serializable_value))
-                    .into_serialize(),
-            ),
+            Self::ConfigValue(property) => Some(property.into_serialize()),
+            Self::ConfigValueOpt(property) => Some(property.into_serialize()),
             Self::FsPath(property) => Some(property.into_serialize()),
             Self::FsPathOpt(property) => Some(property.into_serialize()),
             Self::Signature(property) => Some(property.into_serialize()),
@@ -760,7 +751,7 @@ pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
 pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
     pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L, P>>,
-    pub config_value_methods: TemplateBuildMethodFnMap<'a, L, ConfigValue, P>,
+    pub config_value_methods: TemplateBuildMethodFnMap<'a, L, ConfigValueWrapper, P>,
     pub fs_path_methods: TemplateBuildMethodFnMap<'a, L, PathBuf, P>,
     pub email_methods: TemplateBuildMethodFnMap<'a, L, Email, P>,
     pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature, P>,
@@ -1943,16 +1934,10 @@ fn string_index_to_char_boundary(s: &str, i: isize) -> usize {
 }
 
 fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> TemplateBuildMethodFnMap<'a, L, ConfigValue> {
-    fn extract<'de, T: Deserialize<'de>>(value: ConfigValue) -> Result<T, TemplatePropertyError> {
-        T::deserialize(value.into_deserializer())
-            // map to err.message() because TomlError appends newline to it
-            .map_err(|err| TemplatePropertyError(err.message().into()))
-    }
-
+-> TemplateBuildMethodFnMap<'a, L, ConfigValueWrapper> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, ConfigValue>::new();
+    let mut map = TemplateBuildMethodFnMap::<L, ConfigValueWrapper>::new();
     // These methods are called "as_<type>", not "to_<type>" to clarify that
     // they'll never convert types (e.g. integer to string.) Since templater
     // doesn't provide binding syntax, there's no need to distinguish between
@@ -1961,7 +1946,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         "as_boolean",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(extract::<bool>);
+            let out_property = self_property.and_then(ConfigValueWrapper::extract::<bool>);
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1969,7 +1954,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         "as_integer",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(extract::<i64>);
+            let out_property = self_property.and_then(ConfigValueWrapper::extract::<i64>);
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1977,7 +1962,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         "as_string",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(extract::<String>);
+            let out_property = self_property.and_then(ConfigValueWrapper::extract::<String>);
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1985,7 +1970,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         "as_string_list",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(extract::<Vec<String>>);
+            let out_property = self_property.and_then(ConfigValueWrapper::extract::<Vec<String>>);
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -3026,14 +3011,13 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
                     TemplateParseError::expression("Failed to get config value", function.name_span)
                         .with_source(err)
                 })?;
-            // .decorated("", "") to trim leading/trailing whitespace
-            Ok(Literal(value.map(|v| v.decorated("", ""))).into_dyn_wrapped())
+            Ok(Literal(value.map(ConfigValueWrapper::new)).into_dyn_wrapped())
         } else {
             let settings = language.settings().clone();
             let out_property = name_expression.and_then(move |name| {
                 let config_path: ConfigNamePathBuf = name.parse()?;
                 let value = settings.get_value(config_path).optional()?;
-                Ok(value.map(|v| v.decorated("", "")))
+                Ok(value.map(ConfigValueWrapper::new))
             });
             Ok(out_property.into_dyn_wrapped())
         }
@@ -3484,6 +3468,7 @@ mod tests {
     use std::path::Component;
 
     use jj_lib::backend::MillisSinceEpoch;
+    use jj_lib::config::ConfigValue;
     use jj_lib::config::StackedConfig;
 
     use super::*;
@@ -3622,6 +3607,30 @@ mod tests {
         Literal(())
             .and_then(|()| Err(TemplatePropertyError(message.into())))
             .into_dyn_wrapped()
+    }
+
+    fn new_config_value<T>(value: T) -> ConfigValueWrapper
+    where
+        T: Into<ConfigValue>,
+    {
+        ConfigValueWrapper::new(value.into())
+    }
+
+    fn new_config_array<I, V>(values: I) -> ConfigValueWrapper
+    where
+        I: IntoIterator<Item = V>,
+        V: Into<ConfigValue>,
+    {
+        ConfigValueWrapper::new(values.into_iter().collect())
+    }
+
+    fn new_config_table<I, K, V>(values: I) -> ConfigValueWrapper
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<toml_edit::Key>,
+        V: Into<ConfigValue>,
+    {
+        ConfigValueWrapper::new(values.into_iter().collect())
     }
 
     fn new_signature(name: &str, email: &str) -> Signature {
@@ -4044,7 +4053,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"if(nonempty_email, true, false)"#), @"true");
 
         // even boolean config values must be extracted
-        env.add_keyword("config_bool", || literal(ConfigValue::from(true)));
+        env.add_keyword("config_bool", || literal(new_config_value(true)));
         insta::assert_snapshot!(env.parse_err("if(config_bool, true, false)"), @"
          --> 1:4
           |
@@ -4275,10 +4284,8 @@ mod tests {
         env.add_keyword("str_list", || {
             literal(vec!["foo".to_owned(), "bar".to_owned()])
         });
-        env.add_keyword("cfg_val", || {
-            literal(ConfigValue::from_iter([("foo", "bar")]))
-        });
-        env.add_keyword("some_cfg", || literal(Some(ConfigValue::from(1))));
+        env.add_keyword("cfg_val", || literal(new_config_table([("foo", "bar")])));
+        env.add_keyword("some_cfg", || literal(Some(new_config_value(1))));
         env.add_keyword("signature", || {
             literal(new_signature("User", "user@example.com"))
         });
@@ -4414,10 +4421,8 @@ mod tests {
         env.add_keyword("str_list", || {
             literal(vec!["foo".to_owned(), "bar".to_owned()])
         });
-        env.add_keyword("cfg_val", || {
-            literal(ConfigValue::from_iter([("foo", "bar")]))
-        });
-        env.add_keyword("some_cfg", || literal(Some(ConfigValue::from(true))));
+        env.add_keyword("cfg_val", || literal(new_config_table([("foo", "bar")])));
+        env.add_keyword("some_cfg", || literal(Some(new_config_value(true))));
         env.add_keyword("signature", || {
             literal(new_signature("User", "user@example.com"))
         });
@@ -5030,12 +5035,10 @@ mod tests {
     #[test]
     fn test_config_value_method() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("boolean", || literal(ConfigValue::from(true)));
-        env.add_keyword("integer", || literal(ConfigValue::from(42)));
-        env.add_keyword("string", || literal(ConfigValue::from("foo")));
-        env.add_keyword("string_list", || {
-            literal(ConfigValue::from_iter(["foo", "bar"]))
-        });
+        env.add_keyword("boolean", || literal(new_config_value(true)));
+        env.add_keyword("integer", || literal(new_config_value(42)));
+        env.add_keyword("string", || literal(new_config_value("foo")));
+        env.add_keyword("string_list", || literal(new_config_array(["foo", "bar"])));
 
         insta::assert_snapshot!(env.render_ok("boolean"), @"true");
         insta::assert_snapshot!(env.render_ok("integer"), @"42");
@@ -5784,10 +5787,10 @@ mod tests {
             literal(vec!["foo".to_owned(), "bar".to_owned()])
         });
         env.add_keyword("config_value_table", || {
-            literal(ConfigValue::from_iter([("foo", "bar")]))
+            literal(new_config_table([("foo", "bar")]))
         });
-        env.add_keyword("some_cfgval", || literal(Some(ConfigValue::from(1))));
-        env.add_keyword("none_cfgval", || literal(None::<ConfigValue>));
+        env.add_keyword("some_cfgval", || literal(Some(new_config_value(1))));
+        env.add_keyword("none_cfgval", || literal(None::<ConfigValueWrapper>));
         env.add_keyword("signature", || {
             literal(Signature {
                 name: "Test User".to_owned(),
@@ -6107,9 +6110,7 @@ mod tests {
         });
         env.add_keyword("none_int", || literal(None::<i64>));
         env.add_keyword("some_int", || literal(Some(67)));
-        env.add_keyword("cfg_val", || {
-            literal(ConfigValue::from_iter([("foo", "bar")]))
-        });
+        env.add_keyword("cfg_val", || literal(new_config_table([("foo", "bar")])));
         env.add_keyword("email", || literal(Email("me@example.com".to_owned())));
         env.add_keyword("signature", || {
             literal(new_signature("User", "user@example.com"))
