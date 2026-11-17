@@ -27,7 +27,6 @@ itertools = { workspace = true }
 jj-core = { workspace = true }
 jj-local-util = { workspace = true }
 once_cell = { workspace = true }
-pollster = { workspace = true }
 prost = { workspace = true }
 smallvec = { workspace = true }
 tempfile = { workspace = true }
@@ -39,6 +38,7 @@ bstr = { workspace = true }
 eyre = { workspace = true }
 indoc = { workspace = true }
 insta = { workspace = true }
+pollster = { workspace = true }
 test-case = { workspace = true }
 
 [features]
