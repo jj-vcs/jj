@@ -139,7 +139,7 @@ email = "YOUR_EMAIL@example.com"
 Don't forget to change these to your own details!
 
 These can also be set with environment variables (handy with tools like
-[direnv](https://direenv.net/)):
+[direnv](https://direnv.net/)):
 
 ```bash
 export JJ_USER="Your Name"
