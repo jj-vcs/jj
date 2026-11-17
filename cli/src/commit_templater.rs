@@ -2906,7 +2906,6 @@ mod tests {
 
     use super::*;
     use crate::templater::TemplateRenderer;
-    use crate::templater::WrapTemplateProperty;
 
     // TemplateBuildFunctionFn defined for<'a>
     type BuildFunctionFn = for<'a> fn(
@@ -2997,8 +2996,7 @@ mod tests {
 
         fn parse<'a, C>(&'a self, text: &str) -> TemplateParseResult<TemplateRenderer<'a, C>>
         where
-            C: Clone + 'a,
-            TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
+            C: Clone + TemplateValue,
         {
             let language = self.new_language();
             let mut diagnostics = TemplateDiagnostics::new();
@@ -3010,10 +3008,9 @@ mod tests {
             )
         }
 
-        fn render_ok<'a, C>(&'a self, text: &str, context: &C) -> BString
+        fn render_ok<C>(&self, text: &str, context: &C) -> BString
         where
-            C: Clone + 'a,
-            TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
+            C: Clone + TemplateValue,
         {
             let template = self.parse(text).unwrap();
             template.format_plain_text(context).into()

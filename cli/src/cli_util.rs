@@ -199,9 +199,8 @@ use crate::revset_util::RevsetExpressionEvaluator;
 use crate::revset_util::parse_union_name_patterns;
 use crate::template_builder;
 use crate::template_builder::TemplateLanguage;
-use crate::template_builder::TemplatePropertyKind;
+use crate::template_value::TemplateValue;
 use crate::templater::TemplateRenderer;
-use crate::templater::WrapTemplateProperty;
 use crate::text_util;
 use crate::ui::Ui;
 
@@ -420,9 +419,8 @@ impl CommandHelper {
         template_text: &str,
     ) -> Result<TemplateRenderer<'a, C>, CommandError>
     where
-        C: Clone + 'a,
+        C: Clone + TemplateValue,
         L: TemplateLanguage<'a> + ?Sized,
-        TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
     {
         let mut diagnostics = TemplateDiagnostics::new();
         let aliases = load_template_aliases(ui, self.settings().config())?;
@@ -1172,9 +1170,8 @@ impl WorkspaceCommandEnvironment {
         template_text: &str,
     ) -> TemplateRenderer<'a, C>
     where
-        C: Clone + 'a,
+        C: Clone + TemplateValue,
         L: TemplateLanguage<'a> + ?Sized,
-        TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
     {
         template_builder::parse(
             language,
@@ -1193,9 +1190,8 @@ impl WorkspaceCommandEnvironment {
         template_text: &str,
     ) -> Result<TemplateRenderer<'a, C>, CommandError>
     where
-        C: Clone + 'a,
+        C: Clone + TemplateValue,
         L: TemplateLanguage<'a> + ?Sized,
-        TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
     {
         let mut diagnostics = TemplateDiagnostics::new();
         let template = template_builder::parse(
@@ -2617,9 +2613,8 @@ to the current parents may contain changes from multiple commits.
         template_text: &str,
     ) -> Result<TemplateRenderer<'a, C>, CommandError>
     where
-        C: Clone + 'a,
+        C: Clone + TemplateValue,
         L: TemplateLanguage<'a> + ?Sized,
-        TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
     {
         self.env.parse_template(ui, language, template_text)
     }
