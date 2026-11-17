@@ -34,6 +34,7 @@ use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
 use jj_lib::file_util;
 use jj_lib::op_store::TimestampRange;
+use serde::de::IntoDeserializer as _;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
@@ -94,12 +95,6 @@ impl Template for PathBuf {
     }
 }
 
-impl Template for ConfigValue {
-    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
-        write!(formatter, "{self}")
-    }
-}
-
 impl Template for Signature {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         write!(formatter.labeled("name"), "{}", self.name)?;
@@ -113,6 +108,41 @@ impl Template for Signature {
             write!(formatter, ">")?;
         }
         Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ConfigValueWrapper(ConfigValue);
+
+impl ConfigValueWrapper {
+    pub fn new(inner: ConfigValue) -> Self {
+        // .decorated("", "") to trim leading/trailing whitespace
+        Self(inner.decorated("", ""))
+    }
+
+    pub fn into_inner(self) -> ConfigValue {
+        self.0
+    }
+
+    pub fn extract<'de, T: serde::Deserialize<'de>>(self) -> Result<T, TemplatePropertyError> {
+        T::deserialize(self.0.into_deserializer())
+            // map to err.message() because TomlError appends newline to it
+            .map_err(|err| TemplatePropertyError(err.message().into()))
+    }
+}
+
+impl Template for ConfigValueWrapper {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        write!(formatter, "{}", self.0)
+    }
+}
+
+impl serde::Serialize for ConfigValueWrapper {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        crate::config::to_serializable_value(self.0.clone()).serialize(serializer)
     }
 }
 

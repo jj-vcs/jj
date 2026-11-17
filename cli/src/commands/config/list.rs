@@ -28,6 +28,7 @@ use crate::config::AnnotatedValue;
 use crate::config::resolved_config_values;
 use crate::generic_templater::GenericTemplateLanguage;
 use crate::template_value::OpaqueTemplateValue;
+use crate::templater::ConfigValueWrapper;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -136,8 +137,7 @@ fn config_template_language(settings: &UserSettings, current_dir: &Path) -> Conf
         Ok(out_property.into_dyn_wrapped())
     });
     language.add_keyword("value", |self_property| {
-        // .decorated("", "") to trim leading/trailing whitespace
-        let out_property = self_property.map(|annotated| annotated.value.decorated("", ""));
+        let out_property = self_property.map(|annotated| ConfigValueWrapper::new(annotated.value));
         Ok(out_property.into_dyn_wrapped())
     });
     language.add_keyword("source", |self_property| {
