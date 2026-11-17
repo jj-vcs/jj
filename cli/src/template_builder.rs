@@ -2171,10 +2171,8 @@ fn builtin_any_list_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildAnyM
 pub fn builtin_formattable_list_methods<'a, L, O>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + ?Sized,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, O>,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, Vec<O>>,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, O::Optional>,
-    O: OptionalTemplateValue + Template + Clone + 'a,
+    O: OptionalTemplateValue + TemplateValue + Template + Clone,
+    O::Optional: TemplateValue,
     Vec<O>: TemplateValue,
 {
     let mut map = builtin_unformattable_list_methods::<L, O>();
@@ -2200,10 +2198,8 @@ where
 pub fn builtin_unformattable_list_methods<'a, L, O>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + ?Sized,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, O>,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, Vec<O>>,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, O::Optional>,
-    O: OptionalTemplateValue + Clone + 'a,
+    O: OptionalTemplateValue + TemplateValue + Clone,
+    O::Optional: TemplateValue,
     Vec<O>: TemplateValue,
 {
     type P<'a> = TemplatePropertyKind<'a>;
@@ -2343,10 +2339,9 @@ fn build_filter_operation<'a, L, O, P, B>(
 ) -> TemplateParseResult<BoxedTemplateProperty<'a, B>>
 where
     L: TemplateLanguage<'a> + ?Sized,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, O>,
+    O: TemplateValue + Clone,
     P: TemplateProperty + 'a,
     P::Output: IntoIterator<Item = O>,
-    O: Clone + 'a,
     B: FromIterator<O>,
 {
     let [lambda_node] = function.expect_exact_arguments()?;
@@ -2387,10 +2382,9 @@ fn build_map_operation<'a, L, O, P>(
 ) -> TemplateParseResult<BoxedAnyProperty<'a>>
 where
     L: TemplateLanguage<'a> + ?Sized,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, O>,
+    O: TemplateValue + Clone,
     P: TemplateProperty + 'a,
     P::Output: IntoIterator<Item = O>,
-    O: Clone + 'a,
 {
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
@@ -2419,10 +2413,9 @@ fn build_any_operation<'a, L, O, P>(
 ) -> TemplateParseResult<BoxedTemplateProperty<'a, bool>>
 where
     L: TemplateLanguage<'a> + ?Sized,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, O>,
+    O: TemplateValue + Clone,
     P: TemplateProperty + 'a,
     P::Output: IntoIterator<Item = O>,
-    O: Clone + 'a,
 {
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
@@ -2457,10 +2450,9 @@ fn build_all_operation<'a, L, O, P>(
 ) -> TemplateParseResult<BoxedTemplateProperty<'a, bool>>
 where
     L: TemplateLanguage<'a> + ?Sized,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, O>,
+    O: TemplateValue + Clone,
     P: TemplateProperty + 'a,
     P::Output: IntoIterator<Item = O>,
-    O: Clone + 'a,
 {
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
