@@ -33,7 +33,7 @@ use jj_core::backend::CommitId;
 use jj_core::backend::MillisSinceEpoch;
 use jj_core::backend::Timestamp;
 use jj_core::content_hash::blake2b_hash;
-use jj_core::dag_walk_async;
+use jj_core::dag_walk;
 use jj_core::object_id::HexPrefix;
 use jj_core::object_id::ObjectId;
 use jj_core::object_id::PrefixResolution;
@@ -288,7 +288,7 @@ impl SimpleOpStore {
         // parameter. We could collect ancestors of the "new" operations here,
         // but more files can be added anyway after that.
         let read_op = |id: &OperationId| self.read_operation(id).map(|data| (id.clone(), data));
-        let reachable_ops: HashMap<OperationId, Operation> = dag_walk_async::dfs(
+        let reachable_ops: HashMap<OperationId, Operation> = dag_walk::dfs_ok(
             head_ids.iter().map(read_op),
             |(id, _)| id.clone(),
             |(_, data)| data.parents.iter().map(read_op).collect_vec(),
