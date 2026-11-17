@@ -3066,9 +3066,8 @@ pub fn build<'a, C, L>(
     node: &ExpressionNode,
 ) -> TemplateParseResult<TemplateRenderer<'a, C>>
 where
-    C: Clone + 'a,
+    C: Clone + TemplateValue,
     L: TemplateLanguage<'a> + ?Sized,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
 {
     let self_placeholder = PropertyPlaceholder::new();
     let build_ctx = BuildContext {
@@ -3087,9 +3086,8 @@ pub fn parse<'a, C, L>(
     aliases_map: &TemplateAliasesMap,
 ) -> TemplateParseResult<TemplateRenderer<'a, C>>
 where
-    C: Clone + 'a,
+    C: Clone + TemplateValue,
     L: TemplateLanguage<'a> + ?Sized,
-    TemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
 {
     let node = template_parser::parse(template_text, aliases_map)?;
     build(language, diagnostics, &node).map_err(|err| err.extend_alias_candidates(aliases_map))
@@ -3352,9 +3350,8 @@ mod tests {
         /// property, making it not statically extractable.
         fn add_dynamic_keyword<O, F>(&mut self, name: &'static str, build: F)
         where
-            O: 'static,
+            O: TemplateValue,
             F: Fn() -> O + Clone + 'static,
-            TemplatePropertyKind<'static>: WrapTemplateProperty<'static, O>,
         {
             self.language.add_keyword(name, move |self_property| {
                 let build = build.clone();
@@ -3417,20 +3414,19 @@ mod tests {
         }
     }
 
-    fn literal<'a, O>(value: O) -> TemplatePropertyKind<'static>
+    fn literal<O>(value: O) -> TemplatePropertyKind<'static>
     where
-        O: Clone + 'a,
-        TemplatePropertyKind<'static>: WrapTemplateProperty<'a, O>,
+        O: Clone + TemplateValue,
     {
         Literal(value).into_dyn_wrapped()
     }
 
-    fn new_error_property<'a, O>(message: &'a str) -> TemplatePropertyKind<'static>
+    fn new_error_property<O>(message: &str) -> TemplatePropertyKind<'_>
     where
-        TemplatePropertyKind<'static>: WrapTemplateProperty<'a, O>,
+        O: TemplateValue,
     {
         Literal(())
-            .and_then(|()| Err(TemplatePropertyError(message.into())))
+            .and_then(|()| Err::<O, _>(TemplatePropertyError(message.into())))
             .into_dyn_wrapped()
     }
 
