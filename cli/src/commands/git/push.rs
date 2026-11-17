@@ -692,7 +692,7 @@ async fn classify_tags_and_bookmark_updates(
 struct RejectedCommitReason {
     commit: Commit,
     message: String,
-    hint: Option<String>,
+    hints: Vec<String>,
 }
 
 impl RejectedCommitReason {
@@ -733,7 +733,7 @@ impl RejectedCommitReason {
             workspace_helper.write_commit_summary(formatter.as_mut(), &self.commit)?;
             writeln!(formatter)?;
         }
-        if let Some(hint) = &self.hint {
+        for hint in &self.hints {
             writeln!(ui.hint_default(), "{hint}")?;
         }
         Ok(())
@@ -750,7 +750,7 @@ impl RejectedCommitReason {
             workspace_helper.write_commit_summary(formatter, &self.commit)?;
             Ok(())
         });
-        error.extend_hints(self.hint.clone());
+        error.extend_hints(self.hints.clone());
         error
     }
 }
@@ -830,9 +830,13 @@ impl<'repo> CommitsValidator<'repo> {
             .commits(self.repo.store());
         while let Some(commit) = commit_stream.try_next().await? {
             let mut reasons = vec![];
-            let mut hint = None;
+            let mut hints = vec![];
             if commit.description().is_empty() && !self.allow_empty_description {
                 reasons.push("has no description");
+                hints.push(format!(
+                    "Run `jj describe {change_id}` to set a description, then try again.",
+                    change_id = short_change_hash(commit.change_id()),
+                ));
             }
             if commit.author().name.is_empty()
                 || commit.author().email.is_empty()
@@ -848,7 +852,7 @@ impl<'repo> CommitsValidator<'repo> {
                 && is_private(commit.id()).await?
             {
                 reasons.push("is private");
-                hint = Some(format!("Configured git.private-commits: '{revset_str}'"));
+                hints.push(format!("Configured git.private-commits: '{revset_str}'"));
             }
             if reasons.is_empty() {
                 continue;
@@ -856,7 +860,7 @@ impl<'repo> CommitsValidator<'repo> {
             return Ok(Err(RejectedCommitReason {
                 commit,
                 message: reasons.join(" and "),
-                hint,
+                hints,
             }));
         }
 
