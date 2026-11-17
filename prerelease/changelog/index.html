@@ -9564,6 +9564,12 @@ and this project adheres to
   to are still not checked.</p>
 </li>
 <li>
+<p><code>jj gerrit upload</code> now uploads the ancestors of the given revisions that are
+  not on the remote instead of their mutable ancestors. It fails if any of them
+  are immutable, since they need to be rewritten to add a <code>Change-Id</code> trailer.
+  Revisions that are already on the remote are no longer rejected as immutable.</p>
+</li>
+<li>
 <p>Deleted <code>jj debug snapshot</code>. It was deprecated in 0.39.0. Use <code>jj util snapshot</code>
   instead.</p>
 </li>

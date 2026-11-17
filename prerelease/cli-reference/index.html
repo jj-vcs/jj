@@ -11445,8 +11445,9 @@ configuration.</p>
 <h2 id="jj-gerrit-upload"><code>jj gerrit upload</code><a class="headerlink" href="#jj-gerrit-upload" title="Permanent link">&para;</a></h2>
 <p>Upload changes to Gerrit for code review, or update existing changes</p>
 <p>Uploading a set of revisions to Gerrit creates a single "change" for each
-revision included in the revset and all their mutable ancestors. These
-changes will then be available for review on your Gerrit instance.</p>
+revision included in the revset and all their ancestors that are not
+already on the remote. These changes will then be available for review on
+your Gerrit instance. All of the uploaded revisions must be mutable.</p>
 <p>If a change already exists for a given revision (i.e. it contains the
 same <code>Change-Id</code>), this command will update the contents of the existing
 change to match.</p>
