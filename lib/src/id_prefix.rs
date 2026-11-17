@@ -17,6 +17,7 @@
 use std::iter;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use futures::TryStreamExt as _;
 use jj_core::backend::ChangeId;
@@ -29,8 +30,6 @@ use jj_core::object_id::ObjectId;
 use jj_core::object_id::PrefixResolution;
 use jj_core::revset_backend::RevsetEvaluationError;
 use jj_core::view::View;
-use once_cell::sync::OnceCell;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::repo::Repo;
@@ -53,7 +52,10 @@ pub enum IdPrefixIndexLoadError {
 
 struct DisambiguationData {
     expression: Arc<UserRevsetExpression>,
-    indexes: OnceCell<Indexes>,
+    indexes: OnceLock<Indexes>,
+    /// Held while computing `indexes` so concurrent callers wait for a single
+    /// computation instead of each computing their own.
+    init_lock: futures::lock::Mutex<()>,
 }
 
 struct Indexes {
@@ -63,32 +65,38 @@ struct Indexes {
 }
 
 impl DisambiguationData {
-    fn indexes(
+    async fn indexes(
         &self,
         repo: &dyn Repo,
         extensions: &[Box<dyn SymbolResolverExtension>],
     ) -> Result<&Indexes, IdPrefixIndexLoadError> {
-        self.indexes.get_or_try_init(|| {
-            let symbol_resolver = SymbolResolver::new(repo, extensions);
-            let revset = self
-                .expression
-                .resolve_user_expression(repo, &symbol_resolver)?
-                .evaluate()?;
+        if let Some(indexes) = self.indexes.get() {
+            return Ok(indexes);
+        }
+        let _guard = self.init_lock.lock().await;
+        if let Some(indexes) = self.indexes.get() {
+            return Ok(indexes);
+        }
+        let symbol_resolver = SymbolResolver::new(repo, extensions);
+        let revset = self
+            .expression
+            .resolve_user_expression(repo, &symbol_resolver)?
+            .evaluate()?;
 
-            let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect().block_on()?;
-            let mut commit_index = IdIndex::with_capacity(commit_change_ids.len());
-            let mut change_index = IdIndex::with_capacity(commit_change_ids.len());
-            for (i, (commit_id, change_id)) in commit_change_ids.iter().enumerate() {
-                let i: u32 = i.try_into().unwrap();
-                commit_index.insert(commit_id, i);
-                change_index.insert(change_id, i);
-            }
-            Ok(Indexes {
-                commit_change_ids,
-                commit_index: commit_index.build(),
-                change_index: change_index.build(),
-            })
-        })
+        let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect().await?;
+        let mut commit_index = IdIndex::with_capacity(commit_change_ids.len());
+        let mut change_index = IdIndex::with_capacity(commit_change_ids.len());
+        for (i, (commit_id, change_id)) in commit_change_ids.iter().enumerate() {
+            let i: u32 = i.try_into().unwrap();
+            commit_index.insert(commit_id, i);
+            change_index.insert(change_id, i);
+        }
+        let indexes = Indexes {
+            commit_change_ids,
+            commit_index: commit_index.build(),
+            change_index: change_index.build(),
+        };
+        Ok(self.indexes.get_or_init(|| indexes))
     }
 }
 
@@ -135,16 +143,24 @@ impl IdPrefixContext {
     pub fn disambiguate_within(mut self, expression: Arc<UserRevsetExpression>) -> Self {
         self.disambiguation = Some(DisambiguationData {
             expression,
-            indexes: OnceCell::new(),
+            indexes: OnceLock::new(),
+            init_lock: futures::lock::Mutex::new(()),
         });
         self
     }
 
     /// Loads disambiguation index once, returns a borrowed index to
     /// disambiguate commit/change IDs.
-    pub fn populate(&self, repo: &dyn Repo) -> Result<IdPrefixIndex<'_>, IdPrefixIndexLoadError> {
+    pub async fn populate(
+        &self,
+        repo: &dyn Repo,
+    ) -> Result<IdPrefixIndex<'_>, IdPrefixIndexLoadError> {
         let indexes = if let Some(disambiguation) = &self.disambiguation {
-            Some(disambiguation.indexes(repo, self.extensions.symbol_resolvers())?)
+            Some(
+                disambiguation
+                    .indexes(repo, self.extensions.symbol_resolvers())
+                    .await?,
+            )
         } else {
             None
         };
