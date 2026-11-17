@@ -23,10 +23,8 @@ use std::vec;
 
 use futures::AsyncReadExt as _;
 use futures::FutureExt as _;
-use futures::StreamExt as _;
-use futures::future::BoxFuture;
+use futures::future::poll_fn;
 use futures::future::try_join_all;
-use futures::stream::FuturesUnordered;
 use itertools::Itertools as _;
 
 use crate::backend;
@@ -48,6 +46,7 @@ use crate::repo_path::RepoPathComponentBuf;
 use crate::store::Store;
 use crate::tree::ToTreeMergeExt as _;
 use crate::tree::Tree;
+use crate::tree_walk::PrioritizedFutures;
 
 /// The returned conflict will either be resolved or have the same number of
 /// sides as the input.
@@ -60,8 +59,7 @@ pub async fn merge_trees(store: &Arc<Store>, merge: Merge<TreeId>) -> BackendRes
     let mut merger = TreeMerger {
         store: store.clone(),
         trees_to_resolve: BTreeMap::new(),
-        work: FuturesUnordered::new(),
-        unstarted_work: BTreeMap::new(),
+        work: PrioritizedFutures::new(store.concurrency()),
     };
     merger.enqueue_tree_read(
         RepoPathBuf::root(),
@@ -165,6 +163,9 @@ enum TreeMergerWorkOutput {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum TreeMergeWorkItemKey {
+    // `WriteTrees` variant first because writing trees usually results in saving memory (each
+    // tree gets replaced by a `TreeValue::Tree`).
+    WriteTrees { dir: RepoPathBuf },
     // `MergeFiles` variant before `ReadTrees` so files are polled before trees because they
     // typically take longer to process.
     MergeFiles { path: RepoPathBuf },
@@ -175,15 +176,13 @@ struct TreeMerger {
     store: Arc<Store>,
     // Trees we're currently working on.
     trees_to_resolve: BTreeMap<RepoPathBuf, MergedTreeInput>,
-    // Futures we're currently processing. In order to respect the backend's concurrency limit.
-    work: FuturesUnordered<BoxFuture<'static, TreeMergerWorkOutput>>,
-    // Futures we haven't started polling yet, in order to respect the backend's concurrency limit.
-    unstarted_work: BTreeMap<TreeMergeWorkItemKey, BoxFuture<'static, TreeMergerWorkOutput>>,
+    // Reads, writes, and file merges, polled up to the backend's concurrency limit.
+    work: PrioritizedFutures<'static, TreeMergeWorkItemKey, TreeMergerWorkOutput>,
 }
 
 impl TreeMerger {
     async fn merge(mut self) -> BackendResult<Merge<Tree>> {
-        while let Some(work_item) = self.work.next().await {
+        while let Some((_key, work_item)) = poll_fn(|cx| self.work.poll_next(cx)).await {
             match work_item {
                 TreeMergerWorkOutput::ReadTrees { dir, result } => {
                     let tree = result?;
@@ -194,7 +193,6 @@ impl TreeMerger {
                     if dir.is_root() {
                         assert!(self.trees_to_resolve.is_empty());
                         assert!(self.work.is_empty());
-                        assert!(self.unstarted_work.is_empty());
                         return Ok(tree);
                     }
                     // Propagate the write to the parent tree, replacing empty trees by `None`.
@@ -207,14 +205,6 @@ impl TreeMerger {
                 TreeMergerWorkOutput::MergedFiles { path, result } => {
                     let value = result?;
                     self.mark_completed(&path, value);
-                }
-            }
-
-            while self.work.len() < self.store.concurrency() {
-                if let Some((_key, work)) = self.unstarted_work.pop_first() {
-                    self.work.push(work);
-                } else {
-                    break;
                 }
             }
         }
@@ -266,30 +256,21 @@ impl TreeMerger {
         let key = TreeMergeWorkItemKey::ReadTrees { dir: dir.clone() };
         let work_fut = read_trees(self.store.clone(), dir.clone(), value)
             .map(|result| TreeMergerWorkOutput::ReadTrees { dir, result });
-        if self.work.len() < self.store.concurrency() {
-            self.work.push(Box::pin(work_fut));
-        } else {
-            self.unstarted_work.insert(key, Box::pin(work_fut));
-        }
+        self.work.push(key, work_fut);
     }
 
     fn enqueue_tree_write(&mut self, dir: RepoPathBuf, backend_trees: Merge<backend::Tree>) {
+        let key = TreeMergeWorkItemKey::WriteTrees { dir: dir.clone() };
         let work_fut = write_trees(self.store.clone(), dir.clone(), backend_trees)
             .map(|result| TreeMergerWorkOutput::WrittenTrees { dir, result });
-        // Bypass the `unstarted_work` queue because writing trees usually results in
-        // saving memory (each tree gets replaced by a `TreeValue::Tree`)
-        self.work.push(Box::pin(work_fut));
+        self.work.push(key, work_fut);
     }
 
     fn enqueue_file_merge(&mut self, path: RepoPathBuf, value: MergedTreeValue) {
         let key = TreeMergeWorkItemKey::MergeFiles { path: path.clone() };
         let work_fut = resolve_file_values_owned(self.store.clone(), path.clone(), value)
             .map(|result| TreeMergerWorkOutput::MergedFiles { path, result });
-        if self.work.len() < self.store.concurrency() {
-            self.work.push(Box::pin(work_fut));
-        } else {
-            self.unstarted_work.insert(key, Box::pin(work_fut));
-        }
+        self.work.push(key, work_fut);
     }
 
     fn mark_completed(&mut self, path: &RepoPath, value: MergedTreeValue) {
