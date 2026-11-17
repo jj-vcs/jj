@@ -89,6 +89,17 @@ jobs:
       uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36
       with:
         make-default: false
+    - name: Install GnuPG
+      if: runner.os != 'Windows'
+      run: |
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          sudo apt-get update
+          sudo apt-get install -y gnupg gpgsm
+        else
+          brew install gnupg
+        fi
+        gpg --version
+        gpgsm --version
     - name: Build
       run: >-
         cargo build
