@@ -164,7 +164,7 @@ impl IdPrefixIndex<'_> {
     }
 
     /// Resolve an unambiguous commit ID prefix.
-    pub fn resolve_commit_prefix(
+    pub async fn resolve_commit_prefix(
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
@@ -180,7 +180,7 @@ impl IdPrefixIndex<'_> {
                 PrefixResolution::SingleMatch(id) => {
                     // The disambiguation set may be loaded from a different repo,
                     // and contain a commit that doesn't exist in the current repo.
-                    if repo.index().has_id(&id).block_on()? {
+                    if repo.index().has_id(&id).await? {
                         return Ok(PrefixResolution::SingleMatch(id));
                     } else {
                         return Ok(PrefixResolution::NoMatch);
@@ -191,17 +191,19 @@ impl IdPrefixIndex<'_> {
                 }
             }
         }
-        repo.index().resolve_commit_id_prefix(prefix).block_on()
+        repo.index().resolve_commit_id_prefix(prefix).await
     }
 
     /// Returns the shortest length of a prefix of `commit_id` that can still be
     /// resolved by `resolve_commit_prefix()` and [`SymbolResolver`].
-    pub fn shortest_commit_prefix_len(
+    pub async fn shortest_commit_prefix_len(
         &self,
         repo: &dyn Repo,
         commit_id: &CommitId,
     ) -> IndexResult<usize> {
-        let len = self.shortest_commit_prefix_len_exact(repo, commit_id)?;
+        let len = self
+            .shortest_commit_prefix_len_exact(repo, commit_id)
+            .await?;
         Ok(disambiguate_prefix_with_refs(
             repo.view(),
             &commit_id.to_string(),
@@ -212,7 +214,7 @@ impl IdPrefixIndex<'_> {
     /// Returns the shortest length of a prefix of `commit_id` that can still be
     /// resolved by `resolve_commit_prefix()`, without considering conflicts
     /// with other symbols such as bookmarks and tags.
-    pub fn shortest_commit_prefix_len_exact(
+    pub async fn shortest_commit_prefix_len_exact(
         &self,
         repo: &dyn Repo,
         commit_id: &CommitId,
@@ -226,7 +228,7 @@ impl IdPrefixIndex<'_> {
         }
         repo.index()
             .shortest_unique_commit_id_prefix_len(commit_id)
-            .block_on()
+            .await
     }
 
     /// Resolve an unambiguous change ID prefix to the commit IDs in the revset.
