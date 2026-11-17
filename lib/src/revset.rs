@@ -2794,12 +2794,13 @@ impl CommitPrefixResolver<'_> {
         repo: &dyn Repo,
         prefix: &HexPrefix,
     ) -> Result<Option<CommitId>, RevsetResolutionError> {
-        let index = self
-            .context
-            .map(|ctx| ctx.populate(self.context_repo))
-            .transpose()
-            .map_err(|err| RevsetResolutionError::Other(err.into()))?
-            .unwrap_or(IdPrefixIndex::empty());
+        let index = match self.context {
+            Some(ctx) => ctx
+                .populate(self.context_repo)
+                .block_on()
+                .map_err(|err| RevsetResolutionError::Other(err.into()))?,
+            None => IdPrefixIndex::empty(),
+        };
         match index
             .resolve_commit_prefix(repo, prefix)
             .block_on()
@@ -2839,12 +2840,13 @@ impl ChangePrefixResolver<'_> {
         repo: &dyn Repo,
         prefix: &HexPrefix,
     ) -> Result<Option<ResolvedChangeTargets>, RevsetResolutionError> {
-        let index = self
-            .context
-            .map(|ctx| ctx.populate(self.context_repo))
-            .transpose()
-            .map_err(|err| RevsetResolutionError::Other(err.into()))?
-            .unwrap_or(IdPrefixIndex::empty());
+        let index = match self.context {
+            Some(ctx) => ctx
+                .populate(self.context_repo)
+                .block_on()
+                .map_err(|err| RevsetResolutionError::Other(err.into()))?,
+            None => IdPrefixIndex::empty(),
+        };
         match index
             .resolve_change_prefix(repo, prefix)
             .block_on()

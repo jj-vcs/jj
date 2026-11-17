@@ -2426,7 +2426,7 @@ where
                 })
                 .transpose()?;
             let repo = language.repo;
-            let index = match language.id_prefix_context.populate(repo) {
+            let index = match language.id_prefix_context.populate(repo).block_on() {
                 Ok(index) => index,
                 Err(err) => {
                     // Not an error because we can still produce somewhat
