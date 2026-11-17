@@ -2802,6 +2802,7 @@ impl CommitPrefixResolver<'_> {
             .unwrap_or(IdPrefixIndex::empty());
         match index
             .resolve_commit_prefix(repo, prefix)
+            .block_on()
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
         {
             PrefixResolution::AmbiguousMatch => {
