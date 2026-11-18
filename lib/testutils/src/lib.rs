@@ -81,6 +81,7 @@ use jj_lib::rewrite::RebasedCommit;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing_factory::signer_from_settings;
 use jj_lib::store_factories::StoreFactories;
+use jj_lib::store_factories::init_repo;
 use jj_lib::transaction::Transaction;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
@@ -352,7 +353,7 @@ impl TestRepo {
         let repo_dir = env.root().join("repo");
         fs::create_dir(&repo_dir).unwrap();
 
-        let repo = ReadonlyRepo::init(
+        let repo = init_repo(
             settings,
             &repo_dir,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
