@@ -324,7 +324,8 @@ impl MergedTree {
         stream_without_trees(self.diff_internal(other, matcher))
     }
 
-    /// Like `diff()` but trees with diffs themselves are also included.
+    /// Like `diff()` but trees with diffs themselves are also included, unless
+    /// the matcher rules out that anything in the tree matches.
     pub fn diff_with_trees<'matcher>(
         &self,
         other: &Self,
@@ -606,17 +607,13 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
         let merged_tree1 = tree1.to_merged_tree_value();
         let merged_tree2 = tree2.to_merged_tree_value();
         let root_diff = Diff::new(merged_tree1.clone(), merged_tree2.clone());
-        if root_diff.is_changed() {
-            if matcher.matches(&dir) {
-                queue.emit(dir.clone(), root_diff);
-            }
-            if !matcher.visit(&dir).is_nothing() {
-                let root_trees_fut = try_join(
-                    TreeDiffVisitor::trees(store.clone(), dir.clone(), merged_tree1),
-                    TreeDiffVisitor::trees(store.clone(), dir.clone(), merged_tree2),
-                );
-                queue.schedule(dir, root_trees_fut);
-            }
+        if root_diff.is_changed() && !matcher.visit(&dir).is_nothing() {
+            queue.emit(dir.clone(), root_diff);
+            let root_trees_fut = try_join(
+                TreeDiffVisitor::trees(store.clone(), dir.clone(), merged_tree1),
+                TreeDiffVisitor::trees(store.clone(), dir.clone(), merged_tree2),
+            );
+            queue.schedule(dir, root_trees_fut);
         }
         let visitor = TreeDiffVisitor { store, matcher };
         Self {
@@ -687,9 +684,7 @@ impl<'matcher> TreeWalkVisitor<'matcher> for TreeDiffVisitor<'matcher> {
                 continue;
             }
 
-            if file_matches || self.matcher.matches(&path) {
-                queue.emit(path.clone(), Diff::new(before.cloned(), after.cloned()));
-            }
+            queue.emit(path.clone(), Diff::new(before.cloned(), after.cloned()));
 
             // If the path was a tree on either side of the diff, read those trees.
             if tree_matches {
