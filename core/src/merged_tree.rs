@@ -607,6 +607,25 @@ pub trait DiffVisitor: Send {
     /// directory. This is not called if the matcher rules out that any of
     /// them match.
     fn visit_tree(&self, path: &RepoPath, visit: &Visit) -> DiffTreeStep;
+
+    /// Whether to treat a conflict between files and directories as a
+    /// directory if the matcher doesn't match its path. The conflict is
+    /// otherwise a single entry at its path, so files in its directories that
+    /// match are not in the diff.
+    fn walk_conflict_dirs(&self) -> bool {
+        false
+    }
+}
+
+/// Returns the terms of `value` that are directories, with absent in place of
+/// the other terms.
+fn dir_terms(value: MergedTreeVal<'_>) -> MergedTreeValue {
+    let dirs = value.map(|term| term.filter(|value| matches!(value, TreeValue::Tree(_))));
+    if dirs.iter().any(Option::is_some) {
+        dirs.map(|term| term.cloned())
+    } else {
+        Merge::absent()
+    }
 }
 
 /// A diff with entries for files only.
@@ -737,10 +756,19 @@ impl<'matcher> TreeWalkVisitor<'matcher> for TreeDiffVisitor<'matcher> {
     ) {
         for (basename, diff) in merged_tree_entry_diff(&trees1, &trees2) {
             let path = dir.join(basename);
+            // Check if a file matches, but only if either side may be one (don't query
+            // the matcher unnecessarily).
+            let file_matches =
+                !(diff.before.is_tree() && diff.after.is_tree()) && self.matcher.matches(&path);
+            // A conflict between files and directories is a file-like entry. If
+            // the path doesn't match, the visitor may ask to walk its directories.
+            let diff = if !file_matches && self.visitor.walk_conflict_dirs() {
+                diff.map(dir_terms)
+            } else {
+                diff.map(|value| value.cloned())
+            };
             let tree_before = diff.before.is_tree();
             let tree_after = diff.after.is_tree();
-            // Check if trees and files match, but only if either side is a tree or a file
-            // (don't query the matcher unnecessarily).
             let tree_step = if tree_before || tree_after {
                 self.tree_step(&path)
             } else {
@@ -749,17 +777,16 @@ impl<'matcher> TreeWalkVisitor<'matcher> for TreeDiffVisitor<'matcher> {
                     descend: false,
                 }
             };
-            let file_matches = (!tree_before || !tree_after) && self.matcher.matches(&path);
 
             // Replace trees that aren't emitted and files that don't match by
             // `Merge::absent()`
             let before = if (tree_before && tree_step.emit) || (!tree_before && file_matches) {
-                diff.before.cloned()
+                diff.before.clone()
             } else {
                 Merge::absent()
             };
             let after = if (tree_after && tree_step.emit) || (!tree_after && file_matches) {
-                diff.after.cloned()
+                diff.after.clone()
             } else {
                 Merge::absent()
             };
@@ -770,9 +797,9 @@ impl<'matcher> TreeWalkVisitor<'matcher> for TreeDiffVisitor<'matcher> {
             // If the path was a tree on either side of the diff, read those trees.
             if tree_step.descend {
                 let before_tree_future =
-                    Self::trees(self.store.clone(), path.clone(), diff.before.cloned());
+                    Self::trees(self.store.clone(), path.clone(), diff.before.clone());
                 let after_tree_future =
-                    Self::trees(self.store.clone(), path.clone(), diff.after.cloned());
+                    Self::trees(self.store.clone(), path.clone(), diff.after.clone());
                 queue.schedule(path, try_join(before_tree_future, after_tree_future));
             }
         }

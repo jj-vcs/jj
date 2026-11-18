@@ -140,6 +140,10 @@ impl DiffVisitor for DiffFilesAndMatchedTrees {
             descend: !all_match,
         }
     }
+
+    fn walk_conflict_dirs(&self) -> bool {
+        true
+    }
 }
 
 /// Returns the parts of `tree1` and `tree2` that are at matching paths and
