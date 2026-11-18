@@ -4141,6 +4141,65 @@ fn test_diff_binary() {
     [EOF]
     ");
 
+    let output = work_dir.run_jj(["diff", "--git", "--binary"]);
+    insta::assert_snapshot!(output, @"
+    diff --git a/binary_added.png b/binary_added.png
+    new file mode 100644
+    index 0000000000000000000000000000000000000000..deacfbc28605a89087e163297cac2870fb46222b
+    GIT binary patch
+    literal 12
+    Tc%17D@N?(olH#hUtYQEF6)po6
+
+    literal 0
+    Hc$@<O00001
+
+    diff --git a/binary_modified.png b/binary_modified.png
+    index 7f036ce788241b5ff8adf8c1721e64b9598e3963..f666e11aeb680a813187d013a8aa9383128f58ce 100644
+    GIT binary patch
+    literal 16
+    Xc%17D@N?(olHxKjG%_|ZtzZBE9{2-M
+
+    literal 16
+    Xc%17D@N?(olHxKjG%_|ZHDdq(9&`f_
+
+    diff --git a/binary_modified_to_text.png b/binary_modified_to_text.png
+    index 7f036ce788241b5ff8adf8c1721e64b9598e3963..3bd1f0e29744a1f32b08d5650e62e2e62afb177c 100644
+    GIT binary patch
+    literal 8
+    Pc$`bi&*w@?EaCzH45k8(
+
+    literal 16
+    Xc%17D@N?(olHxKjG%_|ZHDdq(9&`f_
+
+    diff --git a/binary_removed.png b/binary_removed.png
+    deleted file mode 100644
+    index 2b65b23c22953db3bdeca4a1ec6fc5c5d7c53cb2..0000000000000000000000000000000000000000
+    GIT binary patch
+    literal 0
+    Hc$@<O00001
+
+    literal 16
+    Xc%17D@N?(olHy8CN=`{lOJ@K8B_{-C
+
+    diff --git a/binary_valid_utf8.png b/binary_valid_utf8.png
+    new file mode 100644
+    index 0000000000000000000000000000000000000000..4227ca4e8736af63036e7457e2db376ddf7e5795
+    GIT binary patch
+    literal 3
+    Kc${NkU;qFB0{{U4
+
+    literal 0
+    Hc$@<O00001
+
+    [EOF]
+    ");
+
+    // `--binary` implies the Git format, so it should produce the same output
+    // as spelling out `--git --binary`.
+    let implicit = work_dir.run_jj(["diff", "--binary"]).success();
+    let explicit = work_dir.run_jj(["diff", "--git", "--binary"]).success();
+    assert_eq!(implicit.stdout.raw(), explicit.stdout.raw());
+
     let output = work_dir.run_jj(["diff", "--stat"]);
     // Rightmost display column          ->|
     insta::assert_snapshot!(output, @"
@@ -4152,6 +4211,53 @@ fn test_diff_binary() {
     5 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
+}
+
+#[test]
+fn test_diff_binary_git_apply() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let original = b"\x89PNG\r\n\x1a\n\0\0\x01\x02";
+    let modified = b"\x89PNG\r\n\x1a\n\0\0\x01\x03";
+    work_dir.write_file("image.png", original);
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("image.png", modified);
+    work_dir.write_file("added.png", b"\0\x01\x02binary");
+    let patch = work_dir
+        .run_jj(["diff", "--git", "--binary", "-r", "@"])
+        .success()
+        .stdout
+        .into_raw();
+
+    // Apply the patch with `git apply` in a separate work tree containing the
+    // preimage.
+    let apply_dir = test_env.work_dir("apply");
+    apply_dir.write_file("image.png", original);
+    apply_dir.write_file("image.patch", patch);
+    std::process::Command::new("git")
+        .args(["init"])
+        .current_dir(apply_dir.root())
+        .output()
+        .unwrap();
+    let output = std::process::Command::new("git")
+        .args(["apply", "--check", "image.patch"])
+        .current_dir(apply_dir.root())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "git apply failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    std::process::Command::new("git")
+        .args(["apply", "image.patch"])
+        .current_dir(apply_dir.root())
+        .output()
+        .unwrap();
+    assert_eq!(apply_dir.read_file("image.png"), modified);
+    assert_eq!(apply_dir.read_file("added.png"), b"\0\x01\x02binary");
 }
 
 /// Test diff --stat output width for diffs that have different cases of right

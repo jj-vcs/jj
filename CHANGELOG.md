@@ -49,6 +49,10 @@ and this project adheres to
   middle of JSON output. Users should set the config option to `false` to avoid
   receiving invalid JSON objects on small terminals.
 
+* `jj diff --git --binary` now emits binary files in Git's binary patch format,
+  so the output can be applied with `git apply`. The `--binary` option implies
+  `--git`. [#10540](https://github.com/jj-vcs/jj/issues/10540)
+
 ### Fixed bugs
 
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent

@@ -1060,6 +1060,9 @@ If no option is specified, it defaults to `-r @`.
 
    Typically useful for shell commands like: `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
 * `--git` — Show a Git-format diff
+* `--binary` — Include binary files in the diff
+
+   The diff will be in Git's binary patch format, which can be applied with `git apply`. Implies `--git`.
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
 
@@ -1189,6 +1192,9 @@ Lists the previous commits which a change has pointed to. The current commit of 
 
    Typically useful for shell commands like: `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
 * `--git` — Show a Git-format diff
+* `--binary` — Include binary files in the diff
+
+   The diff will be in Git's binary patch format, which can be applied with `git apply`. Implies `--git`.
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
 
@@ -2195,6 +2201,9 @@ To see the changes throughout the whole evolution of a single change instead, us
 
    Typically useful for shell commands like: `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
 * `--git` — Show a Git-format diff
+* `--binary` — Include binary files in the diff
+
+   The diff will be in Git's binary patch format, which can be applied with `git apply`. Implies `--git`.
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
 
@@ -2261,6 +2270,9 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
    Typically useful for shell commands like: `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
 * `--git` — Show a Git-format diff
+* `--binary` — Include binary files in the diff
+
+   The diff will be in Git's binary patch format, which can be applied with `git apply`. Implies `--git`.
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
 
@@ -2523,6 +2535,9 @@ Compare changes to the repository between two operations
 
    Typically useful for shell commands like: `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
 * `--git` — Show a Git-format diff
+* `--binary` — Include binary files in the diff
+
+   The diff will be in Git's binary patch format, which can be applied with `git apply`. Implies `--git`.
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
 
@@ -2589,6 +2604,9 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 
    Typically useful for shell commands like: `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
 * `--git` — Show a Git-format diff
+* `--binary` — Include binary files in the diff
+
+   The diff will be in Git's binary patch format, which can be applied with `git apply`. Implies `--git`.
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
 
@@ -2703,6 +2721,9 @@ Show changes to the repository in an operation
 
    Typically useful for shell commands like: `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
 * `--git` — Show a Git-format diff
+* `--binary` — Include binary files in the diff
+
+   The diff will be in Git's binary patch format, which can be applied with `git apply`. Implies `--git`.
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
 
@@ -3263,6 +3284,9 @@ Show revision metadata and diff
 
    Typically useful for shell commands like: `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
 * `--git` — Show a Git-format diff
+* `--binary` — Include binary files in the diff
+
+   The diff will be in Git's binary patch format, which can be applied with `git apply`. Implies `--git`.
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
 
@@ -3858,6 +3882,9 @@ Compare two files on disk
 ###### **Options:**
 
 * `--git` — Show a Git-format diff
+* `--binary` — Include binary files in the diff
+
+   The diff will be in Git's binary patch format, which can be applied with `git apply`. Implies `--git`.
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
 
