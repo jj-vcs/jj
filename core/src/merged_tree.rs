@@ -46,6 +46,7 @@ use crate::copies::copies_tree_diff_stream;
 use crate::filtered_tree_writer::FilteredTreeWriter;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
+use crate::matchers::Visit;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
@@ -311,8 +312,10 @@ impl MergedTree {
         &self,
         other: &Self,
         matcher: &'matcher dyn Matcher,
+        visitor: impl DiffVisitor + 'matcher,
     ) -> TreeDiffStream<'matcher> {
-        TreeDiffStreamImpl::new(self, other, matcher, self.store().concurrency()).boxed()
+        let max_concurrent_reads = self.store().concurrency();
+        TreeDiffStreamImpl::new(self, other, matcher, visitor, max_concurrent_reads).boxed()
     }
 
     /// Stream of the differences between this tree and another tree.
@@ -321,7 +324,7 @@ impl MergedTree {
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        stream_without_trees(self.diff_internal(other, matcher))
+        self.diff_internal(other, matcher, DiffFiles)
     }
 
     /// Like `diff()` but trees with diffs themselves are also included, unless
@@ -331,7 +334,7 @@ impl MergedTree {
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        self.diff_internal(other, matcher)
+        self.diff_internal(other, matcher, DiffFilesAndTrees)
     }
 
     /// Like `diff()` but files in a removed tree will be returned before
@@ -341,7 +344,7 @@ impl MergedTree {
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        DiffStreamForFileSystem::new(self.diff_internal(other, matcher)).boxed()
+        DiffStreamForFileSystem::new(self.diff_internal(other, matcher, DiffFilesAndTrees)).boxed()
     }
 
     /// Returns a slice of this tree filtered by the matcher. The returned tree
@@ -581,6 +584,51 @@ impl<'matcher> TreeWalkVisitor<'matcher> for ConflictsVisitor<'matcher> {
     }
 }
 
+/// What a diff does with a directory that differs between the trees, as
+/// decided by a `DiffVisitor`.
+#[derive(Clone, Copy, Debug)]
+pub struct DiffTreeStep {
+    /// Whether the diff has an entry for the directory itself.
+    pub emit: bool,
+    /// Whether the diff has entries for the paths in the directory. If not,
+    /// the trees in the directory are not read.
+    pub descend: bool,
+}
+
+/// Decides what a diff does with the directories that differ between the
+/// trees. The matcher decides which files are in the diff.
+pub trait DiffVisitor: Send {
+    /// Decides what to do with `path`, which is a directory in at least one of
+    /// the trees. `visit` is what the matcher says about the files in the
+    /// directory. This is not called if the matcher rules out that any of
+    /// them match.
+    fn visit_tree(&self, path: &RepoPath, visit: &Visit) -> DiffTreeStep;
+}
+
+/// A diff with entries for files only.
+pub struct DiffFiles;
+
+impl DiffVisitor for DiffFiles {
+    fn visit_tree(&self, _path: &RepoPath, _visit: &Visit) -> DiffTreeStep {
+        DiffTreeStep {
+            emit: false,
+            descend: true,
+        }
+    }
+}
+
+/// A diff that also has an entry for each directory with entries in it.
+pub struct DiffFilesAndTrees;
+
+impl DiffVisitor for DiffFilesAndTrees {
+    fn visit_tree(&self, _path: &RepoPath, _visit: &Visit) -> DiffTreeStep {
+        DiffTreeStep {
+            emit: true,
+            descend: true,
+        }
+    }
+}
+
 /// Stream of differences between two trees.
 pub struct TreeDiffStreamImpl<'matcher> {
     walk: OrderedTreeWalk<'matcher, TreeDiffVisitor<'matcher>>,
@@ -598,24 +646,34 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
         tree1: &MergedTree,
         tree2: &MergedTree,
         matcher: &'matcher dyn Matcher,
+        visitor: impl DiffVisitor + 'matcher,
         max_concurrent_reads: usize,
     ) -> Self {
         assert!(Arc::ptr_eq(tree1.store(), tree2.store()));
         let store = tree1.store().clone();
+        let visitor = TreeDiffVisitor {
+            store: store.clone(),
+            matcher,
+            visitor: Box::new(visitor),
+        };
         let mut queue = TreeWalkQueue::new(max_concurrent_reads);
         let dir = RepoPathBuf::root();
         let merged_tree1 = tree1.to_merged_tree_value();
         let merged_tree2 = tree2.to_merged_tree_value();
         let root_diff = Diff::new(merged_tree1.clone(), merged_tree2.clone());
-        if root_diff.is_changed() && !matcher.visit(&dir).is_nothing() {
-            queue.emit(dir.clone(), root_diff);
-            let root_trees_fut = try_join(
-                TreeDiffVisitor::trees(store.clone(), dir.clone(), merged_tree1),
-                TreeDiffVisitor::trees(store.clone(), dir.clone(), merged_tree2),
-            );
-            queue.schedule(dir, root_trees_fut);
+        if root_diff.is_changed() {
+            let step = visitor.tree_step(&dir);
+            if step.emit {
+                queue.emit(dir.clone(), root_diff);
+            }
+            if step.descend {
+                let root_trees_fut = try_join(
+                    TreeDiffVisitor::trees(store.clone(), dir.clone(), merged_tree1),
+                    TreeDiffVisitor::trees(store, dir.clone(), merged_tree2),
+                );
+                queue.schedule(dir, root_trees_fut);
+            }
         }
-        let visitor = TreeDiffVisitor { store, matcher };
         Self {
             walk: OrderedTreeWalk::new(visitor, queue),
         }
@@ -635,9 +693,23 @@ impl Stream for TreeDiffStreamImpl<'_> {
 struct TreeDiffVisitor<'matcher> {
     store: Arc<Store>,
     matcher: &'matcher dyn Matcher,
+    visitor: Box<dyn DiffVisitor + 'matcher>,
 }
 
 impl TreeDiffVisitor<'_> {
+    /// Decides what to do with the directory at `path`.
+    fn tree_step(&self, path: &RepoPath) -> DiffTreeStep {
+        let visit = self.matcher.visit(path);
+        if visit.is_nothing() {
+            DiffTreeStep {
+                emit: false,
+                descend: false,
+            }
+        } else {
+            self.visitor.visit_tree(path, &visit)
+        }
+    }
+
     /// Gets the given trees if `values` are trees, otherwise an empty tree.
     async fn trees(
         store: Arc<Store>,
@@ -665,58 +737,42 @@ impl<'matcher> TreeWalkVisitor<'matcher> for TreeDiffVisitor<'matcher> {
             let tree_after = diff.after.is_tree();
             // Check if trees and files match, but only if either side is a tree or a file
             // (don't query the matcher unnecessarily).
-            let tree_matches =
-                (tree_before || tree_after) && !self.matcher.visit(&path).is_nothing();
+            let tree_step = if tree_before || tree_after {
+                self.tree_step(&path)
+            } else {
+                DiffTreeStep {
+                    emit: false,
+                    descend: false,
+                }
+            };
             let file_matches = (!tree_before || !tree_after) && self.matcher.matches(&path);
 
-            // Replace trees or files that don't match by `Merge::absent()`
-            let before = if (tree_before && tree_matches) || (!tree_before && file_matches) {
-                diff.before
+            // Replace trees that aren't emitted and files that don't match by
+            // `Merge::absent()`
+            let before = if (tree_before && tree_step.emit) || (!tree_before && file_matches) {
+                diff.before.cloned()
             } else {
                 Merge::absent()
             };
-            let after = if (tree_after && tree_matches) || (!tree_after && file_matches) {
-                diff.after
+            let after = if (tree_after && tree_step.emit) || (!tree_after && file_matches) {
+                diff.after.cloned()
             } else {
                 Merge::absent()
             };
-            if before.is_absent() && after.is_absent() {
-                continue;
+            if before.is_present() || after.is_present() {
+                queue.emit(path.clone(), Diff::new(before, after));
             }
 
-            queue.emit(path.clone(), Diff::new(before.cloned(), after.cloned()));
-
             // If the path was a tree on either side of the diff, read those trees.
-            if tree_matches {
+            if tree_step.descend {
                 let before_tree_future =
-                    Self::trees(self.store.clone(), path.clone(), before.cloned());
+                    Self::trees(self.store.clone(), path.clone(), diff.before.cloned());
                 let after_tree_future =
-                    Self::trees(self.store.clone(), path.clone(), after.cloned());
+                    Self::trees(self.store.clone(), path.clone(), diff.after.cloned());
                 queue.schedule(path, try_join(before_tree_future, after_tree_future));
             }
         }
     }
-}
-
-fn stream_without_trees(stream: TreeDiffStream) -> TreeDiffStream {
-    stream
-        .filter_map(|mut entry| async move {
-            let skip_tree = |merge: MergedTreeValue| {
-                if merge.is_tree() {
-                    Merge::absent()
-                } else {
-                    merge
-                }
-            };
-            entry.values = entry.values.map(|diff| diff.map(skip_tree));
-
-            // Filter out entries where neither side is present.
-            let any_present = entry.values.as_ref().map_or(true, |diff| {
-                diff.before.is_present() || diff.after.is_present()
-            });
-            any_present.then_some(entry)
-        })
-        .boxed()
 }
 
 /// Adapts a `TreeDiffStream` to emit a added file at a given path after a

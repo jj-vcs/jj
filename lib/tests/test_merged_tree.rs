@@ -39,6 +39,7 @@ use jj_core::matchers::PathGlobPattern;
 use jj_core::matchers::PrefixMatcher;
 use jj_core::merge::Diff;
 use jj_core::merge::Merge;
+use jj_core::merged_tree::DiffFilesAndTrees;
 use jj_core::merged_tree::MergedTree;
 use jj_core::merged_tree::TreeDiffEntry;
 use jj_core::merged_tree::TreeDiffStreamImpl;
@@ -74,10 +75,16 @@ fn diff_stream_sequential_equals_concurrent(
 ) {
     let diff_with_concurrency = |max_concurrent_reads| {
         tree1.store().clear_caches();
-        TreeDiffStreamImpl::new(tree1, tree2, matcher, max_concurrent_reads)
-            .map(|diff| (diff.path, diff.values.unwrap()))
-            .collect::<Vec<_>>()
-            .block_on()
+        TreeDiffStreamImpl::new(
+            tree1,
+            tree2,
+            matcher,
+            DiffFilesAndTrees,
+            max_concurrent_reads,
+        )
+        .map(|diff| (diff.path, diff.values.unwrap()))
+        .collect::<Vec<_>>()
+        .block_on()
     };
     assert_eq!(diff_with_concurrency(1), diff_with_concurrency(10));
 }
