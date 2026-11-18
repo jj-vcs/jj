@@ -47,7 +47,6 @@ use crate::default_backend_factories::default_workspace_store_initializer;
 use crate::repo::CheckOutCommitError;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
-use crate::repo::RepoInitError;
 use crate::repo::RepoLoader;
 use crate::repo::RepoLoaderError;
 use crate::settings::UserSettings;
@@ -57,10 +56,12 @@ use crate::store_factories::BackendInitializer;
 use crate::store_factories::IndexStoreInitializer;
 use crate::store_factories::OpHeadsStoreInitializer;
 use crate::store_factories::OpStoreInitializer;
+use crate::store_factories::RepoInitError;
 use crate::store_factories::StoreFactories;
 use crate::store_factories::StoreLoadError;
 use crate::store_factories::SubmoduleStoreInitializer;
 use crate::store_factories::WorkspaceStoreInitializer;
+use crate::store_factories::init_repo;
 use crate::store_factories::read_store_type;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
@@ -288,7 +289,7 @@ impl Workspace {
                                    store_path: &Path|
          -> Result<Box<dyn jj_core::backend::Backend>, _> {
             // TODO: Clean up path normalization. store_path is canonicalized by
-            // ReadonlyRepo::init(). workspace_root will be canonicalized by
+            // init_repo(). workspace_root will be canonicalized by
             // Workspace::new(), but it's not yet here.
             let store_relative_workspace_root =
                 if let Ok(workspace_root) = file_util::canonicalize(workspace_root) {
@@ -335,7 +336,7 @@ impl Workspace {
             // If the git repo is inside the workspace, use a relative path to it so the
             // whole workspace can be moved without breaking.
             // TODO: Clean up path normalization. store_path is canonicalized by
-            // ReadonlyRepo::init(). workspace_root will be canonicalized by
+            // init_repo(). workspace_root will be canonicalized by
             // Workspace::new(), but it's not yet here.
             let store_relative_git_repo_path = match (
                 file_util::canonicalize(workspace_root),
@@ -389,7 +390,7 @@ impl Workspace {
         async {
             let repo_dir = jj_dir.join("repo");
             std::fs::create_dir(&repo_dir).context(&repo_dir)?;
-            let repo = ReadonlyRepo::init(
+            let repo = init_repo(
                 user_settings,
                 &repo_dir,
                 backend_initializer,

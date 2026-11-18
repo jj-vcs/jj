@@ -91,6 +91,7 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing_factory::signer_from_settings;
+use jj_lib::store_factories::init_repo;
 use jj_lib::workspace::Workspace;
 use maplit::btreemap;
 use maplit::hashset;
@@ -187,7 +188,7 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
     let git_repo_path = get_git_backend(&test_repo.repo).git_repo_path();
     let repo_dir = test_repo.env.root().join(name);
     fs::create_dir(&repo_dir)?;
-    let repo = ReadonlyRepo::init(
+    let repo = init_repo(
         settings,
         &repo_dir,
         &|settings, store_path| {
@@ -2442,7 +2443,7 @@ impl GitRepoData {
             testutils::git::clone(&git_repo_dir, origin_repo_dir.to_str().unwrap(), None);
         let jj_repo_dir = temp_dir.path().join("jj");
         std::fs::create_dir(&jj_repo_dir).unwrap();
-        let repo = ReadonlyRepo::init(
+        let repo = init_repo(
             &settings,
             &jj_repo_dir,
             &|settings, store_path| {
@@ -4381,7 +4382,7 @@ fn test_init() -> TestResult {
     let git_repo = testutils::git::init_bare(git_repo_dir);
     let initial_git_commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     std::fs::create_dir(&jj_repo_dir)?;
-    let repo = &ReadonlyRepo::init(
+    let repo = &init_repo(
         &settings,
         &jj_repo_dir,
         &|settings, store_path| {
@@ -5506,7 +5507,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
     let clone_repo =
         testutils::git::clone(&clone_repo_dir, source_repo_dir.to_str().unwrap(), None);
     std::fs::create_dir(&jj_repo_dir).unwrap();
-    let jj_repo = ReadonlyRepo::init(
+    let jj_repo = init_repo(
         settings,
         &jj_repo_dir,
         &|settings, store_path| {
