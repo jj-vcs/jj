@@ -33,7 +33,6 @@ use futures::stream;
 use itertools::Itertools as _;
 use jj_core::backend::BackendError;
 use jj_core::backend::BackendInitError;
-use jj_core::backend::BackendLoadError;
 use jj_core::backend::BackendResult;
 use jj_core::backend::ChangeId;
 use jj_core::backend::CommitId;
@@ -108,13 +107,10 @@ use crate::rewrite::RewriteRefsOptions;
 use crate::rewrite::merge_commit_trees;
 use crate::rewrite::rebase_commit_with_options;
 use crate::settings::UserSettings;
-use crate::signing_factory::signer_from_settings;
 use crate::store_factories::BackendInitializer;
 use crate::store_factories::IndexStoreInitializer;
 use crate::store_factories::OpHeadsStoreInitializer;
 use crate::store_factories::OpStoreInitializer;
-use crate::store_factories::StoreFactories;
-use crate::store_factories::StoreLoadError;
 use crate::store_factories::SubmoduleStoreInitializer;
 use crate::store_factories::WorkspaceStoreInitializer;
 use crate::submodule_store::SubmoduleStore;
@@ -472,49 +468,6 @@ impl RepoLoader {
             index_store,
             submodule_store,
         }
-    }
-
-    /// Creates a `RepoLoader` for the repo at `repo_path` by reading the
-    /// various `.jj/repo/<backend>/type` files and loading the right
-    /// backends from `store_factories`.
-    pub fn init_from_file_system(
-        settings: &UserSettings,
-        repo_path: &Path,
-        store_factories: &StoreFactories,
-    ) -> Result<Self, StoreLoadError> {
-        let merge_options = settings.merge_options().map_err(BackendLoadError::new)?;
-        let store = Store::new(
-            store_factories.load_backend(settings, &repo_path.join("store"))?,
-            signer_from_settings(settings)?,
-            merge_options,
-        );
-        let workspace_store = Arc::from(
-            store_factories.load_workspace_store(settings, &repo_path.join("workspace_store"))?,
-        );
-        let root_op_data = RootOperationData {
-            root_commit_id: store.root_commit_id().clone(),
-        };
-        let op_store = Arc::from(store_factories.load_op_store(
-            settings,
-            &repo_path.join("op_store"),
-            root_op_data,
-        )?);
-        let op_heads_store =
-            Arc::from(store_factories.load_op_heads_store(settings, &repo_path.join("op_heads"))?);
-        let index_store =
-            Arc::from(store_factories.load_index_store(settings, &repo_path.join("index"))?);
-        let submodule_store = Arc::from(
-            store_factories.load_submodule_store(settings, &repo_path.join("submodule_store"))?,
-        );
-        Ok(Self::new(
-            settings.clone(),
-            store,
-            workspace_store,
-            op_store,
-            op_heads_store,
-            index_store,
-            submodule_store,
-        ))
     }
 
     /// Returns the user settings.

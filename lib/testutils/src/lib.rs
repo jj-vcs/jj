@@ -74,7 +74,6 @@ use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
-use jj_lib::repo::RepoLoader;
 use jj_lib::repo::RepoLoaderError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::RebaseOptions;
@@ -274,7 +273,8 @@ impl TestEnvironment {
         settings: &UserSettings,
         repo_path: &Path,
     ) -> Arc<ReadonlyRepo> {
-        RepoLoader::init_from_file_system(settings, repo_path, &self.default_backend_factories())
+        self.default_backend_factories()
+            .load_repo(settings, repo_path)
             .unwrap()
             .load_at_head(Some(WorkspaceName::DEFAULT))
             .block_on()
