@@ -537,6 +537,403 @@ fn test_restore_tree_with_conflicts() -> TestResult {
     Ok(())
 }
 
+mod restore_tree_pruning_tests {
+    use std::collections::HashSet;
+    use std::path::PathBuf;
+
+    use jj_core::backend::BackendResult;
+    use jj_core::backend::TreeId;
+    use jj_core::backend::TreeValue;
+    use jj_core::conflict_labels::ConflictLabels;
+    use jj_core::matchers::Matcher;
+    use jj_core::merge::Merge;
+    use jj_core::merged_tree::MergedTree;
+    use jj_core::object_id::ObjectId as _;
+    use jj_lib::fileset;
+    use jj_lib::fileset::FilesetAliasesMap;
+    use jj_lib::fileset::FilesetDiagnostics;
+    use jj_lib::fileset::FilesetParseContext;
+    use jj_lib::repo::Repo as _;
+    use jj_lib::rewrite::restore_tree;
+    use jj_lib::ui_path::RepoPathUiConverter;
+    use pollster::FutureExt as _;
+    use test_case::test_case;
+    use testutils::TestRepo;
+    use testutils::TestRepoBackend;
+    use testutils::TestResult;
+    use testutils::assert_tree_eq;
+    use testutils::create_tree;
+    use testutils::repo_path;
+
+    struct PruneTestEnv {
+        test_repo: TestRepo,
+        forbidden_tree_ids: HashSet<TreeId>,
+        expect_no_writes: bool,
+    }
+
+    impl PruneTestEnv {
+        fn new() -> Self {
+            Self {
+                test_repo: TestRepo::init_with_backend(TestRepoBackend::Simple),
+                forbidden_tree_ids: HashSet::new(),
+                expect_no_writes: false,
+            }
+        }
+
+        fn tree(&self, files: &[(&str, &str)]) -> MergedTree {
+            let entries: Vec<_> = files
+                .iter()
+                .map(|&(path, content)| (repo_path(path), content))
+                .collect();
+            create_tree(&self.test_repo.repo, &entries)
+        }
+
+        fn conflict(&self, terms: &[(&str, &[(&str, &str)])]) -> MergedTree {
+            let merge_terms: Vec<_> = terms
+                .iter()
+                .map(|&(label, files)| (self.tree(files), label.to_owned()))
+                .collect();
+            MergedTree::merge(Merge::from_vec(merge_terms))
+                .block_on()
+                .unwrap()
+        }
+
+        /// Marks the tree objects at `dirs` in `trees` unreadable on disk
+        /// during `restore()`, so reading any of them fails with
+        /// `ObjectNotFound`.
+        fn forbid_reads_at(&mut self, trees: &[&MergedTree], dirs: &[&str]) {
+            for tree in trees {
+                for dir in dirs {
+                    let value = tree.path_value(repo_path(dir)).block_on().unwrap();
+                    for term in value.into_iter().flatten() {
+                        if let TreeValue::Tree(id) = term {
+                            self.forbidden_tree_ids.insert(id);
+                        }
+                    }
+                }
+            }
+        }
+
+        fn forbid_writes(&mut self) {
+            self.expect_no_writes = true;
+        }
+
+        fn restore(
+            &self,
+            from: &MergedTree,
+            into: &MergedTree,
+            fileset_str: &str,
+        ) -> BackendResult<MergedTree> {
+            let mut diagnostics = FilesetDiagnostics::new();
+            let context = FilesetParseContext {
+                aliases_map: &FilesetAliasesMap::new(),
+                path_converter: &RepoPathUiConverter::Fs {
+                    cwd: PathBuf::new(),
+                    base: PathBuf::new(),
+                },
+            };
+            let matcher = fileset::parse(&mut diagnostics, fileset_str, &context)
+                .unwrap()
+                .to_matcher();
+
+            let trees_dir = self.test_repo.repo_path().join("store").join("trees");
+            let count_trees = || std::fs::read_dir(&trees_dir).unwrap().count();
+            let trees_before = count_trees();
+
+            self.test_repo.repo.store().clear_caches();
+            let mut moved = Vec::new();
+            for id in &self.forbidden_tree_ids {
+                let src = trees_dir.join(id.hex());
+                let dst = trees_dir.join(format!("{}.hidden", id.hex()));
+                if src.exists() {
+                    std::fs::rename(&src, &dst).unwrap();
+                    moved.push((src, dst));
+                }
+            }
+
+            let result =
+                restore_tree(from, into, "from".into(), "into".into(), &matcher).block_on();
+
+            for (src, dst) in moved {
+                std::fs::rename(dst, src).unwrap();
+            }
+            if let Ok(restored) = &result {
+                if self.expect_no_writes {
+                    assert_eq!(count_trees(), trees_before, "expected zero tree writes");
+                }
+                let unpruned = Self::unpruned_restore(from, into, &matcher).block_on()?;
+                assert_tree_eq!(*restored, unpruned, "pruned restore differed from unpruned");
+            }
+            result
+        }
+
+        async fn unpruned_restore(
+            source: &MergedTree,
+            destination: &MergedTree,
+            matcher: &dyn Matcher,
+        ) -> BackendResult<MergedTree> {
+            const RESTORE_BASE_LABEL: &str = "base files for restore";
+            let base_labels =
+                ConflictLabels::from_merge(destination.labels().as_merge().map(|label| {
+                    if label.is_empty() || label.starts_with(RESTORE_BASE_LABEL) {
+                        label.clone()
+                    } else {
+                        format!("{RESTORE_BASE_LABEL} (from {label})")
+                    }
+                }));
+            let base_tree = MergedTree::new(
+                destination.store().clone(),
+                destination.tree_ids().clone(),
+                base_labels,
+            );
+            let base_filtered = base_tree.filtered(matcher).await?;
+            let source_filtered = source.filtered(matcher).await?;
+            MergedTree::merge(Merge::from_vec(vec![
+                (destination.clone(), "into (restore destination)".into()),
+                (base_filtered, format!("{RESTORE_BASE_LABEL} (from into)")),
+                (source_filtered, "restored files (from from)".into()),
+            ]))
+            .await
+        }
+    }
+
+    #[test]
+    fn test_restore_tree_glob_prunes_unchanged_subtrees() -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let from = env.tree(&[
+            ("unchanged/sub/target.txt", "same"),
+            ("changed/nested/target.txt", "from"),
+            ("changed/nested/other.txt", "from"),
+        ]);
+        let into = env.tree(&[
+            ("unchanged/sub/target.txt", "same"),
+            ("changed/nested/target.txt", "into"),
+            ("changed/nested/other.txt", "into"),
+        ]);
+        env.forbid_reads_at(&[&from, &into], &["unchanged"]);
+
+        let restored = env.restore(&from, &into, "root-glob:'**/target.txt'")?;
+
+        assert_tree_eq!(
+            restored,
+            env.tree(&[
+                ("unchanged/sub/target.txt", "same"),
+                ("changed/nested/target.txt", "from"),
+                ("changed/nested/other.txt", "into"),
+            ]),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_restore_tree_glob_matching_only_unchanged_files_skips_writes() -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let from = env.tree(&[
+            ("unchanged/sub/only_here.txt", "same"),
+            ("changed/other.txt", "from"),
+        ]);
+        let into = env.tree(&[
+            ("unchanged/sub/only_here.txt", "same"),
+            ("changed/other.txt", "into"),
+        ]);
+        env.forbid_reads_at(&[&from, &into], &["unchanged"]);
+        env.forbid_writes();
+
+        let restored = env.restore(&from, &into, "root-glob:'**/only_here.txt'")?;
+
+        assert_tree_eq!(restored, into);
+        Ok(())
+    }
+
+    #[test]
+    fn test_restore_tree_empty_fileset_skips_io() -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let from = env.tree(&[("dir/file.txt", "from")]);
+        let into = env.tree(&[("dir/file.txt", "into")]);
+        env.forbid_reads_at(&[&from, &into], &[""]);
+        env.forbid_writes();
+
+        let restored = env.restore(&from, &into, "none()")?;
+
+        assert_tree_eq!(restored, into);
+        Ok(())
+    }
+
+    #[test]
+    fn test_restore_tree_identical_resolved_trees_skips_io() -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let tree = env.tree(&[("dir/target.txt", "same")]);
+        env.forbid_reads_at(&[&tree], &[""]);
+        env.forbid_writes();
+
+        let restored = env.restore(&tree, &tree, "root-glob:'**/target.txt'")?;
+
+        assert_tree_eq!(restored, tree);
+        Ok(())
+    }
+
+    #[test_case("root:changed", "changed"; "prefix stops at matched dir")]
+    #[test_case(
+        "root-prefix-glob:'**/nested'",
+        "changed/nested";
+        "prefix glob stops at matched subdir"
+    )]
+    fn test_restore_tree_whole_dir_match_short_circuits_subtree(
+        fileset_str: &str,
+        unvisited_changed_dir: &str,
+    ) -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let from = env.tree(&[
+            ("unchanged/file.txt", "same"),
+            ("changed/nested/file.txt", "from"),
+        ]);
+        let into = env.tree(&[
+            ("unchanged/file.txt", "same"),
+            ("changed/nested/file.txt", "into"),
+        ]);
+        env.forbid_reads_at(&[&from, &into], &["unchanged", unvisited_changed_dir]);
+
+        let restored = env.restore(&from, &into, fileset_str)?;
+
+        assert_tree_eq!(restored, from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_restore_tree_prefix_replaces_file_with_dir() -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let from = env.tree(&[("foo/bar", "bar"), ("unchanged/x", "same")]);
+        let into = env.tree(&[("foo", "foo as file"), ("unchanged/x", "same")]);
+        env.forbid_reads_at(&[&from, &into], &["unchanged"]);
+
+        let restored = env.restore(&from, &into, "root:foo")?;
+
+        assert_tree_eq!(restored, from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_restore_tree_prefix_replaces_dir_with_file() -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let from = env.tree(&[("foo", "foo as file"), ("unchanged/x", "same")]);
+        let into = env.tree(&[("foo/bar", "bar"), ("unchanged/x", "same")]);
+        env.forbid_reads_at(&[&from, &into], &["unchanged"]);
+
+        let restored = env.restore(&from, &into, "root:foo")?;
+
+        assert_tree_eq!(restored, from);
+        Ok(())
+    }
+
+    #[test_case(
+        "root-glob:'**/bar'",
+        &[("foo/baz", "baz"), ("unchanged/x", "same")];
+        "child glob removes only matched child"
+    )]
+    #[test_case(
+        "root:foo ~ root-file:foo",
+        &[("unchanged/x", "same")];
+        "strict subtree removes all children without copying parent file"
+    )]
+    fn test_restore_tree_child_only_matcher_from_file_into_dir(
+        fileset_str: &str,
+        expected_files: &[(&str, &str)],
+    ) -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let from = env.tree(&[("foo", "foo as file"), ("unchanged/x", "same")]);
+        let into = env.tree(&[
+            ("foo/bar", "bar"),
+            ("foo/baz", "baz"),
+            ("unchanged/x", "same"),
+        ]);
+        env.forbid_reads_at(&[&from, &into], &["unchanged"]);
+
+        let restored = env.restore(&from, &into, fileset_str)?;
+
+        assert_tree_eq!(restored, env.tree(expected_files));
+        Ok(())
+    }
+
+    #[test_case(
+        "root-glob:'**/bar'",
+        &[("foo/bar", "bar"), ("unchanged/x", "same")];
+        "child glob conflicts file with matched child dir"
+    )]
+    #[test_case(
+        "root:foo ~ root-file:foo",
+        &[("foo/bar", "bar"), ("foo/baz", "baz"), ("unchanged/x", "same")];
+        "strict subtree conflicts file with all children"
+    )]
+    fn test_restore_tree_child_only_matcher_from_dir_into_file_conflicts(
+        fileset_str: &str,
+        restored_side_files: &[(&str, &str)],
+    ) -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let from = env.tree(&[
+            ("foo/bar", "bar"),
+            ("foo/baz", "baz"),
+            ("unchanged/x", "same"),
+        ]);
+        let into = env.tree(&[("foo", "foo as file"), ("unchanged/x", "same")]);
+        env.forbid_reads_at(&[&from, &into], &["unchanged"]);
+
+        let restored = env.restore(&from, &into, fileset_str)?;
+
+        let expected = env.conflict(&[
+            (
+                "into (restore destination)",
+                &[("foo", "foo as file"), ("unchanged/x", "same")],
+            ),
+            (
+                "base files for restore (from into)",
+                &[("unchanged/x", "same")],
+            ),
+            ("restored files (from from)", restored_side_files),
+        ]);
+        assert_tree_eq!(restored, expected);
+        Ok(())
+    }
+    #[test]
+    fn test_restore_tree_conflicted_trees() -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let same_path = repo_path("dir/same.txt");
+        let diff_path = repo_path("dir/diff.txt");
+        let keep_path = repo_path("keep.txt");
+        let unchanged_path = repo_path("unchanged/f");
+        let side = |same, diff, keep| -> [(&str, &str); 4] {
+            [
+                ("dir/same.txt", same),
+                ("dir/diff.txt", diff),
+                ("keep.txt", keep),
+                ("unchanged/f", "s"),
+            ]
+        };
+        let from = env.conflict(&[
+            ("from side 1", &side("a", "x", "from")),
+            ("from base", &side("b", "y", "from")),
+            ("from side 2", &side("c", "z", "from")),
+        ]);
+        let into = env.conflict(&[
+            ("into side 1", &side("a", "r", "into")),
+            ("into base", &side("b", "r", "into")),
+            ("into side 2", &side("c", "r", "into")),
+        ]);
+        env.forbid_reads_at(&[&from, &into], &["unchanged"]);
+        let restored = env.restore(&from, &into, "root-glob:'dir/*'")?;
+
+        let value = |tree: &MergedTree, path| tree.path_value(path).block_on().unwrap().simplify();
+        assert_eq!(value(&restored, same_path), value(&from, same_path));
+        assert_eq!(value(&restored, diff_path), value(&from, diff_path));
+        assert!(!value(&restored, diff_path).is_resolved());
+        assert_eq!(value(&restored, keep_path), value(&into, keep_path));
+        assert_eq!(
+            value(&restored, unchanged_path),
+            value(&into, unchanged_path)
+        );
+        Ok(())
+    }
+}
+
 #[test]
 fn test_rebase_descendants_sideways() {
     let test_repo = TestRepo::init();
