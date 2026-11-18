@@ -1461,6 +1461,12 @@ that the fixes are not lost. This will never result in new conflicts. Files
 with existing conflicts will be updated on all sides of the conflict, which
 can potentially increase or decrease the number of conflict markers.
 
+Because formatting a single commit in isolation would cause its descendants
+to be rebased via 3-way merge (which frequently produces unnecessary
+conflicts on lines modified in descendant commits), `jj fix` always operates
+on a revision and all of its descendants (`--source`/`-s`) rather than a
+single revision (`--revision`/`-r`).
+
 ### Deduplication
 
 When fixing multiple commits, if the same file content appears at the same

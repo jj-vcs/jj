@@ -48,6 +48,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
+use crate::command_error::cli_error;
 use crate::command_error::config_error;
 use crate::command_error::print_parse_diagnostics;
 use crate::complete;
@@ -71,6 +72,12 @@ use crate::ui::Ui;
 /// that the fixes are not lost. This will never result in new conflicts. Files
 /// with existing conflicts will be updated on all sides of the conflict, which
 /// can potentially increase or decrease the number of conflict markers.
+///
+/// Because formatting a single commit in isolation would cause its descendants
+/// to be rebased via 3-way merge (which frequently produces unnecessary
+/// conflicts on lines modified in descendant commits), `jj fix` always operates
+/// on a revision and all of its descendants (`--source`/`-s`) rather than a
+/// single revision (`--revision`/`-r`).
 ///
 /// ### Deduplication
 ///
@@ -182,6 +189,10 @@ pub(crate) struct FixArgs {
     /// this option has no effect since the formatter always formats all lines.
     #[arg(long, short)]
     all_lines: bool,
+
+    /// Unsupported option; use `--source` / `-s` instead.
+    #[arg(long = "revision", short, alias = "revisions", hide = true)]
+    revisions: Vec<RevisionArg>,
 }
 
 #[instrument(skip_all)]
@@ -190,6 +201,19 @@ pub(crate) async fn cmd_fix(
     command: &CommandHelper,
     args: &FixArgs,
 ) -> Result<(), CommandError> {
+    if !args.revisions.is_empty() {
+        return Err(
+            cli_error("`jj fix` does not have a `--revision`/`-r` option.")
+                .hinted(
+                    "Fixing a revision without also fixing its descendants can cause confusing \
+                     and unnecessary merge conflicts in descendants.",
+                )
+                .hinted(
+                    "To fix files in a revision and its descendants, use `--source`/`-s` (see `jj \
+                     help fix`).",
+                ),
+        );
+    }
     let mut workspace_command = command.workspace_helper(ui).await?;
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();
