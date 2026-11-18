@@ -66,6 +66,10 @@ and this project adheres to
   now treated as a file conflict when the directory terms cancel out, so it is
   materialized with conflict markers.
 
+* jj now refuses Git repositories that set `extensions.compatObjectFormat`
+  because the extension is not yet supported in gix and it breaks existing Git
+  repositories with the experimental extension enabled.
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
