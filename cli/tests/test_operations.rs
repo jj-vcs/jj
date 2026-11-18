@@ -894,6 +894,90 @@ fn test_op_abandon_without_updating_working_copy() {
 }
 
 #[test]
+fn test_op_abandon_with_working_copy_behind_head() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("snapshot.auto-update-stale = true\n");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "a\n");
+    work_dir.run_jj(["commit", "-m", "commit 1"]).success();
+    // The operation to be abandoned.
+    work_dir
+        .run_jj(["bookmark", "create", "-r@-", "a"])
+        .success();
+    // A descendant of the working-copy commit, which a stale working copy
+    // would rebase.
+    work_dir
+        .run_jj(["new", "--no-edit", "@", "-m", "child"])
+        .success();
+    // An operation that the working copy isn't updated to.
+    work_dir
+        .run_jj(["bookmark", "create", "-r@-", "b", "--ignore-working-copy"])
+        .success();
+
+    // The working-copy operation isn't a head, but it is rewritten, so it
+    // should be remapped.
+    let output = work_dir.run_jj(["op", "abandon", "@--"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Abandoned 1 operations and reparented 2 descendant operations.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["op", "log", "--ignore-working-copy", "-n2"]);
+    insta::assert_snapshot!(output, @"
+    @  38cd10aafef3 test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │  create bookmark b pointing to commit 9bbd659a08d080347c93c7bfc8260f75c5446dbf
+    │  args: jj bookmark create -r@- b --ignore-working-copy
+    ○  5493698c3a8e test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  new empty commit
+    │  args: jj new --no-edit @ -m child
+    [EOF]
+    ");
+    let output = work_dir
+        .run_jj(["debug", "local-working-copy", "--ignore-working-copy"])
+        .success();
+    let wc_op_line = output.stdout.raw().lines().next().unwrap();
+    insta::assert_snapshot!(wc_op_line, @r#"Current operation: OperationId("5493698c3a8e105741cf6354e3d46f140559b802c83bd7e6598ed55bf17dddc6d3c32e46104b55b5661c885fa81bdc9634b8f9079218b255da61b4ce8de06edd")"#);
+
+    // The working copy isn't stale, so the snapshot doesn't diverge from the
+    // head operation.
+    work_dir.write_file("file", "b\n");
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    M file
+    Working copy  (@) : rlvkpnrz b573b2fc (no description set)
+    Parent commit (@-): qpvuntsm 9bbd659a a b | commit 1
+    [EOF]
+    ------- stderr -------
+    Rebased 1 descendant commits onto updated working copy.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["log", "--ignore-working-copy"]);
+    insta::assert_snapshot!(output, @"
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:15 87043d5d
+    │  (empty) child
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:15 b573b2fc
+    │  (no description set)
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 a b 9bbd659a
+    │  commit 1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["op", "log", "--ignore-working-copy", "-n2"]);
+    insta::assert_snapshot!(output, @"
+    @  fe2e719ca1b2 test-username@host.example.com default@ 2001-02-03 04:05:15.000 +07:00 - 2001-02-03 04:05:15.000 +07:00
+    │  snapshot working copy
+    │  args: jj status
+    ○  38cd10aafef3 test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │  create bookmark b pointing to commit 9bbd659a08d080347c93c7bfc8260f75c5446dbf
+    │  args: jj bookmark create -r@- b --ignore-working-copy
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_op_abandon_multiple_heads() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

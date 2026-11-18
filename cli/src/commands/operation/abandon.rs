@@ -133,14 +133,17 @@ pub async fn cmd_op_abandon(
             .update_op_heads(slice::from_ref(old.id()), new_id)
             .await?;
     }
-    // Remap the operation id of the current workspace. If there were any
-    // divergent operations, user will need to re-abandon their ancestors.
+    // Remap the operation id of the current workspace. The working-copy
+    // operation may be an ancestor of the head operations (e.g. if later
+    // operations ran with --ignore-working-copy), so look it up among all the
+    // rewritten operations, not just the heads. If there were any divergent
+    // operations, user will need to re-abandon their ancestors.
     if !command.global_args().ignore_working_copy {
         let mut locked_ws = workspace.start_working_copy_mutation().await?;
         let old_op_id = locked_ws.locked_wc().old_operation_id();
-        if let Some((_, new_id)) = reparented_head_ops().find(|(old, _)| old.id() == old_op_id) {
+        if let Some(new_id) = stats.rewritten_ids.get(old_op_id) {
             locked_ws.finish(new_id.clone()).await?;
-        } else {
+        } else if !current_head_ops.iter().any(|op| op.id() == old_op_id) {
             writeln!(
                 ui.warning_default(),
                 "The working copy operation {} is not updated because it differs from the repo {}.",
