@@ -894,6 +894,83 @@ mod restore_tree_pruning_tests {
         Ok(())
     }
     #[test]
+    fn test_restore_tree_from_file_dir_conflict() -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let from = env.conflict(&[
+            (
+                "side 1",
+                &[("foo", "side1 file"), ("unchanged/bar", "same")],
+            ),
+            ("base", &[("unchanged/bar", "same")]),
+            (
+                "side 2",
+                &[("foo/bar", "from_bar"), ("unchanged/bar", "same")],
+            ),
+        ]);
+        let into = env.tree(&[("unchanged/bar", "same")]);
+        env.forbid_reads_at(&[&from, &into], &["unchanged"]);
+
+        let restored = env.restore(&from, &into, "root-glob:'**/bar'")?;
+
+        assert_tree_eq!(
+            restored,
+            env.tree(&[("foo/bar", "from_bar"), ("unchanged/bar", "same")]),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_restore_tree_into_file_dir_conflict() -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let from = env.tree(&[("unchanged/bar", "same")]);
+        let into = env.conflict(&[
+            (
+                "side 1",
+                &[("foo", "side1 file"), ("unchanged/bar", "same")],
+            ),
+            ("base", &[("unchanged/bar", "same")]),
+            (
+                "side 2",
+                &[("foo/bar", "old_bar"), ("unchanged/bar", "same")],
+            ),
+        ]);
+        env.forbid_reads_at(&[&from, &into], &["unchanged"]);
+
+        // Removing `foo/bar` from `side 2` makes `side 2` match `base`, resolving
+        // the conflict to `side 1`.
+        let restored = env.restore(&from, &into, "root-glob:'**/bar'")?;
+
+        assert_tree_eq!(
+            restored,
+            env.tree(&[("foo", "side1 file"), ("unchanged/bar", "same")]),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_restore_tree_between_file_dir_conflicts() -> TestResult {
+        let mut env = PruneTestEnv::new();
+        let conflict = |env: &PruneTestEnv, bar| {
+            env.conflict(&[
+                (
+                    "side 1",
+                    &[("foo", "side1 file"), ("unchanged/bar", "same")],
+                ),
+                ("base", &[("unchanged/bar", "same")]),
+                ("side 2", &[("foo/bar", bar), ("unchanged/bar", "same")]),
+            ])
+        };
+        let from = conflict(&env, "from_bar");
+        let into = conflict(&env, "old_bar");
+        env.forbid_reads_at(&[&from, &into], &["unchanged"]);
+
+        let restored = env.restore(&from, &into, "root-glob:'**/bar'")?;
+
+        assert_tree_eq!(restored, from);
+        Ok(())
+    }
+
+    #[test]
     fn test_restore_tree_conflicted_trees() -> TestResult {
         let mut env = PruneTestEnv::new();
         let same_path = repo_path("dir/same.txt");
