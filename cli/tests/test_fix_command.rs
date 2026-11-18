@@ -2250,3 +2250,28 @@ fn test_fix_line_range_args_migration() {
     [EOF]
     "#);
 }
+
+#[test]
+fn test_fix_revision_hint() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let variants: [&[&str]; _] = [
+        &["fix", "-r", "@"],
+        &["fix", "--revision=@"],
+        &["fix", "--revisions", "@"],
+        &["fix", "-r", "@", "-r", "@-"],
+    ];
+    insta::allow_duplicates!(for variant_args in variants {
+        let output = work_dir.run_jj(variant_args);
+        insta::assert_snapshot!(output, @"
+        ------- stderr -------
+        Error: `jj fix` does not have a `--revision`/`-r` option.
+        Hint: Fixing a revision without also fixing its descendants can cause confusing and unnecessary merge conflicts in descendants.
+        Hint: To fix files in a revision and its descendants, use `--source`/`-s` (see `jj help fix`).
+        [EOF]
+        [exit status: 2]
+        ");
+    });
+}
