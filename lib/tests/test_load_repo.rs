@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use jj_core::ref_name::WorkspaceName;
-use jj_lib::repo::RepoLoader;
 use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::TestResult;
@@ -35,11 +34,10 @@ fn test_load_at_operation() -> TestResult {
 
     // If we load the repo at head, we should not see the commit since it was
     // removed
-    let loader = RepoLoader::init_from_file_system(
-        &settings,
-        test_repo.repo_path(),
-        &test_repo.env.default_backend_factories(),
-    )?;
+    let loader = test_repo
+        .env
+        .default_backend_factories()
+        .load_repo(&settings, test_repo.repo_path())?;
     let head_repo = loader
         .load_at_head(Some(WorkspaceName::DEFAULT))
         .block_on()?;
@@ -47,11 +45,10 @@ fn test_load_at_operation() -> TestResult {
 
     // If we load the repo at the previous operation, we should see the commit since
     // it has not been removed yet
-    let loader = RepoLoader::init_from_file_system(
-        &settings,
-        test_repo.repo_path(),
-        &test_repo.env.default_backend_factories(),
-    )?;
+    let loader = test_repo
+        .env
+        .default_backend_factories()
+        .load_repo(&settings, test_repo.repo_path())?;
     let old_repo = loader.load_at(repo.operation()).block_on()?;
     assert!(old_repo.view().heads().contains(commit.id()));
     Ok(())

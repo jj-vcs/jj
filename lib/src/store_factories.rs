@@ -19,6 +19,7 @@ use std::collections::hash_map::Entry;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
+use std::sync::Arc;
 
 use thiserror::Error;
 
@@ -32,9 +33,12 @@ use crate::op_heads_store::OpHeadsStore;
 use crate::op_store::OpStore;
 use crate::op_store::OperationId;
 use crate::op_store::RootOperationData;
+use crate::repo::RepoLoader;
 use crate::settings::UserSettings;
 use crate::signing_factory::SignInitError;
+use crate::signing_factory::signer_from_settings;
 use crate::simple_workspace_store::SimpleWorkspaceStore;
+use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::workspace_store::WorkspaceStore;
 
@@ -325,6 +329,43 @@ impl StoreFactories {
             })?;
 
         Ok(submodule_store_factory(settings, store_path)?)
+    }
+
+    /// Creates a `RepoLoader` for the repo at `repo_path` by reading the
+    /// various `.jj/repo/<backend>/type` files and loading the right
+    /// backends from the registered factories.
+    pub fn load_repo(
+        &self,
+        settings: &UserSettings,
+        repo_path: &Path,
+    ) -> Result<RepoLoader, StoreLoadError> {
+        let merge_options = settings.merge_options().map_err(BackendLoadError::new)?;
+        let store = Store::new(
+            self.load_backend(settings, &repo_path.join("store"))?,
+            signer_from_settings(settings)?,
+            merge_options,
+        );
+        let workspace_store =
+            Arc::from(self.load_workspace_store(settings, &repo_path.join("workspace_store"))?);
+        let root_op_data = RootOperationData {
+            root_commit_id: store.root_commit_id().clone(),
+        };
+        let op_store =
+            Arc::from(self.load_op_store(settings, &repo_path.join("op_store"), root_op_data)?);
+        let op_heads_store =
+            Arc::from(self.load_op_heads_store(settings, &repo_path.join("op_heads"))?);
+        let index_store = Arc::from(self.load_index_store(settings, &repo_path.join("index"))?);
+        let submodule_store =
+            Arc::from(self.load_submodule_store(settings, &repo_path.join("submodule_store"))?);
+        Ok(RepoLoader::new(
+            settings.clone(),
+            store,
+            workspace_store,
+            op_store,
+            op_heads_store,
+            index_store,
+            submodule_store,
+        ))
     }
 }
 
