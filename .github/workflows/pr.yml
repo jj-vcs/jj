@@ -1,16 +1,12 @@
 name: Validate pull request
 
 on:
-  # pull_request_target is needed so the GITHUB_TOKEN has pull-requests: write
-  # permission for PRs from forks. This is safe because the workflow never
-  # checks out or executes any code from the PR; it only reads commit metadata
-  # via the GitHub API and posts reviews.
-  pull_request_target: # zizmor: ignore[dangerous-triggers]
+  pull_request:
     types: [opened, synchronize, edited]
 
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: read
 
 jobs:
   check-pr:
@@ -29,55 +25,29 @@ jobs:
             };
 
             const { data: commits } = await github.rest.pulls.listCommits(pullRequest);
-            const { data: reviews } = await github.rest.pulls.listReviews(pullRequest);
-
-            // Get latest review by `github-actions[bot]`.
-            const githubActionsBot = 41898282;
-            const latestReview = reviews
-              .filter(r => r.user.id === githubActionsBot)
-              .at(-1);
 
             // Ensure commit subject lines are in the form `area or areas: description`.
             const subjectLineFormat = /^.+:\s.+$/;
             const badCommits = commits
-              .map(c => [c.sha.slice(0, 8), c.commit.message.split('\n')[0]])
+              .map(c => [c.sha.slice(0, 7), c.commit.message.split('\n')[0]])
               .filter(([_, s]) => !subjectLineFormat.test(s))
               .map(([sha, title]) => `- ${sha}: ${title}`);
 
             if (badCommits.length > 0) {
-              // One or more commits are bad. Make sure changes are requested.
+              // One or more commits are bad. Fail the workflow.
               const body = 'The following commits do not follow our format for subject lines:\n\n'
                 + `${badCommits.join('\n')}\n\nCommits should have a subject line following the `
-                + 'format `<topic>: <description>`. Please review the [commit guidelines]'
-                + '(https://jj-vcs.github.io/jj/prerelease/contributing/#commit-guidelines) for '
+                + 'format `<topic>: <description>`.\nPlease review the commit guidelines '
+                + '(https://docs.jj-vcs.dev/prerelease/contributing/#commit-guidelines) for '
                 + 'more information.';
 
-              if (latestReview?.state !== 'CHANGES_REQUESTED') {
-                await github.rest.pulls.createReview({
-                  event: 'REQUEST_CHANGES',
-                  ...pullRequest,
-                  body,
-                });
-              }
-              else {
-                await github.rest.pulls.updateReview({
-                  review_id: latestReview.id,
-                  ...pullRequest,
-                  body,
-                });
-              }
+              await core.summary
+                .addHeading('Commit Subject Line Validation Failed', 2)
+                .addRaw(body, true)
+                .write();
 
-              await core.setFailed('One or more commits were not formatted correctly.');
+              core.setFailed(body);
             }
             else {
-              // All commits are formatted correctly. Dismiss any change requests.
-              if (latestReview && latestReview.state === 'CHANGES_REQUESTED') {
-                await github.rest.pulls.dismissReview({
-                  message: 'All commits are now correctly formatted. Thank you for your contribution!',
-                  review_id: latestReview.id,
-                  ...pullRequest,
-                });
-              }
-
               console.log('All commits were correctly formatted.');
             }
