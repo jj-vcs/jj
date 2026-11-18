@@ -819,7 +819,6 @@ mod tests {
     use testutils::TestRepo;
     use testutils::TestResult;
     use testutils::assert_tree_eq;
-    use testutils::dump_tree;
     use testutils::repo_path;
     use testutils::repo_path_component;
     use testutils::working_copy::WorkingCopyModel;
@@ -2263,17 +2262,13 @@ mod tests {
     /// "a" directory. scm_record currently does not group or enforce selections
     /// of changes in a way to prevent this.
     ///
-    /// This test does not allow selections of changes that violate the
-    /// "roundtrip" property for the above reasons. Otherwise, it sources its
-    /// selection from a bit mask that is drawn once per test case and is
-    /// subject to random generation and shrinking but otherwise does not
-    /// affect the state machine's rules, nor is it affected by any of them.
+    /// This test draws a fresh selection for each diff and adjusts it to respect
+    /// the dependencies described above.
     struct EditDiffBuiltinPartialSelectionPropTest {
         test_repo: TestRepo,
         model: WorkingCopyModel,
         prev_tree: MergedTree,
         prev_file_list: BTreeSet<RepoPathBuf>,
-        selection_mask: Vec<bool>,
     }
 
     #[hegel::state_machine]
@@ -2298,17 +2293,27 @@ mod tests {
         }
 
         #[invariant(always_run)]
-        fn partial_selection_roundtrips(&self, _: hegel::TestCase) {
+        fn partial_selection_roundtrips(&self, tc: hegel::TestCase) {
             let store = self.test_repo.repo.store();
             let left_tree = &self.prev_tree;
             let right_tree = self.model.create_tree(&self.test_repo.repo);
 
-            let (changed_files, files) = make_diff(store, left_tree, &right_tree);
+            let (changed_files, mut files) = make_diff(store, left_tree, &right_tree);
 
-            let mut files = files;
             for (path, file) in changed_files.iter().zip(&mut files) {
-                for (section, selected) in file.sections.iter_mut().zip(&self.selection_mask) {
-                    section.set_checked(*selected);
+                for section in &mut file.sections {
+                    match section {
+                        scm_record::Section::Changed { lines } => {
+                            for line in lines {
+                                line.is_checked = tc.draw(generators::booleans());
+                            }
+                        }
+                        scm_record::Section::FileMode { is_checked, .. }
+                        | scm_record::Section::Binary { is_checked, .. } => {
+                            *is_checked = tc.draw(generators::booleans());
+                        }
+                        scm_record::Section::Unchanged { .. } => {}
+                    }
                 }
 
                 // Sanity checks: Does the partial selection make sense on its own?
@@ -2355,15 +2360,8 @@ mod tests {
                 }
             }
 
-            eprintln!("selected changes: {files:#?}");
-
             let selected_changes_tree =
                 apply_diff(store, left_tree, &right_tree, &changed_files, &files);
-
-            eprintln!(
-                "selected changes intermediate tree:\n{}",
-                dump_tree(&selected_changes_tree)
-            );
 
             // Transform `files` to create the complementary set of changes:
             for file in &mut files {
@@ -2432,8 +2430,6 @@ mod tests {
                 file.set_checked(true);
             }
 
-            eprintln!("remaining changes: {files:#?}");
-
             let all_changes_tree = apply_diff(
                 store,
                 &selected_changes_tree,
@@ -2444,18 +2440,13 @@ mod tests {
             assert_tree_eq!(
                 right_tree,
                 all_changes_tree,
-                "all-changes tree was different",
+                "applying the remaining changes produced a different tree: {files:#?}",
             );
         }
     }
 
     #[hegel::test]
     fn test_edit_diff_builtin_partial_selection_hegel(tc: hegel::TestCase) {
-        let selection_mask: Vec<bool> = tc.draw(
-            generators::vecs(generators::booleans())
-                .min_size(20)
-                .max_size(20),
-        );
         let test_repo = TestRepo::init();
         let model = WorkingCopyModel::default();
         let prev_tree = model.create_tree(&test_repo.repo);
@@ -2464,8 +2455,62 @@ mod tests {
             model,
             prev_tree,
             prev_file_list: BTreeSet::new(),
-            selection_mask,
         })
         .run(tc);
+    }
+
+    #[hegel::test]
+    fn test_edit_diff_builtin_partial_text_selection(tc: hegel::TestCase) {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let path = repo_path("file");
+
+        // Generate one replacement hunk with distinct old and new lines. Build the expected
+        // contents from the input lines and choices before asking the diff editor for sections.
+        let draw_selection = || tc.draw(generators::vecs(generators::booleans()).max_size(8));
+        let removed = draw_selection();
+        let added = draw_selection();
+        let mut left = String::from("start\n");
+        let mut right = left.clone();
+        let mut expected = left.clone();
+        let mut selected = BTreeSet::new();
+        for (index, checked) in removed.into_iter().enumerate() {
+            let line = format!("old {index}\n");
+            left.push_str(&line);
+            if checked {
+                selected.insert(line);
+            } else {
+                expected.push_str(&line);
+            }
+        }
+        for (index, checked) in added.into_iter().enumerate() {
+            let line = format!("new {index}\n");
+            right.push_str(&line);
+            if checked {
+                expected.push_str(&line);
+                selected.insert(line);
+            }
+        }
+        for contents in [&mut left, &mut right, &mut expected] {
+            contents.push_str("end\n");
+        }
+        let make_tree =
+            |contents: &str| testutils::create_tree(&test_repo.repo, &[(path, contents)]);
+        let left_tree = make_tree(&left);
+        let right_tree = make_tree(&right);
+        let expected_tree = make_tree(&expected);
+
+        let (changed_files, mut files) = make_diff(store, &left_tree, &right_tree);
+        for file in &mut files {
+            for section in &mut file.sections {
+                if let scm_record::Section::Changed { lines } = section {
+                    for line in lines {
+                        line.is_checked = selected.contains(line.line.as_ref());
+                    }
+                }
+            }
+        }
+        let actual_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(expected_tree, actual_tree, "selected lines: {selected:?}");
     }
 }
