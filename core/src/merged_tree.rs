@@ -307,8 +307,11 @@ impl MergedTree {
         OrderedTreeWalk::new(visitor, queue).boxed()
     }
 
-    /// Stream of the differences between this tree and another tree.
-    fn diff_internal<'matcher>(
+    /// Stream of the differences between this tree and another tree. The
+    /// matcher decides which files are in the diff. The visitor decides what
+    /// the diff does with directories: `diff()` is this with `DiffFiles`, and
+    /// `diff_with_trees()` is this with `DiffFilesAndTrees`.
+    pub fn diff_with_visitor<'matcher>(
         &self,
         other: &Self,
         matcher: &'matcher dyn Matcher,
@@ -324,7 +327,7 @@ impl MergedTree {
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        self.diff_internal(other, matcher, DiffFiles)
+        self.diff_with_visitor(other, matcher, DiffFiles)
     }
 
     /// Like `diff()` but trees with diffs themselves are also included, unless
@@ -334,7 +337,7 @@ impl MergedTree {
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        self.diff_internal(other, matcher, DiffFilesAndTrees)
+        self.diff_with_visitor(other, matcher, DiffFilesAndTrees)
     }
 
     /// Like `diff()` but files in a removed tree will be returned before
@@ -344,7 +347,8 @@ impl MergedTree {
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        DiffStreamForFileSystem::new(self.diff_internal(other, matcher, DiffFilesAndTrees)).boxed()
+        DiffStreamForFileSystem::new(self.diff_with_visitor(other, matcher, DiffFilesAndTrees))
+            .boxed()
     }
 
     /// Returns a slice of this tree filtered by the matcher. The returned tree
