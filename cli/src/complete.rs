@@ -1233,6 +1233,7 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
         config_env
             .reload_workspace_config(&ui, &mut raw_config)
             .ok();
+        config_env.reload_managed_config(&ui, &mut raw_config).ok();
     }
     let mut config = config_env.resolve_config(&raw_config)?;
     // skip 2 because of the clap_complete prelude: jj -- jj <actual args...>
@@ -1255,6 +1256,7 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
             config_env
                 .reload_workspace_config(&ui, &mut raw_config)
                 .ok();
+            config_env.reload_managed_config(&ui, &mut raw_config).ok();
             if let Ok(new_config) = config_env.resolve_config(&raw_config) {
                 config = new_config;
             }
