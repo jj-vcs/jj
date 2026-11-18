@@ -34,7 +34,8 @@ pub enum Visit {
     /// Everything in the directory is *guaranteed* to match, no need to check
     /// descendants
     AllRecursively,
-    /// Visit only the specified directories or files.
+    /// Visit only the specified directories or files. They are not guaranteed
+    /// to match or to contain matching files.
     Specific {
         /// Visit these specific directories.
         dirs: VisitDirs,
@@ -95,8 +96,14 @@ pub enum VisitFiles {
 
 /// A [`Matcher`] matches against `RepoPath`s and helps guide a traversal of a
 /// directory files.
+///
+/// `matches()` defines the set of matching files. `visit()` only helps skip
+/// directories when looking for them, so the two must agree.
 pub trait Matcher: Debug + Send + Sync {
     /// Returns true if the `file` matches the path.
+    ///
+    /// If the path is a directory, the result says nothing about the files in
+    /// it. Use `visit()` for directories.
     fn matches(&self, file: &RepoPath) -> bool;
     /// Returns a `Visit` which specifies how further traversal should commence.
     fn visit(&self, dir: &RepoPath) -> Visit;
