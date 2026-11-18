@@ -3141,6 +3141,7 @@ fn test_diff_with_trees_files_matcher_for_file() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
+    let dir_path = repo_path("m");
     let path_a = repo_path("m/a.rs");
     let path_b = repo_path("b.rs");
 
@@ -3164,12 +3165,26 @@ fn test_diff_with_trees_files_matcher_for_file() -> TestResult {
         .collect()
         .block_on();
 
-    // Verify that the diff contains exactly one item: "m/a.rs"
-    assert_eq!(diff.len(), 1);
-    assert_eq!(diff[0].0, path_a.to_owned());
+    // Verify that the diff contains exactly "m/a.rs" and the directories it's
+    // in. The matcher doesn't match the directories' own paths, but it can't
+    // rule out that files in them match.
+    assert_eq!(diff.len(), 3);
+
+    // 1. root changed (Tree -> Tree)
+    assert_eq!(diff[0].0, RepoPathBuf::root());
+    assert!(diff[0].1.0.is_tree());
+    assert!(diff[0].1.1.is_tree());
+
+    // 2. "m" changed (Tree -> Tree)
+    assert_eq!(diff[1].0, dir_path.to_owned());
+    assert!(diff[1].1.0.is_tree());
+    assert!(diff[1].1.1.is_tree());
+
+    // 3. "m/a.rs" changed (File -> File)
+    assert_eq!(diff[2].0, path_a.to_owned());
 
     // Verify that the file IDs differ due to the content change
-    let (before, after) = &diff[0].1;
+    let (before, after) = &diff[2].1;
     assert_ne!(before, after);
 
     diff_stream_sequential_equals_concurrent(&merged1, &merged2, &matcher);
@@ -3209,20 +3224,26 @@ fn test_diff_with_trees_glob_matcher_for_path() -> TestResult {
         .collect()
         .block_on();
 
-    // Verify that the diff contains exactly "m" and "m/a.rs"
-    assert_eq!(diff.len(), 2);
+    // Verify that the diff contains exactly the root, "m" and "m/a.rs"
+    assert_eq!(diff.len(), 3);
 
-    // 1. "m" changed (Tree -> Tree)
-    assert_eq!(diff[0].0, dir_path.to_owned());
+    // 1. root changed (Tree -> Tree)
+    assert_eq!(diff[0].0, RepoPathBuf::root());
     assert!(diff[0].1.0.is_tree());
     assert!(diff[0].1.1.is_tree());
     assert_ne!(diff[0].1.0, diff[0].1.1); // IDs should differ
 
-    // 2. "m/a.rs" changed (File -> File)
-    assert_eq!(diff[1].0, path_a.to_owned());
-    assert!(!diff[1].1.0.is_tree());
-    assert!(!diff[1].1.1.is_tree());
+    // 2. "m" changed (Tree -> Tree)
+    assert_eq!(diff[1].0, dir_path.to_owned());
+    assert!(diff[1].1.0.is_tree());
+    assert!(diff[1].1.1.is_tree());
     assert_ne!(diff[1].1.0, diff[1].1.1); // IDs should differ
+
+    // 3. "m/a.rs" changed (File -> File)
+    assert_eq!(diff[2].0, path_a.to_owned());
+    assert!(!diff[2].1.0.is_tree());
+    assert!(!diff[2].1.1.is_tree());
+    assert_ne!(diff[2].1.0, diff[2].1.1); // IDs should differ
 
     diff_stream_sequential_equals_concurrent(&merged1, &merged2, &matcher);
     Ok(())
@@ -3252,20 +3273,19 @@ fn test_diff_with_trees_files_matcher_for_intermediate_directory() -> TestResult
     assert!(!matcher.matches(path_a));
     assert!(!matcher.matches(path_b));
 
-    // TODO: In the current implementation we don't necessarily visit matching
-    // directories which means "m" is missed.  This could be fixed either in
-    // the matcher (if something matches, it must also be visited) or in the
-    // merged_tree.rs implementation (if something doesn't need to be visited
-    // but matches, we visit it anyway).
     let diff: Vec<_> = merged1
         .diff_with_trees(&merged2, &matcher)
         .map(diff_entry_tuple)
         .collect()
         .block_on();
 
-    // TODO Verify that the diff contains exactly "m", see above.
-    // assert_eq!(diff.len(), 1);
-    assert_eq!(diff.len(), 0);
+    // The matcher matches a file at "m", not the files in a directory at "m",
+    // so there's no entry for the directory. There's an entry for the root
+    // because a file in it could match.
+    assert_eq!(diff.len(), 1);
+    assert_eq!(diff[0].0, RepoPathBuf::root());
+    assert!(diff[0].1.0.is_tree());
+    assert!(diff[0].1.1.is_tree());
 
     diff_stream_sequential_equals_concurrent(&merged1, &merged2, &matcher);
     Ok(())
