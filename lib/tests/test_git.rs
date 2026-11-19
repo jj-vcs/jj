@@ -31,7 +31,6 @@ use std::thread;
 use gix::remote::Direction;
 use itertools::Itertools as _;
 use jj_core::backend::BackendError;
-use jj_core::backend::BackendInitError;
 use jj_core::backend::ChangeId;
 use jj_core::backend::CommitId;
 use jj_core::backend::MillisSinceEpoch;
@@ -60,6 +59,7 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::default_backend_factories::default_store_initializers;
 use jj_lib::default_backend_factories::default_working_copy_factory;
+use jj_lib::default_backend_factories::git_backend_initializer;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitFetch;
@@ -185,13 +185,9 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
     let repo_dir = test_repo.env.root().join(name);
     fs::create_dir(&repo_dir)?;
     let store_initializers = StoreInitializers {
-        backend: &|settings, store_path| {
-            let git_settings = settings
-                .git_backend_settings()
-                .map_err(BackendInitError::new)?;
-            let backend = GitBackend::init_external(&git_settings, store_path, git_repo_path)?;
-            Ok(Box::new(backend))
-        },
+        backend: &git_backend_initializer(|git_settings, store_path| {
+            GitBackend::init_external(git_settings, store_path, git_repo_path)
+        }),
         ..default_store_initializers()
     };
     let repo = store_initializers
@@ -2434,17 +2430,11 @@ impl GitRepoData {
             testutils::git::clone(&git_repo_dir, origin_repo_dir.to_str().unwrap(), None);
         let jj_repo_dir = temp_dir.path().join("jj");
         std::fs::create_dir(&jj_repo_dir).unwrap();
+        let git_repo_path = git_repo.path().to_owned();
         let store_initializers = StoreInitializers {
-            backend: &|settings, store_path| {
-                let git_settings = settings
-                    .git_backend_settings()
-                    .map_err(BackendInitError::new)?;
-                Ok(Box::new(GitBackend::init_external(
-                    &git_settings,
-                    store_path,
-                    git_repo.path(),
-                )?))
-            },
+            backend: &git_backend_initializer(|git_settings, store_path| {
+                GitBackend::init_external(git_settings, store_path, &git_repo_path)
+            }),
             ..default_store_initializers()
         };
         let repo = store_initializers
@@ -4373,16 +4363,9 @@ fn test_init() -> TestResult {
     let initial_git_commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     std::fs::create_dir(&jj_repo_dir)?;
     let store_initializers = StoreInitializers {
-        backend: &|settings, store_path| {
-            let git_settings = settings
-                .git_backend_settings()
-                .map_err(BackendInitError::new)?;
-            Ok(Box::new(GitBackend::init_external(
-                &git_settings,
-                store_path,
-                git_repo.path(),
-            )?))
-        },
+        backend: &git_backend_initializer(|git_settings, store_path| {
+            GitBackend::init_external(git_settings, store_path, git_repo.path())
+        }),
         ..default_store_initializers()
     };
     let repo = &store_initializers
@@ -5493,16 +5476,9 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         testutils::git::clone(&clone_repo_dir, source_repo_dir.to_str().unwrap(), None);
     std::fs::create_dir(&jj_repo_dir).unwrap();
     let store_initializers = StoreInitializers {
-        backend: &|settings, store_path| {
-            let git_settings = settings
-                .git_backend_settings()
-                .map_err(BackendInitError::new)?;
-            Ok(Box::new(GitBackend::init_external(
-                &git_settings,
-                store_path,
-                clone_repo.path(),
-            )?))
-        },
+        backend: &git_backend_initializer(|git_settings, store_path| {
+            GitBackend::init_external(git_settings, store_path, clone_repo.path())
+        }),
         ..default_store_initializers()
     };
     let jj_repo = store_initializers
