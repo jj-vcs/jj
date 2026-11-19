@@ -147,7 +147,7 @@ pub struct CommitTemplateLanguage<'repo> {
     id_prefix_context: &'repo IdPrefixContext,
     immutable_expression: Arc<UserRevsetExpression>,
     conflict_marker_style: ConflictMarkerStyle,
-    type_registry: TemplateTypeRegistry,
+    type_registry: Rc<TemplateTypeRegistry>,
     symbol_table: TemplateSymbolTable<'repo, Self>,
     keyword_cache: CommitKeywordCache,
     cache_extensions: ExtensionsMap,
@@ -189,7 +189,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
             id_prefix_context,
             immutable_expression,
             conflict_marker_style,
-            type_registry,
+            type_registry: Rc::new(type_registry),
             symbol_table,
             keyword_cache: CommitKeywordCache::default(),
             cache_extensions,
@@ -222,7 +222,7 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
         cwd
     }
 
-    fn type_registry(&self) -> &TemplateTypeRegistry {
+    fn type_registry(&self) -> &Rc<TemplateTypeRegistry> {
         &self.type_registry
     }
 
