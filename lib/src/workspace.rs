@@ -62,7 +62,6 @@ use crate::store_factories::StoreInitializers;
 use crate::store_factories::StoreLoadError;
 use crate::store_factories::SubmoduleStoreInitializer;
 use crate::store_factories::WorkspaceStoreInitializer;
-use crate::store_factories::init_repo;
 use crate::store_factories::read_store_type;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
@@ -290,8 +289,8 @@ impl Workspace {
                                    store_path: &Path|
          -> Result<Box<dyn jj_core::backend::Backend>, _> {
             // TODO: Clean up path normalization. store_path is canonicalized by
-            // init_repo(). workspace_root will be canonicalized by
-            // Workspace::new(), but it's not yet here.
+            // `StoreInitializers::init_repo()`. workspace_root will be
+            // canonicalized by `Workspace::new()`, but it's not yet here.
             let store_relative_workspace_root =
                 if let Ok(workspace_root) = file_util::canonicalize(workspace_root) {
                     file_util::relative_path(store_path, &workspace_root)
@@ -337,8 +336,8 @@ impl Workspace {
             // If the git repo is inside the workspace, use a relative path to it so the
             // whole workspace can be moved without breaking.
             // TODO: Clean up path normalization. store_path is canonicalized by
-            // init_repo(). workspace_root will be canonicalized by
-            // Workspace::new(), but it's not yet here.
+            // `StoreInitializers::init_repo()`. workspace_root will be
+            // canonicalized by `Workspace::new()`, but it's not yet here.
             let store_relative_git_repo_path = match (
                 file_util::canonicalize(workspace_root),
                 jj_git_backend::git_backend::canonicalize_git_repo_path(git_repo_path),
@@ -399,7 +398,8 @@ impl Workspace {
                 index_store: index_store_initializer,
                 submodule_store: submodule_store_initializer,
             };
-            let repo = init_repo(user_settings, &repo_dir, &store_initializers, signer)
+            let repo = store_initializers
+                .init_repo(user_settings, &repo_dir, signer)
                 .await
                 .map_err(|repo_init_err| match repo_init_err {
                     RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
