@@ -24,10 +24,12 @@ use crate::default_submodule_store::DefaultSubmoduleStore;
 use crate::local_working_copy::LocalWorkingCopy;
 use crate::local_working_copy::LocalWorkingCopyFactory;
 use crate::simple_workspace_store::SimpleWorkspaceStore;
+use crate::store_factories::BackendInitializer;
 use crate::store_factories::IndexStoreInitializer;
 use crate::store_factories::OpHeadsStoreInitializer;
 use crate::store_factories::OpStoreInitializer;
 use crate::store_factories::StoreFactories;
+use crate::store_factories::StoreInitializers;
 use crate::store_factories::SubmoduleStoreInitializer;
 use crate::store_factories::WorkspaceStoreInitializer;
 use crate::working_copy::WorkingCopyFactory;
@@ -103,6 +105,23 @@ pub fn default_backend_factories() -> StoreFactories {
     );
 
     factories
+}
+
+/// Returns the default store initializers.
+pub fn default_store_initializers() -> StoreInitializers<'static> {
+    StoreInitializers {
+        backend: default_backend_initializer(),
+        workspace_store: default_workspace_store_initializer(),
+        op_store: default_op_store_initializer(),
+        op_heads_store: default_op_heads_store_initializer(),
+        index_store: default_index_store_initializer(),
+        submodule_store: default_submodule_store_initializer(),
+    }
+}
+
+/// Returns the initializer for the default backend.
+pub fn default_backend_initializer() -> &'static BackendInitializer<'static> {
+    &|_settings, store_path| Ok(Box::new(SimpleBackend::init(store_path)))
 }
 
 /// Returns the initializer for the default workspace store.

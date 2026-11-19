@@ -35,9 +35,9 @@ use jj_local_util::file_util;
 use jj_local_util::file_util::BadPathEncoding;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
-use jj_simple_stores::simple_backend::SimpleBackend;
 use thiserror::Error;
 
+use crate::default_backend_factories::default_backend_initializer;
 use crate::default_backend_factories::default_index_store_initializer;
 use crate::default_backend_factories::default_op_heads_store_initializer;
 use crate::default_backend_factories::default_op_store_initializer;
@@ -225,20 +225,19 @@ impl Workspace {
         }
     }
 
-    /// Initializes a workspace with a new repo using the [`SimpleBackend`].
+    /// Initializes a workspace with a new repo using the
+    /// [`SimpleBackend`](jj_simple_stores::simple_backend::SimpleBackend).
     pub async fn init_simple(
         user_settings: &UserSettings,
         workspace_root: &Path,
         workspace_name: &WorkspaceName,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
-        let backend_initializer: &BackendInitializer =
-            &|_settings, store_path| Ok(Box::new(SimpleBackend::init(store_path)));
         let signer = signer_from_settings(user_settings)?;
         Self::init_with_backend(
             user_settings,
             workspace_root,
             workspace_name,
-            backend_initializer,
+            default_backend_initializer(),
             signer,
         )
         .await
