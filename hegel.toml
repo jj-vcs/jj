@@ -1,0 +1,8 @@
+# Skip shrinking for one run to get a failure report with a reproducer.
+# HEGEL_PHASES=explicit,reuse,generate,target cargo test
+
+[profiles.development]
+test_cases = 256
+
+[profiles.ci]
+test_cases = 256
