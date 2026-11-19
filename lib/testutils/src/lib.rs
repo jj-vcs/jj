@@ -63,13 +63,9 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::default_backend_factories::default_backend_factories;
-use jj_lib::default_backend_factories::default_index_store_initializer;
-use jj_lib::default_backend_factories::default_op_heads_store_initializer;
-use jj_lib::default_backend_factories::default_op_store_initializer;
-use jj_lib::default_backend_factories::default_submodule_store_initializer;
+use jj_lib::default_backend_factories::default_store_initializers;
 use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_workspace_loader_factory;
-use jj_lib::default_backend_factories::default_workspace_store_initializer;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
@@ -355,11 +351,7 @@ impl TestRepo {
 
         let store_initializers = StoreInitializers {
             backend: &|settings, store_path| backend.init_backend(&env, settings, store_path),
-            workspace_store: default_workspace_store_initializer(),
-            op_store: default_op_store_initializer(),
-            op_heads_store: default_op_heads_store_initializer(),
-            index_store: default_index_store_initializer(),
-            submodule_store: default_submodule_store_initializer(),
+            ..default_store_initializers()
         };
         let repo = store_initializers
             .init_repo(settings, &repo_dir, signer_from_settings(settings).unwrap())

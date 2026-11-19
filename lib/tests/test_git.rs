@@ -58,12 +58,8 @@ use jj_git_backend::git_backend::GitBackend;
 use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
-use jj_lib::default_backend_factories::default_index_store_initializer;
-use jj_lib::default_backend_factories::default_op_heads_store_initializer;
-use jj_lib::default_backend_factories::default_op_store_initializer;
-use jj_lib::default_backend_factories::default_submodule_store_initializer;
+use jj_lib::default_backend_factories::default_store_initializers;
 use jj_lib::default_backend_factories::default_working_copy_factory;
-use jj_lib::default_backend_factories::default_workspace_store_initializer;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitFetch;
@@ -196,11 +192,7 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
             let backend = GitBackend::init_external(&git_settings, store_path, git_repo_path)?;
             Ok(Box::new(backend))
         },
-        workspace_store: default_workspace_store_initializer(),
-        op_store: default_op_store_initializer(),
-        op_heads_store: default_op_heads_store_initializer(),
-        index_store: default_index_store_initializer(),
-        submodule_store: default_submodule_store_initializer(),
+        ..default_store_initializers()
     };
     let repo = store_initializers
         .init_repo(settings, &repo_dir, signer_from_settings(settings).unwrap())
@@ -2453,11 +2445,7 @@ impl GitRepoData {
                     git_repo.path(),
                 )?))
             },
-            workspace_store: default_workspace_store_initializer(),
-            op_store: default_op_store_initializer(),
-            op_heads_store: default_op_heads_store_initializer(),
-            index_store: default_index_store_initializer(),
-            submodule_store: default_submodule_store_initializer(),
+            ..default_store_initializers()
         };
         let repo = store_initializers
             .init_repo(
@@ -4395,11 +4383,7 @@ fn test_init() -> TestResult {
                 git_repo.path(),
             )?))
         },
-        workspace_store: default_workspace_store_initializer(),
-        op_store: default_op_store_initializer(),
-        op_heads_store: default_op_heads_store_initializer(),
-        index_store: default_index_store_initializer(),
-        submodule_store: default_submodule_store_initializer(),
+        ..default_store_initializers()
     };
     let repo = &store_initializers
         .init_repo(&settings, &jj_repo_dir, signer_from_settings(&settings)?)
@@ -5519,11 +5503,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
                 clone_repo.path(),
             )?))
         },
-        workspace_store: default_workspace_store_initializer(),
-        op_store: default_op_store_initializer(),
-        op_heads_store: default_op_heads_store_initializer(),
-        index_store: default_index_store_initializer(),
-        submodule_store: default_submodule_store_initializer(),
+        ..default_store_initializers()
     };
     let jj_repo = store_initializers
         .init_repo(
