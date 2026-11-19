@@ -58,6 +58,53 @@ pub enum TemplateValueType {
     Option(TypeId),
 }
 
+/// Describes concrete value types or abstract type capabilities.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum TemplateValueTypeSpec {
+    Type(TemplateValueType),
+    Any(AnyTemplateTypeOps),
+}
+
+impl TemplateValueTypeSpec {
+    pub fn and(self, other: Self, registry: &TemplateTypeRegistry) -> Self {
+        match (self, other) {
+            // TODO: Allow T/Option<T> combination?
+            (Self::Type(lty), Self::Type(rty)) if lty == rty => Self::Type(lty),
+            (lspec, rspec) => {
+                let lops = lspec.to_any_ops(registry);
+                let rops = rspec.to_any_ops(registry);
+                Self::Any(AnyTemplateTypeOps {
+                    serialize: lops.serialize && rops.serialize,
+                    template: lops.template && rops.template,
+                })
+            }
+        }
+    }
+
+    pub fn to_any_ops(&self, registry: &TemplateTypeRegistry) -> AnyTemplateTypeOps {
+        match self {
+            Self::Type(ty) => AnyTemplateTypeOps::new(ty, registry),
+            Self::Any(ops) => *ops,
+        }
+    }
+}
+
+/// Operations supported by the underlying value types.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct AnyTemplateTypeOps {
+    pub serialize: bool,
+    pub template: bool,
+}
+
+impl AnyTemplateTypeOps {
+    fn new(ty: &TemplateValueType, registry: &TemplateTypeRegistry) -> Self {
+        Self {
+            serialize: registry.get_to_serialize_fn(ty).is_some(),
+            template: registry.get_to_template_fn(ty).is_some(),
+        }
+    }
+}
+
 /// Type-erased template runtime value.
 ///
 /// For types supporting `Option<T>`, `T` and `Some(T)` share a representation

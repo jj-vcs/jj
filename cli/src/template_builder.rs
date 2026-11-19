@@ -57,6 +57,7 @@ use crate::template_value::TemplateValue;
 use crate::template_value::TemplateValueExtractionError;
 use crate::template_value::TemplateValueRepr;
 use crate::template_value::TemplateValueType;
+use crate::template_value::TemplateValueTypeSpec;
 use crate::templater::AnyTemplateProperty;
 use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
@@ -127,96 +128,138 @@ impl NoTemplateBooleanCast for Timestamp {}
 impl NoTemplateBooleanCast for TimestampRange {}
 
 pub struct ValueProperty<'a> {
-    ty: TemplateValueType,
+    ty_spec: TemplateValueTypeSpec,
     property: BoxedTemplateProperty<'a, TemplateValueRepr>,
 }
 
 impl<'a> ValueProperty<'a> {
     fn new<O: TemplateValue>(property: impl TemplateProperty<Output = O> + 'a) -> Self {
         ValueProperty {
-            ty: O::value_type(),
+            ty_spec: TemplateValueTypeSpec::Type(O::value_type()),
             property: property.map(O::into_repr).into_dyn(),
         }
     }
 
     fn type_name(&self, registry: &TemplateTypeRegistry) -> &'static str {
-        registry.get_type_name(&self.ty).expect("registered type")
+        match &self.ty_spec {
+            TemplateValueTypeSpec::Type(ty) => registry.get_type_name(ty).expect("registered type"),
+            TemplateValueTypeSpec::Any(_) => "Any",
+        }
     }
 
     fn try_into_byte_string(
         self,
         registry: &TemplateTypeRegistry,
     ) -> Result<BoxedTemplateProperty<'a, BString>, Self> {
-        let Self { ty, property } = self;
-        try_unwrap_value_property_or_default::<BString>(&ty, property, registry)
-            .map_err(|property| Self { ty, property })
+        let Self { ty_spec, property } = self;
+        try_unwrap_value_property_or_default::<BString>(&ty_spec, property, registry)
+            .map_err(|property| Self { ty_spec, property })
     }
 
     fn try_into_string(
         self,
         registry: &TemplateTypeRegistry,
     ) -> Result<BoxedTemplateProperty<'a, String>, Self> {
-        let Self { ty, property } = self;
-        try_unwrap_value_property_or_default::<String>(&ty, property, registry)
-            .map_err(|property| Self { ty, property })
+        let Self { ty_spec, property } = self;
+        try_unwrap_value_property_or_default::<String>(&ty_spec, property, registry)
+            .map_err(|property| Self { ty_spec, property })
     }
 
     fn try_into_boolean(
         self,
         registry: &Rc<TemplateTypeRegistry>,
     ) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
-        let Some(cast) = registry.get_to_condition_fn(&self.ty) else {
-            return Err(self);
-        };
-        let out_property = self
-            .property
-            .map(move |repr| cast(repr).expect("valid type"));
-        Ok(out_property.into_dyn())
+        match &self.ty_spec {
+            TemplateValueTypeSpec::Type(ty)
+                if let Some(cast) = registry.get_to_condition_fn(ty) =>
+            {
+                let out_property = self
+                    .property
+                    .map(move |repr| cast(repr).expect("valid type"));
+                Ok(out_property.into_dyn())
+            }
+            _ => Err(self),
+        }
     }
 
     fn try_into_integer(
         self,
         registry: &TemplateTypeRegistry,
     ) -> Result<BoxedTemplateProperty<'a, i64>, Self> {
-        let Self { ty, property } = self;
-        try_unwrap_value_property::<i64>(&ty, property, registry)
-            .map_err(|property| Self { ty, property })
+        let Self { ty_spec, property } = self;
+        try_unwrap_value_property::<i64>(&ty_spec, property, registry)
+            .map_err(|property| Self { ty_spec, property })
     }
 
     fn try_into_timestamp(
         self,
         registry: &TemplateTypeRegistry,
     ) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self> {
-        let Self { ty, property } = self;
-        try_unwrap_value_property::<Timestamp>(&ty, property, registry)
-            .map_err(|property| Self { ty, property })
+        let Self { ty_spec, property } = self;
+        try_unwrap_value_property::<Timestamp>(&ty_spec, property, registry)
+            .map_err(|property| Self { ty_spec, property })
     }
 
     fn try_into_serialize(
         self,
         registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<BoxedSerializeProperty<'a>> {
-        let cast = registry.get_to_serialize_fn(&self.ty)?;
-        let out_property = self
-            .property
-            .map(move |repr| cast(repr).expect("valid type"));
-        Some(out_property.into_dyn())
+        match &self.ty_spec {
+            TemplateValueTypeSpec::Type(ty) => {
+                let cast = registry.get_to_serialize_fn(ty)?;
+                let out_property = self
+                    .property
+                    .map(move |repr| cast(repr).expect("valid type"));
+                Some(out_property.into_dyn())
+            }
+            TemplateValueTypeSpec::Any(ops) if ops.serialize => {
+                let registry = registry.clone();
+                let out_property = self.property.map(move |repr| {
+                    let ty = repr.actual_value_type();
+                    let cast = try_this_or_scalar_ty(&ty, |ty| registry.get_to_serialize_fn(ty))
+                        .expect("supported type");
+                    cast(repr).expect("valid type")
+                });
+                Some(out_property.into_dyn())
+            }
+            TemplateValueTypeSpec::Any(_) => None,
+        }
     }
 
     fn try_into_template(
         self,
         registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<Box<dyn Template + 'a>> {
-        let cast = registry.get_to_template_fn(&self.ty)?;
-        let out_property = self.property.map(move |repr| {
-            let labeled = repr.flatten_labels();
-            let template = cast(labeled.repr).expect("valid type");
-            match &labeled.labels[..] {
-                &[] => template,
-                _ => Box::new(LabelTemplate::new(template, Literal(labeled.labels))),
+        match &self.ty_spec {
+            TemplateValueTypeSpec::Type(ty) => {
+                let cast = registry.get_to_template_fn(ty)?;
+                let out_property = self.property.map(move |repr| {
+                    let labeled = repr.flatten_labels();
+                    let template = cast(labeled.repr).expect("valid type");
+                    match &labeled.labels[..] {
+                        &[] => template,
+                        _ => Box::new(LabelTemplate::new(template, Literal(labeled.labels))),
+                    }
+                });
+                Some(out_property.into_template())
             }
-        });
-        Some(out_property.into_template())
+            TemplateValueTypeSpec::Any(ops) if ops.template => {
+                let registry = registry.clone();
+                let out_property = self.property.map(move |repr| {
+                    let labeled = repr.flatten_labels();
+                    let ty = labeled.repr.actual_value_type();
+                    let cast = try_this_or_scalar_ty(&ty, |ty| registry.get_to_template_fn(ty))
+                        .expect("supported type");
+                    let template = cast(labeled.repr).expect("valid type");
+                    match &labeled.labels[..] {
+                        &[] => template,
+                        _ => Box::new(LabelTemplate::new(template, Literal(labeled.labels))),
+                    }
+                });
+                Some(out_property.into_template())
+            }
+            TemplateValueTypeSpec::Any(_) => None,
+        }
     }
 
     fn try_into_eq(
@@ -227,11 +270,11 @@ impl<'a> ValueProperty<'a> {
         match (self, other) {
             (
                 Self {
-                    ty: lty,
+                    ty_spec: TemplateValueTypeSpec::Type(lty),
                     property: lhs,
                 },
                 Self {
-                    ty: rty,
+                    ty_spec: TemplateValueTypeSpec::Type(rty),
                     property: rhs,
                 },
             ) if let Some(eq) = registry.get_eq_fn(&lty, &rty) => {
@@ -244,11 +287,11 @@ impl<'a> ValueProperty<'a> {
             // different types wrapped in Option.
             (
                 Self {
-                    ty: lty @ TemplateValueType::Scalar(_),
+                    ty_spec: TemplateValueTypeSpec::Type(lty @ TemplateValueType::Scalar(_)),
                     property: lhs,
                 },
                 Self {
-                    ty: TemplateValueType::Option(rid),
+                    ty_spec: TemplateValueTypeSpec::Type(TemplateValueType::Option(rid)),
                     property: rhs,
                 },
             ) if let Some(eq) = registry.get_eq_fn(&lty, &TemplateValueType::Scalar(rid)) => {
@@ -257,11 +300,11 @@ impl<'a> ValueProperty<'a> {
             }
             (
                 Self {
-                    ty: TemplateValueType::Option(lid),
+                    ty_spec: TemplateValueTypeSpec::Type(TemplateValueType::Option(lid)),
                     property: lhs,
                 },
                 Self {
-                    ty: rty @ TemplateValueType::Scalar(_),
+                    ty_spec: TemplateValueTypeSpec::Type(rty @ TemplateValueType::Scalar(_)),
                     property: rhs,
                 },
             ) if let Some(eq) = registry.get_eq_fn(&TemplateValueType::Scalar(lid), &rty) => {
@@ -280,11 +323,11 @@ impl<'a> ValueProperty<'a> {
         match (self, other) {
             (
                 Self {
-                    ty: lty,
+                    ty_spec: TemplateValueTypeSpec::Type(lty),
                     property: lhs,
                 },
                 Self {
-                    ty: rty,
+                    ty_spec: TemplateValueTypeSpec::Type(rty),
                     property: rhs,
                 },
             ) if let Some(cmp) = registry.get_cmp_fn(&lty, &rty) => {
@@ -295,11 +338,11 @@ impl<'a> ValueProperty<'a> {
             // for now since we only support total ordering.
             (
                 Self {
-                    ty: TemplateValueType::Scalar(lid),
+                    ty_spec: TemplateValueTypeSpec::Type(TemplateValueType::Scalar(lid)),
                     property: lhs,
                 },
                 Self {
-                    ty: rty @ TemplateValueType::Option(_),
+                    ty_spec: TemplateValueTypeSpec::Type(rty @ TemplateValueType::Option(_)),
                     property: rhs,
                 },
             ) if let Some(cmp) = registry.get_cmp_fn(&TemplateValueType::Option(lid), &rty) => {
@@ -308,11 +351,11 @@ impl<'a> ValueProperty<'a> {
             }
             (
                 Self {
-                    ty: lty @ TemplateValueType::Option(_),
+                    ty_spec: TemplateValueTypeSpec::Type(lty @ TemplateValueType::Option(_)),
                     property: lhs,
                 },
                 Self {
-                    ty: TemplateValueType::Scalar(rid),
+                    ty_spec: TemplateValueTypeSpec::Type(TemplateValueType::Scalar(rid)),
                     property: rhs,
                 },
             ) if let Some(cmp) = registry.get_cmp_fn(&lty, &TemplateValueType::Option(rid)) => {
@@ -698,11 +741,11 @@ fn cast_value_property<'a, T: TemplateValue>(
 /// Coerces a type-erased property of type `ty` to `T` if its inner type
 /// matches.
 fn try_unwrap_value_property<'a, T: TemplateValue>(
-    ty: &TemplateValueType,
+    ty_spec: &TemplateValueTypeSpec,
     property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     registry: &TemplateTypeRegistry,
 ) -> Result<BoxedTemplateProperty<'a, T>, BoxedTemplateProperty<'a, TemplateValueRepr>> {
-    try_unwrap_value_property_with(ty, property, registry, reject_missing_value)
+    try_unwrap_value_property_with(ty_spec, property, registry, reject_missing_value)
 }
 
 /// Coerces a type-erased property of type `ty` to `T` if its inner type
@@ -710,15 +753,17 @@ fn try_unwrap_value_property<'a, T: TemplateValue>(
 ///
 /// For example, a `None` value of a string newtype can be converted to `""`.
 fn try_unwrap_value_property_or_default<'a, T: Default + TemplateValue>(
-    ty: &TemplateValueType,
+    ty_spec: &TemplateValueTypeSpec,
     property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     registry: &TemplateTypeRegistry,
 ) -> Result<BoxedTemplateProperty<'a, T>, BoxedTemplateProperty<'a, TemplateValueRepr>> {
-    try_unwrap_value_property_with(ty, property, registry, |r, _| Ok(ignore_missing_value(r)))
+    try_unwrap_value_property_with(ty_spec, property, registry, |r, _| {
+        Ok(ignore_missing_value(r))
+    })
 }
 
 fn try_unwrap_value_property_with<'a, T, F>(
-    ty: &TemplateValueType,
+    ty_spec: &TemplateValueTypeSpec,
     property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     registry: &TemplateTypeRegistry,
     process: F,
@@ -727,6 +772,10 @@ where
     T: TemplateValue,
     F: Fn(Result<T, TemplateValueExtractionError>, &str) -> Result<T, TemplatePropertyError> + 'a,
 {
+    let ty = match ty_spec {
+        TemplateValueTypeSpec::Type(ty) => ty,
+        TemplateValueTypeSpec::Any(_) => return Err(property),
+    };
     let unwrapped_ty = match ty {
         TemplateValueType::Scalar(_) => ty,
         TemplateValueType::Option(id) => &TemplateValueType::Scalar(*id),
@@ -767,6 +816,20 @@ fn ignore_missing_value<T: Default>(result: Result<T, TemplateValueExtractionErr
             panic!("unexpected type: {ty:?}")
         }
         TemplateValueExtractionError::MissingValue => T::default(),
+    })
+}
+
+/// Looks up an operation for the runtime type, falling back to the scalar type.
+///
+/// See [`TemplateValueRepr::actual_value_type()`] for why a scalar value can
+/// have an optional runtime type.
+fn try_this_or_scalar_ty<T>(
+    ty: &TemplateValueType,
+    f: impl Fn(&TemplateValueType) -> Option<T>,
+) -> Option<T> {
+    f(ty).or_else(|| match ty {
+        TemplateValueType::Scalar(_) => None,
+        TemplateValueType::Option(id) => f(&TemplateValueType::Scalar(*id)),
     })
 }
 
@@ -848,9 +911,21 @@ where
     ) -> TemplateParseResult<TemplatePropertyKind<'a>> {
         let type_name = property.type_name(language.type_registry());
         match property {
-            TemplatePropertyKind::Value(ValueProperty { ty, property }) => {
-                self.build_value_method(language, diagnostics, build_ctx, ty, property, function)
-            }
+            TemplatePropertyKind::Value(ValueProperty {
+                ty_spec: TemplateValueTypeSpec::Type(ty),
+                property,
+            }) => self.build_value_method(language, diagnostics, build_ctx, ty, property, function),
+            TemplatePropertyKind::Value(ValueProperty {
+                ty_spec: TemplateValueTypeSpec::Any(_),
+                ..
+            }) => Err(TemplateParseError::with_span(
+                TemplateParseErrorKind::NoSuchMethod {
+                    type_name: type_name.to_owned(),
+                    name: function.name.to_owned(),
+                    candidates: vec![],
+                },
+                function.name_span,
+            )),
             TemplatePropertyKind::Template(template) => {
                 let table = &self.template_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -3408,7 +3483,7 @@ mod tests {
                     name,
                     move |_language, _diagnostics, _build_ctx, self_property, function| {
                         function.expect_no_arguments()?;
-                        let ty = ty.clone();
+                        let ty_spec = TemplateValueTypeSpec::Type(ty.clone());
                         let property = match value.clone() {
                             TestKeywordValue::Static(repr) => Literal(repr).into_dyn(),
                             TestKeywordValue::Dynamic(repr) => {
@@ -3420,7 +3495,8 @@ mod tests {
                                 })
                                 .into_dyn(),
                         };
-                        Ok(TemplatePropertyKind::Value(ValueProperty { ty, property }))
+                        let value = ValueProperty { ty_spec, property };
+                        Ok(TemplatePropertyKind::Value(value))
                     },
                 );
             }
@@ -5736,6 +5812,9 @@ mod tests {
         // Any is serializable if the inner types are.
         insta::assert_snapshot!(env.render_ok(r#"json(if(true, email, timestamp))"#), @r#""foo@bar""#);
         insta::assert_snapshot!(env.render_ok(r#"json(if(true, size_hint, config_value_table))"#), @"[5,null]");
+        // Any Option is serializable as well.
+        insta::assert_snapshot!(env.render_ok("json(if(true, some_cfgval, none_fs_path))"), @"1");
+        insta::assert_snapshot!(env.render_ok("json(if(false, some_cfgval, none_fs_path))"), @"null");
 
         // The else case missing does prevents the resulting Any expression
         // from being serializable.
