@@ -19,6 +19,9 @@ again. In other words, the Google CLA is not scoped to a specific project. If
 you sign the Google CLA, it applies to other Google open-source projects as
 well (including future projects).
 
+The `cla/google` check on pull requests requires CLA coverage for every commit
+author and every person listed in a `Co-authored-by` trailer.
+
 {% include-markdown '../AI_POLICY.md' heading-offset=2 %}
 
 ### Paid contributors
