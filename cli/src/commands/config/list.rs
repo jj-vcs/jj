@@ -14,6 +14,7 @@
 
 use std::path::Path;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::config::ConfigNamePathBuf;
@@ -131,7 +132,7 @@ pub async fn cmd_config_list(
 struct ConfigTemplateLanguage {
     settings: UserSettings,
     current_dir: PathBuf,
-    type_registry: TemplateTypeRegistry,
+    type_registry: Rc<TemplateTypeRegistry>,
     symbol_table: TemplateSymbolTable<'static, Self>,
 }
 
@@ -146,7 +147,7 @@ impl ConfigTemplateLanguage {
         Self {
             settings: settings.clone(),
             current_dir: current_dir.to_owned(),
-            type_registry,
+            type_registry: Rc::new(type_registry),
             symbol_table,
         }
     }
@@ -161,7 +162,7 @@ impl TemplateLanguage<'static> for ConfigTemplateLanguage {
         &self.current_dir
     }
 
-    fn type_registry(&self) -> &TemplateTypeRegistry {
+    fn type_registry(&self) -> &Rc<TemplateTypeRegistry> {
         &self.type_registry
     }
 

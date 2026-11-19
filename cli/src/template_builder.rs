@@ -20,6 +20,7 @@ use std::iter;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use bstr::BString;
 use bstr::ByteSlice as _;
@@ -103,7 +104,7 @@ pub trait TemplateLanguage<'a> {
     /// Returns the working directory for filesystem path template methods.
     fn current_dir(&self) -> &Path;
 
-    fn type_registry(&self) -> &TemplateTypeRegistry;
+    fn type_registry(&self) -> &Rc<TemplateTypeRegistry>;
     fn symbol_table(&self) -> &TemplateSymbolTable<'a, Self>;
 }
 
@@ -162,7 +163,7 @@ impl<'a> ValueProperty<'a> {
 
     fn try_into_boolean(
         self,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
         let Some(cast) = registry.get_to_condition_fn(&self.ty) else {
             return Err(self);
@@ -193,7 +194,7 @@ impl<'a> ValueProperty<'a> {
 
     fn try_into_serialize(
         self,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<BoxedSerializeProperty<'a>> {
         let cast = registry.get_to_serialize_fn(&self.ty)?;
         let out_property = self
@@ -202,7 +203,10 @@ impl<'a> ValueProperty<'a> {
         Some(out_property.into_dyn())
     }
 
-    fn try_into_template(self, registry: &TemplateTypeRegistry) -> Option<Box<dyn Template + 'a>> {
+    fn try_into_template(
+        self,
+        registry: &Rc<TemplateTypeRegistry>,
+    ) -> Option<Box<dyn Template + 'a>> {
         let cast = registry.get_to_template_fn(&self.ty)?;
         let out_property = self.property.map(move |repr| {
             let labeled = repr.flatten_labels();
@@ -391,7 +395,7 @@ impl<'a> TemplatePropertyKind<'a> {
 
     fn try_into_boolean(
         self,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
         match self {
             Self::Value(value) => value.try_into_boolean(registry).map_err(Self::Value),
@@ -426,7 +430,7 @@ impl<'a> TemplatePropertyKind<'a> {
 
     fn try_into_serialize(
         self,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<BoxedSerializeProperty<'a>> {
         match self {
             Self::Value(value) => value.try_into_serialize(registry),
@@ -436,7 +440,10 @@ impl<'a> TemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_template(self, registry: &TemplateTypeRegistry) -> Option<Box<dyn Template + 'a>> {
+    fn try_into_template(
+        self,
+        registry: &Rc<TemplateTypeRegistry>,
+    ) -> Option<Box<dyn Template + 'a>> {
         match self {
             Self::Value(value) => value.try_into_template(registry),
             Self::Template(template) => Some(template),
@@ -982,7 +989,7 @@ impl<'a> Expression<'a> {
     // TODO: rename try_into_boolean() because it isn't a pure extraction fn?
     pub fn try_into_boolean(
         self,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<BoxedTemplateProperty<'a, bool>> {
         self.property.try_into_boolean(registry).ok()
     }
@@ -1005,7 +1012,7 @@ impl<'a> Expression<'a> {
     /// needed.
     pub fn try_into_byte_stringify(
         self,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<BoxedTemplateProperty<'a, BString>> {
         let property = match self.property.try_into_byte_string(registry) {
             Ok(bytes_property) => return Some(bytes_property),
@@ -1022,7 +1029,7 @@ impl<'a> Expression<'a> {
     /// Transforms into a string property by formatting the value if needed.
     pub fn try_into_stringify(
         self,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<BoxedTemplateProperty<'a, String>> {
         let from_bytes =
             |s: BString| Ok(String::from_utf8(s.into()).map_err(|err| err.utf8_error())?);
@@ -1044,14 +1051,14 @@ impl<'a> Expression<'a> {
 
     pub fn try_into_serialize(
         self,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<BoxedSerializeProperty<'a>> {
         self.property.try_into_serialize(registry)
     }
 
     pub fn try_into_template(
         self,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<Box<dyn Template + 'a>> {
         let template = self.property.try_into_template(registry)?;
         if self.labels.is_empty() {
@@ -1082,14 +1089,14 @@ impl<'a> Expression<'a> {
 impl<'a> AnyTemplateProperty<'a> for Expression<'a> {
     fn try_into_serialize(
         self: Box<Self>,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<BoxedSerializeProperty<'a>> {
         (*self).try_into_serialize(registry)
     }
 
     fn try_into_template(
         self: Box<Self>,
-        registry: &TemplateTypeRegistry,
+        registry: &Rc<TemplateTypeRegistry>,
     ) -> Option<Box<dyn Template + 'a>> {
         (*self).try_into_template(registry)
     }
@@ -1097,7 +1104,7 @@ impl<'a> AnyTemplateProperty<'a> for Expression<'a> {
     fn try_join(
         self: Box<Self>,
         _: Box<dyn Template + 'a>,
-        _: &TemplateTypeRegistry,
+        _: &Rc<TemplateTypeRegistry>,
     ) -> Option<Box<dyn Template + 'a>> {
         None
     }
@@ -3304,7 +3311,7 @@ mod tests {
     struct TestTemplateLanguage {
         settings: UserSettings,
         current_dir: PathBuf,
-        type_registry: TemplateTypeRegistry,
+        type_registry: Rc<TemplateTypeRegistry>,
         symbol_table: TemplateSymbolTable<'static, Self>,
     }
 
@@ -3317,7 +3324,7 @@ mod tests {
             &self.current_dir
         }
 
-        fn type_registry(&self) -> &TemplateTypeRegistry {
+        fn type_registry(&self) -> &Rc<TemplateTypeRegistry> {
             &self.type_registry
         }
 
@@ -3420,7 +3427,7 @@ mod tests {
             TestTemplateLanguage {
                 settings: self.settings.clone(),
                 current_dir: self.current_dir.clone(),
-                type_registry,
+                type_registry: Rc::new(type_registry),
                 symbol_table,
             }
         }

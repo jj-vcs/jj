@@ -18,6 +18,7 @@ use std::any::Any;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use itertools::Itertools as _;
 use jj_lib::extensions_map::ExtensionsMap;
@@ -57,7 +58,7 @@ pub struct OperationTemplateLanguage {
     repo_loader: RepoLoader,
     current_op_id: Option<OperationId>,
     current_dir: PathBuf,
-    type_registry: TemplateTypeRegistry,
+    type_registry: Rc<TemplateTypeRegistry>,
     symbol_table: TemplateSymbolTable<'static, Self>,
     cache_extensions: ExtensionsMap,
 }
@@ -88,7 +89,7 @@ impl OperationTemplateLanguage {
             repo_loader: repo_loader.clone(),
             current_op_id: current_op_id.cloned(),
             current_dir: current_dir.to_owned(),
-            type_registry,
+            type_registry: Rc::new(type_registry),
             symbol_table,
             cache_extensions,
         }
@@ -104,7 +105,7 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
         &self.current_dir
     }
 
-    fn type_registry(&self) -> &TemplateTypeRegistry {
+    fn type_registry(&self) -> &Rc<TemplateTypeRegistry> {
         &self.type_registry
     }
 
