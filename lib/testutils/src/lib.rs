@@ -91,8 +91,8 @@ use tempfile::TempDir;
 use crate::test_backend::TestBackendFactory;
 
 pub mod git;
-pub mod proptest;
 pub mod test_backend;
+pub mod working_copy;
 
 /// Convenient return type for test functions.
 pub type TestResult<T = ()> = eyre::Result<T>;
