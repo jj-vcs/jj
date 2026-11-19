@@ -51,6 +51,7 @@ use jj_lib::time_util::DatePattern;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
+use crate::template_value::AnyTemplateTypeOps;
 use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
 use crate::template_value::TemplateValue;
@@ -2829,14 +2830,49 @@ where
     });
     functions.insert("if", |language, diagnostics, build_ctx, function| {
         let ([condition_node, true_node], [false_node]) = function.expect_arguments()?;
+        let registry = language.type_registry();
         let condition =
             expect_boolean_expression(language, diagnostics, build_ctx, condition_node)?;
-        let true_any = expect_any_expression(language, diagnostics, build_ctx, true_node)?;
+        let true_any = expect_any_wrapper_expression(language, diagnostics, build_ctx, true_node)?;
         let false_any = false_node
-            .map(|node| expect_any_expression(language, diagnostics, build_ctx, node))
+            .map(|node| expect_any_wrapper_expression(language, diagnostics, build_ctx, node))
             .transpose()?;
-        let property = ConditionalProperty::new(condition, true_any, false_any);
-        Ok(P::wrap_any(Box::new(property)))
+        match (true_any, false_any) {
+            (MaybeLegacy::Value(then_arm), Some(MaybeLegacy::Value(else_arm))) => {
+                let ty_spec = then_arm.ty_spec.and(else_arm.ty_spec, registry);
+                let property = condition
+                    .and_then(move |condition| match condition {
+                        true => then_arm.property.extract(),
+                        false => else_arm.property.extract(),
+                    })
+                    .into_dyn();
+                let value = ValueProperty { ty_spec, property };
+                Ok(TemplatePropertyKind::Value(value))
+            }
+            (MaybeLegacy::Value(then_arm), None) => {
+                let ty_spec = TemplateValueTypeSpec::Any(AnyTemplateTypeOps {
+                    serialize: false,
+                    template: then_arm.ty_spec.to_any_ops(registry).template,
+                });
+                let property = condition
+                    .and_then(move |condition| match condition {
+                        true => then_arm.property.extract(),
+                        // TODO: Represent the missing branch as None of the then-arm type.
+                        // Until then, the empty string is only a placeholder for rendering.
+                        // It must not imply that the result has String capabilities.
+                        false => Ok(String::new().into_repr()),
+                    })
+                    .into_dyn();
+                let value = ValueProperty { ty_spec, property };
+                Ok(TemplatePropertyKind::Value(value))
+            }
+            (true_any, false_any) => {
+                let true_any = true_any.into_legacy();
+                let false_any = false_any.map(|any| any.into_legacy());
+                let property = ConditionalProperty::new(condition, true_any, false_any);
+                Ok(P::wrap_any(Box::new(property)))
+            }
+        }
     });
     functions.insert("try", |language, diagnostics, build_ctx, function| {
         let ([node], nodes) = function.expect_some_arguments()?;
@@ -5919,6 +5955,40 @@ mod tests {
         insta::assert_snapshot!(
             env.render_labels("if(true, foo.first_line(), bar)"), @"<<foo first_line::Foo>>");
         insta::assert_snapshot!(env.render_labels("if(false, foo, bar)"), @"<<bar::Bar>>");
+        insta::assert_snapshot!(
+            env.render_labels("if(true, if(true, foo, bar), bar)"), @"<<foo::Foo>>");
+
+        // Method labels are stripped on method call
+        insta::assert_snapshot!(env.render_labels("if(true, foo, bar).upper()"), @"<<upper::FOO>>");
+        insta::assert_snapshot!(
+            env.render_labels("if(true, if(true, foo, bar).upper(), bar)"), @"<<upper::FOO>>");
+        insta::assert_snapshot!(
+            env.render_labels("if(true, if(true, foo, bar).upper(), bar).lower()"), @"<<lower::foo>>");
+
+        insta::assert_snapshot!(env.parse_err("if(true, '0').upper()"), @"
+         --> 1:15
+          |
+        1 | if(true, '0').upper()
+          |               ^---^
+          |
+          = Method `upper` doesn't exist for type `Any`
+        ");
+        insta::assert_snapshot!(env.parse_err("if(false, 0, 1).upper()"), @"
+         --> 1:17
+          |
+        1 | if(false, 0, 1).upper()
+          |                 ^---^
+          |
+          = Method `upper` doesn't exist for type `Integer`
+        ");
+        insta::assert_snapshot!(env.parse_err("if(false, 0, 'a').upper()"), @"
+         --> 1:19
+          |
+        1 | if(false, 0, 'a').upper()
+          |                   ^---^
+          |
+          = Method `upper` doesn't exist for type `Any`
+        ");
     }
 
     #[test]
@@ -6414,11 +6484,11 @@ mod tests {
         "#);
 
         // The `join` method should not be available on `Any`.
-        insta::assert_snapshot!(env.parse_err(r#"if(true,words,words).join(", ")"#), @r#"
-         --> 1:22
+        insta::assert_snapshot!(env.parse_err(r#"if(true,words,size_hint).join(", ")"#), @r#"
+         --> 1:26
           |
-        1 | if(true,words,words).join(", ")
-          |                      ^--^
+        1 | if(true,words,size_hint).join(", ")
+          |                          ^--^
           |
           = Method `join` doesn't exist for type `Any`
         "#);
