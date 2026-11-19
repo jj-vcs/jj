@@ -3304,6 +3304,7 @@ mod tests {
             )
         }
 
+        #[track_caller]
         fn parse_err(&self, template: &str) -> String {
             let err = self
                 .parse(template)
@@ -3313,6 +3314,7 @@ mod tests {
             iter::successors(Some(&err as &dyn std::error::Error), |e| e.source()).join("\n")
         }
 
+        #[track_caller]
         fn parse_err_kind(&self, template: &str) -> TemplateParseErrorKind {
             self.parse(template)
                 .err()
@@ -3321,6 +3323,7 @@ mod tests {
                 .clone()
         }
 
+        #[track_caller]
         fn render_ok(&self, template: &str) -> BString {
             let template = self.parse(template).unwrap();
             let mut output = Vec::new();
@@ -3331,6 +3334,7 @@ mod tests {
             output.into()
         }
 
+        #[track_caller]
         fn render_plain(&self, template: &str) -> BString {
             let template = self.parse(template).unwrap();
             template.format_plain_text(&Context).into()
