@@ -204,9 +204,14 @@ impl<'a> ValueProperty<'a> {
 
     fn try_into_template(self, registry: &TemplateTypeRegistry) -> Option<Box<dyn Template + 'a>> {
         let cast = registry.get_to_template_fn(&self.ty)?;
-        let out_property = self
-            .property
-            .map(move |repr| cast(repr).expect("valid type"));
+        let out_property = self.property.map(move |repr| {
+            let labeled = repr.flatten_labels();
+            let template = cast(labeled.repr).expect("valid type");
+            match &labeled.labels[..] {
+                &[] => template,
+                _ => Box::new(LabelTemplate::new(template, Literal(labeled.labels))),
+            }
+        });
         Some(out_property.into_template())
     }
 
