@@ -119,8 +119,9 @@ The following functions are defined.
 * `json(value: Serialize) -> String`: Serialize `value` in JSON format. To
   serialize multiple values as a JSON object, use `json({key => value, ..})`.
   For example, `json({"commit_id" => commit_id, "tags" => tags})`.
-* `if(condition: Boolean, then: Any, [else: Any]) -> Any`:
-  Conditionally evaluates to `then` / `else` content.
+* `if(condition: Boolean, then, [else])`: Conditionally evaluates to `then` or
+  `else`. If `then` and `else` share the same type, the expression evaluates to
+  that type. Otherwise, the returned type is `Any`.
 * `try(expr: Any, fallback: Any...) -> Any`: Evaluates each expression in order
   and returns the first successful result. Suppresses preceding runtime errors,
   but lets parsing errors (such as type errors) pass through.
@@ -909,6 +910,14 @@ jj op log -T 'self.id().short()' --color=debug
 This can be useful if you are trying to figure out whether or not a label is
 present or which labels you should define or override colors for to get the
 output that you want.
+
+When a function returns a value from one of its arguments, the selected value
+can retain that argument's automatic labels. For example, `if(condition,
+author.name(), committer.name())` retains the labels of the selected branch.
+Calling a method on the returned value drops those labels and adds the new
+method's label. For example, `if(condition, author.name(),
+committer.name()).upper()` has the "upper" label, but not the selected branch's
+"author name" or "committer name" labels.
 
 Additionally, you can **manually** insert arbitrary labels using the
 `label(label, content)` function. For example,
