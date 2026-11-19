@@ -22,10 +22,9 @@ use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
 use jj_cli::command_error::CommandError;
 use jj_cli::ui::Ui;
-use jj_lib::backend::Backend;
-use jj_lib::backend::BackendInitError;
 use jj_lib::commit::Commit;
 use jj_lib::default_backend_factories::default_store_initializers;
+use jj_lib::default_backend_factories::git_backend_initializer;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::merged_tree::MergedTree;
@@ -67,17 +66,9 @@ async fn run_custom_command(
         CustomCommand::InitConflicts => {
             let wc_path = command_helper.cwd();
             let settings = command_helper.settings_for_new_workspace(ui, wc_path)?.0;
-            let backend_initializer = |settings: &UserSettings, store_path: &Path| {
-                let git_settings = settings
-                    .git_backend_settings()
-                    .map_err(BackendInitError::new)?;
-                let backend: Box<dyn Backend> = Box::new(GitBackend::init_internal(
-                    &git_settings,
-                    store_path,
-                    gix::hash::Kind::default(),
-                )?);
-                Ok(backend)
-            };
+            let backend_initializer = git_backend_initializer(|git_settings, store_path| {
+                GitBackend::init_internal(git_settings, store_path, gix::hash::Kind::default())
+            });
             Workspace::init_with_factories(
                 &settings,
                 wc_path,

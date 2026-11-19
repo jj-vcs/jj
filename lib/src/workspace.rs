@@ -31,6 +31,10 @@ use jj_core::ref_name::WorkspaceName;
 use jj_core::ref_name::WorkspaceNameBuf;
 use jj_core::signing::Signer;
 use jj_core::workspace_store::WorkspaceStoreError;
+#[cfg(feature = "git")]
+use jj_git_backend::git_backend::GitBackend;
+#[cfg(feature = "git")]
+use jj_git_backend::git_backend::canonicalize_git_repo_path;
 use jj_local_util::file_util;
 use jj_local_util::file_util::BadPathEncoding;
 use jj_local_util::file_util::IoResultExt as _;
@@ -40,6 +44,8 @@ use thiserror::Error;
 use crate::default_backend_factories::default_backend_initializer;
 use crate::default_backend_factories::default_store_initializers;
 use crate::default_backend_factories::default_working_copy_factory;
+#[cfg(feature = "git")]
+use crate::default_backend_factories::git_backend_initializer;
 use crate::repo::CheckOutCommitError;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
@@ -243,24 +249,15 @@ impl Workspace {
         workspace_name: &WorkspaceName,
         object_hash: gix::hash::Kind,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
-        let backend_initializer: &BackendInitializer = &|settings, store_path| {
-            let git_settings = settings
-                .git_backend_settings()
-                .map_err(BackendInitError::new)?;
-            Ok(Box::new(
-                jj_git_backend::git_backend::GitBackend::init_internal(
-                    &git_settings,
-                    store_path,
-                    object_hash,
-                )?,
-            ))
-        };
+        let backend_initializer = git_backend_initializer(|git_settings, store_path| {
+            GitBackend::init_internal(git_settings, store_path, object_hash)
+        });
         let signer = signer_from_settings(user_settings)?;
         Self::init_with_backend(
             user_settings,
             workspace_root,
             workspace_name,
-            backend_initializer,
+            &backend_initializer,
             signer,
         )
         .await
@@ -275,9 +272,7 @@ impl Workspace {
         workspace_name: &WorkspaceName,
         object_hash: gix::hash::Kind,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
-        let backend_initializer = |settings: &UserSettings,
-                                   store_path: &Path|
-         -> Result<Box<dyn jj_core::backend::Backend>, _> {
+        let backend_initializer = git_backend_initializer(|git_settings, store_path| {
             // TODO: Clean up path normalization. store_path is canonicalized by
             // `StoreInitializers::init_repo()`. workspace_root will be
             // canonicalized by `Workspace::new()`, but it's not yet here.
@@ -287,17 +282,13 @@ impl Workspace {
                 } else {
                     workspace_root.to_owned()
                 };
-            let git_settings = settings
-                .git_backend_settings()
-                .map_err(BackendInitError::new)?;
-            let backend = jj_git_backend::git_backend::GitBackend::init_colocated(
-                &git_settings,
+            GitBackend::init_colocated(
+                git_settings,
                 store_path,
                 &store_relative_workspace_root,
                 object_hash,
-            )?;
-            Ok(Box::new(backend))
-        };
+            )
+        });
         let signer = signer_from_settings(user_settings)?;
         Self::init_with_backend(
             user_settings,
@@ -320,9 +311,7 @@ impl Workspace {
         workspace_name: &WorkspaceName,
         git_repo_path: &Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
-        let backend_initializer = |settings: &UserSettings,
-                                   store_path: &Path|
-         -> Result<Box<dyn jj_core::backend::Backend>, _> {
+        let backend_initializer = git_backend_initializer(|git_settings, store_path| {
             // If the git repo is inside the workspace, use a relative path to it so the
             // whole workspace can be moved without breaking.
             // TODO: Clean up path normalization. store_path is canonicalized by
@@ -330,7 +319,7 @@ impl Workspace {
             // canonicalized by `Workspace::new()`, but it's not yet here.
             let store_relative_git_repo_path = match (
                 file_util::canonicalize(workspace_root),
-                jj_git_backend::git_backend::canonicalize_git_repo_path(git_repo_path),
+                canonicalize_git_repo_path(git_repo_path),
             ) {
                 (Ok(workspace_root), Ok(git_repo_path))
                     if git_repo_path.starts_with(&workspace_root) =>
@@ -339,16 +328,8 @@ impl Workspace {
                 }
                 _ => git_repo_path.to_owned(),
             };
-            let git_settings = settings
-                .git_backend_settings()
-                .map_err(BackendInitError::new)?;
-            let backend = jj_git_backend::git_backend::GitBackend::init_external(
-                &git_settings,
-                store_path,
-                &store_relative_git_repo_path,
-            )?;
-            Ok(Box::new(backend))
-        };
+            GitBackend::init_external(git_settings, store_path, &store_relative_git_repo_path)
+        });
         let signer = signer_from_settings(user_settings)?;
         Self::init_with_backend(
             user_settings,
