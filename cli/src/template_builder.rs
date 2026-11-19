@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::assert_matches;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
 use std::iter;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -549,9 +551,60 @@ pub type BuildAnyMethodFn<'a, L> = BuildMethodFn<'a, L, BoxedAnyProperty<'a>>;
 /// Table of functions that translate global function call node.
 pub type TemplateBuildFunctionFnMap<'a, L> = HashMap<&'static str, TemplateBuildFunctionFn<'a, L>>;
 
+/// Translates a method call node on a type-erased value type.
+#[expect(unused)] // TODO
+trait BuildValueMethod<'a, L: ?Sized> {
+    fn build(
+        &self,
+        language: &L,
+        diagnostics: &mut TemplateDiagnostics,
+        build_ctx: &BuildContext<'a, '_>,
+        self_property: BoxedTemplateProperty<'a, TemplateValueRepr>,
+        function: &FunctionCallNode,
+    ) -> TemplateParseResult<TemplatePropertyKind<'a>>;
+}
+
 /// Table of functions that translate method call node of type-erased value types.
 pub type BuildValueMethodFnMap<'a, L> =
     HashMap<&'static str, TemplateBuildMethodFn<'a, L, TemplateValueRepr>>;
+type BuildValueMethodMap<'a, L> = HashMap<&'static str, Box<dyn BuildValueMethod<'a, L>>>;
+
+/// Translates a method call node on `T`.
+///
+/// If `F` is a zero-sized type, this wrapper is also ZST and can be boxed
+/// without heap allocation.
+#[expect(unused)] // TODO
+struct TypedValueMethod<T, F> {
+    build_fn: F,
+    signature: PhantomData<fn(T)>,
+}
+
+impl<'a, L, T, F> BuildValueMethod<'a, L> for TypedValueMethod<T, F>
+where
+    L: TemplateLanguage<'a> + ?Sized,
+    T: TemplateValue,
+    F: Fn(
+        &L,
+        &mut TemplateDiagnostics,
+        &BuildContext<'a, '_>,
+        BoxedTemplateProperty<'a, T>,
+        &FunctionCallNode,
+    ) -> TemplateParseResult<TemplatePropertyKind<'a>>,
+{
+    fn build(
+        &self,
+        language: &L,
+        diagnostics: &mut TemplateDiagnostics,
+        build_ctx: &BuildContext<'a, '_>,
+        self_property: BoxedTemplateProperty<'a, TemplateValueRepr>,
+        function: &FunctionCallNode,
+    ) -> TemplateParseResult<TemplatePropertyKind<'a>> {
+        // Boxing here because the converted self_property type can't be named
+        let self_property =
+            cast_value_property::<T>(self_property, language.type_registry()).into_dyn();
+        (self.build_fn)(language, diagnostics, build_ctx, self_property, function)
+    }
+}
 
 /// Table of functions that translate method call node of `Template`.
 pub type BuildTemplateMethodFnMap<'a, L> = HashMap<&'static str, BuildTemplateMethodFn<'a, L>>;
@@ -563,6 +616,7 @@ pub type BuildAnyMethodFnMap<'a, L> = HashMap<&'static str, BuildAnyMethodFn<'a,
 pub struct TemplateBuildFnTable<'a, L: ?Sized> {
     pub functions: TemplateBuildFunctionFnMap<'a, L>,
     pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L>>,
+    methods_: HashMap<TemplateValueType, BuildValueMethodMap<'a, L>>,
     pub template_methods: BuildTemplateMethodFnMap<'a, L>,
     pub any_methods: BuildAnyMethodFnMap<'a, L>,
     pub any_list_methods: BuildAnyMethodFnMap<'a, L>,
@@ -667,6 +721,7 @@ impl<L: ?Sized> TemplateBuildFnTable<'_, L> {
         Self {
             functions: HashMap::new(),
             methods: HashMap::new(),
+            methods_: HashMap::new(),
             template_methods: HashMap::new(),
             any_methods: HashMap::new(),
             any_list_methods: HashMap::new(),
@@ -678,6 +733,7 @@ impl<L: ?Sized> TemplateBuildFnTable<'_, L> {
         let Self {
             functions,
             methods,
+            methods_: _,
             template_methods,
             any_methods,
             any_list_methods,
@@ -704,9 +760,27 @@ where
         Self {
             functions: builtin_functions(),
             methods: builtin_methods(),
+            methods_: HashMap::new(),
             template_methods: HashMap::new(),
             any_methods: HashMap::new(),
             any_list_methods: builtin_any_list_methods(),
+        }
+    }
+
+    /// Registers methods on `T`. Inserts a new empty method table as needed.
+    ///
+    /// Since optional values are implicitly unwrapped, the receiver type must
+    /// not be `Option`.
+    #[track_caller]
+    pub fn register_methods<T: TemplateValue>(
+        &mut self,
+    ) -> TemplateMethodTableRegistration<'a, '_, L, T> {
+        let ty = T::value_type();
+        assert_matches!(ty, TemplateValueType::Scalar(_));
+        let map = self.methods_.entry(ty).or_default();
+        TemplateMethodTableRegistration {
+            map,
+            signature: PhantomData,
         }
     }
 
@@ -776,6 +850,39 @@ where
                 build(language, diagnostics, build_ctx, property, function)
             }
         }
+    }
+}
+
+/// Registers methods on `T`.
+pub struct TemplateMethodTableRegistration<'a, 'b, L: ?Sized, T> {
+    map: &'b mut BuildValueMethodMap<'a, L>,
+    signature: PhantomData<fn(T)>,
+}
+
+impl<'a, L, T> TemplateMethodTableRegistration<'a, '_, L, T>
+where
+    L: TemplateLanguage<'a> + ?Sized,
+    T: TemplateValue,
+{
+    /// Registers a new method builder.
+    #[track_caller]
+    pub fn insert<F>(&mut self, name: &'static str, build_fn: F)
+    where
+        F: Fn(
+            &L,
+            &mut TemplateDiagnostics,
+            &BuildContext<'a, '_>,
+            BoxedTemplateProperty<'a, T>,
+            &FunctionCallNode,
+        ) -> TemplateParseResult<TemplatePropertyKind<'a>>,
+        F: 'static,
+    {
+        let wrapper = TypedValueMethod {
+            build_fn,
+            signature: PhantomData,
+        };
+        let old = self.map.insert(name, Box::new(wrapper));
+        assert!(old.is_none(), "method already registered: {name}");
     }
 }
 
@@ -3212,7 +3319,6 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches;
     use std::path::Component;
 
     use jj_lib::backend::MillisSinceEpoch;
