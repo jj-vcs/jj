@@ -85,6 +85,7 @@ enum Tagged {
     // List(TemplateValueType) descriptor. Until then, a list is represented as
     // a non-optional opaque value.
     OpaqueList(Rc<dyn Any>),
+    Labeled(Box<LabeledTemplateValue>),
 }
 
 impl TemplateValueRepr {
@@ -101,8 +102,44 @@ impl TemplateValueRepr {
             Tagged::OpaqueSome(opaque) => TemplateValueType::Option(Rc::as_ref(opaque).type_id()),
             Tagged::OpaqueNone(id) => TemplateValueType::Option(*id),
             Tagged::OpaqueList(opaque) => TemplateValueType::Scalar(Rc::as_ref(opaque).type_id()),
+            Tagged::Labeled(labeled) => labeled.repr.actual_value_type(),
         }
     }
+
+    /// Attaches method-name labels to this value.
+    ///
+    /// A labeled value can still be extracted as the underlying value type.
+    pub fn labeled(self, labels: Vec<String>) -> Self {
+        let labeled = LabeledTemplateValue { repr: self, labels };
+        let tagged = Tagged::Labeled(Box::new(labeled));
+        Self { tagged }
+    }
+
+    /// Flattens nested labels recursively.
+    pub fn flatten_labels(self) -> LabeledTemplateValue {
+        let mut repr = self;
+        let mut labels = Vec::new();
+        while let Tagged::Labeled(labeled) = repr.tagged {
+            repr = labeled.repr;
+            labels.extend(labeled.labels);
+        }
+        LabeledTemplateValue { repr, labels }
+    }
+
+    fn strip_labels(self) -> Self {
+        let mut repr = self;
+        while let Tagged::Labeled(labeled) = repr.tagged {
+            repr = labeled.repr;
+        }
+        repr
+    }
+}
+
+/// Template runtime value with automatically-assigned method-name labels.
+#[derive(Clone, Debug)]
+pub struct LabeledTemplateValue {
+    pub repr: TemplateValueRepr,
+    pub labels: Vec<String>,
 }
 
 macro_rules! impl_inline_scalar_values {
@@ -115,6 +152,7 @@ macro_rules! impl_inline_scalar_values {
             fn try_from_repr(
                 repr: TemplateValueRepr,
             ) -> Result<Self, TemplateValueExtractionError> {
+                let repr = repr.strip_labels();
                 match repr.tagged {
                     Tagged::$var(value) => Ok(value),
                     _ => Err(unexpected_type(&repr)),
@@ -157,6 +195,7 @@ macro_rules! impl_inline_optional_values {
             fn try_from_repr(
                 repr: TemplateValueRepr,
             ) -> Result<Self, TemplateValueExtractionError> {
+                let repr = repr.strip_labels();
                 match repr.tagged {
                     Tagged::$var(optional) => Ok(optional),
                     _ => Err(unexpected_type(&repr)),
@@ -202,6 +241,7 @@ impl<T: OpaqueTemplateValue> TemplateValue for Option<T> {
     }
 
     fn try_from_repr(repr: TemplateValueRepr) -> Result<Self, TemplateValueExtractionError> {
+        let repr = repr.strip_labels();
         match repr.tagged {
             Tagged::OpaqueSome(opaque) => {
                 let value = downcast_value::<T>(opaque).map_err(|opaque| {
@@ -234,6 +274,7 @@ macro_rules! impl_opaque_list_values {
             fn try_from_repr(
                 repr: TemplateValueRepr,
             ) -> Result<Self, TemplateValueExtractionError> {
+                let repr = repr.strip_labels();
                 match repr.tagged {
                     Tagged::OpaqueList(opaque) => downcast_value::<$ty>(opaque).map_err(|opaque| {
                         let tagged = Tagged::OpaqueList(opaque);
@@ -590,6 +631,46 @@ mod tests {
             Option::<Value>::try_from_repr(none_other.clone()),
             Err(TemplateValueExtractionError::UnexpectedType(ty))
                 if ty == <Option<Other>>::value_type()
+        );
+    }
+
+    #[test]
+    fn test_labeled_values() {
+        let inline_value = true
+            .into_repr()
+            .labeled(vec!["foo".to_owned()])
+            .labeled(vec!["bar".to_owned(), "baz".to_owned()]);
+        assert_eq!(inline_value.actual_value_type(), bool::value_type());
+        assert_matches!(bool::try_from_repr(inline_value.clone()), Ok(true));
+        assert_matches!(
+            inline_value.clone().flatten_labels().repr.tagged,
+            Tagged::Boolean(true)
+        );
+        assert_eq!(
+            inline_value.clone().flatten_labels().labels,
+            vec!["bar".to_owned(), "baz".to_owned(), "foo".to_owned()]
+        );
+
+        let optional_value = Some(42_i64).into_repr().labeled(vec!["foo".to_owned()]);
+        assert_matches!(i64::try_from_repr(optional_value.clone()), Ok(42));
+        assert_matches!(
+            <Option<i64>>::try_from_repr(optional_value.clone()),
+            Ok(Some(42))
+        );
+
+        let opaque_value = Value(42).into_repr().labeled(vec!["foo".to_owned()]);
+        assert_matches!(Value::try_from_repr(opaque_value.clone()), Ok(Value(42)));
+        assert_matches!(
+            <Option<Value>>::try_from_repr(opaque_value.clone()),
+            Ok(Some(Value(42)))
+        );
+
+        let list_value = vec!["content".to_owned()]
+            .into_repr()
+            .labeled(vec!["foo".to_owned()]);
+        assert_matches!(
+            <Vec<String>>::try_from_repr(list_value.clone()),
+            Ok(v) if v == vec!["content".to_owned()]
         );
     }
 }
