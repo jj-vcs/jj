@@ -70,7 +70,7 @@ pub(crate) struct CommitArgs {
     ///
     /// Forces an editor to open when using `--message` to allow the
     /// message to be edited afterwards.
-    #[arg(long)]
+    #[arg(long, short)]
     editor: bool,
 
     /// Put these paths in the current commit

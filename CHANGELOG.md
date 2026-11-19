@@ -180,6 +180,10 @@ Thanks to the people who made this release happen!
   stdout. Use `--binary-as-text` to force text treatment, or `--skip-binary` to
   skip binary files entirely.
 
+* `jj commit`, `jj describe`, `jj split`, and `jj squash` now accept `-e` as
+  a shorthand for `--editor`.
+  [#10693](https://github.com/jj-vcs/jj/issues/10693)
+
 ### Fixed bugs
 
 * `jj git push` no longer validates (e.g. for empty descriptions) commits that

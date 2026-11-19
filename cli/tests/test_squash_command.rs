@@ -2534,6 +2534,42 @@ fn test_squash_with_editor_and_message_args() -> TestResult {
 }
 
 #[test]
+fn test_squash_with_editor_short_flag() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "destination"]).success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "b\n");
+
+    std::fs::write(&edit_script, "dump editor")?;
+    work_dir
+        .run_jj(["squash", "-m", "message from command line", "-e"])
+        .success();
+
+    // Verify that -e opened the editor with the message from command line
+    let editor = std::fs::read_to_string(test_env.env_root().join("editor"))?;
+    insta::assert_snapshot!(
+        editor, @r#"
+    message from command line
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
+    message from command line
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
 fn test_squash_with_editor_and_empty_message() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();

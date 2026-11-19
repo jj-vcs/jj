@@ -1822,6 +1822,59 @@ fn test_split_with_editor_and_message_args() -> TestResult {
 }
 
 #[test]
+fn test_split_with_editor_short_flag() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir
+        .run_jj(["describe", "-m", "original description"])
+        .success();
+
+    std::fs::write(&edit_script, "dump editor")?;
+    work_dir
+        .run_jj(["split", "-m", "message from command line", "-e", "file1"])
+        .success();
+
+    // Verify that -e opened the editor for both split commits
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe 80efb1f15c2d -------
+    JJ: Enter a description for the selected changes.
+    message from command line
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: describe d89f256f76ff -------
+    JJ: Enter a description for the remaining changes.
+    original description
+
+    JJ: Change ID: kkmpptxz
+    JJ: This commit contains the following changes:
+    JJ:     A file2
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  kkmpptxzrspx false original description
+    ○  qpvuntsmwlqt false message from command line
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
 fn test_split_with_editor_and_empty_message() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();

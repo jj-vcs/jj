@@ -182,7 +182,7 @@ pub(crate) struct SplitArgs {
     ///
     /// Forces an editor to open when using `--message` to allow the message to
     /// be edited afterward.
-    #[arg(long)]
+    #[arg(long, short)]
     editor: bool,
 
     /// Split the revision into two parallel revisions instead of a parent and

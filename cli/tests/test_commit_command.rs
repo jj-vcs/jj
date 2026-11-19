@@ -561,6 +561,33 @@ fn test_commit_with_editor_and_message_args() -> TestResult {
 }
 
 #[test]
+fn test_commit_with_editor_short_flag() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    std::fs::write(&edit_script, "dump editor")?;
+    work_dir
+        .run_jj(["commit", "-m", "message from command line", "-e"])
+        .success();
+
+    // Verify that -e opened the editor with the message from command line
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    message from command line
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    Ok(())
+}
+
+#[test]
 fn test_commit_with_editor_and_empty_message() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();

@@ -912,6 +912,33 @@ fn test_describe_change_with_existing_message_with_editor_and_message_args_opens
 }
 
 #[test]
+fn test_describe_with_editor_short_flag() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
+    let output = work_dir.run_jj(["describe", "-m", "message from command line", "-e"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm f9bee6de (empty) message from command line
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    // Verify that -e opened the editor with the message from command line
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
+    message from command line
+
+    JJ: Change ID: qpvuntsm
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    Ok(())
+}
+
+#[test]
 fn test_add_trailer() {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
