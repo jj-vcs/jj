@@ -1124,6 +1124,29 @@ impl<'a> Expression<'a> {
         )
     }
 
+    fn into_value_wrapper(self) -> MaybeLegacyExpression<'a> {
+        match self.property {
+            TemplatePropertyKind::Value(value) if self.labels.is_empty() => {
+                MaybeLegacy::Value(value)
+            }
+            TemplatePropertyKind::Value(ValueProperty { ty_spec, property }) => {
+                let labels = self.labels;
+                let property = property
+                    .map(move |repr| repr.labeled(labels.clone()))
+                    .into_dyn();
+                MaybeLegacy::Value(ValueProperty { ty_spec, property })
+            }
+            _ => MaybeLegacy::Legacy(self),
+        }
+    }
+
+    fn into_any_wrapper(self) -> MaybeLegacyAny<'a> {
+        match self.into_value_wrapper() {
+            MaybeLegacy::Value(value) => MaybeLegacy::Value(value),
+            MaybeLegacy::Legacy(expression) => MaybeLegacy::Legacy(Box::new(expression)),
+        }
+    }
+
     pub fn try_into_serialize(
         self,
         registry: &Rc<TemplateTypeRegistry>,
@@ -1182,6 +1205,29 @@ impl<'a> AnyTemplateProperty<'a> for Expression<'a> {
         _: &Rc<TemplateTypeRegistry>,
     ) -> Option<Box<dyn Template + 'a>> {
         None
+    }
+}
+
+/// Represents either a value property or a legacy opaque object.
+enum MaybeLegacy<V, L> {
+    /// `TemplateProperty<'a, Output = T<'static>>`
+    Value(V),
+    /// `T<'a>`
+    Legacy(L),
+}
+
+type MaybeLegacyExpression<'a> = MaybeLegacy<ValueProperty<'a>, Expression<'a>>;
+type MaybeLegacyAny<'a> = MaybeLegacy<ValueProperty<'a>, BoxedAnyProperty<'a>>;
+
+impl<'a> MaybeLegacyAny<'a> {
+    fn into_legacy(self) -> BoxedAnyProperty<'a> {
+        match self {
+            Self::Value(value) => {
+                let property = TemplatePropertyKind::Value(value);
+                Box::new(Expression::unlabeled(property))
+            }
+            Self::Legacy(object) => object,
+        }
     }
 }
 
@@ -3347,11 +3393,19 @@ pub fn expect_any_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     build_ctx: &BuildContext<'a, '_>,
     node: &ExpressionNode,
 ) -> TemplateParseResult<BoxedAnyProperty<'a>> {
+    let wrapper = expect_any_wrapper_expression(language, diagnostics, build_ctx, node)?;
+    Ok(wrapper.into_legacy())
+}
+
+fn expect_any_wrapper_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<'a, '_>,
+    node: &ExpressionNode,
+) -> TemplateParseResult<MaybeLegacyAny<'a>> {
     template_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
-        Ok(
-            Box::new(build_expression(language, diagnostics, build_ctx, node)?)
-                as BoxedAnyProperty<'a>,
-        )
+        let expression = build_expression(language, diagnostics, build_ctx, node)?;
+        Ok(expression.into_any_wrapper())
     })
 }
 
