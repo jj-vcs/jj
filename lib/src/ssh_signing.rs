@@ -258,7 +258,12 @@ impl SigningBackend for SshBackend {
             .arg("-n")
             .arg("git");
 
-        Ok(run_command(&mut command, data)?)
+        let mut signature = run_command(&mut command, data)?;
+        // When ssh-keygen signs stdin, it writes the signature to stdout. On
+        // Windows, its C runtime may translate LF to CRLF while writing in text
+        // mode. Normalize the armored signature by dropping '\r'.
+        signature.retain(|&b| b != b'\r');
+        Ok(signature)
     }
 
     fn verify(&self, data: &[u8], signature: &[u8]) -> Result<Verification, SignError> {

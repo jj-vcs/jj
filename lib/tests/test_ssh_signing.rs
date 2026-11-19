@@ -156,6 +156,17 @@ fn ssh_signing_roundtrip() -> TestResult {
 }
 
 #[test]
+fn ssh_signing_signature_contains_lf_only() -> TestResult {
+    let env = SshEnvironment::new()?;
+    let backend = backend(&env);
+
+    let signature = backend.sign(b"hello world", None)?;
+
+    assert!(!signature.contains(&b'\r'));
+    Ok(())
+}
+
+#[test]
 fn ssh_signing_bad_allowed_signers() -> TestResult {
     let mut env = SshEnvironment::new()?;
     env.with_bad_public_key();
