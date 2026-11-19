@@ -92,7 +92,6 @@ use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing_factory::signer_from_settings;
 use jj_lib::store_factories::StoreInitializers;
-use jj_lib::store_factories::init_repo;
 use jj_lib::workspace::Workspace;
 use maplit::btreemap;
 use maplit::hashset;
@@ -203,13 +202,9 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
         index_store: default_index_store_initializer(),
         submodule_store: default_submodule_store_initializer(),
     };
-    let repo = init_repo(
-        settings,
-        &repo_dir,
-        &store_initializers,
-        signer_from_settings(settings).unwrap(),
-    )
-    .block_on()?;
+    let repo = store_initializers
+        .init_repo(settings, &repo_dir, signer_from_settings(settings).unwrap())
+        .block_on()?;
     Ok(repo)
 }
 
@@ -2464,14 +2459,14 @@ impl GitRepoData {
             index_store: default_index_store_initializer(),
             submodule_store: default_submodule_store_initializer(),
         };
-        let repo = init_repo(
-            &settings,
-            &jj_repo_dir,
-            &store_initializers,
-            signer_from_settings(&settings).unwrap(),
-        )
-        .block_on()
-        .unwrap();
+        let repo = store_initializers
+            .init_repo(
+                &settings,
+                &jj_repo_dir,
+                signer_from_settings(&settings).unwrap(),
+            )
+            .block_on()
+            .unwrap();
         Self {
             _temp_dir: temp_dir,
             origin_repo,
@@ -4406,13 +4401,9 @@ fn test_init() -> TestResult {
         index_store: default_index_store_initializer(),
         submodule_store: default_submodule_store_initializer(),
     };
-    let repo = &init_repo(
-        &settings,
-        &jj_repo_dir,
-        &store_initializers,
-        signer_from_settings(&settings)?,
-    )
-    .block_on()?;
+    let repo = &store_initializers
+        .init_repo(&settings, &jj_repo_dir, signer_from_settings(&settings)?)
+        .block_on()?;
     // The refs were *not* imported -- it's the caller's responsibility to import
     // any refs they care about.
     assert!(!repo.view().heads().contains(&jj_id(initial_git_commit)));
@@ -5534,14 +5525,14 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         index_store: default_index_store_initializer(),
         submodule_store: default_submodule_store_initializer(),
     };
-    let jj_repo = init_repo(
-        settings,
-        &jj_repo_dir,
-        &store_initializers,
-        signer_from_settings(settings).unwrap(),
-    )
-    .block_on()
-    .unwrap();
+    let jj_repo = store_initializers
+        .init_repo(
+            settings,
+            &jj_repo_dir,
+            signer_from_settings(settings).unwrap(),
+        )
+        .block_on()
+        .unwrap();
     get_git_backend(&jj_repo)
         .import_head_commits(&[jj_id(initial_git_commit)])
         .unwrap();

@@ -82,7 +82,6 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing_factory::signer_from_settings;
 use jj_lib::store_factories::StoreFactories;
 use jj_lib::store_factories::StoreInitializers;
-use jj_lib::store_factories::init_repo;
 use jj_lib::transaction::Transaction;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
@@ -362,14 +361,10 @@ impl TestRepo {
             index_store: default_index_store_initializer(),
             submodule_store: default_submodule_store_initializer(),
         };
-        let repo = init_repo(
-            settings,
-            &repo_dir,
-            &store_initializers,
-            signer_from_settings(settings).unwrap(),
-        )
-        .block_on()
-        .unwrap();
+        let repo = store_initializers
+            .init_repo(settings, &repo_dir, signer_from_settings(settings).unwrap())
+            .block_on()
+            .unwrap();
 
         Self {
             env,

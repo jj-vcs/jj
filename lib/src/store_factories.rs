@@ -388,8 +388,8 @@ pub enum RepoInitError {
     Path(#[from] PathError),
 }
 
-/// `StoreInitializers` holds the initializer for each store to create a new
-/// repo with.
+/// `StoreInitializers` holds the initializer for each store and uses them to
+/// create a new repo with.
 pub struct StoreInitializers<'a> {
     /// Initializes the commit backend.
     pub backend: &'a BackendInitializer<'a>,
@@ -405,93 +405,92 @@ pub struct StoreInitializers<'a> {
     pub submodule_store: &'a SubmoduleStoreInitializer<'a>,
 }
 
-/// Creates a new repo at `repo_path` (which must exist), initializing each
-/// store with the given initializers, and returns the repo at its root
-/// operation.
-pub async fn init_repo(
-    settings: &UserSettings,
-    repo_path: &Path,
-    store_initializers: &StoreInitializers<'_>,
-    signer: Signer,
-) -> Result<Arc<ReadonlyRepo>, RepoInitError> {
-    let repo_path = file_util::canonicalize(repo_path).context(repo_path)?;
+impl StoreInitializers<'_> {
+    /// Creates a new repo at `repo_path` (which must exist), initializing each
+    /// store with the initializers, and returns the repo at its root
+    /// operation.
+    pub async fn init_repo(
+        &self,
+        settings: &UserSettings,
+        repo_path: &Path,
+        signer: Signer,
+    ) -> Result<Arc<ReadonlyRepo>, RepoInitError> {
+        let repo_path = file_util::canonicalize(repo_path).context(repo_path)?;
 
-    let store_path = repo_path.join("store");
-    fs::create_dir(&store_path).context(&store_path)?;
-    let backend = (store_initializers.backend)(settings, &store_path)?;
-    let backend_path = store_path.join("type");
-    fs::write(&backend_path, backend.name()).context(&backend_path)?;
-    let merge_options = settings.merge_options().map_err(BackendInitError::new)?;
-    let store = Store::new(backend, signer, merge_options);
+        let store_path = repo_path.join("store");
+        fs::create_dir(&store_path).context(&store_path)?;
+        let backend = (self.backend)(settings, &store_path)?;
+        let backend_path = store_path.join("type");
+        fs::write(&backend_path, backend.name()).context(&backend_path)?;
+        let merge_options = settings.merge_options().map_err(BackendInitError::new)?;
+        let store = Store::new(backend, signer, merge_options);
 
-    let workspace_store_path = repo_path.join("workspace_store");
-    fs::create_dir(&workspace_store_path).context(&workspace_store_path)?;
-    let workspace_store = (store_initializers.workspace_store)(settings, &workspace_store_path)?;
-    let workspace_store_type_path = workspace_store_path.join("type");
-    fs::write(&workspace_store_type_path, workspace_store.name())
-        .context(&workspace_store_type_path)?;
-    let workspace_store: Arc<dyn WorkspaceStore> = Arc::from(workspace_store);
+        let workspace_store_path = repo_path.join("workspace_store");
+        fs::create_dir(&workspace_store_path).context(&workspace_store_path)?;
+        let workspace_store = (self.workspace_store)(settings, &workspace_store_path)?;
+        let workspace_store_type_path = workspace_store_path.join("type");
+        fs::write(&workspace_store_type_path, workspace_store.name())
+            .context(&workspace_store_type_path)?;
+        let workspace_store: Arc<dyn WorkspaceStore> = Arc::from(workspace_store);
 
-    let op_store_path = repo_path.join("op_store");
-    fs::create_dir(&op_store_path).context(&op_store_path)?;
-    let root_op_data = RootOperationData {
-        root_commit_id: store.root_commit_id().clone(),
-    };
-    let op_store = (store_initializers.op_store)(settings, &op_store_path, root_op_data)?;
-    let op_store_type_path = op_store_path.join("type");
-    fs::write(&op_store_type_path, op_store.name()).context(&op_store_type_path)?;
-    let op_store: Arc<dyn OpStore> = Arc::from(op_store);
+        let op_store_path = repo_path.join("op_store");
+        fs::create_dir(&op_store_path).context(&op_store_path)?;
+        let root_op_data = RootOperationData {
+            root_commit_id: store.root_commit_id().clone(),
+        };
+        let op_store = (self.op_store)(settings, &op_store_path, root_op_data)?;
+        let op_store_type_path = op_store_path.join("type");
+        fs::write(&op_store_type_path, op_store.name()).context(&op_store_type_path)?;
+        let op_store: Arc<dyn OpStore> = Arc::from(op_store);
 
-    let op_heads_path = repo_path.join("op_heads");
-    fs::create_dir(&op_heads_path).context(&op_heads_path)?;
-    let op_heads_store = (store_initializers.op_heads_store)(
-        settings,
-        &op_heads_path,
-        op_store.root_operation_id(),
-    )?;
-    let op_heads_type_path = op_heads_path.join("type");
-    fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
-    let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
+        let op_heads_path = repo_path.join("op_heads");
+        fs::create_dir(&op_heads_path).context(&op_heads_path)?;
+        let op_heads_store =
+            (self.op_heads_store)(settings, &op_heads_path, op_store.root_operation_id())?;
+        let op_heads_type_path = op_heads_path.join("type");
+        fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
+        let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
 
-    let index_path = repo_path.join("index");
-    fs::create_dir(&index_path).context(&index_path)?;
-    let index_store = (store_initializers.index_store)(settings, &index_path)?;
-    let index_type_path = index_path.join("type");
-    fs::write(&index_type_path, index_store.name()).context(&index_type_path)?;
-    let index_store: Arc<dyn IndexStore> = Arc::from(index_store);
+        let index_path = repo_path.join("index");
+        fs::create_dir(&index_path).context(&index_path)?;
+        let index_store = (self.index_store)(settings, &index_path)?;
+        let index_type_path = index_path.join("type");
+        fs::write(&index_type_path, index_store.name()).context(&index_type_path)?;
+        let index_store: Arc<dyn IndexStore> = Arc::from(index_store);
 
-    let submodule_store_path = repo_path.join("submodule_store");
-    fs::create_dir(&submodule_store_path).context(&submodule_store_path)?;
-    let submodule_store = (store_initializers.submodule_store)(settings, &submodule_store_path)?;
-    let submodule_store_type_path = submodule_store_path.join("type");
-    fs::write(&submodule_store_type_path, submodule_store.name())
-        .context(&submodule_store_type_path)?;
-    let submodule_store = Arc::from(submodule_store);
+        let submodule_store_path = repo_path.join("submodule_store");
+        fs::create_dir(&submodule_store_path).context(&submodule_store_path)?;
+        let submodule_store = (self.submodule_store)(settings, &submodule_store_path)?;
+        let submodule_store_type_path = submodule_store_path.join("type");
+        fs::write(&submodule_store_type_path, submodule_store.name())
+            .context(&submodule_store_type_path)?;
+        let submodule_store = Arc::from(submodule_store);
 
-    let loader = RepoLoader::new(
-        settings.clone(),
-        store,
-        workspace_store,
-        op_store,
-        op_heads_store,
-        index_store,
-        submodule_store,
-    );
+        let loader = RepoLoader::new(
+            settings.clone(),
+            store,
+            workspace_store,
+            op_store,
+            op_heads_store,
+            index_store,
+            submodule_store,
+        );
 
-    let root_operation = loader.root_operation().await;
-    let root_view = root_operation
-        .view()
-        .await
-        .expect("failed to read root view");
-    assert!(!root_view.heads().is_empty());
-    let index = loader
-        .index_store()
-        .get_index_at_op(&root_operation, loader.store())
-        .await
-        // If the root op index couldn't be read, the index backend wouldn't
-        // be initialized properly.
-        .map_err(BackendInitError::new)?;
-    Ok(loader.create_from(root_operation, root_view, index))
+        let root_operation = loader.root_operation().await;
+        let root_view = root_operation
+            .view()
+            .await
+            .expect("failed to read root view");
+        assert!(!root_view.heads().is_empty());
+        let index = loader
+            .index_store()
+            .get_index_at_op(&root_operation, loader.store())
+            .await
+            // If the root op index couldn't be read, the index backend wouldn't
+            // be initialized properly.
+            .map_err(BackendInitError::new)?;
+        Ok(loader.create_from(root_operation, root_view, index))
+    }
 }
 
 /// Reads the store's type name from `path`.
