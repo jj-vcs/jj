@@ -81,6 +81,7 @@ use jj_lib::rewrite::RebasedCommit;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing_factory::signer_from_settings;
 use jj_lib::store_factories::StoreFactories;
+use jj_lib::store_factories::StoreInitializers;
 use jj_lib::store_factories::init_repo;
 use jj_lib::transaction::Transaction;
 use jj_lib::working_copy::SnapshotError;
@@ -353,16 +354,19 @@ impl TestRepo {
         let repo_dir = env.root().join("repo");
         fs::create_dir(&repo_dir).unwrap();
 
+        let store_initializers = StoreInitializers {
+            backend: &|settings, store_path| backend.init_backend(&env, settings, store_path),
+            workspace_store: default_workspace_store_initializer(),
+            op_store: default_op_store_initializer(),
+            op_heads_store: default_op_heads_store_initializer(),
+            index_store: default_index_store_initializer(),
+            submodule_store: default_submodule_store_initializer(),
+        };
         let repo = init_repo(
             settings,
             &repo_dir,
-            &|settings, store_path| backend.init_backend(&env, settings, store_path),
+            &store_initializers,
             signer_from_settings(settings).unwrap(),
-            default_workspace_store_initializer(),
-            default_op_store_initializer(),
-            default_op_heads_store_initializer(),
-            default_index_store_initializer(),
-            default_submodule_store_initializer(),
         )
         .block_on()
         .unwrap();

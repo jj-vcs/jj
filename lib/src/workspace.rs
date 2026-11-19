@@ -58,6 +58,7 @@ use crate::store_factories::OpHeadsStoreInitializer;
 use crate::store_factories::OpStoreInitializer;
 use crate::store_factories::RepoInitError;
 use crate::store_factories::StoreFactories;
+use crate::store_factories::StoreInitializers;
 use crate::store_factories::StoreLoadError;
 use crate::store_factories::SubmoduleStoreInitializer;
 use crate::store_factories::WorkspaceStoreInitializer;
@@ -390,23 +391,21 @@ impl Workspace {
         async {
             let repo_dir = jj_dir.join("repo");
             std::fs::create_dir(&repo_dir).context(&repo_dir)?;
-            let repo = init_repo(
-                user_settings,
-                &repo_dir,
-                backend_initializer,
-                signer,
-                workspace_store_initializer,
-                op_store_initializer,
-                op_heads_store_initializer,
-                index_store_initializer,
-                submodule_store_initializer,
-            )
-            .await
-            .map_err(|repo_init_err| match repo_init_err {
-                RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
-                RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
-                RepoInitError::Path(err) => WorkspaceInitError::Path(err),
-            })?;
+            let store_initializers = StoreInitializers {
+                backend: backend_initializer,
+                workspace_store: workspace_store_initializer,
+                op_store: op_store_initializer,
+                op_heads_store: op_heads_store_initializer,
+                index_store: index_store_initializer,
+                submodule_store: submodule_store_initializer,
+            };
+            let repo = init_repo(user_settings, &repo_dir, &store_initializers, signer)
+                .await
+                .map_err(|repo_init_err| match repo_init_err {
+                    RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
+                    RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
+                    RepoInitError::Path(err) => WorkspaceInitError::Path(err),
+                })?;
             let (working_copy, repo) = init_working_copy(
                 &repo,
                 workspace_root,

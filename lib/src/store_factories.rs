@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Contains factory and initializer types and the [`StoreFactories`] registry.
+//! Contains factory and initializer types and the [`StoreFactories`] and
+//! [`StoreInitializers`] registries.
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -387,26 +388,37 @@ pub enum RepoInitError {
     Path(#[from] PathError),
 }
 
+/// `StoreInitializers` holds the initializer for each store to create a new
+/// repo with.
+pub struct StoreInitializers<'a> {
+    /// Initializes the commit backend.
+    pub backend: &'a BackendInitializer<'a>,
+    /// Initializes the workspace store.
+    pub workspace_store: &'a WorkspaceStoreInitializer<'a>,
+    /// Initializes the operation store.
+    pub op_store: &'a OpStoreInitializer<'a>,
+    /// Initializes the operation heads store.
+    pub op_heads_store: &'a OpHeadsStoreInitializer<'a>,
+    /// Initializes the index store.
+    pub index_store: &'a IndexStoreInitializer<'a>,
+    /// Initializes the submodule store.
+    pub submodule_store: &'a SubmoduleStoreInitializer<'a>,
+}
+
 /// Creates a new repo at `repo_path` (which must exist), initializing each
 /// store with the given initializers, and returns the repo at its root
 /// operation.
-#[expect(clippy::too_many_arguments)]
 pub async fn init_repo(
     settings: &UserSettings,
     repo_path: &Path,
-    backend_initializer: &BackendInitializer<'_>,
+    store_initializers: &StoreInitializers<'_>,
     signer: Signer,
-    workspace_store_initializer: &WorkspaceStoreInitializer<'_>,
-    op_store_initializer: &OpStoreInitializer<'_>,
-    op_heads_store_initializer: &OpHeadsStoreInitializer<'_>,
-    index_store_initializer: &IndexStoreInitializer<'_>,
-    submodule_store_initializer: &SubmoduleStoreInitializer<'_>,
 ) -> Result<Arc<ReadonlyRepo>, RepoInitError> {
     let repo_path = file_util::canonicalize(repo_path).context(repo_path)?;
 
     let store_path = repo_path.join("store");
     fs::create_dir(&store_path).context(&store_path)?;
-    let backend = backend_initializer(settings, &store_path)?;
+    let backend = (store_initializers.backend)(settings, &store_path)?;
     let backend_path = store_path.join("type");
     fs::write(&backend_path, backend.name()).context(&backend_path)?;
     let merge_options = settings.merge_options().map_err(BackendInitError::new)?;
@@ -414,7 +426,7 @@ pub async fn init_repo(
 
     let workspace_store_path = repo_path.join("workspace_store");
     fs::create_dir(&workspace_store_path).context(&workspace_store_path)?;
-    let workspace_store = workspace_store_initializer(settings, &workspace_store_path)?;
+    let workspace_store = (store_initializers.workspace_store)(settings, &workspace_store_path)?;
     let workspace_store_type_path = workspace_store_path.join("type");
     fs::write(&workspace_store_type_path, workspace_store.name())
         .context(&workspace_store_type_path)?;
@@ -425,29 +437,32 @@ pub async fn init_repo(
     let root_op_data = RootOperationData {
         root_commit_id: store.root_commit_id().clone(),
     };
-    let op_store = op_store_initializer(settings, &op_store_path, root_op_data)?;
+    let op_store = (store_initializers.op_store)(settings, &op_store_path, root_op_data)?;
     let op_store_type_path = op_store_path.join("type");
     fs::write(&op_store_type_path, op_store.name()).context(&op_store_type_path)?;
     let op_store: Arc<dyn OpStore> = Arc::from(op_store);
 
     let op_heads_path = repo_path.join("op_heads");
     fs::create_dir(&op_heads_path).context(&op_heads_path)?;
-    let op_heads_store =
-        op_heads_store_initializer(settings, &op_heads_path, op_store.root_operation_id())?;
+    let op_heads_store = (store_initializers.op_heads_store)(
+        settings,
+        &op_heads_path,
+        op_store.root_operation_id(),
+    )?;
     let op_heads_type_path = op_heads_path.join("type");
     fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
     let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
 
     let index_path = repo_path.join("index");
     fs::create_dir(&index_path).context(&index_path)?;
-    let index_store = index_store_initializer(settings, &index_path)?;
+    let index_store = (store_initializers.index_store)(settings, &index_path)?;
     let index_type_path = index_path.join("type");
     fs::write(&index_type_path, index_store.name()).context(&index_type_path)?;
     let index_store: Arc<dyn IndexStore> = Arc::from(index_store);
 
     let submodule_store_path = repo_path.join("submodule_store");
     fs::create_dir(&submodule_store_path).context(&submodule_store_path)?;
-    let submodule_store = submodule_store_initializer(settings, &submodule_store_path)?;
+    let submodule_store = (store_initializers.submodule_store)(settings, &submodule_store_path)?;
     let submodule_store_type_path = submodule_store_path.join("type");
     fs::write(&submodule_store_type_path, submodule_store.name())
         .context(&submodule_store_type_path)?;
