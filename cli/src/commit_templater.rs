@@ -3007,6 +3007,7 @@ mod tests {
             )
         }
 
+        #[track_caller]
         fn render_ok<C>(&self, text: &str, context: &C) -> BString
         where
             C: Clone + TemplateValue,
