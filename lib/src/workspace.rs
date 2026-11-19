@@ -38,12 +38,8 @@ use jj_local_util::file_util::PathError;
 use thiserror::Error;
 
 use crate::default_backend_factories::default_backend_initializer;
-use crate::default_backend_factories::default_index_store_initializer;
-use crate::default_backend_factories::default_op_heads_store_initializer;
-use crate::default_backend_factories::default_op_store_initializer;
-use crate::default_backend_factories::default_submodule_store_initializer;
+use crate::default_backend_factories::default_store_initializers;
 use crate::default_backend_factories::default_working_copy_factory;
-use crate::default_backend_factories::default_workspace_store_initializer;
 use crate::repo::CheckOutCommitError;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
@@ -53,15 +49,10 @@ use crate::settings::UserSettings;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::store_factories::BackendInitializer;
-use crate::store_factories::IndexStoreInitializer;
-use crate::store_factories::OpHeadsStoreInitializer;
-use crate::store_factories::OpStoreInitializer;
 use crate::store_factories::RepoInitError;
 use crate::store_factories::StoreFactories;
 use crate::store_factories::StoreInitializers;
 use crate::store_factories::StoreLoadError;
-use crate::store_factories::SubmoduleStoreInitializer;
-use crate::store_factories::WorkspaceStoreInitializer;
 use crate::store_factories::read_store_type;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
@@ -369,34 +360,20 @@ impl Workspace {
         .await
     }
 
-    /// Initializes a workspace with a new repo, using the given backend and
-    /// store initializers and working-copy factory.
-    #[expect(clippy::too_many_arguments)]
+    /// Initializes a workspace with a new repo, using the given store
+    /// initializers and working-copy factory.
     pub async fn init_with_factories(
         user_settings: &UserSettings,
         workspace_root: &Path,
         workspace_name: &WorkspaceName,
-        backend_initializer: &BackendInitializer<'_>,
+        store_initializers: &StoreInitializers<'_>,
         signer: Signer,
-        workspace_store_initializer: &WorkspaceStoreInitializer<'_>,
-        op_store_initializer: &OpStoreInitializer<'_>,
-        op_heads_store_initializer: &OpHeadsStoreInitializer<'_>,
-        index_store_initializer: &IndexStoreInitializer<'_>,
-        submodule_store_initializer: &SubmoduleStoreInitializer<'_>,
         working_copy_factory: &dyn WorkingCopyFactory,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
         async {
             let repo_dir = jj_dir.join("repo");
             std::fs::create_dir(&repo_dir).context(&repo_dir)?;
-            let store_initializers = StoreInitializers {
-                backend: backend_initializer,
-                workspace_store: workspace_store_initializer,
-                op_store: op_store_initializer,
-                op_heads_store: op_heads_store_initializer,
-                index_store: index_store_initializer,
-                submodule_store: submodule_store_initializer,
-            };
             let repo = store_initializers
                 .init_repo(user_settings, &repo_dir, signer)
                 .await
@@ -441,13 +418,11 @@ impl Workspace {
             user_settings,
             workspace_root,
             workspace_name,
-            backend_initializer,
+            &StoreInitializers {
+                backend: backend_initializer,
+                ..default_store_initializers()
+            },
             signer,
-            default_workspace_store_initializer(),
-            default_op_store_initializer(),
-            default_op_heads_store_initializer(),
-            default_index_store_initializer(),
-            default_submodule_store_initializer(),
             &*default_working_copy_factory(),
         )
         .await

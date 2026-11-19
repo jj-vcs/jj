@@ -25,11 +25,7 @@ use jj_cli::ui::Ui;
 use jj_lib::backend::Backend;
 use jj_lib::backend::BackendInitError;
 use jj_lib::commit::Commit;
-use jj_lib::default_backend_factories::default_index_store_initializer;
-use jj_lib::default_backend_factories::default_op_heads_store_initializer;
-use jj_lib::default_backend_factories::default_op_store_initializer;
-use jj_lib::default_backend_factories::default_submodule_store_initializer;
-use jj_lib::default_backend_factories::default_workspace_store_initializer;
+use jj_lib::default_backend_factories::default_store_initializers;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::merged_tree::MergedTree;
@@ -41,6 +37,7 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing_factory::signer_from_settings;
 use jj_lib::store::Store;
+use jj_lib::store_factories::StoreInitializers;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
@@ -85,13 +82,11 @@ async fn run_custom_command(
                 &settings,
                 wc_path,
                 WorkspaceName::DEFAULT,
-                &backend_initializer,
+                &StoreInitializers {
+                    backend: &backend_initializer,
+                    ..default_store_initializers()
+                },
                 signer_from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
-                &default_workspace_store_initializer(),
-                &default_op_store_initializer(),
-                &default_op_heads_store_initializer(),
-                &default_index_store_initializer(),
-                &default_submodule_store_initializer(),
                 &ConflictsWorkingCopyFactory {},
             )
             .await?;
