@@ -17,6 +17,8 @@ use std::process::Command;
 use jj_core::op_store;
 use jj_core::operation::Operation;
 use jj_core::ref_name::WorkspaceName;
+use jj_lib::repo::RepoLoaderError;
+use jj_lib::rewrite::rebase_commit;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
@@ -125,5 +127,64 @@ fn run_merge_operations_deep_criss_cross(num_levels: usize) -> TestResult {
         )
         .block_on()?;
     assert!(!merged_repo.view().heads().is_empty());
+    Ok(())
+}
+
+// Regression test for https://github.com/jj-vcs/jj/issues/10474: merging
+// concurrent operations that rebase commits onto each other's descendants
+// produced a cyclic rewrite mapping and panicked in
+// `order_commits_for_rebase()`.
+#[test]
+fn test_merge_operations_cyclic_rebase() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo_loader = test_repo.repo.loader();
+
+    let mut tx = test_repo.repo.start_transaction();
+    let commit_x = write_random_commit(tx.repo_mut());
+    let commit_y = create_random_commit(tx.repo_mut())
+        .set_parents(vec![commit_x.id().clone()])
+        .write_unwrap();
+    let commit_z = write_random_commit(tx.repo_mut());
+    let base_repo = tx.commit("base").block_on()?;
+
+    // Op A rebases the X-Y chain onto Z.
+    let mut tx_a = base_repo.start_transaction();
+    rebase_commit(
+        tx_a.repo_mut(),
+        commit_x.clone(),
+        vec![commit_z.id().clone()],
+    )
+    .block_on()?;
+    tx_a.repo_mut().rebase_descendants().block_on()?;
+    let repo_a = tx_a.commit("A").block_on()?;
+
+    // Op B rebases Z onto Y.
+    let mut tx_b = base_repo.start_transaction();
+    rebase_commit(
+        tx_b.repo_mut(),
+        commit_z.clone(),
+        vec![commit_y.id().clone()],
+    )
+    .block_on()?;
+    tx_b.repo_mut().rebase_descendants().block_on()?;
+    let repo_b = tx_b.commit("B").block_on()?;
+
+    // Merging the operations creates a rewrite cycle X -> Z -> Y -> X'. It
+    // should surface as an error rather than panic.
+    let workspace_name = None;
+    let transaction_attributes = [];
+    let result = repo_loader
+        .merge_operations(
+            vec![repo_a.operation().clone(), repo_b.operation().clone()],
+            workspace_name,
+            Some("merge cyclic rebases"),
+            transaction_attributes,
+        )
+        .block_on();
+    assert!(
+        matches!(result, Err(RepoLoaderError::Backend(ref err))
+            if err.to_string().contains("Cycle between rewritten commits")),
+        "{result:?}"
+    );
     Ok(())
 }
