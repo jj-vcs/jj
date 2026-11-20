@@ -2361,7 +2361,7 @@ fn test_op_diff_word_wrap() {
         work_dir.run_jj_with(|cmd| {
             cmd.args(args)
                 .arg(format!("--config=ui.log-word-wrap={word_wrap}"))
-                .arg("--config=revset-aliases.'immutable_heads()'='root()'")
+                .arg("--config=revset-aliases.'shared_immutable_heads()'='root()'")
                 .env("COLUMNS", columns.to_string())
         })
     };

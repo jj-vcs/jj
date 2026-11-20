@@ -270,10 +270,12 @@ fn test_git_colocated_update_stale_resets_git_head() {
         .success();
     let secondary_dir = test_env.work_dir("secondary");
     secondary_dir
-        .run_jj(["edit", r#"subject(parent)"#])
+        .run_jj(["edit", "--ignore-immutable", r#"subject(parent)"#])
         .success();
     secondary_dir.write_file("file1", "a\nmodified\n");
-    secondary_dir.run_jj(["status"]).success();
+    secondary_dir
+        .run_jj(["status", "--ignore-immutable"])
+        .success();
 
     let output = work_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @"
@@ -1444,8 +1446,7 @@ fn test_git_colocated_undo_head_move() -> TestResult {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: c3aad0e25c1e (2001-02-03 08:05:15) new empty commit
-    Restored to operation: c6c88e19d828 (2001-02-03 08:05:14) new empty commit
+    Undid operation: fedecdccce0f (2001-02-03 08:05:15) new empty commit
     Working copy  (@) now at: vruxwmqv 23e6e06a (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
