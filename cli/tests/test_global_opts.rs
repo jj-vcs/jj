@@ -199,6 +199,400 @@ fn test_no_subcommand() {
 }
 
 #[test]
+fn test_deprecated_removed_command_hints() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let cases: &[&[&str]] = &[
+        &["amend"],
+        &["clone"],
+        &["init"],
+        &["op", "undo"],
+        &["op", "redo"],
+        &["backout"],
+        &["branch", "list"],
+        &["cat", "file"],
+        &["chmod", "x", "file"],
+        &["checkout"],
+        &["co"],
+        &["files"],
+        &["merge"],
+        &["move"],
+        &["debug", "snapshot"],
+        &["util", "mangen"],
+        &["untrack", "file"],
+        &["unsquash"],
+        &["log", "-l", "5"],
+        &["evolog", "-l", "5"],
+        &["--config-toml", "ui.color='never'", "version"],
+        &["util", "completion", "--bash"],
+        &["git", "clone", "--fetch-tags=all", "source", "dest"],
+        &["op", "log", "-l", "5"],
+        &["git", "push", "--allow-new"],
+        &["commit", "--reset-author"],
+        &["commit", "--author", "A. U. Thor <author@example.com>"],
+        &["describe", "--edit"],
+        &["describe", "--no-edit"],
+        &["rebase", "--skip-empty"],
+        &["split", "--siblings"],
+        &["abandon", "--summary"],
+        &["metaedit", "--update-committer-timestamp"],
+        &["describe", "--reset-author"],
+        &["describe", "--author", "A. U. Thor <author@example.com>"],
+    ];
+    let output = cases
+        .iter()
+        .map(|args| format!("$ jj {}\n{}", args.join(" "), work_dir.run_jj(*args)))
+        .join("\n");
+    insta::assert_snapshot!(output, @r#"
+    $ jj amend
+    ------- stderr -------
+    error: unrecognized subcommand 'amend'
+
+    For more information, try '--help'.
+    Hint: You probably want `jj squash`. You can configure `aliases.amend = ["squash"]` if you want `jj amend` to work.
+    [EOF]
+    [exit status: 2]
+
+    $ jj clone
+    ------- stderr -------
+    error: unrecognized subcommand 'clone'
+
+    For more information, try '--help'.
+    Hint: You probably want `jj git clone`. See also `jj help git`.
+    Hint: You can configure `aliases.clone = ["git", "clone"]` if you want `jj clone` to work and always use the Git backend.
+    [EOF]
+    [exit status: 2]
+
+    $ jj init
+    ------- stderr -------
+    error: unrecognized subcommand 'init'
+
+    For more information, try '--help'.
+    Hint: You probably want `jj git init`. See also `jj help git`.
+    Hint: You can configure `aliases.init = ["git", "init"]` if you want `jj init` to work and always use the Git backend.
+    [EOF]
+    [exit status: 2]
+
+    $ jj op undo
+    ------- stderr -------
+    error: unrecognized subcommand 'undo'
+
+    For more information, try '--help'.
+    Hint: `jj operation undo` was removed in jj 0.39.0. Use `jj undo` to undo the latest operation. Use `jj op revert` to revert a specific operation.
+    [EOF]
+    [exit status: 2]
+
+    $ jj op redo
+    ------- stderr -------
+    error: unrecognized subcommand 'redo'
+
+    For more information, try '--help'.
+    Hint: You probably want `jj redo`.
+    [EOF]
+    [exit status: 2]
+
+    $ jj backout
+    ------- stderr -------
+    error: unrecognized subcommand 'backout'
+
+    For more information, try '--help'.
+    Hint: `jj backout` was removed in jj 0.35.0. Use `jj revert` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj branch list
+    ------- stderr -------
+    error: unrecognized subcommand 'branch'
+
+    For more information, try '--help'.
+    Hint: `jj branch` was removed in jj 0.30.0. Use `jj bookmark` and its subcommands instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj cat file
+    ------- stderr -------
+    error: unrecognized subcommand 'cat'
+
+    For more information, try '--help'.
+    Hint: `jj cat` was removed in jj 0.26.0. Use `jj file show` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj chmod x file
+    ------- stderr -------
+    error: unrecognized subcommand 'chmod'
+
+    For more information, try '--help'.
+    Hint: `jj chmod` was removed in jj 0.26.0. Use `jj file chmod` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj checkout
+    ------- stderr -------
+    error: unrecognized subcommand 'checkout'
+
+    For more information, try '--help'.
+    Hint: `jj checkout` was removed in jj 0.24.0. Use `jj new` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj co
+    ------- stderr -------
+    error: unrecognized subcommand 'co'
+
+    For more information, try '--help'.
+    Hint: `jj co` was removed in jj 0.24.0. Use `jj new` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj files
+    ------- stderr -------
+    error: unrecognized subcommand 'files'
+
+    For more information, try '--help'.
+    Hint: `jj files` was removed in jj 0.26.0. Use `jj file list` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj merge
+    ------- stderr -------
+    error: unrecognized subcommand 'merge'
+
+    For more information, try '--help'.
+    Hint: `jj merge` was removed in jj 0.24.0. Use `jj new` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj move
+    ------- stderr -------
+    error: unrecognized subcommand 'move'
+
+    For more information, try '--help'.
+    Hint: `jj move` was removed in jj 0.24.0. Use `jj squash` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj debug snapshot
+    ------- stderr -------
+    error: unrecognized subcommand 'snapshot'
+
+    For more information, try '--help'.
+    Hint: `jj debug snapshot` was removed in jj 0.48.0. Use `jj util snapshot` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj util mangen
+    ------- stderr -------
+    error: unrecognized subcommand 'mangen'
+
+    For more information, try '--help'.
+    Hint: `jj util mangen` was removed in jj 0.26.0. Use `jj util install-man-pages` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj untrack file
+    ------- stderr -------
+    error: unrecognized subcommand 'untrack'
+
+    For more information, try '--help'.
+    Hint: `jj untrack` was removed in jj 0.28.0. Use `jj file untrack` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj unsquash
+    ------- stderr -------
+    error: unrecognized subcommand 'unsquash'
+
+    For more information, try '--help'.
+    Hint: `jj unsquash` was removed in jj 0.28.0. Use `jj squash` or `jj diffedit --restore-descendants` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj log -l 5
+    ------- stderr -------
+    error: unexpected argument '-l' found
+
+    For more information, try '--help'.
+    Hint: `jj log -l` was removed in jj 0.26.0. Use `-n` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj evolog -l 5
+    ------- stderr -------
+    error: unexpected argument '-l' found
+
+    For more information, try '--help'.
+    Hint: `jj evolog -l` was removed in jj 0.26.0. Use `-n` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj --config-toml ui.color='never' version
+    ------- stderr -------
+    Hint: Use `jj -h` for a list of available commands.
+    Run `jj config set --user ui.default-command log` to disable this message.
+    error: unexpected argument '--config-toml' found
+
+    For more information, try '--help'.
+    Hint: `jj --config-toml` was removed in jj 0.33.0. Use `--config=NAME=VALUE` or `--config-file=PATH` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj util completion --bash
+    ------- stderr -------
+    error: unexpected argument '--bash' found
+
+    For more information, try '--help'.
+    Hint: `jj util completion --bash` was removed in jj 0.30.0. Pass the shell as an argument: `jj util completion bash`.
+    [EOF]
+    [exit status: 2]
+
+    $ jj git clone --fetch-tags=all source dest
+    ------- stderr -------
+    error: unexpected argument '--fetch-tags' found
+
+    For more information, try '--help'.
+    Hint: `jj git clone --fetch-tags` was removed in jj 0.44.0. Use `--tag=PATTERN` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj op log -l 5
+    ------- stderr -------
+    error: unexpected argument '-l' found
+
+    For more information, try '--help'.
+    Hint: `jj operation log -l` was removed in jj 0.26.0. Use `-n` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj git push --allow-new
+    ------- stderr -------
+    error: unexpected argument '--allow-new' found
+
+    For more information, try '--help'.
+    Hint: `jj git push --allow-new` was removed in jj 0.42.0. Push a specific bookmark with `jj git push --bookmark <name>` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj commit --reset-author
+    ------- stderr -------
+    error: unexpected argument '--reset-author' found
+
+    For more information, try '--help'.
+    Hint: `jj commit --reset-author` was removed in jj 0.42.0. Use `jj metaedit --update-author` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj commit --author A. U. Thor <author@example.com>
+    ------- stderr -------
+    error: unexpected argument '--author' found
+
+    For more information, try '--help'.
+    Hint: `jj commit --author` was removed in jj 0.42.0. Use `jj metaedit --author <author>` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj describe --edit
+    ------- stderr -------
+    error: unexpected argument '--edit' found
+
+    For more information, try '--help'.
+    Hint: `jj describe --edit` was removed in jj 0.42.0. Use `jj describe --editor` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj describe --no-edit
+    ------- stderr -------
+    error: unexpected argument '--no-edit' found
+
+    For more information, try '--help'.
+    Hint: `jj describe --no-edit` was removed in jj 0.42.0. `jj describe --message <message>` already avoids opening an editor.
+    [EOF]
+    [exit status: 2]
+
+    $ jj rebase --skip-empty
+    ------- stderr -------
+    error: unexpected argument '--skip-empty' found
+
+    For more information, try '--help'.
+    Hint: `jj rebase --skip-empty` was removed in jj 0.30.0. Use `jj rebase --skip-emptied` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj split --siblings
+    ------- stderr -------
+    error: unexpected argument '--siblings' found
+
+    For more information, try '--help'.
+    Hint: `jj split --siblings` was removed in jj 0.26.0. Use `jj split --parallel` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj abandon --summary
+    ------- stderr -------
+    error: unexpected argument '--summary' found
+
+    For more information, try '--help'.
+    Hint: `jj abandon --summary` was removed in jj 0.35.0. `jj abandon` now limits the abandoned commit list automatically.
+    [EOF]
+    [exit status: 2]
+
+    $ jj metaedit --update-committer-timestamp
+    ------- stderr -------
+    error: unexpected argument '--update-committer-timestamp' found
+
+    For more information, try '--help'.
+    Hint: `jj metaedit --update-committer-timestamp` was removed in jj 0.42.0. Use `jj metaedit --force-rewrite` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj describe --reset-author
+    ------- stderr -------
+    error: unexpected argument '--reset-author' found
+
+    For more information, try '--help'.
+    Hint: `jj describe --reset-author` was removed in jj 0.42.0. Use `jj metaedit --update-author` instead.
+    [EOF]
+    [exit status: 2]
+
+    $ jj describe --author A. U. Thor <author@example.com>
+    ------- stderr -------
+    error: unexpected argument '--author' found
+
+    For more information, try '--help'.
+    Hint: `jj describe --author` was removed in jj 0.42.0. Use `jj metaedit --author <author>` instead.
+    [EOF]
+    [exit status: 2]
+    "#);
+}
+
+#[test]
+fn test_soft_deprecated_command_still_runs() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj([
+        "bisect",
+        "run",
+        "--range=@",
+        "--trust-endpoints",
+        "--command",
+        "true",
+    ]);
+    insta::assert_snapshot!(output, @"
+    Search complete. To discard any revisions created during search, run:
+      jj op restore f63ee16f9553
+    The first bad revision is: qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: `--command` is deprecated; use positional arguments instead: `jj bisect run --range=... -- true`
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_ignore_working_copy() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
