@@ -242,7 +242,7 @@ pub fn parse_op_diff_changes_in(
 /// repositories.
 fn resolve_op_diff_changes_exprs(
     workspace_env: &WorkspaceCommandEnvironment,
-    op_diff_changes_expr: &UserRevsetExpression,
+    op_diff_changes_expr: &Arc<UserRevsetExpression>,
     from_repo: &ReadonlyRepo,
     to_repo: &ReadonlyRepo,
 ) -> Result<(Arc<ResolvedRevsetExpression>, Arc<ResolvedRevsetExpression>), RevsetResolutionError> {

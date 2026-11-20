@@ -977,7 +977,7 @@ fn evaluate_revset_expression(
     repo: &dyn Repo,
     revset_parse_context: &RevsetParseContext,
     id_prefix_context: &IdPrefixContext,
-    expression: &UserRevsetExpression,
+    expression: &Arc<UserRevsetExpression>,
 ) -> Result<Box<dyn Revset>, UserRevsetEvaluationError> {
     let symbol_resolver = revset_util::default_symbol_resolver(
         repo,

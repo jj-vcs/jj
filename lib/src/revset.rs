@@ -719,7 +719,7 @@ impl UserRevsetExpression {
     /// Resolve a user-provided expression. Symbols will be resolved using the
     /// provided [`SymbolResolver`].
     pub fn resolve_user_expression<'a>(
-        &self,
+        self: &Arc<Self>,
         repo: &'a dyn Repo,
         symbol_resolver: &SymbolResolver,
     ) -> Result<ResolvedRevset<'a>, RevsetResolutionError> {
