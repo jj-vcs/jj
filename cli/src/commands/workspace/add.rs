@@ -16,7 +16,9 @@ use std::fs;
 
 use futures::future::try_join_all;
 use itertools::Itertools as _;
+use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
+use jj_lib::commit_builder::DetachedCommitBuilder;
 use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
 #[cfg(feature = "git")]
@@ -31,6 +33,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
@@ -67,6 +70,25 @@ pub struct WorkspaceAddArgs {
     /// directory.
     #[arg(long)]
     name: Option<WorkspaceNameBuf>,
+
+    /// Adopt the files already in the destination directory
+    ///
+    /// The destination directory must already exist and must not contain a
+    /// `.jj` directory. Files that differ from the new working-copy commit are
+    /// reset to match it, so the result is the same as without `--adopt`. The
+    /// previous contents can be recovered with `jj undo`.
+    ///
+    /// This is useful in combination with a copy-on-write filesystem, such as
+    /// Btrfs or ZFS, to create a workspace without writing all its files.
+    ///
+    /// Example:
+    /// ```shell
+    /// btrfs subvolume snapshot src dst
+    /// rm -rf dst/.jj dst/.git
+    /// jj -R src workspace add --adopt dst
+    /// ```
+    #[arg(long, verbatim_doc_comment)]
+    adopt: bool,
 
     /// A list of parent revisions for the working-copy commit of the newly
     /// created workspace. You may specify nothing, or any number of parents.
@@ -115,7 +137,7 @@ pub async fn cmd_workspace_add(
     args: &WorkspaceAddArgs,
 ) -> Result<(), CommandError> {
     check_new_working_copy_writable(command)?;
-    let old_workspace_command = command.workspace_helper(ui).await?;
+    let mut old_workspace_command = command.workspace_helper(ui).await?;
     let destination_path = command.cwd().join(&args.destination);
     let workspace_name = if let Some(name) = &args.name {
         name.to_owned()
@@ -130,7 +152,7 @@ pub async fn cmd_workspace_add(
         return Err(user_error("New workspace name cannot be empty"));
     }
 
-    let repo = old_workspace_command.repo();
+    let repo = old_workspace_command.repo().clone();
     if repo.view().get_wc_commit_id(&workspace_name).is_some() {
         return Err(user_error(format!(
             "Workspace named '{name}' already exists",
@@ -160,7 +182,19 @@ pub async fn cmd_workspace_add(
         .await?
     };
 
-    if !destination_path.exists() {
+    if args.adopt {
+        if !destination_path.is_dir() {
+            return Err(user_error("Destination path is not a directory"));
+        }
+        if destination_path.join(".jj").exists() {
+            return Err(
+                user_error("Destination path already contains a .jj directory").hinted(
+                    "If this directory was copied from an existing workspace, delete its .jj \
+                     directory before adopting it.",
+                ),
+            );
+        }
+    } else if !destination_path.exists() {
         fs::create_dir(&destination_path).context(&destination_path)?;
     } else if !file_util::is_empty_dir(&destination_path)? {
         return Err(user_error(
@@ -186,19 +220,44 @@ pub async fn cmd_workspace_add(
         }
     }
 
+    // When adopting, the working-copy commit needs to exist before the
+    // workspace so the working copy can be initialized to it without touching
+    // the files.
+    let adopted_wc_commit = if args.adopt {
+        let mut tx = old_workspace_command.start_transaction();
+        let commit_builder =
+            new_wc_commit_builder(ui, &mut tx, &parents, &args.message_paragraphs).await?;
+        Some(commit_builder.write_hidden().await?)
+    } else {
+        None
+    };
+
     let working_copy_factory = command.get_working_copy_factory()?;
     let repo_path = old_workspace_command.repo_path();
     // If we add per-workspace configuration, we'll need to reload settings for
     // the new workspace.
-    let (new_workspace, repo) = Workspace::init_workspace_with_existing_repo(
-        &destination_path,
-        repo_path,
-        repo,
-        working_copy_factory,
-        workspace_name.clone(),
-        Some(old_workspace_command.workspace_name()),
-    )
-    .await?;
+    let (new_workspace, repo) = if let Some(wc_commit) = &adopted_wc_commit {
+        Workspace::adopt_workspace_with_existing_repo(
+            &destination_path,
+            repo_path,
+            &repo,
+            working_copy_factory,
+            workspace_name.clone(),
+            Some(old_workspace_command.workspace_name()),
+            wc_commit,
+        )
+        .await?
+    } else {
+        Workspace::init_workspace_with_existing_repo(
+            &destination_path,
+            repo_path,
+            &repo,
+            working_copy_factory,
+            workspace_name.clone(),
+            Some(old_workspace_command.workspace_name()),
+        )
+        .await?
+    };
     writeln!(
         ui.status(),
         "Created workspace in \"{}\"",
@@ -219,6 +278,12 @@ pub async fn cmd_workspace_add(
     // Keep the colocated Git worktree from tracking Jujutsu's own files.
     #[cfg(feature = "git")]
     maybe_add_gitignore(&new_workspace_command)?;
+
+    if args.adopt {
+        // Record the adopted files so that any differences from the
+        // working-copy commit can be recovered after resetting them below.
+        new_workspace_command.maybe_snapshot(ui).await?;
+    }
 
     let sparsity = match args.sparse_patterns {
         SparseInheritance::Full => None,
@@ -244,36 +309,70 @@ pub async fn cmd_workspace_add(
         locked_ws.finish(operation_id).await?;
     }
 
-    let mut tx = new_workspace_command.start_transaction();
-    // Attribute the operation to the workspace the command was run in, so e.g.
-    // `jj undo` there undoes it
-    tx.set_workspace_name(old_workspace_command.workspace_name());
+    if let Some(adopted_wc_commit) = adopted_wc_commit {
+        let wc_commit = new_workspace_command.get_wc_commit().await?.unwrap();
+        if wc_commit.id() != adopted_wc_commit.id() {
+            let mut tx = new_workspace_command.start_transaction();
+            tx.repo_mut()
+                .rewrite_commit(&wc_commit)
+                .set_tree(adopted_wc_commit.tree())
+                .write()
+                .await?;
+            tx.finish(
+                ui,
+                format!(
+                    "reset adopted files in workspace {name}",
+                    name = workspace_name.as_symbol()
+                ),
+            )
+            .await?;
+            writeln!(
+                ui.warning_default(),
+                r#"Reset files in "{}" to match the working-copy commit. To recover the adopted changes, run `jj undo`."#,
+                file_util::relative_path(command.cwd(), &destination_path).display()
+            )?;
+        }
+    } else {
+        let mut tx = new_workspace_command.start_transaction();
+        // Attribute the operation to the workspace the command was run in, so e.g.
+        // `jj undo` there undoes it
+        tx.set_workspace_name(old_workspace_command.workspace_name());
+        let commit_builder =
+            new_wc_commit_builder(ui, &mut tx, &parents, &args.message_paragraphs).await?;
+        let new_wc_commit = commit_builder.write(tx.repo_mut()).await?;
+        tx.edit(&new_wc_commit)?;
+        tx.finish(
+            ui,
+            format!(
+                "create initial working-copy commit in workspace {name}",
+                name = workspace_name.as_symbol()
+            ),
+        )
+        .await?;
+    }
+    Ok(())
+}
 
-    let tree = merge_commit_trees(tx.repo(), &parents).await?;
+async fn new_wc_commit_builder(
+    ui: &Ui,
+    tx: &mut WorkspaceCommandTransaction<'_>,
+    parents: &[Commit],
+    message_paragraphs: &[String],
+) -> Result<DetachedCommitBuilder, CommandError> {
+    let tree = merge_commit_trees(tx.repo(), parents).await?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
     let mut commit_builder = tx.repo_mut().new_commit(parent_ids, tree).detach();
-    let mut description = join_message_paragraphs(&args.message_paragraphs);
+    let mut description = join_message_paragraphs(message_paragraphs);
     if !description.is_empty() {
         // The first trailer would become the first line of the description.
         // Also, a commit with no description is treated in a special way in jujutsu: it
         // can be discarded as soon as it's no longer the working copy. Adding a
         // trailer to an empty description would break that logic.
         commit_builder.set_description(description);
-        description = add_trailers(ui, &tx, &commit_builder).await?;
+        description = add_trailers(ui, tx, &commit_builder).await?;
     }
     commit_builder.set_description(&description);
-    let new_wc_commit = commit_builder.write(tx.repo_mut()).await?;
-
-    tx.edit(&new_wc_commit)?;
-    tx.finish(
-        ui,
-        format!(
-            "create initial working-copy commit in workspace {name}",
-            name = workspace_name.as_symbol()
-        ),
-    )
-    .await?;
-    Ok(())
+    Ok(commit_builder)
 }
 
 // Like check_working_copy_writable(), but --at-op is respected.
