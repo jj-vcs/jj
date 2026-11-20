@@ -25,6 +25,9 @@ use pollster::FutureExt as _;
 use testutils::TestEnvironment;
 use testutils::TestResult;
 use testutils::TestWorkspace;
+use testutils::create_tree;
+use testutils::empty_snapshot_options;
+use testutils::repo_path;
 
 #[test]
 fn test_load_bad_path() {
@@ -91,6 +94,67 @@ fn test_init_additional_workspace() -> TestResult {
         dunce::canonicalize(workspace.repo_path())?
     );
     assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
+    Ok(())
+}
+
+#[test]
+fn test_adopt_additional_workspace() -> TestResult {
+    let test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let unchanged_path = repo_path("unchanged");
+    let modified_path = repo_path("modified");
+    let added_path = repo_path("added");
+    let tree = create_tree(repo, &[(unchanged_path, "a\n"), (modified_path, "b\n")]);
+    // Write the commit without recording it in an operation
+    let commit = repo
+        .start_transaction()
+        .repo_mut()
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree)
+        .write()
+        .block_on()?;
+
+    let ws2_name = WorkspaceNameBuf::from("ws2");
+    let ws2_root = test_workspace.root_dir().join("ws2_root");
+    std::fs::create_dir(&ws2_root)?;
+    std::fs::write(ws2_root.join("unchanged"), "a\n")?;
+    std::fs::write(ws2_root.join("modified"), "changed\n")?;
+    std::fs::write(ws2_root.join("added"), "c\n")?;
+    let (mut ws2, repo) = Workspace::adopt_workspace_with_existing_repo(
+        &ws2_root,
+        test_workspace.repo_path(),
+        repo,
+        &*default_working_copy_factory(),
+        ws2_name.clone(),
+        None,
+        &commit,
+    )
+    .block_on()?;
+    assert_eq!(repo.view().get_wc_commit_id(&ws2_name), Some(commit.id()));
+    assert_eq!(ws2.working_copy().operation_id(), repo.op_id());
+    assert_eq!(ws2.working_copy().tree()?.tree_ids(), commit.tree_ids());
+
+    // The files on disk are left alone
+    assert_eq!(
+        std::fs::read_to_string(ws2_root.join("modified"))?,
+        "changed\n"
+    );
+    assert_eq!(std::fs::read_to_string(ws2_root.join("added"))?, "c\n");
+
+    // Snapshotting picks up the differences from the commit
+    let mut locked_ws = ws2.start_working_copy_mutation().block_on()?;
+    let (snapshot_tree, _stats) = locked_ws
+        .locked_wc()
+        .snapshot(&empty_snapshot_options())
+        .block_on()?;
+    let expected_tree = create_tree(
+        &repo,
+        &[
+            (unchanged_path, "a\n"),
+            (modified_path, "changed\n"),
+            (added_path, "c\n"),
+        ],
+    );
+    assert_eq!(snapshot_tree.tree_ids(), expected_tree.tree_ids());
     Ok(())
 }
 
