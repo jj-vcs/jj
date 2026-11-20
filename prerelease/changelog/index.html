@@ -9573,8 +9573,17 @@ and this project adheres to
 <p>Deleted <code>jj debug snapshot</code>. It was deprecated in 0.39.0. Use <code>jj util snapshot</code>
   instead.</p>
 </li>
+<li>
+<p><code>jj bookmark set</code> and <code>jj bookmark move</code> now move bookmarks backwards or
+  sideways with a warning instead of failing. <code>--allow-backwards</code> is deprecated.
+  <a href="https://github.com/jj-vcs/jj/issues/8808">#8808</a></p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The <code>--allow-backwards</code> flag for <code>jj bookmark set</code> and <code>jj bookmark move</code> is
+  now a no-op.</li>
+</ul>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
