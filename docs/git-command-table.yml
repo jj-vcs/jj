@@ -383,19 +383,12 @@
     `jj bookmark create <name> -r <revision>`
   Notes:
 
-- Use case: Move a bookmark/branch forward
+- Use case: Move a bookmark/branch
   Git command: >
     `git branch -f <name> <revision>`
   Jujutsu command: >
     `jj bookmark move <name> --to <revision>`
     or `jj b m <name> -t <revision>` for short
-  Notes:
-
-- Use case: Move a bookmark/branch backward or sideways
-  Git command: >
-    `git branch -f <name> <revision>`
-  Jujutsu command: >
-    `jj bookmark move <name> --to <revision> --allow-backwards`
   Notes:
 
 - Use case: Delete a bookmark/branch

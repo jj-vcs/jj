@@ -16,7 +16,6 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::iter_util::fallible_any;
-use jj_lib::iter_util::fallible_find;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::repo::Repo as _;
@@ -27,7 +26,6 @@ use super::warn_unmatched_local_bookmarks;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
-use crate::command_error::user_error;
 use crate::complete;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
@@ -67,7 +65,8 @@ pub struct BookmarkMoveArgs {
     to: RevisionArg,
 
     /// Allow moving bookmarks backwards or sideways
-    #[arg(long, short = 'B')]
+    // TODO: Delete in jj 0.54+
+    #[arg(long, short = 'B', hide = true)]
     allow_backwards: bool,
 }
 
@@ -121,21 +120,18 @@ pub async fn cmd_bookmark_move(
         return Ok(());
     }
 
-    if !args.allow_backwards
-        && let Some((name, _)) = fallible_find(
-            matched_bookmarks.iter(),
-            async |(_, old_target)| -> Result<_, CommandError> {
-                let is_ff = is_fast_forward(repo.as_ref(), old_target, target_commit.id()).await?;
-                Ok(!is_ff)
-            },
-        )
-        .await?
-    {
-        return Err(user_error(format!(
-            "Refusing to move bookmark backwards or sideways: {name}",
-            name = name.as_symbol()
-        ))
-        .hinted("Use --allow-backwards to allow it."));
+    let mut backwards_bookmarks = vec![];
+    for (name, old_target) in &matched_bookmarks {
+        if !is_fast_forward(repo.as_ref(), old_target, target_commit.id()).await? {
+            backwards_bookmarks.push(*name);
+        }
+    }
+    if !backwards_bookmarks.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "Moving bookmarks backwards or sideways: {names}",
+            names = backwards_bookmarks.iter().map(|n| n.as_symbol()).join(", ")
+        )?;
     }
     if target_commit.is_discardable(repo.index()).await? {
         writeln!(ui.warning_default(), "Target revision is empty.")?;

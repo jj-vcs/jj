@@ -804,6 +804,7 @@ fn test_git_colocated_bookmark_at_root() -> TestResult {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Moving bookmarks backwards or sideways: foo
     Warning: Target revision is empty.
     Moved 1 bookmarks to zzzzzzzz 00000000 foo* | (empty) (no description set)
     Warning: Failed to export some bookmarks:

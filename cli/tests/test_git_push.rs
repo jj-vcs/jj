@@ -2956,6 +2956,7 @@ fn test_git_push_sign_on_push() {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Moving bookmarks backwards or sideways: bookmark1
     Moved 1 bookmarks to lylxulpl e3b605c9 bookmark1* | (empty) commit with different author
     [EOF]
     ");
