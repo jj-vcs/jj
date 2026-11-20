@@ -293,15 +293,17 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "set", "-r@-", "foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Refusing to move bookmark backwards or sideways: foo
-    Hint: Use --allow-backwards to allow it.
+    Warning: Moving bookmarks backwards or sideways: foo
+    Warning: Target revision is empty.
+    Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
     [EOF]
-    [exit status: 1]
     ");
 
+    work_dir.run_jj(["undo"]).success();
     let output = work_dir.run_jj(["bookmark", "set", "-r@-", "--allow-backwards", "foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Moving bookmarks backwards or sideways: foo
     Warning: Target revision is empty.
     Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
     [EOF]
@@ -318,15 +320,7 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "move", "--to=@-", "foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Refusing to move bookmark backwards or sideways: foo
-    Hint: Use --allow-backwards to allow it.
-    [EOF]
-    [exit status: 1]
-    ");
-
-    let output = work_dir.run_jj(["bookmark", "move", "--to=@-", "--allow-backwards", "foo"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
+    Warning: Moving bookmarks backwards or sideways: foo
     Warning: Target revision is empty.
     Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
     [EOF]
@@ -487,25 +481,26 @@ fn test_bookmark_move_matching() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
-    // Try to move multiple bookmarks, but one of them isn't fast-forward
+    // Move multiple bookmarks, but one of them isn't fast-forward
     let output = work_dir.run_jj(["bookmark", "move", "'?1'"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Refusing to move bookmark backwards or sideways: a1
-    Hint: Use --allow-backwards to allow it.
+    Warning: Moving bookmarks backwards or sideways: a1
+    Moved 3 bookmarks to vruxwmqv 0dd9a4b1 a1 b1 c1 | (empty) head2
     [EOF]
-    [exit status: 1]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @   0dd9a4b12283
-    ○  c1 2cbf65662e56
-    ○  b1 c2934cfbfb19
+    @  a1 b1 c1 0dd9a4b12283
+    ○   2cbf65662e56
+    ○   c2934cfbfb19
     │ ○   9328ecc52471
-    │ ○  a1 a2 e8849ae12c70
+    │ ○  a2 e8849ae12c70
     ├─╯
     ◆   000000000000
     [EOF]
     ");
+
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Select by revision and name
     let output = work_dir.run_jj(["bookmark", "move", "--from=::a1+", "--to=a1+", "'?1'"]);
@@ -562,15 +557,16 @@ fn test_bookmark_move_conflicting() {
     [EOF]
     ");
 
-    // Can't move the bookmark to C0 since it's sibling.
+    // Moving the bookmark to C0 warns since it's a sibling.
     let output = work_dir.run_jj(["bookmark", "set", "-rsubject(C0)", "foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Refusing to move bookmark backwards or sideways: foo
-    Hint: Use --allow-backwards to allow it.
+    Warning: Moving bookmarks backwards or sideways: foo
+    Moved 1 bookmarks to zsuskuln c7420bf7 foo | (empty) C0
     [EOF]
-    [exit status: 1]
     ");
+
+    work_dir.run_jj(["undo"]).success();
 
     // Can move the bookmark to A1 since it's descendant of A0. It's not
     // descendant of B0, though.

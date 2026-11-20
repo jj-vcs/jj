@@ -610,7 +610,6 @@ If `--from` options are given, bookmarks currently pointing to the specified rev
 * `-t`, `--to <REVSET>` — Move bookmarks to this revision
 
   Default value: `@`
-* `-B`, `--allow-backwards` — Allow moving bookmarks backwards or sideways
 
 
 
@@ -654,7 +653,6 @@ If you want to move bookmarks based on their current location rather than by nam
 * `-r`, `--revision <REVSET>` [alias: `to`] — The bookmark's target revision
 
   Default value: `@`
-* `-B`, `--allow-backwards` — Allow moving the bookmark backwards or sideways
 
 
 

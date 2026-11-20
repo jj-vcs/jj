@@ -27,7 +27,6 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::command_error::CommandError;
-use crate::command_error::user_error;
 use crate::complete;
 use crate::revset_util;
 use crate::ui::Ui;
@@ -50,7 +49,8 @@ pub struct BookmarkSetArgs {
     revision: RevisionArg,
 
     /// Allow moving the bookmark backwards or sideways
-    #[arg(long, short = 'B')]
+    // TODO: Delete in jj 0.54+
+    #[arg(long, short = 'B', hide = true)]
     allow_backwards: bool,
 
     /// The bookmarks to update
@@ -72,6 +72,7 @@ pub async fn cmd_bookmark_set(
     let bookmark_names = &args.names;
     let mut new_bookmarks = HashSet::new();
     let mut moved_bookmark_count = 0;
+    let mut backwards_bookmarks = vec![];
     for name in bookmark_names {
         let old_target = repo.view().get_local_bookmark(name);
         // If a bookmark is absent locally but is still tracking remote bookmarks,
@@ -81,13 +82,16 @@ pub async fn cmd_bookmark_set(
         } else if old_target.as_normal() != Some(target_commit.id()) {
             moved_bookmark_count += 1;
         }
-        if !args.allow_backwards && !is_fast_forward(repo, old_target, target_commit.id()).await? {
-            return Err(user_error(format!(
-                "Refusing to move bookmark backwards or sideways: {name}",
-                name = name.as_symbol()
-            ))
-            .hinted("Use --allow-backwards to allow it."));
+        if !is_fast_forward(repo, old_target, target_commit.id()).await? {
+            backwards_bookmarks.push(name);
         }
+    }
+    if !backwards_bookmarks.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "Moving bookmarks backwards or sideways: {names}",
+            names = backwards_bookmarks.iter().map(|n| n.as_symbol()).join(", ")
+        )?;
     }
     if target_commit.is_discardable(repo.index()).await? {
         writeln!(ui.warning_default(), "Target revision is empty.")?;

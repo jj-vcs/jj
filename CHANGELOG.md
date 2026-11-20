@@ -25,7 +25,14 @@ and this project adheres to
 * Deleted `jj debug snapshot`. It was deprecated in 0.39.0. Use `jj util snapshot`
   instead.
 
+* `jj bookmark set` and `jj bookmark move` now move bookmarks backwards or
+  sideways with a warning instead of failing. `--allow-backwards` is deprecated.
+  [#8808](https://github.com/jj-vcs/jj/issues/8808)
+
 ### Deprecations
+
+* The `--allow-backwards` flag for `jj bookmark set` and `jj bookmark move` is
+  now a no-op.
 
 ### New features
 
