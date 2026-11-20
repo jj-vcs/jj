@@ -20,6 +20,7 @@ use std::collections::HashSet;
 use std::env;
 use std::ffi::OsString;
 use std::io::Write as _;
+use std::mem;
 use std::ops::Range;
 
 use clap::ArgAction;
@@ -342,19 +343,24 @@ fn load_aliases<'config>(
     Ok(defined_aliases)
 }
 
+/// Expands aliases in `string_args`.
+///
+/// Also returns whether the expanded arguments were parsed without error and
+/// name a subcommand. `parser` is reused between the parses because cloning the
+/// whole command tree is expensive.
 fn resolve_aliases(
-    app: &Command,
+    parser: &mut Command,
     defined_aliases: &HashMap<&str, Vec<String>>,
     mut string_args: Vec<String>,
-) -> Result<Vec<String>, CommandError> {
+) -> Result<(Vec<String>, bool), CommandError> {
     let mut recursion_check_stack: Vec<(&str, Range<usize>)> = Vec::new();
+    *parser = mem::take(parser).allow_external_subcommands(true);
 
     loop {
-        let app_clone = app.clone().allow_external_subcommands(true);
-        let matches = app_clone.try_get_matches_from(&string_args).ok();
+        let matches = parser.try_get_matches_from_mut(&string_args).ok();
         let Some((command_name, submatches)) = matches.as_ref().and_then(|m| m.subcommand()) else {
             // No more alias commands, or hit unknown option
-            return Ok(string_args);
+            return Ok((string_args, false));
         };
         let alias_name = command_name.to_string();
         let alias_args = submatches
@@ -366,7 +372,7 @@ fn resolve_aliases(
         else {
             // Not a real command and not an alias, so return what we've
             // resolved so far.
-            return Ok(string_args);
+            return Ok((string_args, true));
         };
         let alias_position = string_args.len() - 1 - alias_args.len();
 
@@ -452,11 +458,28 @@ pub fn expand_args(
     args_os: impl IntoIterator<Item = OsString>,
     config: &StackedConfig,
 ) -> Result<Vec<String>, CommandError> {
-    let mut string_args = to_string_args(args_os)?;
-    let aliases = load_aliases(ui, config, app)?;
-    string_args = resolve_aliases(app, &aliases, string_args)?;
-    string_args = resolve_default_command(ui, config, app, string_args)?;
-    string_args = resolve_aliases(app, &aliases, string_args)?;
+    expand_args_with_parser(ui, &mut app.clone(), args_os, config)
+}
+
+/// Same as `expand_args()`, but leaves the parser reusable by `parse_args()`.
+pub(crate) fn expand_args_with_parser(
+    ui: &Ui,
+    parser: &mut Command,
+    args_os: impl IntoIterator<Item = OsString>,
+    config: &StackedConfig,
+) -> Result<Vec<String>, CommandError> {
+    let string_args = to_string_args(args_os)?;
+    let aliases = load_aliases(ui, config, parser)?;
+    let (string_args, has_subcommand) = resolve_aliases(parser, &aliases, string_args)?;
+    if has_subcommand {
+        // The default command doesn't apply, and aliases have been expanded.
+        return Ok(string_args);
+    }
+    let new_string_args = resolve_default_command(ui, config, parser, string_args.clone())?;
+    if new_string_args == string_args {
+        return Ok(string_args);
+    }
+    let (string_args, _) = resolve_aliases(parser, &aliases, new_string_args)?;
     Ok(string_args)
 }
 
@@ -468,11 +491,12 @@ pub(crate) fn expand_args_for_completion(
 ) -> Result<Vec<String>, CommandError> {
     let mut string_args = to_string_args(args_os)?;
     let aliases = load_aliases(ui, config, app)?;
+    let mut parser = app.clone();
 
     // Resolution of subcommand aliases must not consider the argument that is being
     // completed.
     let cursor_arg = string_args.pop();
-    string_args = resolve_aliases(app, &aliases, string_args)?;
+    (string_args, _) = resolve_aliases(&mut parser, &aliases, string_args)?;
     string_args.extend(cursor_arg);
 
     // If a subcommand has been given, including the potentially incomplete argument
@@ -481,7 +505,7 @@ pub(crate) fn expand_args_for_completion(
     string_args = resolve_default_command(ui, config, app, string_args)?;
 
     let cursor_arg = string_args.pop();
-    string_args = resolve_aliases(app, &aliases, string_args)?;
+    (string_args, _) = resolve_aliases(&mut parser, &aliases, string_args)?;
     string_args.extend(cursor_arg);
 
     Ok(string_args)
@@ -501,11 +525,11 @@ pub(crate) fn to_string_args(
 }
 
 pub(crate) fn parse_args(
-    app: &Command,
+    parser: Command,
     string_args: &[String],
 ) -> Result<(ArgMatches, Args), clap::Error> {
-    let matches = app
-        .clone()
+    let matches = parser
+        .allow_external_subcommands(false)
         .arg_required_else_help(true)
         .subcommand_required(true)
         .try_get_matches_from(string_args)?;
