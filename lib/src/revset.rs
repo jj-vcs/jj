@@ -3076,6 +3076,30 @@ fn resolve_commit_ref(
     }
 }
 
+/// Returns a copy of `err` if it's suppressed by `present()`.
+///
+/// This also decides which errors `present()` suppresses.
+fn clone_suppressible_error(err: &RevsetResolutionError) -> Option<RevsetResolutionError> {
+    match err {
+        RevsetResolutionError::NoSuchRevision { name, candidates } => {
+            Some(RevsetResolutionError::NoSuchRevision {
+                name: name.clone(),
+                candidates: candidates.clone(),
+            })
+        }
+        RevsetResolutionError::WorkspaceMissingWorkingCopy { name } => {
+            Some(RevsetResolutionError::WorkspaceMissingWorkingCopy { name: name.clone() })
+        }
+        RevsetResolutionError::EmptyString
+        | RevsetResolutionError::AmbiguousCommitIdPrefix(_)
+        | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
+        | RevsetResolutionError::DivergentChangeId { .. }
+        | RevsetResolutionError::ConflictedRef { .. }
+        | RevsetResolutionError::Backend(_)
+        | RevsetResolutionError::Other(_) => None,
+    }
+}
+
 /// Resolves symbols and commit refs recursively.
 struct ExpressionSymbolResolver<'a, 'b> {
     // The repo the expression will be evaluated against.
@@ -3119,18 +3143,12 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         match expression {
             // 'present(x)' opens new symbol resolution scope to map error to 'none()'
             RevsetExpression::Present(candidates) => {
-                self.fold_expression(candidates).or_else(|err| match err {
-                    RevsetResolutionError::NoSuchRevision { .. }
-                    | RevsetResolutionError::WorkspaceMissingWorkingCopy { .. } => {
+                self.fold_expression(candidates).or_else(|err| {
+                    if clone_suppressible_error(&err).is_some() {
                         Ok(RevsetExpression::none())
+                    } else {
+                        Err(err)
                     }
-                    RevsetResolutionError::EmptyString
-                    | RevsetResolutionError::AmbiguousCommitIdPrefix(_)
-                    | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
-                    | RevsetResolutionError::DivergentChangeId { .. }
-                    | RevsetResolutionError::ConflictedRef { .. }
-                    | RevsetResolutionError::Backend(_)
-                    | RevsetResolutionError::Other(_) => Err(err),
                 })
             }
             _ => fold_child_expression_state(self, expression),
