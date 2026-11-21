@@ -79,7 +79,7 @@ impl OperationTemplateLanguage {
         let mut type_registry = template_builder::new_core_type_registry();
         register_types(&mut type_registry);
         let mut build_fn_table = TemplateBuildFnTable::builtin();
-        register_methods(&mut build_fn_table);
+        register_symbols(&mut build_fn_table);
 
         let mut cache_extensions = ExtensionsMap::empty();
         for extension in extensions {
@@ -174,7 +174,7 @@ pub fn register_types(registry: &mut TemplateTypeRegistry) {
         .serializable();
 }
 
-pub fn register_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+pub fn register_symbols<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
 {

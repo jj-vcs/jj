@@ -170,9 +170,8 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         operation_templater::register_types(&mut type_registry);
         register_types(&mut type_registry);
         let mut build_fn_table = TemplateBuildFnTable::builtin();
-        register_functions(&mut build_fn_table);
-        operation_templater::register_methods(&mut build_fn_table);
-        register_methods(&mut build_fn_table);
+        operation_templater::register_symbols(&mut build_fn_table);
+        register_symbols(&mut build_fn_table);
 
         let mut cache_extensions = ExtensionsMap::empty();
         for extension in extensions {
@@ -446,7 +445,8 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
         .formattable();
 }
 
-fn register_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_symbols(table: &mut CommitTemplateBuildFnTable<'_>) {
+    register_functions(table);
     register_commit_methods(table);
     register_unformattable_list_methods::<_, Commit>(table);
     register_unformattable_list_methods::<_, Option<Commit>>(table);
