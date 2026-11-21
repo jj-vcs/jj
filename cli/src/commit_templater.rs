@@ -83,7 +83,6 @@ use jj_lib::signing::Verification;
 use jj_lib::store::Store;
 use jj_lib::template_parser;
 use jj_lib::template_parser::ExpressionNode;
-use jj_lib::template_parser::FunctionCallNode;
 use jj_lib::template_parser::TemplateDiagnostics;
 use jj_lib::template_parser::TemplateParseError;
 use jj_lib::template_parser::TemplateParseResult;
@@ -104,7 +103,6 @@ use crate::operation_templater::OperationTemplateEnvironment;
 use crate::revset_util;
 use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_builder;
-use crate::template_builder::BuildContext;
 use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::TemplatePropertyKind;
@@ -226,25 +224,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
         &self.type_registry
     }
 
-    fn build_function(
-        &self,
-        diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<'repo, '_>,
-        function: &FunctionCallNode,
-    ) -> TemplateParseResult<TemplatePropertyKind<'repo>> {
-        let table = &self.build_fn_table;
-        table.build_function(self, diagnostics, build_ctx, function)
-    }
-
-    fn build_method(
-        &self,
-        diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<'repo, '_>,
-        property: TemplatePropertyKind<'repo>,
-        function: &FunctionCallNode,
-    ) -> TemplateParseResult<TemplatePropertyKind<'repo>> {
-        let table = &self.build_fn_table;
-        table.build_method(self, diagnostics, build_ctx, property, function)
+    fn symbol_table(&self) -> &TemplateBuildFnTable<'repo, Self> {
+        &self.build_fn_table
     }
 }
 
@@ -2683,12 +2664,14 @@ mod tests {
     use jj_lib::revset::RevsetExpression;
     use jj_lib::revset::RevsetExtensions;
     use jj_lib::revset::RevsetWorkspaceContext;
+    use jj_lib::template_parser::FunctionCallNode;
     use jj_lib::template_parser::TemplateAliasesMap;
     use testutils::TestRepoBackend;
     use testutils::TestWorkspace;
     use testutils::repo_path_buf;
 
     use super::*;
+    use crate::template_builder::BuildContext;
     use crate::templater::TemplateRenderer;
 
     // TemplateBuildFunctionFn defined for<'a>

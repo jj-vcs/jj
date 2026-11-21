@@ -104,26 +104,7 @@ pub trait TemplateLanguage<'a> {
     fn current_dir(&self) -> &Path;
 
     fn type_registry(&self) -> &TemplateTypeRegistry;
-
-    /// Translates the given global `function` call to a property.
-    ///
-    /// This should be delegated to `TemplateBuildFnTable::build_function()`.
-    fn build_function(
-        &self,
-        diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<'a, '_>,
-        function: &FunctionCallNode,
-    ) -> TemplateParseResult<TemplatePropertyKind<'a>>;
-
-    /// Creates a method call thunk for the given `function` of the given
-    /// `property`.
-    fn build_method(
-        &self,
-        diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<'a, '_>,
-        property: TemplatePropertyKind<'a>,
-        function: &FunctionCallNode,
-    ) -> TemplateParseResult<TemplatePropertyKind<'a>>;
+    fn symbol_table(&self) -> &TemplateBuildFnTable<'a, Self>;
 }
 
 impl OpaqueTemplateValue for ConfigValueWrapper {}
@@ -1076,6 +1057,7 @@ fn build_keyword<'a, L: TemplateLanguage<'a> + ?Sized>(
     name_span: pest::Span<'_>,
 ) -> TemplateParseResult<TemplatePropertyKind<'a>> {
     // Keyword is a 0-ary method on the "self" property
+    let table = language.symbol_table();
     let self_property = (build_ctx.self_variable)();
     let function = FunctionCallNode {
         name,
@@ -1084,8 +1066,8 @@ fn build_keyword<'a, L: TemplateLanguage<'a> + ?Sized>(
         keyword_args: vec![],
         args_span: name_span.end_pos().span(&name_span.end_pos()),
     };
-    language
-        .build_method(diagnostics, build_ctx, self_property, &function)
+    table
+        .build_method(language, diagnostics, build_ctx, self_property, &function)
         .map_err(|err| match err.kind() {
             TemplateParseErrorKind::NoSuchMethod { candidates, .. } => {
                 let kind = TemplateParseErrorKind::NoSuchKeyword {
@@ -2984,13 +2966,16 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
             Ok(Expression::unlabeled(property))
         }
         ExpressionKind::FunctionCall(function) => {
-            let property = language.build_function(diagnostics, build_ctx, function)?;
+            let table = language.symbol_table();
+            let property = table.build_function(language, diagnostics, build_ctx, function)?;
             Ok(Expression::unlabeled(property))
         }
         ExpressionKind::MethodCall(method) => {
+            let table = language.symbol_table();
             let mut expression =
                 build_expression(language, diagnostics, build_ctx, &method.object)?;
-            expression.property = language.build_method(
+            expression.property = table.build_method(
+                language,
                 diagnostics,
                 build_ctx,
                 expression.property,
