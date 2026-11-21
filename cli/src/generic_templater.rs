@@ -26,55 +26,48 @@ use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::TemplateMethodTableRegistration;
 use crate::template_builder::TemplatePropertyKind;
-use crate::template_value::OpaqueTemplateValue;
+use crate::template_value::TemplateTypeRegistration;
 use crate::template_value::TemplateTypeRegistry;
 use crate::template_value::TemplateValue;
 
 /// General-purpose template language for basic value types.
-///
-/// This template language only supports the core template property types (plus
-/// the self type `C`.) The self type `C` is usually a tuple or struct of value
-/// types. It's cloned several times internally. Keyword functions need to be
-/// registered to extract properties from the self object.
-pub struct GenericTemplateLanguage<'a, C> {
+pub struct GenericTemplateLanguage {
     settings: UserSettings,
     current_dir: PathBuf,
     type_registry: TemplateTypeRegistry,
-    build_fn_table: TemplateBuildFnTable<'a, GenericTemplateLanguage<'a, C>>,
+    build_fn_table: TemplateBuildFnTable<'static, Self>,
 }
 
-impl<'a, C> GenericTemplateLanguage<'a, C>
-where
-    C: OpaqueTemplateValue + serde::Serialize,
-{
+impl GenericTemplateLanguage {
     /// Creates new template language environment.
     pub fn new(settings: &UserSettings, current_dir: &Path) -> Self {
-        let mut type_registry = template_builder::new_core_type_registry();
-        type_registry.register::<C>("Self").serializable();
-        let mut build_fn_table = TemplateBuildFnTable::builtin();
-        build_fn_table.register_methods::<C>();
         Self {
             // Clone settings to keep lifetime simple. It's cheap.
             settings: settings.clone(),
             current_dir: current_dir.to_owned(),
-            type_registry,
-            build_fn_table,
+            type_registry: template_builder::new_core_type_registry(),
+            build_fn_table: TemplateBuildFnTable::builtin(),
         }
+    }
+
+    /// Registers a new template value type.
+    pub fn register_type<T: TemplateValue>(
+        &mut self,
+        type_name: &'static str,
+    ) -> TemplateTypeRegistration<'_, T> {
+        self.type_registry.register::<T>(type_name)
     }
 
     /// Registers methods on `T`.
     #[track_caller]
     pub fn register_methods<T: TemplateValue>(
         &mut self,
-    ) -> TemplateMethodTableRegistration<'a, '_, Self, T> {
+    ) -> TemplateMethodTableRegistration<'static, '_, Self, T> {
         self.build_fn_table.register_methods::<T>()
     }
 }
 
-impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C>
-where
-    C: OpaqueTemplateValue + serde::Serialize,
-{
+impl TemplateLanguage<'static> for GenericTemplateLanguage {
     fn settings(&self) -> &UserSettings {
         &self.settings
     }
@@ -90,9 +83,9 @@ where
     fn build_function(
         &self,
         diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<'a, '_>,
+        build_ctx: &BuildContext<'static, '_>,
         function: &FunctionCallNode,
-    ) -> TemplateParseResult<TemplatePropertyKind<'a>> {
+    ) -> TemplateParseResult<TemplatePropertyKind<'static>> {
         let table = &self.build_fn_table;
         table.build_function(self, diagnostics, build_ctx, function)
     }
@@ -100,10 +93,10 @@ where
     fn build_method(
         &self,
         diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<'a, '_>,
-        property: TemplatePropertyKind<'a>,
+        build_ctx: &BuildContext<'static, '_>,
+        property: TemplatePropertyKind<'static>,
         function: &FunctionCallNode,
-    ) -> TemplateParseResult<TemplatePropertyKind<'a>> {
+    ) -> TemplateParseResult<TemplatePropertyKind<'static>> {
         self.build_fn_table
             .build_method(self, diagnostics, build_ctx, property, function)
     }
