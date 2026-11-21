@@ -132,25 +132,47 @@ impl OpaqueTemplateValue for AnnotatedValue {}
 // cost matters, wrap it with Rc.
 fn config_template_language(settings: &UserSettings, current_dir: &Path) -> ConfigTemplateLanguage {
     let mut language = ConfigTemplateLanguage::new(settings, current_dir);
-    language.add_keyword("name", |self_property| {
-        let out_property = self_property.map(|annotated| annotated.name.to_string());
-        Ok(out_property.into_dyn_wrapped())
-    });
-    language.add_keyword("value", |self_property| {
-        let out_property = self_property.map(|annotated| ConfigValueWrapper::new(annotated.value));
-        Ok(out_property.into_dyn_wrapped())
-    });
-    language.add_keyword("source", |self_property| {
-        let out_property = self_property.map(|annotated| annotated.source.to_string());
-        Ok(out_property.into_dyn_wrapped())
-    });
-    language.add_keyword("path", |self_property| {
-        let out_property = self_property.map(|annotated| annotated.path);
-        Ok(out_property.into_dyn_wrapped())
-    });
-    language.add_keyword("overridden", |self_property| {
-        let out_property = self_property.map(|annotated| annotated.is_overridden);
-        Ok(out_property.into_dyn_wrapped())
-    });
+    let mut methods = language.register_methods::<AnnotatedValue>();
+    methods.insert(
+        "name",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|annotated| annotated.name.to_string());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    methods.insert(
+        "value",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.map(|annotated| ConfigValueWrapper::new(annotated.value));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    methods.insert(
+        "source",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|annotated| annotated.source.to_string());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    methods.insert(
+        "path",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|annotated| annotated.path);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    methods.insert(
+        "overridden",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|annotated| annotated.is_overridden);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
     language
 }

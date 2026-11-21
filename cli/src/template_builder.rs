@@ -615,7 +615,7 @@ pub struct TemplateBuildFnTable<'a, L: ?Sized> {
 }
 
 /// Converts a type-erased property back to the concrete type.
-pub fn cast_value_property<'a, T: TemplateValue>(
+fn cast_value_property<'a, T: TemplateValue>(
     property: BoxedTemplateProperty<'a, TemplateValueRepr>,
     registry: &TemplateTypeRegistry,
 ) -> impl TemplateProperty<Output = T> + use<'a, T> {
@@ -3294,7 +3294,14 @@ mod tests {
         where
             F: Fn() -> TemplatePropertyKind<'static> + 'static,
         {
-            self.language.add_keyword(name, move |_| Ok(build()));
+            let mut methods = self.language.register_methods::<Context>();
+            methods.insert(
+                name,
+                move |_language, _diagnostics, _build_ctx, _self_property, function| {
+                    function.expect_no_arguments()?;
+                    Ok(build())
+                },
+            );
         }
 
         /// Like `add_keyword`, but the value depends on the `self` context
@@ -3304,10 +3311,15 @@ mod tests {
             O: TemplateValue,
             F: Fn() -> O + Clone + 'static,
         {
-            self.language.add_keyword(name, move |self_property| {
-                let build = build.clone();
-                Ok(self_property.map(move |_| build()).into_dyn_wrapped())
-            });
+            let mut methods = self.language.register_methods::<Context>();
+            methods.insert(
+                name,
+                move |_language, _diagnostics, _build_ctx, self_property, function| {
+                    function.expect_no_arguments()?;
+                    let build = build.clone();
+                    Ok(self_property.map(move |_| build()).into_dyn_wrapped())
+                },
+            );
         }
 
         fn add_alias(&mut self, decl: impl AsRef<str>, defn: impl Into<String>) {
@@ -4854,6 +4866,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"example.com");
         insta::assert_snapshot!(env.render_ok("author.timestamp()"), @"1970-01-01 00:00:00.000 +00:00");
 
+        let mut env = TestTemplateEnv::new();
         env.add_keyword("author", || {
             literal(new_signature("Another Test User", "test.user@example.com"))
         });
@@ -4861,6 +4874,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Another Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user@example.com");
 
+        let mut env = TestTemplateEnv::new();
         env.add_keyword("author", || {
             literal(new_signature("Test User", "test.user@invalid@example.com"))
         });
@@ -4870,6 +4884,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"invalid@example.com");
 
+        let mut env = TestTemplateEnv::new();
         env.add_keyword("author", || {
             literal(new_signature("Test User", "test.user"))
         });
@@ -4878,6 +4893,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"");
 
+        let mut env = TestTemplateEnv::new();
         env.add_keyword("author", || {
             literal(new_signature("Test User", "test.user+tag@example.com"))
         });
@@ -4886,12 +4902,14 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user+tag");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"example.com");
 
+        let mut env = TestTemplateEnv::new();
         env.add_keyword("author", || literal(new_signature("Test User", "x@y")));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <x@y>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"x@y");
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"x");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"y");
 
+        let mut env = TestTemplateEnv::new();
         env.add_keyword("author", || {
             literal(new_signature("", "test.user@example.com"))
         });
@@ -4899,6 +4917,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user@example.com");
 
+        let mut env = TestTemplateEnv::new();
         env.add_keyword("author", || literal(new_signature("Test User", "")));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Test User");
@@ -4906,6 +4925,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"");
 
+        let mut env = TestTemplateEnv::new();
         env.add_keyword("author", || literal(new_signature("", "")));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"");
