@@ -19,9 +19,6 @@ use jj_cli::cli_util::CliRunner;
 use jj_cli::commit_templater::CommitTemplateLanguage;
 use jj_cli::commit_templater::CommitTemplateLanguageExtension;
 use jj_cli::template_builder::TemplateBuildFnTable;
-use jj_cli::template_builder::TemplateLanguage as _;
-use jj_cli::template_builder::cast_value_property;
-use jj_cli::template_value::TemplateValue as _;
 use jj_cli::templater::TemplatePropertyExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -127,13 +124,11 @@ impl SymbolResolverExtension for TheDigitest {
 
 impl CommitTemplateLanguageExtension for HexCounter {
     fn build_fn_table<'repo>(&self) -> TemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>> {
-        type T = Commit;
         let mut fn_table = TemplateBuildFnTable::<CommitTemplateLanguage>::empty();
-        let table = fn_table.methods.entry(T::value_type()).or_default();
-        table.insert(
+        let mut methods = fn_table.register_methods::<Commit>();
+        methods.insert(
             "has_most_digits",
             |language, _diagnostics, _build_context, property, call| {
-                let property = cast_value_property::<T>(property, language.type_registry());
                 call.expect_no_arguments()?;
                 let most_digits = language
                     .cache_extension::<MostDigitsInId>()
@@ -144,19 +139,17 @@ impl CommitTemplateLanguageExtension for HexCounter {
                 Ok(out_property.into_dyn_wrapped())
             },
         );
-        table.insert(
+        methods.insert(
             "num_digits_in_id",
-            |language, _diagnostics, _build_context, property, call| {
-                let property = cast_value_property::<T>(property, language.type_registry());
+            |_language, _diagnostics, _build_context, property, call| {
                 call.expect_no_arguments()?;
                 let out_property = property.map(|commit| num_digits_in_id(commit.id()));
                 Ok(out_property.into_dyn_wrapped())
             },
         );
-        table.insert(
+        methods.insert(
             "num_char_in_id",
-            |language, diagnostics, _build_context, property, call| {
-                let property = cast_value_property::<T>(property, language.type_registry());
+            |_language, diagnostics, _build_context, property, call| {
                 let [string_arg] = call.expect_exact_arguments()?;
                 let char_arg = template_parser::catch_aliases(
                     diagnostics,

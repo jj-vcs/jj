@@ -105,16 +105,14 @@ use crate::revset_util;
 use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_builder;
 use crate::template_builder::BuildContext;
-use crate::template_builder::BuildValueMethodFnMap;
 use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateBuildFunctionFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::TemplatePropertyKind;
-use crate::template_builder::builtin_formattable_list_methods;
-use crate::template_builder::builtin_unformattable_list_methods;
-use crate::template_builder::cast_value_property;
 use crate::template_builder::expect_stringify_expression;
 use crate::template_builder::merge_fn_map;
+use crate::template_builder::register_formattable_list_methods;
+use crate::template_builder::register_unformattable_list_methods;
 use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
 use crate::template_value::TemplateValue;
@@ -453,83 +451,36 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
         .formattable();
 }
 
-fn register_methods<'repo>(table: &mut TemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>) {
-    let methods = &mut table.methods;
-    methods.insert(Commit::value_type(), builtin_commit_methods());
-    methods.insert(
-        <Vec<Commit>>::value_type(),
-        builtin_unformattable_list_methods::<_, Commit>(),
-    );
-    methods.insert(
-        <Vec<Option<Commit>>>::value_type(),
-        builtin_unformattable_list_methods::<_, Option<Commit>>(),
-    );
-    methods.insert(
-        CommitEvolutionEntry::value_type(),
-        builtin_commit_evolution_entry_methods(),
-    );
-    methods.insert(<Rc<CommitRef>>::value_type(), builtin_commit_ref_methods());
-    methods.insert(
-        <Vec<Rc<CommitRef>>>::value_type(),
-        builtin_formattable_list_methods::<_, Rc<CommitRef>>(),
-    );
-    methods.insert(WorkspaceRef::value_type(), builtin_workspace_ref_methods());
-    methods.insert(
-        <Vec<WorkspaceRef>>::value_type(),
-        builtin_formattable_list_methods::<_, WorkspaceRef>(),
-    );
-    methods.insert(RepoPathBuf::value_type(), builtin_repo_path_methods());
-    methods.insert(ChangeId::value_type(), builtin_change_id_methods());
-    methods.insert(CommitId::value_type(), builtin_commit_id_methods());
-    methods.insert(
-        ShortestIdPrefix::value_type(),
-        builtin_shortest_id_prefix_methods(),
-    );
-    methods.insert(TreeDiff::value_type(), builtin_tree_diff_methods());
-    methods.insert(
-        TreeDiffEntry::value_type(),
-        builtin_tree_diff_entry_methods(),
-    );
-    methods.insert(
-        <Vec<TreeDiffEntry>>::value_type(),
-        builtin_unformattable_list_methods::<_, TreeDiffEntry>(),
-    );
-    methods.insert(TreeEntry::value_type(), builtin_tree_entry_methods());
-    methods.insert(
-        <Vec<TreeEntry>>::value_type(),
-        builtin_unformattable_list_methods::<_, TreeEntry>(),
-    );
-    methods.insert(TreeValue::value_type(), builtin_tree_value_methods());
-    methods.insert(
-        <Vec<Option<TreeValue>>>::value_type(),
-        builtin_formattable_list_methods::<_, Option<TreeValue>>(),
-    );
-    methods.insert(
-        DiffStatsFormatted::value_type(),
-        builtin_diff_stats_methods(),
-    );
-    methods.insert(
-        DiffStatEntry::value_type(),
-        builtin_diff_stat_entry_methods(),
-    );
-    methods.insert(
-        <Vec<DiffStatEntry>>::value_type(),
-        builtin_unformattable_list_methods::<_, DiffStatEntry>(),
-    );
-    methods.insert(
-        CryptographicSignature::value_type(),
-        builtin_cryptographic_signature_methods(),
-    );
-    methods.insert(
-        AnnotationLine::value_type(),
-        builtin_annotation_line_methods(),
-    );
-    methods.insert(Trailer::value_type(), builtin_trailer_methods());
-    methods.insert(<Vec<Trailer>>::value_type(), builtin_trailer_list_methods());
+fn register_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    register_commit_methods(table);
+    register_unformattable_list_methods::<_, Commit>(table);
+    register_unformattable_list_methods::<_, Option<Commit>>(table);
+    register_commit_evolution_entry_methods(table);
+    register_commit_ref_methods(table);
+    register_formattable_list_methods::<_, Rc<CommitRef>>(table);
+    register_workspace_ref_methods(table);
+    register_formattable_list_methods::<_, WorkspaceRef>(table);
+    register_repo_path_methods(table);
+    register_change_id_methods(table);
+    register_commit_id_methods(table);
+    register_shortest_id_prefix_methods(table);
+    register_tree_diff_methods(table);
+    register_tree_diff_entry_methods(table);
+    register_unformattable_list_methods::<_, TreeDiffEntry>(table);
+    register_tree_entry_methods(table);
+    register_unformattable_list_methods::<_, TreeEntry>(table);
+    register_tree_value_methods(table);
+    register_formattable_list_methods::<_, Option<TreeValue>>(table);
+    register_diff_stats_methods(table);
+    register_diff_stat_entry_methods(table);
+    register_unformattable_list_methods::<_, DiffStatEntry>(table);
+    register_cryptographic_signature_methods(table);
+    register_annotation_line_methods(table);
+    register_trailer_methods(table);
+    register_trailer_list_methods(table);
 }
 
-type CommitTemplateBuildValueMethodFnMap<'repo> =
-    BuildValueMethodFnMap<'repo, CommitTemplateLanguage<'repo>>;
+type CommitTemplateBuildFnTable<'repo> = TemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>;
 
 #[derive(Default)]
 pub struct CommitKeywordCache {
@@ -653,52 +604,44 @@ fn builtin_commit_template_functions<'repo>()
     map
 }
 
-fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = Commit;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_commit_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<Commit>();
+    methods.insert(
         "description",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit| commit.description().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "trailers",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property
                 .map(|commit| trailer::parse_description_trailers(commit.description()));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "change_id",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit| commit.change_id().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "commit_id",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit| commit.id().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "parents",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|commit| {
                 let commits = commit.parents().block_on()?;
@@ -707,57 +650,51 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "author",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit| commit.author().clone());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "committer",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit| commit.committer().clone());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "mine",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let user_email = language.revset_parse_context.user_email.to_owned();
             let out_property = self_property.map(move |commit| commit.author().email == user_email);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "signature",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(CryptographicSignature::new);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "working_copies",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.map(|commit| extract_working_copies(repo, &commit));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "current_working_copy",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let name = language.workspace_name.clone();
@@ -766,10 +703,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "bookmarks",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let index = language
                 .keyword_cache
@@ -780,10 +716,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "local_bookmarks",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let index = language
                 .keyword_cache
@@ -794,10 +729,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "remote_bookmarks",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let index = language
                 .keyword_cache
@@ -808,10 +742,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "tags",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let index = language.keyword_cache.tags_index(language.repo).clone();
             let out_property =
@@ -819,10 +752,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "local_tags",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let index = language.keyword_cache.tags_index(language.repo).clone();
             let out_property =
@@ -830,10 +762,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "remote_tags",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let index = language.keyword_cache.tags_index(language.repo).clone();
             let out_property =
@@ -841,10 +772,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "divergent",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.and_then(|commit| {
@@ -856,10 +786,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "hidden",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.and_then(|commit| {
@@ -870,10 +799,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "change_offset",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.and_then(|commit| {
@@ -888,10 +816,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "immutable",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let is_immutable = language
                 .keyword_cache
@@ -902,10 +829,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "contained_in",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [revset_node] = function.expect_exact_arguments()?;
             let revset_property =
                 expect_stringify_expression(language, diagnostics, build_ctx, revset_node)?;
@@ -941,19 +867,17 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             }
         },
     );
-    map.insert(
+    methods.insert(
         "conflict",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit| commit.has_conflict());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "empty",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property =
@@ -961,10 +885,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "diff",
         |language, diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([], [files_node]) = function.expect_arguments()?;
             let files = if let Some(node) = files_node {
                 expect_fileset_literal(diagnostics, node, &language.fileset_parse_context())?
@@ -981,10 +904,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "files",
         |language, diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([], [files_node]) = function.expect_arguments()?;
             let files = if let Some(node) = files_node {
                 expect_fileset_literal(diagnostics, node, &language.fileset_parse_context())?
@@ -1006,10 +928,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "conflicted_files",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|commit| {
                 let tree = commit.tree();
@@ -1023,10 +944,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "root",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property =
@@ -1034,7 +954,6 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo>
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 fn extract_working_copies(repo: &dyn Repo, commit: &Commit) -> Vec<WorkspaceRef> {
@@ -1121,33 +1040,27 @@ fn parse_evaluate_static_revset(
     })
 }
 
-fn builtin_commit_evolution_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = CommitEvolutionEntry;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_commit_evolution_entry_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<CommitEvolutionEntry>();
+    methods.insert(
         "commit",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.commit);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "operation",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.operation);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "predecessors",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|entry| {
                 let commits = entry.predecessors().block_on()?;
@@ -1156,10 +1069,9 @@ fn builtin_commit_evolution_entry_methods<'repo>() -> CommitTemplateBuildValueMe
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "inter_diff",
         |language, diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([], [files_node]) = function.expect_arguments()?;
             let files = if let Some(node) = files_node {
                 expect_fileset_literal(diagnostics, node, &language.fileset_parse_context())?
@@ -1183,7 +1095,6 @@ fn builtin_commit_evolution_entry_methods<'repo>() -> CommitTemplateBuildValueMe
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 /// Bookmark or tag name with metadata.
@@ -1444,22 +1355,19 @@ impl Template for Vec<WorkspaceRef> {
     }
 }
 
-fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = WorkspaceRef;
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_workspace_ref_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<WorkspaceRef>();
+    methods.insert(
         "name",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|ws_ref| RefSymbolBuf(ws_ref.name.into()));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "current_workspace",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let current_workspace_name = language.workspace_name.clone();
             let out_property =
@@ -1467,19 +1375,17 @@ fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "target",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|ws_ref| ws_ref.target);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "root",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let workspace_store = language.repo.base_repo().loader().workspace_store();
             // Workspaces created before jj 0.38.0 may not have a recorded path. List
@@ -1490,7 +1396,6 @@ fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 #[expect(clippy::ref_option)]
@@ -1505,51 +1410,43 @@ where
     target.serialize(serializer)
 }
 
-fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = Rc<CommitRef>;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_commit_ref_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<Rc<CommitRef>>();
+    methods.insert(
         "name",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.name.clone());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "remote",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.remote.clone());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "present",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.is_present());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "conflict",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| !commit_ref.is_resolved());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "normal_target",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
@@ -1559,10 +1456,9 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'r
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "removed_targets",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
@@ -1575,10 +1471,9 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'r
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "added_targets",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
@@ -1591,28 +1486,25 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'r
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "tracked",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.is_tracked());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "tracking_present",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.is_tracking_present());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "tracking_ahead_count",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property =
@@ -1620,10 +1512,9 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'r
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "tracking_behind_count",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property =
@@ -1631,16 +1522,14 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'r
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "synced",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.synced);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 /// Cache for reverse lookup refs.
@@ -1767,15 +1656,11 @@ impl Template for RepoPathBuf {
     }
 }
 
-fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = RepoPathBuf;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_repo_path_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<RepoPathBuf>();
+    methods.insert(
         "absolute",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let path_converter = language.path_converter;
             // We handle the absolute path here instead of in a wrapper in
@@ -1787,26 +1672,23 @@ fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'re
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "display",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let path_converter = language.path_converter;
             let out_property = self_property.map(|path| path_converter.format_file_path(&path));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "parent",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|path| Some(path.parent()?.to_owned()));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 trait ShortestIdPrefixLen {
@@ -1825,13 +1707,12 @@ impl Template for ChangeId {
     }
 }
 
-fn builtin_change_id_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    let mut map = builtin_commit_or_change_id_methods::<ChangeId>();
-    map.insert(
+fn register_change_id_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    register_commit_or_change_id_methods::<ChangeId>(table);
+    let mut methods = table.register_methods::<ChangeId>();
+    methods.insert(
         "normal_hex",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<ChangeId>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             // Note: this is _not_ the same as id.to_string(), which returns the
             // "reverse" hex (z-k), instead of the "forward" / normal hex
@@ -1840,7 +1721,6 @@ fn builtin_change_id_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'re
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 impl ShortestIdPrefixLen for CommitId {
@@ -1855,21 +1735,18 @@ impl Template for CommitId {
     }
 }
 
-fn builtin_commit_id_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    builtin_commit_or_change_id_methods::<CommitId>()
+fn register_commit_id_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    register_commit_or_change_id_methods::<CommitId>(table);
 }
 
-fn builtin_commit_or_change_id_methods<'repo, O>() -> CommitTemplateBuildValueMethodFnMap<'repo>
+fn register_commit_or_change_id_methods<'repo, O>(table: &mut CommitTemplateBuildFnTable<'repo>)
 where
     O: Display + ShortestIdPrefixLen + TemplateValue + 'repo,
 {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+    let mut methods = table.register_methods::<O>();
+    methods.insert(
         "short",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<O>(self_property, language.type_registry());
             let ([], [len_node]) = function.expect_arguments()?;
             let len_property = len_node
                 .map(|node| {
@@ -1889,10 +1766,9 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "shortest",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<O>(self_property, language.type_registry());
             let ([], [len_node]) = function.expect_arguments()?;
             let len_property = len_node
                 .map(|node| {
@@ -1932,7 +1808,6 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -1964,48 +1839,40 @@ impl ShortestIdPrefix {
     }
 }
 
-fn builtin_shortest_id_prefix_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = ShortestIdPrefix;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_shortest_id_prefix_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<ShortestIdPrefix>();
+    methods.insert(
         "prefix",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.prefix);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "rest",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.rest);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "upper",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.to_upper());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "lower",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.to_lower());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 /// Pair of trees to be diffed.
@@ -2089,16 +1956,12 @@ where
     }
 }
 
-fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = TreeDiff;
+fn register_tree_diff_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<TreeDiff>();
     type P<'repo> = TemplatePropertyKind<'repo>;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+    methods.insert(
         "files",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             // TODO: cache and reuse diff entries within the current evaluation?
             let out_property =
@@ -2106,10 +1969,9 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'re
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "color_words",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([], [context_node]) = function.expect_arguments()?;
             let context_property = context_node
                 .map(|node| {
@@ -2152,10 +2014,9 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'re
             Ok(P::wrap_template(template))
         },
     );
-    map.insert(
+    methods.insert(
         "git",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([], [context_node]) = function.expect_arguments()?;
             let context_property = context_node
                 .map(|node| {
@@ -2196,10 +2057,9 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'re
             Ok(P::wrap_template(template))
         },
     );
-    map.insert(
+    methods.insert(
         "stat",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([], [width_node, max_bar_width_node]) =
                 function.expect_named_arguments(&["", "max_bar_width"])?;
             let width_property = width_node
@@ -2253,10 +2113,9 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'re
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "summary",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let path_converter = language.path_converter;
             let template = self_property
@@ -2271,7 +2130,6 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'re
         },
     );
     // TODO: add support for external tools
-    map
 }
 
 /// [`MergedTree`] diff entry.
@@ -2318,24 +2176,19 @@ fn format_diff_path(
     }
 }
 
-fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = TreeDiffEntry;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_tree_diff_entry_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<TreeDiffEntry>();
+    methods.insert(
         "path",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.path.target);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "display_diff_path",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let path_converter = language.path_converter;
             let out_property =
@@ -2343,43 +2196,38 @@ fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "status",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.status().label().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "status_char",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.status().char().to_string());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "source",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(TreeDiffEntry::into_source_entry);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "target",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(TreeDiffEntry::into_target_entry);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 /// [`MergedTree`] entry.
@@ -2389,123 +2237,106 @@ pub struct TreeEntry {
     pub value: MergedTreeValue,
 }
 
-fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = TreeEntry;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_tree_entry_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<TreeEntry>();
+    methods.insert(
         "path",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.path);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "normal_value",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.value.as_normal().cloned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "removed_values",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|entry| entry.value.simplify().removes().cloned().collect_vec());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "added_values",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|entry| entry.value.simplify().adds().cloned().collect_vec());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "conflict",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| !entry.value.is_resolved());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "conflict_side_count",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property
                 .and_then(|entry| Ok(i64::try_from(entry.value.simplify().num_sides())?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "file_type",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|entry| describe_file_type(&entry.value).to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "executable",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|entry| is_executable_file(&entry.value).unwrap_or_default());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
-fn builtin_tree_value_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = TreeValue;
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_tree_value_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<TreeValue>();
+    methods.insert(
         "object_id",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|tree_value| tree_value_object_id(&tree_value));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "file_type",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|tree_value| tree_value_file_type(&tree_value).to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "executable",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|tree_value| tree_value_executable(&tree_value));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 impl Template for TreeValue {
@@ -2573,61 +2404,49 @@ impl Template for DiffStatsFormatted {
     }
 }
 
-fn builtin_diff_stats_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = DiffStatsFormatted;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_diff_stats_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<DiffStatsFormatted>();
+    methods.insert(
         "files",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|fm| Ok(fm.stats.entries().to_vec()));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "total_added",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|fm| Ok(i64::try_from(fm.stats.count_total_added())?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "total_removed",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|fm| Ok(i64::try_from(fm.stats.count_total_removed())?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
-fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = DiffStatEntry;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_diff_stat_entry_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<DiffStatEntry>();
+    methods.insert(
         "path",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.path.target);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "display_diff_path",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let path_converter = language.path_converter;
             let out_property =
@@ -2635,28 +2454,25 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "status",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.status.label().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "status_char",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.status.char().to_string());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "lines_added",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|entry| {
                 Ok(i64::try_from(
@@ -2666,10 +2482,9 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "lines_removed",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|entry| {
                 Ok(i64::try_from(
@@ -2679,17 +2494,15 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildValueMethodFnM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "bytes_delta",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|entry| Ok(i64::try_from(entry.bytes_delta)?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 #[derive(Clone, Debug)]
@@ -2726,15 +2539,11 @@ impl CryptographicSignature {
     }
 }
 
-fn builtin_cryptographic_signature_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = CryptographicSignature;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_cryptographic_signature_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<CryptographicSignature>();
+    methods.insert(
         "status",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|sig| match sig.status() {
                 Ok(status) => Ok(status.to_string()),
@@ -2744,25 +2553,22 @@ fn builtin_cryptographic_signature_methods<'repo>() -> CommitTemplateBuildValueM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "key",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|sig| Ok(sig.key()?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "display",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|sig| Ok(sig.display()?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 #[derive(Debug, Clone)]
@@ -2774,56 +2580,49 @@ pub struct AnnotationLine {
     pub first_line_in_hunk: bool,
 }
 
-fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = AnnotationLine;
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_annotation_line_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<AnnotationLine>();
+    methods.insert(
         "commit",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|line| line.commit);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "content",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|line| line.content);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "line_number",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|line| Ok(i64::try_from(line.line_number)?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "original_line_number",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|line| Ok(i64::try_from(line.original_line_number)?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "first_line_in_hunk",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|line| line.first_line_in_hunk);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 impl Template for Trailer {
@@ -2838,38 +2637,32 @@ impl Template for Vec<Trailer> {
     }
 }
 
-fn builtin_trailer_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = Trailer;
-    let mut map = CommitTemplateBuildValueMethodFnMap::new();
-    map.insert(
+fn register_trailer_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut methods = table.register_methods::<Trailer>();
+    methods.insert(
         "key",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|trailer| trailer.key);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "value",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|trailer| trailer.value);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
-fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<'repo> {
-    type T = Vec<Trailer>;
-    let mut map: CommitTemplateBuildValueMethodFnMap =
-        builtin_formattable_list_methods::<_, Trailer>();
-    map.insert(
+fn register_trailer_list_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+    register_formattable_list_methods::<_, Trailer>(table);
+    let mut methods = table.register_methods::<Vec<Trailer>>();
+    methods.insert(
         "contains_key",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [key_node] = function.expect_exact_arguments()?;
             let key_property =
                 expect_stringify_expression(language, diagnostics, build_ctx, key_node)?;
@@ -2878,7 +2671,6 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildValueMethodFnMap<
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 #[cfg(test)]
