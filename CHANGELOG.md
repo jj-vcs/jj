@@ -77,6 +77,9 @@ and this project adheres to
   the same author name and email but different timestamps.
   [#10261](https://github.com/jj-vcs/jj/issues/10261)
 
+* Concurrent operations that end at the same time are now merged in the same
+  order every time, so two processes merging them write the same operation.
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0

@@ -163,7 +163,9 @@ where
         return Ok(op_head.clone());
     }
 
-    op_heads.sort_by_key(|op| op.metadata().time.end.timestamp);
+    // Break ties by id so that the order of the merge's parents, and so its id,
+    // doesn't depend on the order the heads were found in.
+    op_heads.sort_by_key(|op| (op.metadata().time.end.timestamp, op.id().clone()));
     let new_op = resolver(op_heads).await?;
     let mut old_op_heads = ancestor_op_heads;
     old_op_heads.extend_from_slice(new_op.parent_ids());
