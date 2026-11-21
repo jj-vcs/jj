@@ -30,8 +30,8 @@ use jj_lib::template_parser::TemplateParseError;
 use pollster::FutureExt as _;
 
 use crate::template_builder;
-use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::TemplateSymbolTable;
 use crate::template_builder::register_unformattable_list_methods;
 use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
@@ -41,7 +41,7 @@ use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyExt as _;
 
 pub trait OperationTemplateLanguageExtension {
-    fn build_fn_table(&self) -> TemplateBuildFnTable<'static, OperationTemplateLanguage>;
+    fn symbol_table(&self) -> TemplateSymbolTable<'static, OperationTemplateLanguage>;
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
@@ -58,7 +58,7 @@ pub struct OperationTemplateLanguage {
     current_op_id: Option<OperationId>,
     current_dir: PathBuf,
     type_registry: TemplateTypeRegistry,
-    build_fn_table: TemplateBuildFnTable<'static, Self>,
+    symbol_table: TemplateSymbolTable<'static, Self>,
     cache_extensions: ExtensionsMap,
 }
 
@@ -73,12 +73,12 @@ impl OperationTemplateLanguage {
     ) -> Self {
         let mut type_registry = template_builder::new_core_type_registry();
         register_types(&mut type_registry);
-        let mut build_fn_table = TemplateBuildFnTable::builtin();
-        register_symbols(&mut build_fn_table);
+        let mut symbol_table = TemplateSymbolTable::builtin();
+        register_symbols(&mut symbol_table);
 
         let mut cache_extensions = ExtensionsMap::empty();
         for extension in extensions {
-            build_fn_table.merge(extension.as_ref().build_fn_table());
+            symbol_table.merge(extension.as_ref().symbol_table());
             extension
                 .as_ref()
                 .build_cache_extensions(&mut cache_extensions);
@@ -90,7 +90,7 @@ impl OperationTemplateLanguage {
             current_op_id: current_op_id.cloned(),
             current_dir: current_dir.to_owned(),
             type_registry,
-            build_fn_table,
+            symbol_table,
             cache_extensions,
         }
     }
@@ -109,8 +109,8 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
         &self.type_registry
     }
 
-    fn symbol_table(&self) -> &TemplateBuildFnTable<'static, Self> {
-        &self.build_fn_table
+    fn symbol_table(&self) -> &TemplateSymbolTable<'static, Self> {
+        &self.symbol_table
     }
 }
 
@@ -152,7 +152,7 @@ pub fn register_types(registry: &mut TemplateTypeRegistry) {
         .serializable();
 }
 
-pub fn register_symbols<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+pub fn register_symbols<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
 {
@@ -161,7 +161,7 @@ where
     register_operation_id_methods(table);
 }
 
-fn register_operation_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_operation_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
 {
@@ -296,7 +296,7 @@ impl Template for OperationId {
     }
 }
 
-fn register_operation_id_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_operation_id_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
 {

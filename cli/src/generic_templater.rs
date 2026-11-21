@@ -18,9 +18,9 @@ use std::path::PathBuf;
 use jj_lib::settings::UserSettings;
 
 use crate::template_builder;
-use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::TemplateMethodTableRegistration;
+use crate::template_builder::TemplateSymbolTable;
 use crate::template_value::TemplateTypeRegistration;
 use crate::template_value::TemplateTypeRegistry;
 use crate::template_value::TemplateValue;
@@ -30,7 +30,7 @@ pub struct GenericTemplateLanguage {
     settings: UserSettings,
     current_dir: PathBuf,
     type_registry: TemplateTypeRegistry,
-    build_fn_table: TemplateBuildFnTable<'static, Self>,
+    symbol_table: TemplateSymbolTable<'static, Self>,
 }
 
 impl GenericTemplateLanguage {
@@ -41,7 +41,7 @@ impl GenericTemplateLanguage {
             settings: settings.clone(),
             current_dir: current_dir.to_owned(),
             type_registry: template_builder::new_core_type_registry(),
-            build_fn_table: TemplateBuildFnTable::builtin(),
+            symbol_table: TemplateSymbolTable::builtin(),
         }
     }
 
@@ -58,7 +58,7 @@ impl GenericTemplateLanguage {
     pub fn register_methods<T: TemplateValue>(
         &mut self,
     ) -> TemplateMethodTableRegistration<'static, '_, Self, T> {
-        self.build_fn_table.register_methods::<T>()
+        self.symbol_table.register_methods::<T>()
     }
 }
 
@@ -75,7 +75,7 @@ impl TemplateLanguage<'static> for GenericTemplateLanguage {
         &self.type_registry
     }
 
-    fn symbol_table(&self) -> &TemplateBuildFnTable<'static, Self> {
-        &self.build_fn_table
+    fn symbol_table(&self) -> &TemplateSymbolTable<'static, Self> {
+        &self.symbol_table
     }
 }
