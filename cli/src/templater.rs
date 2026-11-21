@@ -41,7 +41,9 @@ use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::formatter::LabeledScope;
 use crate::formatter::PlainTextFormatter;
+use crate::template_builder::TemplatePropertyKind;
 use crate::template_value::TemplateTypeRegistry;
+use crate::template_value::TemplateValue;
 use crate::template_value::ToTemplateCondition;
 use crate::text_util;
 use crate::time_util;
@@ -669,29 +671,16 @@ pub trait TemplatePropertyExt: TemplateProperty {
     }
 
     /// Converts this property into wrapped (or tagged) type.
-    ///
-    /// Use `W::wrap_property()` if the self type is known to be boxed.
-    fn into_dyn_wrapped<'a, W>(self) -> W
+    fn into_dyn_wrapped<'a>(self) -> TemplatePropertyKind<'a>
     where
         Self: Sized + 'a,
-        W: WrapTemplateProperty<'a, Self::Output>,
+        Self::Output: TemplateValue,
     {
-        W::wrap_property(self.into_dyn())
+        TemplatePropertyKind::wrap_property(self)
     }
 }
 
 impl<P: TemplateProperty + ?Sized> TemplatePropertyExt for P {}
-
-/// Wraps template property of type `O` in tagged type.
-///
-/// This is basically [`From<BoxedTemplateProperty<'a, O>>`], but is restricted
-/// to property types.
-#[diagnostic::on_unimplemented(
-    message = "the template property of type `{O}` cannot be wrapped in `{Self}`"
-)]
-pub trait WrapTemplateProperty<'a, O>: Sized {
-    fn wrap_property(property: BoxedTemplateProperty<'a, O>) -> Self;
-}
 
 /// Abstraction trait for a type-erased TemplateProperty
 pub trait AnyTemplateProperty<'a> {

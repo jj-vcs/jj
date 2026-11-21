@@ -35,9 +35,9 @@ use pollster::FutureExt as _;
 use crate::template_builder;
 use crate::template_builder::BuildContext;
 use crate::template_builder::BuildValueMethodFnMap;
-use crate::template_builder::CoreTemplateBuildFnTable;
-use crate::template_builder::CoreTemplatePropertyKind;
+use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::TemplatePropertyKind;
 use crate::template_builder::builtin_unformattable_list_methods;
 use crate::template_builder::cast_value_property;
 use crate::template_value::OpaqueTemplateValue;
@@ -47,10 +47,9 @@ use crate::templater::NoTemplateBooleanCast;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyExt as _;
-use crate::templater::WrapTemplateProperty;
 
 pub trait OperationTemplateLanguageExtension {
-    fn build_fn_table(&self) -> CoreTemplateBuildFnTable<'static, OperationTemplateLanguage>;
+    fn build_fn_table(&self) -> TemplateBuildFnTable<'static, OperationTemplateLanguage>;
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
@@ -67,7 +66,7 @@ pub struct OperationTemplateLanguage {
     current_op_id: Option<OperationId>,
     current_dir: PathBuf,
     type_registry: TemplateTypeRegistry,
-    build_fn_table: CoreTemplateBuildFnTable<'static, Self>,
+    build_fn_table: TemplateBuildFnTable<'static, Self>,
     cache_extensions: ExtensionsMap,
 }
 
@@ -82,7 +81,7 @@ impl OperationTemplateLanguage {
     ) -> Self {
         let mut type_registry = template_builder::new_core_type_registry();
         register_types(&mut type_registry);
-        let mut build_fn_table = CoreTemplateBuildFnTable::builtin();
+        let mut build_fn_table = TemplateBuildFnTable::builtin();
         register_methods(&mut build_fn_table);
 
         let mut cache_extensions = ExtensionsMap::empty();
@@ -106,8 +105,6 @@ impl OperationTemplateLanguage {
 }
 
 impl TemplateLanguage<'static> for OperationTemplateLanguage {
-    type Property = CoreTemplatePropertyKind<'static>;
-
     fn settings(&self) -> &UserSettings {
         self.repo_loader.settings()
     }
@@ -123,9 +120,9 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
     fn build_function(
         &self,
         diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<Self::Property>,
+        build_ctx: &BuildContext<'static, '_>,
         function: &FunctionCallNode,
-    ) -> TemplateParseResult<Self::Property> {
+    ) -> TemplateParseResult<TemplatePropertyKind<'static>> {
         let table = &self.build_fn_table;
         table.build_function(self, diagnostics, build_ctx, function)
     }
@@ -133,10 +130,10 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
     fn build_method(
         &self,
         diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<Self::Property>,
-        property: Self::Property,
+        build_ctx: &BuildContext<'static, '_>,
+        property: TemplatePropertyKind<'static>,
         function: &FunctionCallNode,
-    ) -> TemplateParseResult<Self::Property> {
+    ) -> TemplateParseResult<TemplatePropertyKind<'static>> {
         self.build_fn_table
             .build_method(self, diagnostics, build_ctx, property, function)
     }
@@ -158,23 +155,11 @@ impl OperationTemplateLanguage {
     }
 }
 
-/// Wrapper for the operation template property types.
-pub trait OperationTemplatePropertyVar<'a>
-where
-    Self: WrapTemplateProperty<'a, Operation>,
-    Self: WrapTemplateProperty<'a, Option<Operation>>,
-    Self: WrapTemplateProperty<'a, Vec<Operation>>,
-    Self: WrapTemplateProperty<'a, OperationId>,
-{
-}
-
 impl OpaqueTemplateValue for Operation {}
 impl OpaqueTemplateValue for OperationId {}
 
 impl NoTemplateBooleanCast for Operation {}
 impl NoTemplateBooleanCast for OperationId {}
-
-impl<'a> OperationTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {}
 
 pub fn register_types(registry: &mut TemplateTypeRegistry) {
     registry.register::<Operation>("Operation").serializable();
@@ -192,10 +177,9 @@ pub fn register_types(registry: &mut TemplateTypeRegistry) {
         .serializable();
 }
 
-pub fn register_methods<'a, L>(table: &mut CoreTemplateBuildFnTable<'a, L>)
+pub fn register_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
-    L::Property: OperationTemplatePropertyVar<'a>,
 {
     let methods = &mut table.methods;
     methods.insert(Operation::value_type(), builtin_operation_methods());
@@ -209,7 +193,6 @@ where
 fn builtin_operation_methods<'a, L>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
-    L::Property: OperationTemplatePropertyVar<'a>,
 {
     type T = Operation;
     // Not using maplit::hashmap!{} or custom declarative macro here because
@@ -360,7 +343,6 @@ impl Template for OperationId {
 fn builtin_operation_id_methods<'a, L>() -> BuildValueMethodFnMap<'a, L>
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
-    L::Property: OperationTemplatePropertyVar<'a>,
 {
     type T = OperationId;
     // Not using maplit::hashmap!{} or custom declarative macro here because
