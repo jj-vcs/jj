@@ -523,7 +523,7 @@ where
 // couldn't find an easy way to expand that to the core template methods, which
 // are defined for L: TemplateLanguage<'a>. That's why the build fn table is
 // bound to a named lifetime, and therefore can't be cached statically.
-type BuildFunctionFn<'a, L> = fn(
+type BuildFunctionFn<'a, L> = dyn Fn(
     &L,
     &mut TemplateDiagnostics,
     &BuildContext<'a, '_>,
@@ -545,7 +545,7 @@ pub type BuildTemplateMethodFn<'a, L> = BuildMethodFn<'a, L, Box<dyn Template + 
 pub type BuildAnyMethodFn<'a, L> = BuildMethodFn<'a, L, BoxedAnyProperty<'a>>;
 
 /// Table of functions that translate global function call node.
-type BuildFunctionFnMap<'a, L> = HashMap<&'static str, BuildFunctionFn<'a, L>>;
+type BuildFunctionFnMap<'a, L> = HashMap<&'static str, Box<BuildFunctionFn<'a, L>>>;
 
 /// Translates a method call node on a type-erased value type.
 trait BuildValueMethod<'a, L: ?Sized> {
@@ -862,8 +862,17 @@ where
 {
     /// Registers a new global function builder.
     #[track_caller]
-    pub fn insert(&mut self, name: &'static str, build_fn: BuildFunctionFn<'a, L>) {
-        let old = self.map.insert(name, build_fn);
+    pub fn insert<F>(&mut self, name: &'static str, build_fn: F)
+    where
+        F: Fn(
+            &L,
+            &mut TemplateDiagnostics,
+            &BuildContext<'a, '_>,
+            &FunctionCallNode,
+        ) -> TemplateParseResult<TemplatePropertyKind<'a>>,
+        F: 'static,
+    {
+        let old = self.map.insert(name, Box::new(build_fn));
         assert!(old.is_none(), "function already registered: {name}");
     }
 }
