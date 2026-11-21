@@ -180,6 +180,33 @@ fn test_concurrent_operations() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_concurrent_operations_with_same_end_time() -> TestResult {
+    // Concurrent operations that end at the same time are merged in the order of
+    // their ids, so that the merge doesn't depend on the order the heads were
+    // found in.
+    let settings = stable_op_id_settings();
+    for _ in 0..10 {
+        let test_repo = TestRepo::init_with_settings(&settings);
+        let repo = &test_repo.repo;
+
+        let mut tx1 = repo.start_transaction();
+        write_random_commit(tx1.repo_mut());
+        let op_id1 = tx1.commit("transaction 1").block_on()?.op_id().clone();
+        let mut tx2 = repo.start_transaction();
+        write_random_commit(tx2.repo_mut());
+        let op_id2 = tx2.commit("transaction 2").block_on()?.op_id().clone();
+
+        let repo = repo
+            .reload_at_head(Some(WorkspaceName::DEFAULT))
+            .block_on()?;
+        let mut expected_parent_ids = vec![op_id1, op_id2];
+        expected_parent_ids.sort();
+        assert_eq!(repo.operation().parent_ids(), expected_parent_ids);
+    }
+    Ok(())
+}
+
 fn assert_heads(repo: &dyn Repo, expected: Vec<&CommitId>) {
     let expected = expected.iter().copied().cloned().collect();
     assert_eq!(*repo.view().heads(), expected);
