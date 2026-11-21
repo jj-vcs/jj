@@ -3277,34 +3277,38 @@ mod tests {
     }
 
     impl TestTemplateEnv {
-        fn add_keyword<F>(&mut self, name: &'static str, build: F)
-        where
-            F: Fn() -> TemplatePropertyKind<'static> + 'static,
-        {
+        fn add_literal<O: Clone + TemplateValue>(&mut self, name: &'static str, value: O) {
             let mut methods = self.language.symbol_table.register_methods::<Context>();
             methods.insert(
                 name,
                 move |_language, _diagnostics, _build_ctx, _self_property, function| {
                     function.expect_no_arguments()?;
-                    Ok(build())
+                    Ok(literal(value.clone()))
                 },
             );
         }
 
-        /// Like `add_keyword`, but the value depends on the `self` context
+        /// Like `add_literal`, but the value depends on the `self` context
         /// property, making it not statically extractable.
-        fn add_dynamic_keyword<O, F>(&mut self, name: &'static str, build: F)
-        where
-            O: TemplateValue,
-            F: Fn() -> O + Clone + 'static,
-        {
+        fn add_dynamic_literal<O: Clone + TemplateValue>(&mut self, name: &'static str, value: O) {
             let mut methods = self.language.symbol_table.register_methods::<Context>();
             methods.insert(
                 name,
                 move |_language, _diagnostics, _build_ctx, self_property, function| {
                     function.expect_no_arguments()?;
-                    let build = build.clone();
-                    Ok(self_property.map(move |_| build()).into_dyn_wrapped())
+                    let value = value.clone();
+                    Ok(self_property.map(move |_| value.clone()).into_dyn_wrapped())
+                },
+            );
+        }
+
+        fn add_error<O: TemplateValue>(&mut self, name: &'static str, message: &'static str) {
+            let mut methods = self.language.symbol_table.register_methods::<Context>();
+            methods.insert(
+                name,
+                move |_language, _diagnostics, _build_ctx, _self_property, function| {
+                    function.expect_no_arguments()?;
+                    Ok(new_error_property::<O>(message))
                 },
             );
         }
@@ -3426,9 +3430,9 @@ mod tests {
     #[test]
     fn test_parsed_tree() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("divergent", || literal(false));
-        env.add_keyword("empty", || literal(true));
-        env.add_keyword("hello", || literal("Hello".to_owned()));
+        env.add_literal("divergent", false);
+        env.add_literal("empty", true);
+        env.add_literal("hello", "Hello".to_owned());
 
         // Empty
         insta::assert_snapshot!(env.render_ok(r#"  "#), @"");
@@ -3458,9 +3462,9 @@ mod tests {
     #[test]
     fn test_parse_error() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("description", || literal("".to_owned()));
-        env.add_keyword("empty", || literal(true));
-        env.add_keyword("none_i64", || literal(None::<i64>));
+        env.add_literal("description", "".to_owned());
+        env.add_literal("empty", true);
+        env.add_literal("none_i64", None::<i64>);
 
         insta::assert_snapshot!(env.parse_err(r#"foo bar"#), @"
          --> 1:5
@@ -3729,7 +3733,7 @@ mod tests {
     #[test]
     fn test_self_keyword() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("say_hello", || literal("Hello".to_owned()));
+        env.add_literal("say_hello", "Hello".to_owned());
 
         insta::assert_snapshot!(env.render_ok(r#"self.say_hello()"#), @"Hello");
         insta::assert_snapshot!(env.parse_err(r#"self"#), @"
@@ -3746,25 +3750,25 @@ mod tests {
     fn test_boolean_cast() {
         let mut env = TestTemplateEnv::new();
 
-        env.add_keyword("empty_bstr", || literal(BString::from("")));
-        env.add_keyword("nonempty_bstr", || literal(BString::from("a")));
+        env.add_literal("empty_bstr", BString::from(""));
+        env.add_literal("nonempty_bstr", BString::from("a"));
         insta::assert_snapshot!(env.render_ok("if(empty_bstr, true, false)"), @"false");
         insta::assert_snapshot!(env.render_ok("if(nonempty_bstr, true, false)"), @"true");
 
-        env.add_keyword("empty_bstr_list", || literal::<Vec<BString>>(vec![]));
-        env.add_keyword("nonempty_bstr_list", || literal(vec![BString::from("")]));
+        env.add_literal::<Vec<BString>>("empty_bstr_list", vec![]);
+        env.add_literal("nonempty_bstr_list", vec![BString::from("")]);
         insta::assert_snapshot!(env.render_ok("if(empty_bstr_list, true, false)"), @"false");
         insta::assert_snapshot!(env.render_ok("if(nonempty_bstr_list, true, false)"), @"true");
 
         insta::assert_snapshot!(env.render_ok(r#"if("", true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if("a", true, false)"#), @"true");
 
-        env.add_keyword("sl0", || literal::<Vec<String>>(vec![]));
-        env.add_keyword("sl1", || literal(vec!["".to_owned()]));
+        env.add_literal::<Vec<String>>("sl0", vec![]);
+        env.add_literal("sl1", vec!["".to_owned()]);
         insta::assert_snapshot!(env.render_ok(r#"if(sl0, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(sl1, true, false)"#), @"true");
 
-        env.add_keyword("fs_path", || literal(PathBuf::from("/repo/workspace")));
+        env.add_literal("fs_path", PathBuf::from("/repo/workspace"));
         insta::assert_snapshot!(env.parse_err(r#"if(fs_path, true, false)"#), @"
          --> 1:4
           |
@@ -3774,10 +3778,8 @@ mod tests {
           = Expected expression of type `Boolean`, but actual type is `FsPath`
         ");
 
-        env.add_keyword("none_fs_path", || literal(None::<PathBuf>));
-        env.add_keyword("some_fs_path", || {
-            literal(Some(PathBuf::from("/repo/workspace")))
-        });
+        env.add_literal("none_fs_path", None::<PathBuf>);
+        env.add_literal("some_fs_path", Some(PathBuf::from("/repo/workspace")));
         insta::assert_snapshot!(env.render_ok(r#"if(none_fs_path, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(some_fs_path, true, false)"#), @"true");
 
@@ -3792,8 +3794,8 @@ mod tests {
         ");
 
         // Optional integer can be converted to boolean, and Some(0) is truthy.
-        env.add_keyword("none_i64", || literal(None::<i64>));
-        env.add_keyword("some_i64", || literal(Some(0)));
+        env.add_literal("none_i64", None::<i64>);
+        env.add_literal("some_i64", Some(0));
         insta::assert_snapshot!(env.render_ok(r#"if(none_i64, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(some_i64, true, false)"#), @"true");
 
@@ -3820,15 +3822,13 @@ mod tests {
           = Expected expression of type `Boolean`, but actual type is `AnyList`
         ");
 
-        env.add_keyword("empty_email", || literal(Email("".to_owned())));
-        env.add_keyword("nonempty_email", || {
-            literal(Email("local@domain".to_owned()))
-        });
+        env.add_literal("empty_email", Email("".to_owned()));
+        env.add_literal("nonempty_email", Email("local@domain".to_owned()));
         insta::assert_snapshot!(env.render_ok(r#"if(empty_email, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(nonempty_email, true, false)"#), @"true");
 
         // even boolean config values must be extracted
-        env.add_keyword("config_bool", || literal(new_config_value(true)));
+        env.add_literal("config_bool", new_config_value(true));
         insta::assert_snapshot!(env.parse_err("if(config_bool, true, false)"), @"
          --> 1:4
           |
@@ -3839,17 +3839,19 @@ mod tests {
         ");
 
         // misc uncastable types
-        env.add_keyword("signature", || {
-            literal(new_signature("Test User", "test.user@example.com"))
-        });
-        env.add_keyword("size_hint", || literal((5, None)));
-        env.add_keyword("timestamp", || literal(new_timestamp(0, 0)));
-        env.add_keyword("timestamp_range", || {
-            literal(TimestampRange {
+        env.add_literal(
+            "signature",
+            new_signature("Test User", "test.user@example.com"),
+        );
+        env.add_literal("size_hint", (5, None));
+        env.add_literal("timestamp", new_timestamp(0, 0));
+        env.add_literal(
+            "timestamp_range",
+            TimestampRange {
                 start: new_timestamp(0, 0),
                 end: new_timestamp(0, 0),
-            })
-        });
+            },
+        );
         assert_matches!(
             env.parse_err_kind("if(signature, true, false)"),
             TemplateParseErrorKind::Expression(_)
@@ -3879,10 +3881,10 @@ mod tests {
     #[test]
     fn test_arithmetic_operation() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("none_i64", || literal(None::<i64>));
-        env.add_keyword("some_i64", || literal(Some(1)));
-        env.add_keyword("i64_min", || literal(i64::MIN));
-        env.add_keyword("i64_max", || literal(i64::MAX));
+        env.add_literal("none_i64", None::<i64>);
+        env.add_literal("some_i64", Some(1));
+        env.add_literal("i64_min", i64::MIN);
+        env.add_literal("i64_max", i64::MAX);
 
         insta::assert_snapshot!(env.render_ok(r#"-1"#), @"-1");
         insta::assert_snapshot!(env.render_ok(r#"--2"#), @"2");
@@ -3938,11 +3940,8 @@ mod tests {
             cwd.clone(),
         );
         let path = cwd.join("workspace");
-        env.add_keyword("fs_path", {
-            let path = path.clone();
-            move || literal(path.clone())
-        });
-        env.add_keyword("none_fs_path", || literal(None::<PathBuf>));
+        env.add_literal("fs_path", path.clone());
+        env.add_literal("none_fs_path", None::<PathBuf>);
 
         assert_eq!(
             env.render_ok("fs_path"),
@@ -3985,14 +3984,8 @@ mod tests {
         }
         path_bytes.extend(b"\x80workspace");
         let path = PathBuf::from(OsString::from_vec(path_bytes.clone()));
-        env.add_keyword("fs_path", {
-            let path = path.clone();
-            move || literal(path.clone())
-        });
-        env.add_keyword("some_fs_path", {
-            let path = path.clone();
-            move || literal(Some(path.clone()))
-        });
+        env.add_literal("fs_path", path.clone());
+        env.add_literal("some_fs_path", Some(path.clone()));
 
         // Direct rendering should preserve non-UTF-8 path bytes. This is the
         // path used by templates like `workspace_list`'s `root`.
@@ -4026,9 +4019,9 @@ mod tests {
     #[test]
     fn test_relational_operation() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("none_i64", || literal(None::<i64>));
-        env.add_keyword("some_i64_0", || literal(Some(0_i64)));
-        env.add_keyword("some_i64_1", || literal(Some(1_i64)));
+        env.add_literal("none_i64", None::<i64>);
+        env.add_literal("some_i64_0", Some(0_i64));
+        env.add_literal("some_i64_1", Some(1_i64));
 
         insta::assert_snapshot!(env.render_ok(r#"1 >= 1"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#"0 >= 1"#), @"false");
@@ -4056,23 +4049,20 @@ mod tests {
         );
 
         // un-comparable types
-        env.add_keyword("str_list", || {
-            literal(vec!["foo".to_owned(), "bar".to_owned()])
-        });
-        env.add_keyword("cfg_val", || literal(new_config_table([("foo", "bar")])));
-        env.add_keyword("some_cfg", || literal(Some(new_config_value(1))));
-        env.add_keyword("signature", || {
-            literal(new_signature("User", "user@example.com"))
-        });
-        env.add_keyword("email", || literal(Email("me@example.com".to_owned())));
-        env.add_keyword("size_hint", || literal((10, None)));
-        env.add_keyword("timestamp", || literal(new_timestamp(0, 0)));
-        env.add_keyword("timestamp_range", || {
-            literal(TimestampRange {
+        env.add_literal("str_list", vec!["foo".to_owned(), "bar".to_owned()]);
+        env.add_literal("cfg_val", new_config_table([("foo", "bar")]));
+        env.add_literal("some_cfg", Some(new_config_value(1)));
+        env.add_literal("signature", new_signature("User", "user@example.com"));
+        env.add_literal("email", Email("me@example.com".to_owned()));
+        env.add_literal("size_hint", (10, None));
+        env.add_literal("timestamp", new_timestamp(0, 0));
+        env.add_literal(
+            "timestamp_range",
+            TimestampRange {
                 start: new_timestamp(0, 0),
                 end: new_timestamp(0, 0),
-            })
-        });
+            },
+        );
         assert_matches!(
             env.parse_err_kind("'a' >= 'a'"),
             TemplateParseErrorKind::Expression(_)
@@ -4130,13 +4120,13 @@ mod tests {
     #[test]
     fn test_logical_operation() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("none_i64", || literal::<Option<i64>>(None));
-        env.add_keyword("some_i64_0", || literal(Some(0_i64)));
-        env.add_keyword("some_i64_1", || literal(Some(1_i64)));
-        env.add_keyword("bstr1", || literal(BString::from("1")));
-        env.add_keyword("bstr2", || literal(BString::from("2")));
-        env.add_keyword("email1", || literal(Email("local-1@domain".to_owned())));
-        env.add_keyword("email2", || literal(Email("local-2@domain".to_owned())));
+        env.add_literal::<Option<i64>>("none_i64", None);
+        env.add_literal("some_i64_0", Some(0_i64));
+        env.add_literal("some_i64_1", Some(1_i64));
+        env.add_literal("bstr1", BString::from("1"));
+        env.add_literal("bstr2", BString::from("2"));
+        env.add_literal("email1", Email("local-1@domain".to_owned()));
+        env.add_literal("email2", Email("local-2@domain".to_owned()));
 
         insta::assert_snapshot!(env.render_ok(r#"!false"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#"false || !false"#), @"true");
@@ -4176,7 +4166,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#" "" || "a".lines() "#), @"true");
 
         // Short-circuiting
-        env.add_keyword("bad_bool", || new_error_property::<bool>("Bad"));
+        env.add_error::<bool>("bad_bool", "Bad");
         insta::assert_snapshot!(env.render_ok(r#"false && bad_bool"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"true && bad_bool"#), @"<Error: Bad>");
         insta::assert_snapshot!(env.render_ok(r#"false || bad_bool"#), @"<Error: Bad>");
@@ -4193,22 +4183,19 @@ mod tests {
         );
 
         // Un-comparable types
-        env.add_keyword("str_list", || {
-            literal(vec!["foo".to_owned(), "bar".to_owned()])
-        });
-        env.add_keyword("cfg_val", || literal(new_config_table([("foo", "bar")])));
-        env.add_keyword("some_cfg", || literal(Some(new_config_value(true))));
-        env.add_keyword("signature", || {
-            literal(new_signature("User", "user@example.com"))
-        });
-        env.add_keyword("size_hint", || literal((10, None)));
-        env.add_keyword("timestamp", || literal(new_timestamp(0, 0)));
-        env.add_keyword("timestamp_range", || {
-            literal(TimestampRange {
+        env.add_literal("str_list", vec!["foo".to_owned(), "bar".to_owned()]);
+        env.add_literal("cfg_val", new_config_table([("foo", "bar")]));
+        env.add_literal("some_cfg", Some(new_config_value(true)));
+        env.add_literal("signature", new_signature("User", "user@example.com"));
+        env.add_literal("size_hint", (10, None));
+        env.add_literal("timestamp", new_timestamp(0, 0));
+        env.add_literal(
+            "timestamp_range",
+            TimestampRange {
                 start: new_timestamp(0, 0),
                 end: new_timestamp(0, 0),
-            })
-        });
+            },
+        );
         assert_matches!(
             env.parse_err_kind("str_list == str_list"),
             TemplateParseErrorKind::Expression(_)
@@ -4254,8 +4241,8 @@ mod tests {
     #[test]
     fn test_list_method() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("empty", || literal(true));
-        env.add_keyword("sep", || literal("sep".to_owned()));
+        env.add_literal("empty", true);
+        env.add_literal("sep", "sep".to_owned());
 
         insta::assert_snapshot!(env.render_ok(r#""".lines().len()"#), @"0");
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().len()"#), @"3");
@@ -4497,16 +4484,16 @@ mod tests {
     #[test]
     fn test_byte_string_method() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("empty", || literal(BString::from("")));
-        env.add_keyword("foo", || literal(BString::from("foo")));
-        env.add_keyword("bar", || literal(BString::from("bar")));
-        env.add_keyword("foobar", || literal(BString::from("foobar")));
-        env.add_keyword("foo_ws", || literal(BString::from(" \n \r foo \t \r ")));
-        env.add_keyword("foo_bar_nl", || literal(BString::from("foo\nbar\n")));
-        env.add_keyword("foo_bar_case", || literal(BString::from("foo BAR")));
-        env.add_keyword("odd", || literal(BString::from(b"\x80")));
-        env.add_keyword("odd_ws", || literal(BString::from(b" \x80 ")));
-        env.add_keyword("odd_case", || literal(BString::from(b"A\x80z")));
+        env.add_literal("empty", BString::from(""));
+        env.add_literal("foo", BString::from("foo"));
+        env.add_literal("bar", BString::from("bar"));
+        env.add_literal("foobar", BString::from("foobar"));
+        env.add_literal("foo_ws", BString::from(" \n \r foo \t \r "));
+        env.add_literal("foo_bar_nl", BString::from("foo\nbar\n"));
+        env.add_literal("foo_bar_case", BString::from("foo BAR"));
+        env.add_literal("odd", BString::from(b"\x80"));
+        env.add_literal("odd_ws", BString::from(b" \x80 "));
+        env.add_literal("odd_case", BString::from(b"A\x80z"));
 
         insta::assert_snapshot!(env.render_ok("empty.len()"), @"0");
         insta::assert_snapshot!(env.render_ok("foo.len()"), @"3");
@@ -4600,8 +4587,8 @@ mod tests {
     #[test]
     fn test_string_method() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("description", || literal("description 1".to_owned()));
-        env.add_keyword("bad_string", || new_error_property::<String>("Bad"));
+        env.add_literal("description", "description 1".to_owned());
+        env.add_error::<String>("bad_string", "Bad");
 
         insta::assert_snapshot!(env.render_ok(r#""".len()"#), @"0");
         insta::assert_snapshot!(env.render_ok(r#""foo".len()"#), @"3");
@@ -4810,10 +4797,10 @@ mod tests {
     #[test]
     fn test_config_value_method() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("boolean", || literal(new_config_value(true)));
-        env.add_keyword("integer", || literal(new_config_value(42)));
-        env.add_keyword("string", || literal(new_config_value("foo")));
-        env.add_keyword("string_list", || literal(new_config_array(["foo", "bar"])));
+        env.add_literal("boolean", new_config_value(true));
+        env.add_literal("integer", new_config_value(42));
+        env.add_literal("string", new_config_value("foo"));
+        env.add_literal("string_list", new_config_array(["foo", "bar"]));
 
         insta::assert_snapshot!(env.render_ok("boolean"), @"true");
         insta::assert_snapshot!(env.render_ok("integer"), @"42");
@@ -4843,9 +4830,10 @@ mod tests {
     fn test_signature_and_email_methods() {
         let mut env = TestTemplateEnv::new();
 
-        env.add_keyword("author", || {
-            literal(new_signature("Test User", "test.user@example.com"))
-        });
+        env.add_literal(
+            "author",
+            new_signature("Test User", "test.user@example.com"),
+        );
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user@example.com");
@@ -4854,17 +4842,19 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.timestamp()"), @"1970-01-01 00:00:00.000 +00:00");
 
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("author", || {
-            literal(new_signature("Another Test User", "test.user@example.com"))
-        });
+        env.add_literal(
+            "author",
+            new_signature("Another Test User", "test.user@example.com"),
+        );
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Another Test User <test.user@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Another Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user@example.com");
 
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("author", || {
-            literal(new_signature("Test User", "test.user@invalid@example.com"))
-        });
+        env.add_literal(
+            "author",
+            new_signature("Test User", "test.user@invalid@example.com"),
+        );
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user@invalid@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user@invalid@example.com");
@@ -4872,40 +4862,37 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"invalid@example.com");
 
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("author", || {
-            literal(new_signature("Test User", "test.user"))
-        });
+        env.add_literal("author", new_signature("Test User", "test.user"));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user");
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"");
 
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("author", || {
-            literal(new_signature("Test User", "test.user+tag@example.com"))
-        });
+        env.add_literal(
+            "author",
+            new_signature("Test User", "test.user+tag@example.com"),
+        );
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user+tag@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user+tag@example.com");
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user+tag");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"example.com");
 
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("author", || literal(new_signature("Test User", "x@y")));
+        env.add_literal("author", new_signature("Test User", "x@y"));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <x@y>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"x@y");
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"x");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"y");
 
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("author", || {
-            literal(new_signature("", "test.user@example.com"))
-        });
+        env.add_literal("author", new_signature("", "test.user@example.com"));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"<test.user@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user@example.com");
 
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("author", || literal(new_signature("Test User", "")));
+        env.add_literal("author", new_signature("Test User", ""));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"");
@@ -4913,7 +4900,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"");
 
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("author", || literal(new_signature("", "")));
+        env.add_literal("author", new_signature("", ""));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"");
@@ -4923,19 +4910,19 @@ mod tests {
     fn test_size_hint_method() {
         let mut env = TestTemplateEnv::new();
 
-        env.add_keyword("unbounded", || literal((5, None)));
+        env.add_literal("unbounded", (5, None));
         insta::assert_snapshot!(env.render_ok(r#"unbounded.lower()"#), @"5");
         insta::assert_snapshot!(env.render_ok(r#"unbounded.upper()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"unbounded.exact()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"unbounded.zero()"#), @"false");
 
-        env.add_keyword("bounded", || literal((0, Some(10))));
+        env.add_literal("bounded", (0, Some(10)));
         insta::assert_snapshot!(env.render_ok(r#"bounded.lower()"#), @"0");
         insta::assert_snapshot!(env.render_ok(r#"bounded.upper()"#), @"10");
         insta::assert_snapshot!(env.render_ok(r#"bounded.exact()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"bounded.zero()"#), @"false");
 
-        env.add_keyword("zero", || literal((0, Some(0))));
+        env.add_literal("zero", (0, Some(0)));
         insta::assert_snapshot!(env.render_ok(r#"zero.lower()"#), @"0");
         insta::assert_snapshot!(env.render_ok(r#"zero.upper()"#), @"0");
         insta::assert_snapshot!(env.render_ok(r#"zero.exact()"#), @"0");
@@ -4945,10 +4932,10 @@ mod tests {
     #[test]
     fn test_timestamp_method() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("now", || literal(Timestamp::now()));
-        env.add_keyword("t0", || literal(new_timestamp(0, 0)));
-        env.add_keyword("t0_plus1", || literal(new_timestamp(0, 60)));
-        env.add_keyword("tmax", || literal(new_timestamp(i64::MAX, 0)));
+        env.add_literal("now", Timestamp::now());
+        env.add_literal("t0", new_timestamp(0, 0));
+        env.add_literal("t0_plus1", new_timestamp(0, 60));
+        env.add_literal("tmax", new_timestamp(i64::MAX, 0));
 
         // Unformattable timestamp
         insta::assert_snapshot!(env.render_ok("tmax"),
@@ -4970,8 +4957,8 @@ mod tests {
         "#);
 
         // Dynamic format string
-        env.add_dynamic_keyword("good_dyn_format", || "%Y%m".to_owned());
-        env.add_dynamic_keyword("bad_dyn_format", || "%_".to_owned());
+        env.add_dynamic_literal("good_dyn_format", "%Y%m".to_owned());
+        env.add_dynamic_literal("bad_dyn_format", "%_".to_owned());
         insta::assert_snapshot!(env.render_ok("t0.format(good_dyn_format)"), @"197001");
         insta::assert_snapshot!(
             env.render_ok("t0.format(bad_dyn_format)"),
@@ -5060,18 +5047,20 @@ mod tests {
     #[test]
     fn test_timestamp_range_method() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("instant", || {
-            literal(TimestampRange {
+        env.add_literal(
+            "instant",
+            TimestampRange {
                 start: new_timestamp(0, 0),
                 end: new_timestamp(0, 0),
-            })
-        });
-        env.add_keyword("one_msec", || {
-            literal(TimestampRange {
+            },
+        );
+        env.add_literal(
+            "one_msec",
+            TimestampRange {
                 start: new_timestamp(0, 0),
                 end: new_timestamp(1, -60),
-            })
-        });
+            },
+        );
 
         insta::assert_snapshot!(
             env.render_ok("instant.start().format('%Y%m%d %H:%M:%S %Z')"),
@@ -5299,7 +5288,7 @@ mod tests {
     #[test]
     fn test_pad_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("bad_string", || new_error_property::<String>("Bad"));
+        env.add_error::<String>("bad_string", "Bad");
         env.add_color("red", crossterm::style::Color::Red);
         env.add_color("cyan", crossterm::style::Color::DarkCyan);
 
@@ -5388,7 +5377,7 @@ mod tests {
     #[test]
     fn test_label_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("empty", || literal(true));
+        env.add_literal("empty", true);
         env.add_color("error", crossterm::style::Color::DarkRed);
         env.add_color("warning", crossterm::style::Color::DarkYellow);
 
@@ -5457,7 +5446,7 @@ mod tests {
     #[test]
     fn test_hyperlink_function_with_color() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("bad_string", || new_error_property::<String>("Bad"));
+        env.add_error::<String>("bad_string", "Bad");
         // With ColorFormatter, hyperlink emits OSC 8 escape sequences
         insta::assert_snapshot!(
             env.render_ok(r#"hyperlink("http://example.com", "Example")"#),
@@ -5544,9 +5533,9 @@ mod tests {
     #[test]
     fn test_stringify_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("none_i64", || literal(None::<i64>));
-        env.add_keyword("ascii_bstr", || literal(BString::from("foo")));
-        env.add_keyword("odd_bstr", || literal(BString::from(b"\x80")));
+        env.add_literal("none_i64", None::<i64>);
+        env.add_literal("ascii_bstr", BString::from("foo"));
+        env.add_literal("odd_bstr", BString::from(b"\x80"));
         env.add_color("error", crossterm::style::Color::DarkRed);
 
         insta::assert_snapshot!(env.render_ok("stringify(false)"), @"false");
@@ -5562,38 +5551,37 @@ mod tests {
     #[test]
     fn test_json_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("none_i64", || literal(None::<i64>));
-        env.add_keyword("ascii_bstr", || literal(BString::from("foo")));
-        env.add_keyword("fs_path", || literal(PathBuf::from("file")));
-        env.add_keyword("none_fs_path", || literal(None::<PathBuf>));
-        env.add_keyword("string_list", || {
-            literal(vec!["foo".to_owned(), "bar".to_owned()])
-        });
-        env.add_keyword("config_value_table", || {
-            literal(new_config_table([("foo", "bar")]))
-        });
-        env.add_keyword("some_cfgval", || literal(Some(new_config_value(1))));
-        env.add_keyword("none_cfgval", || literal(None::<ConfigValueWrapper>));
-        env.add_keyword("signature", || {
-            literal(Signature {
+        env.add_literal("none_i64", None::<i64>);
+        env.add_literal("ascii_bstr", BString::from("foo"));
+        env.add_literal("fs_path", PathBuf::from("file"));
+        env.add_literal("none_fs_path", None::<PathBuf>);
+        env.add_literal("string_list", vec!["foo".to_owned(), "bar".to_owned()]);
+        env.add_literal("config_value_table", new_config_table([("foo", "bar")]));
+        env.add_literal("some_cfgval", Some(new_config_value(1)));
+        env.add_literal("none_cfgval", None::<ConfigValueWrapper>);
+        env.add_literal(
+            "signature",
+            Signature {
                 name: "Test User".to_owned(),
                 email: "test.user@example.com".to_owned(),
                 timestamp: Timestamp {
                     timestamp: MillisSinceEpoch(0),
                     tz_offset: 0,
                 },
-            })
-        });
-        env.add_keyword("email", || literal(Email("foo@bar".to_owned())));
-        env.add_keyword("size_hint", || literal((5, None)));
-        env.add_keyword("timestamp", || {
-            literal(Timestamp {
+            },
+        );
+        env.add_literal("email", Email("foo@bar".to_owned()));
+        env.add_literal("size_hint", (5, None));
+        env.add_literal(
+            "timestamp",
+            Timestamp {
                 timestamp: MillisSinceEpoch(0),
                 tz_offset: 0,
-            })
-        });
-        env.add_keyword("timestamp_range", || {
-            literal(TimestampRange {
+            },
+        );
+        env.add_literal(
+            "timestamp_range",
+            TimestampRange {
                 start: Timestamp {
                     timestamp: MillisSinceEpoch(0),
                     tz_offset: 0,
@@ -5602,14 +5590,15 @@ mod tests {
                     timestamp: MillisSinceEpoch(86_400_000),
                     tz_offset: -60,
                 },
-            })
-        });
-        env.add_keyword("timestamp_millis", || {
-            literal(Timestamp {
+            },
+        );
+        env.add_literal(
+            "timestamp_millis",
+            Timestamp {
                 timestamp: MillisSinceEpoch(1_234),
                 tz_offset: 90,
-            })
-        });
+            },
+        );
 
         insta::assert_snapshot!(env.render_ok(r#"json(ascii_bstr)"#), @"[102,111,111]");
         insta::assert_snapshot!(env.render_ok(r#"json('"quoted"')"#), @r#""\"quoted\"""#);
@@ -5685,11 +5674,9 @@ mod tests {
     #[test]
     fn test_try_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("bad_string", || new_error_property::<String>("Bad string"));
-        env.add_keyword("bad_i64", || new_error_property::<i64>("Bad i64"));
-        env.add_keyword("bad_size_hint", || {
-            new_error_property::<SizeHint>("Bad size hint")
-        });
+        env.add_error::<String>("bad_string", "Bad string");
+        env.add_error::<i64>("bad_i64", "Bad i64");
+        env.add_error::<SizeHint>("bad_size_hint", "Bad size hint");
         env.add_color("red", crossterm::style::Color::Red);
 
         insta::assert_snapshot!(env.render_ok("try(bad_string)"), @"<Error: Bad string>");
@@ -5756,9 +5743,9 @@ mod tests {
     #[test]
     fn test_coalesce_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("bad_string", || new_error_property::<String>("Bad"));
-        env.add_keyword("empty_string", || literal("".to_owned()));
-        env.add_keyword("non_empty_string", || literal("a".to_owned()));
+        env.add_error::<String>("bad_string", "Bad");
+        env.add_literal("empty_string", "".to_owned());
+        env.add_literal("non_empty_string", "a".to_owned());
 
         insta::assert_snapshot!(env.render_ok(r#"coalesce()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"coalesce("")"#), @"");
@@ -5788,8 +5775,8 @@ mod tests {
     #[test]
     fn test_concat_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("empty", || literal(true));
-        env.add_keyword("hidden", || literal(false));
+        env.add_literal("empty", true);
+        env.add_literal("hidden", false);
         env.add_color("empty", crossterm::style::Color::DarkGreen);
         env.add_color("error", crossterm::style::Color::DarkRed);
         env.add_color("warning", crossterm::style::Color::DarkYellow);
@@ -5816,9 +5803,9 @@ mod tests {
     #[test]
     fn test_join_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("description", || literal("".to_owned()));
-        env.add_keyword("empty", || literal(true));
-        env.add_keyword("hidden", || literal(false));
+        env.add_literal("description", "".to_owned());
+        env.add_literal("empty", true);
+        env.add_literal("hidden", false);
         env.add_color("empty", crossterm::style::Color::DarkGreen);
         env.add_color("error", crossterm::style::Color::DarkRed);
         env.add_color("warning", crossterm::style::Color::DarkYellow);
@@ -5888,24 +5875,21 @@ mod tests {
         "#);
 
         // only size hints cannot be templated / joined
-        env.add_keyword("str_list", || {
-            literal(vec!["foo".to_owned(), "bar".to_owned()])
-        });
-        env.add_keyword("none_int", || literal(None::<i64>));
-        env.add_keyword("some_int", || literal(Some(67)));
-        env.add_keyword("cfg_val", || literal(new_config_table([("foo", "bar")])));
-        env.add_keyword("email", || literal(Email("me@example.com".to_owned())));
-        env.add_keyword("signature", || {
-            literal(new_signature("User", "user@example.com"))
-        });
-        env.add_keyword("size_hint", || literal((10, None)));
-        env.add_keyword("timestamp", || literal(new_timestamp(0, 0)));
-        env.add_keyword("timestamp_range", || {
-            literal(TimestampRange {
+        env.add_literal("str_list", vec!["foo".to_owned(), "bar".to_owned()]);
+        env.add_literal("none_int", None::<i64>);
+        env.add_literal("some_int", Some(67));
+        env.add_literal("cfg_val", new_config_table([("foo", "bar")]));
+        env.add_literal("email", Email("me@example.com".to_owned()));
+        env.add_literal("signature", new_signature("User", "user@example.com"));
+        env.add_literal("size_hint", (10, None));
+        env.add_literal("timestamp", new_timestamp(0, 0));
+        env.add_literal(
+            "timestamp_range",
+            TimestampRange {
                 start: new_timestamp(0, 0),
                 end: new_timestamp(0, 0),
-            })
-        });
+            },
+        );
         insta::assert_snapshot!(
             env.render_ok("join('|', str_list, 42, none_int, some_int)"),
             @"foo bar|42||67");
@@ -5924,9 +5908,9 @@ mod tests {
     #[test]
     fn test_separate_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("description", || literal("".to_owned()));
-        env.add_keyword("empty", || literal(true));
-        env.add_keyword("hidden", || literal(false));
+        env.add_literal("description", "".to_owned());
+        env.add_literal("empty", true);
+        env.add_literal("hidden", false);
         env.add_color("empty", crossterm::style::Color::DarkGreen);
         env.add_color("error", crossterm::style::Color::DarkRed);
         env.add_color("warning", crossterm::style::Color::DarkYellow);
@@ -5992,10 +5976,10 @@ mod tests {
     #[test]
     fn test_surround_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("lt", || literal("<".to_owned()));
-        env.add_keyword("gt", || literal(">".to_owned()));
-        env.add_keyword("content", || literal("content".to_owned()));
-        env.add_keyword("empty_content", || literal("".to_owned()));
+        env.add_literal("lt", "<".to_owned());
+        env.add_literal("gt", ">".to_owned());
+        env.add_literal("content", "content".to_owned());
+        env.add_literal("empty_content", "".to_owned());
         env.add_color("error", crossterm::style::Color::DarkRed);
         env.add_color("paren", crossterm::style::Color::Cyan);
 
@@ -6111,17 +6095,17 @@ mod tests {
         ");
 
         // dynamic lookup using a keyword that depends on runtime context
-        env.add_dynamic_keyword("dyn_config_name", || "user.name".to_owned());
+        env.add_dynamic_literal("dyn_config_name", "user.name".to_owned());
         insta::assert_snapshot!(
             env.render_ok(r#"config(dyn_config_name)"#), @"'Test User'"
         );
 
         // dynamic lookup with nonexistent path
-        env.add_dynamic_keyword("dyn_missing", || "non.existent".to_owned());
+        env.add_dynamic_literal("dyn_missing", "non.existent".to_owned());
         insta::assert_snapshot!(env.render_ok(r#"config(dyn_missing)"#), @"");
 
         // dynamic lookup with invalid config path at runtime
-        env.add_dynamic_keyword("dyn_bad_path", || "user|name".to_owned());
+        env.add_dynamic_literal("dyn_bad_path", "user|name".to_owned());
         insta::assert_snapshot!(env.render_ok(r#"config(dyn_bad_path)"#), @"
         <Error: TOML parse error at line 1, column 5
           |
@@ -6132,18 +6116,16 @@ mod tests {
         ");
 
         // dynamic lookup where name expression itself fails at runtime
-        env.add_keyword("bad_string", || new_error_property::<String>("Bad"));
+        env.add_error::<String>("bad_string", "Bad");
         insta::assert_snapshot!(env.render_ok(r#"config(bad_string)"#), @"<Error: Bad>");
     }
 
     #[test]
     fn test_any_type() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("size_hint", || literal((5, None)));
-        env.add_keyword("size_hint_2", || literal((10, None)));
-        env.add_keyword("words", || {
-            literal(vec!["foo".to_owned(), "bar".to_owned()])
-        });
+        env.add_literal("size_hint", (5, None));
+        env.add_literal("size_hint_2", (10, None));
+        env.add_literal("words", vec!["foo".to_owned(), "bar".to_owned()]);
         env.add_color("red", crossterm::style::Color::Red);
 
         // If requires both halves of the statement to support the trait.
@@ -6185,10 +6167,8 @@ mod tests {
     #[test]
     fn test_any_list_type() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("words", || {
-            literal(vec!["foo".to_owned(), "bar".to_owned()])
-        });
-        env.add_keyword("size_hint", || literal((10, None)));
+        env.add_literal("words", vec!["foo".to_owned(), "bar".to_owned()]);
+        env.add_literal("size_hint", (10, None));
         env.add_color("red", crossterm::style::Color::Red);
 
         // Map items are not required to implement both Template and Serialize.
@@ -6232,15 +6212,12 @@ mod tests {
     #[test]
     fn test_with_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("author", || {
-            literal(new_signature("Test Author", "author@example.com"))
-        });
-        env.add_keyword("committer", || {
-            literal(new_signature("Test Committer", "committer@example.com"))
-        });
-        env.add_keyword("words", || {
-            literal(vec!["foo".to_owned(), "bar".to_owned()])
-        });
+        env.add_literal("author", new_signature("Test Author", "author@example.com"));
+        env.add_literal(
+            "committer",
+            new_signature("Test Committer", "committer@example.com"),
+        );
+        env.add_literal("words", vec!["foo".to_owned(), "bar".to_owned()]);
         env.add_color("author email", crossterm::style::Color::Cyan);
         env.add_color("author email local", crossterm::style::Color::Blue);
         env.add_color("committer email", crossterm::style::Color::Magenta);
