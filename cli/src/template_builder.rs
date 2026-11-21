@@ -3236,9 +3236,18 @@ mod tests {
 
     impl OpaqueTemplateValue for Context {}
 
+    #[derive(Clone)]
+    enum TestKeywordValue {
+        Static(TemplateValueRepr),
+        Dynamic(TemplateValueRepr),
+        Error(&'static str),
+    }
+
     /// Helper to set up template evaluation environment.
     struct TestTemplateEnv {
-        language: TestTemplateLanguage,
+        settings: UserSettings,
+        current_dir: PathBuf,
+        keywords: HashMap<&'static str, (TemplateValueType, TestKeywordValue)>,
         aliases_map: TemplateAliasesMap,
         color_rules: Vec<(Vec<String>, formatter::Style)>,
     }
@@ -3253,19 +3262,10 @@ mod tests {
         }
 
         fn with_config_and_current_dir(config: StackedConfig, current_dir: PathBuf) -> Self {
-            let settings = testutils::user_settings_from_config(config);
-            let mut type_registry = new_core_type_registry();
-            type_registry.register::<Context>("Context").serializable();
-            let mut symbol_table = TemplateSymbolTable::builtin();
-            symbol_table.register_methods::<Context>();
-            let language = TestTemplateLanguage {
-                settings,
-                current_dir,
-                type_registry,
-                symbol_table,
-            };
             Self {
-                language,
+                settings: testutils::user_settings_from_config(config),
+                current_dir,
+                keywords: HashMap::new(),
                 aliases_map: TemplateAliasesMap::new(),
                 color_rules: Vec::new(),
             }
@@ -3277,40 +3277,57 @@ mod tests {
     }
 
     impl TestTemplateEnv {
-        fn add_literal<O: Clone + TemplateValue>(&mut self, name: &'static str, value: O) {
-            let mut methods = self.language.symbol_table.register_methods::<Context>();
-            methods.insert(
-                name,
-                move |_language, _diagnostics, _build_ctx, _self_property, function| {
-                    function.expect_no_arguments()?;
-                    Ok(literal(value.clone()))
-                },
-            );
+        fn add_literal<O: TemplateValue>(&mut self, name: &'static str, value: O) {
+            let value = TestKeywordValue::Static(value.into_repr());
+            self.keywords.insert(name, (O::value_type(), value));
         }
 
         /// Like `add_literal`, but the value depends on the `self` context
         /// property, making it not statically extractable.
-        fn add_dynamic_literal<O: Clone + TemplateValue>(&mut self, name: &'static str, value: O) {
-            let mut methods = self.language.symbol_table.register_methods::<Context>();
-            methods.insert(
-                name,
-                move |_language, _diagnostics, _build_ctx, self_property, function| {
-                    function.expect_no_arguments()?;
-                    let value = value.clone();
-                    Ok(self_property.map(move |_| value.clone()).into_dyn_wrapped())
-                },
-            );
+        fn add_dynamic_literal<O: TemplateValue>(&mut self, name: &'static str, value: O) {
+            let value = TestKeywordValue::Dynamic(value.into_repr());
+            self.keywords.insert(name, (O::value_type(), value));
         }
 
         fn add_error<O: TemplateValue>(&mut self, name: &'static str, message: &'static str) {
-            let mut methods = self.language.symbol_table.register_methods::<Context>();
-            methods.insert(
-                name,
-                move |_language, _diagnostics, _build_ctx, _self_property, function| {
-                    function.expect_no_arguments()?;
-                    Ok(new_error_property::<O>(message))
-                },
-            );
+            let value = TestKeywordValue::Error(message);
+            self.keywords.insert(name, (O::value_type(), value));
+        }
+
+        fn language(&self) -> TestTemplateLanguage {
+            let mut type_registry = new_core_type_registry();
+            type_registry.register::<Context>("Context").serializable();
+            let mut symbol_table = TemplateSymbolTable::builtin();
+            let mut methods = symbol_table.register_methods::<Context>();
+            for (name, (ty, value)) in &self.keywords {
+                let ty = ty.clone();
+                let value = value.clone();
+                methods.insert(
+                    name,
+                    move |_language, _diagnostics, _build_ctx, self_property, function| {
+                        function.expect_no_arguments()?;
+                        let ty = ty.clone();
+                        let property = match value.clone() {
+                            TestKeywordValue::Static(repr) => Literal(repr).into_dyn(),
+                            TestKeywordValue::Dynamic(repr) => {
+                                self_property.map(move |_| repr.clone()).into_dyn()
+                            }
+                            TestKeywordValue::Error(message) => Literal(())
+                                .and_then(move |()| -> Result<TemplateValueRepr, _> {
+                                    Err(TemplatePropertyError(message.into()))
+                                })
+                                .into_dyn(),
+                        };
+                        Ok(TemplatePropertyKind::Value { ty, property })
+                    },
+                );
+            }
+            TestTemplateLanguage {
+                settings: self.settings.clone(),
+                current_dir: self.current_dir.clone(),
+                type_registry,
+                symbol_table,
+            }
         }
 
         fn add_alias(&mut self, decl: impl AsRef<str>, defn: impl Into<String>) {
@@ -3328,7 +3345,7 @@ mod tests {
 
         fn parse(&self, template: &str) -> TemplateParseResult<TemplateRenderer<'static, Context>> {
             parse(
-                &self.language,
+                &self.language(),
                 &mut TemplateDiagnostics::new(),
                 template,
                 &self.aliases_map,
@@ -3370,22 +3387,6 @@ mod tests {
             let template = self.parse(template).unwrap();
             template.format_plain_text(&Context).into()
         }
-    }
-
-    fn literal<O>(value: O) -> TemplatePropertyKind<'static>
-    where
-        O: Clone + TemplateValue,
-    {
-        Literal(value).into_dyn_wrapped()
-    }
-
-    fn new_error_property<O>(message: &str) -> TemplatePropertyKind<'_>
-    where
-        O: TemplateValue,
-    {
-        Literal(())
-            .and_then(|()| Err::<O, _>(TemplatePropertyError(message.into())))
-            .into_dyn_wrapped()
     }
 
     fn new_config_value<T>(value: T) -> ConfigValueWrapper
@@ -4841,7 +4842,6 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"example.com");
         insta::assert_snapshot!(env.render_ok("author.timestamp()"), @"1970-01-01 00:00:00.000 +00:00");
 
-        let mut env = TestTemplateEnv::new();
         env.add_literal(
             "author",
             new_signature("Another Test User", "test.user@example.com"),
@@ -4850,7 +4850,6 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Another Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user@example.com");
 
-        let mut env = TestTemplateEnv::new();
         env.add_literal(
             "author",
             new_signature("Test User", "test.user@invalid@example.com"),
@@ -4861,14 +4860,12 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"invalid@example.com");
 
-        let mut env = TestTemplateEnv::new();
         env.add_literal("author", new_signature("Test User", "test.user"));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user");
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"");
 
-        let mut env = TestTemplateEnv::new();
         env.add_literal(
             "author",
             new_signature("Test User", "test.user+tag@example.com"),
@@ -4878,20 +4875,17 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user+tag");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"example.com");
 
-        let mut env = TestTemplateEnv::new();
         env.add_literal("author", new_signature("Test User", "x@y"));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <x@y>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"x@y");
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"x");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"y");
 
-        let mut env = TestTemplateEnv::new();
         env.add_literal("author", new_signature("", "test.user@example.com"));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"<test.user@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user@example.com");
 
-        let mut env = TestTemplateEnv::new();
         env.add_literal("author", new_signature("Test User", ""));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Test User");
@@ -4899,7 +4893,6 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("author.email().local()"), @"");
         insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"");
 
-        let mut env = TestTemplateEnv::new();
         env.add_literal("author", new_signature("", ""));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"");
