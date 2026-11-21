@@ -523,7 +523,7 @@ where
 // couldn't find an easy way to expand that to the core template methods, which
 // are defined for L: TemplateLanguage<'a>. That's why the build fn table is
 // bound to a named lifetime, and therefore can't be cached statically.
-pub type TemplateBuildFunctionFn<'a, L> = fn(
+type BuildFunctionFn<'a, L> = fn(
     &L,
     &mut TemplateDiagnostics,
     &BuildContext<'a, '_>,
@@ -545,7 +545,7 @@ pub type BuildTemplateMethodFn<'a, L> = BuildMethodFn<'a, L, Box<dyn Template + 
 pub type BuildAnyMethodFn<'a, L> = BuildMethodFn<'a, L, BoxedAnyProperty<'a>>;
 
 /// Table of functions that translate global function call node.
-pub type TemplateBuildFunctionFnMap<'a, L> = HashMap<&'static str, TemplateBuildFunctionFn<'a, L>>;
+type BuildFunctionFnMap<'a, L> = HashMap<&'static str, BuildFunctionFn<'a, L>>;
 
 /// Translates a method call node on a type-erased value type.
 trait BuildValueMethod<'a, L: ?Sized> {
@@ -606,7 +606,7 @@ pub type BuildAnyMethodFnMap<'a, L> = HashMap<&'static str, BuildAnyMethodFn<'a,
 
 /// Symbol table of functions and methods.
 pub struct TemplateBuildFnTable<'a, L: ?Sized> {
-    pub functions: TemplateBuildFunctionFnMap<'a, L>,
+    functions: BuildFunctionFnMap<'a, L>,
     methods: HashMap<TemplateValueType, BuildValueMethodMap<'a, L>>,
     pub template_methods: BuildTemplateMethodFnMap<'a, L>,
     pub any_methods: BuildAnyMethodFnMap<'a, L>,
@@ -699,7 +699,7 @@ fn ignore_missing_value<T: Default>(result: Result<T, TemplateValueExtractionErr
 }
 
 #[track_caller]
-pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'s str, F>) {
+fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'s str, F>) {
     for (name, function) in extension {
         if base.insert(name, function).is_some() {
             panic!("Conflicting template definitions for '{name}' function");
@@ -747,14 +747,22 @@ where
     /// Creates new symbol table containing the builtin functions and methods.
     pub fn builtin() -> Self {
         let mut table = Self {
-            functions: builtin_functions(),
+            functions: HashMap::new(),
             methods: HashMap::new(),
             template_methods: HashMap::new(),
             any_methods: HashMap::new(),
             any_list_methods: builtin_any_list_methods(),
         };
+        register_functions(&mut table);
         register_methods(&mut table);
         table
+    }
+
+    /// Registers global functions.
+    pub fn register_functions(&mut self) -> TemplateFunctionTableRegistration<'a, '_, L> {
+        TemplateFunctionTableRegistration {
+            map: &mut self.functions,
+        }
     }
 
     /// Registers methods on `T`. Inserts a new empty method table as needed.
@@ -840,6 +848,23 @@ where
                 build(language, diagnostics, build_ctx, property, function)
             }
         }
+    }
+}
+
+/// Registers global functions.
+pub struct TemplateFunctionTableRegistration<'a, 'b, L: ?Sized> {
+    map: &'b mut BuildFunctionFnMap<'a, L>,
+}
+
+impl<'a, L> TemplateFunctionTableRegistration<'a, '_, L>
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
+    /// Registers a new global function builder.
+    #[track_caller]
+    pub fn insert(&mut self, name: &'static str, build_fn: BuildFunctionFn<'a, L>) {
+        let old = self.map.insert(name, build_fn);
+        assert!(old.is_none(), "function already registered: {name}");
     }
 }
 
@@ -2425,12 +2450,13 @@ fn build_lambda_expression<'a, 'i, T>(
     build_body(&inner_build_ctx, &lambda.body)
 }
 
-fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFunctionFnMap<'a, L> {
+fn register_functions<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
     type P<'a> = TemplatePropertyKind<'a>;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildFunctionFnMap::<L>::new();
-    map.insert("fill", |language, diagnostics, build_ctx, function| {
+    let mut functions = table.register_functions();
+    functions.insert("fill", |language, diagnostics, build_ctx, function| {
         let ([width_node, content_node], [break_words_node]) =
             function.expect_named_arguments(&["", "", "break_words"])?;
         let width = expect_usize_expression(language, diagnostics, build_ctx, width_node)?;
@@ -2451,7 +2477,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         });
         Ok(P::wrap_template(Box::new(template)))
     });
-    map.insert("indent", |language, diagnostics, build_ctx, function| {
+    functions.insert("indent", |language, diagnostics, build_ctx, function| {
         let [prefix_node, content_node] = function.expect_exact_arguments()?;
         let prefix = expect_template_expression(language, diagnostics, build_ctx, prefix_node)?;
         let content = expect_template_expression(language, diagnostics, build_ctx, content_node)?;
@@ -2463,7 +2489,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         });
         Ok(P::wrap_template(Box::new(template)))
     });
-    map.insert("pad_start", |language, diagnostics, build_ctx, function| {
+    functions.insert("pad_start", |language, diagnostics, build_ctx, function| {
         let ([width_node, content_node], [fill_char_node]) =
             function.expect_named_arguments(&["", "", "fill_char"])?;
         let width = expect_usize_expression(language, diagnostics, build_ctx, width_node)?;
@@ -2474,7 +2500,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         let template = new_pad_template(content, fill_char, width, text_util::write_padded_start);
         Ok(P::wrap_template(template))
     });
-    map.insert("pad_end", |language, diagnostics, build_ctx, function| {
+    functions.insert("pad_end", |language, diagnostics, build_ctx, function| {
         let ([width_node, content_node], [fill_char_node]) =
             function.expect_named_arguments(&["", "", "fill_char"])?;
         let width = expect_usize_expression(language, diagnostics, build_ctx, width_node)?;
@@ -2485,7 +2511,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         let template = new_pad_template(content, fill_char, width, text_util::write_padded_end);
         Ok(P::wrap_template(template))
     });
-    map.insert(
+    functions.insert(
         "pad_centered",
         |language, diagnostics, build_ctx, function| {
             let ([width_node, content_node], [fill_char_node]) =
@@ -2501,7 +2527,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             Ok(P::wrap_template(template))
         },
     );
-    map.insert(
+    functions.insert(
         "truncate_start",
         |language, diagnostics, build_ctx, function| {
             let ([width_node, content_node], [ellipsis_node]) =
@@ -2517,7 +2543,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             Ok(P::wrap_template(template))
         },
     );
-    map.insert(
+    functions.insert(
         "truncate_end",
         |language, diagnostics, build_ctx, function| {
             let ([width_node, content_node], [ellipsis_node]) =
@@ -2533,13 +2559,13 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             Ok(P::wrap_template(template))
         },
     );
-    map.insert("hash", |language, diagnostics, build_ctx, function| {
+    functions.insert("hash", |language, diagnostics, build_ctx, function| {
         let [content_node] = function.expect_exact_arguments()?;
         let content = expect_stringify_expression(language, diagnostics, build_ctx, content_node)?;
         let result = content.map(|c| hex_util::encode_hex(blake2b_hash(&c).as_ref()));
         Ok(result.into_dyn_wrapped())
     });
-    map.insert("label", |language, diagnostics, build_ctx, function| {
+    functions.insert("label", |language, diagnostics, build_ctx, function| {
         let [label_node, content_node] = function.expect_exact_arguments()?;
         let label_property =
             expect_stringify_expression(language, diagnostics, build_ctx, label_node)?;
@@ -2550,7 +2576,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             content, labels,
         ))))
     });
-    map.insert(
+    functions.insert(
         "raw_escape_sequence",
         |language, diagnostics, build_ctx, function| {
             let [content_node] = function.expect_exact_arguments()?;
@@ -2561,7 +2587,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             ))))
         },
     );
-    map.insert("hyperlink", |language, diagnostics, build_ctx, function| {
+    functions.insert("hyperlink", |language, diagnostics, build_ctx, function| {
         let ([url_node, text_node], [fallback_node]) = function.expect_arguments()?;
         let url = expect_stringify_expression(language, diagnostics, build_ctx, url_node)?;
         let text = expect_template_expression(language, diagnostics, build_ctx, text_node)?;
@@ -2572,7 +2598,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             url, text, fallback,
         ))))
     });
-    map.insert("replace", |language, diagnostics, build_ctx, function| {
+    functions.insert("replace", |language, diagnostics, build_ctx, function| {
         let ([pattern_node, content_node, replacement_lambda_node], []) =
             function.expect_arguments()?;
         let content = expect_template_expression(language, diagnostics, build_ctx, content_node)?;
@@ -2605,19 +2631,19 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         );
         Ok(P::wrap_template(template))
     });
-    map.insert("stringify", |language, diagnostics, build_ctx, function| {
+    functions.insert("stringify", |language, diagnostics, build_ctx, function| {
         let [content_node] = function.expect_exact_arguments()?;
         let content = expect_stringify_expression(language, diagnostics, build_ctx, content_node)?;
         Ok(P::wrap_property(content))
     });
-    map.insert("json", |language, diagnostics, build_ctx, function| {
+    functions.insert("json", |language, diagnostics, build_ctx, function| {
         // TODO: Add pretty=true|false?
         let [value_node] = function.expect_exact_arguments()?;
         let value = expect_serialize_expression(language, diagnostics, build_ctx, value_node)?;
         let out_property = value.and_then(|v| Ok(serde_json::to_string(&v)?));
         Ok(out_property.into_dyn_wrapped())
     });
-    map.insert("if", |language, diagnostics, build_ctx, function| {
+    functions.insert("if", |language, diagnostics, build_ctx, function| {
         let ([condition_node, true_node], [false_node]) = function.expect_arguments()?;
         let condition =
             expect_boolean_expression(language, diagnostics, build_ctx, condition_node)?;
@@ -2628,14 +2654,14 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         let property = ConditionalProperty::new(condition, true_any, false_any);
         Ok(P::wrap_any(Box::new(property)))
     });
-    map.insert("try", |language, diagnostics, build_ctx, function| {
+    functions.insert("try", |language, diagnostics, build_ctx, function| {
         let ([node], nodes) = function.expect_some_arguments()?;
         let properties = itertools::chain([node], nodes)
             .map(|node| expect_any_expression(language, diagnostics, build_ctx, node))
             .try_collect()?;
         Ok(P::wrap_any(Box::new(TryList::new(properties))))
     });
-    map.insert("with", |language, diagnostics, build_ctx, function| {
+    functions.insert("with", |language, diagnostics, build_ctx, function| {
         let ([_, _], _) = function.expect_some_arguments()?;
         let (lambda_node, value_nodes) = function.args.split_last().unwrap();
         // Eagerly validate each argument expression once so errors/diagnostics are reported, even
@@ -2680,7 +2706,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             })?;
         Ok(P::wrap_any(body))
     });
-    map.insert("coalesce", |language, diagnostics, build_ctx, function| {
+    functions.insert("coalesce", |language, diagnostics, build_ctx, function| {
         let ([], content_nodes) = function.expect_some_arguments()?;
         let contents = content_nodes
             .iter()
@@ -2688,7 +2714,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             .try_collect()?;
         Ok(P::wrap_template(Box::new(CoalesceTemplate(contents))))
     });
-    map.insert("concat", |language, diagnostics, build_ctx, function| {
+    functions.insert("concat", |language, diagnostics, build_ctx, function| {
         let ([], content_nodes) = function.expect_some_arguments()?;
         let contents = content_nodes
             .iter()
@@ -2696,7 +2722,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             .try_collect()?;
         Ok(P::wrap_template(Box::new(ConcatTemplate(contents))))
     });
-    map.insert("join", |language, diagnostics, build_ctx, function| {
+    functions.insert("join", |language, diagnostics, build_ctx, function| {
         let ([separator_node], content_nodes) = function.expect_some_arguments()?;
         let separator =
             expect_template_expression(language, diagnostics, build_ctx, separator_node)?;
@@ -2708,7 +2734,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             separator, contents,
         ))))
     });
-    map.insert("separate", |language, diagnostics, build_ctx, function| {
+    functions.insert("separate", |language, diagnostics, build_ctx, function| {
         let ([separator_node], content_nodes) = function.expect_some_arguments()?;
         let separator =
             expect_template_expression(language, diagnostics, build_ctx, separator_node)?;
@@ -2720,7 +2746,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             separator, contents,
         ))))
     });
-    map.insert("surround", |language, diagnostics, build_ctx, function| {
+    functions.insert("surround", |language, diagnostics, build_ctx, function| {
         let [prefix_node, suffix_node, content_node] = function.expect_exact_arguments()?;
         let prefix = expect_template_expression(language, diagnostics, build_ctx, prefix_node)?;
         let suffix = expect_template_expression(language, diagnostics, build_ctx, suffix_node)?;
@@ -2736,7 +2762,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         });
         Ok(P::wrap_template(Box::new(template)))
     });
-    map.insert("config", |language, diagnostics, build_ctx, function| {
+    functions.insert("config", |language, diagnostics, build_ctx, function| {
         let [name_node] = function.expect_exact_arguments()?;
         let name_expression =
             expect_stringify_expression(language, diagnostics, build_ctx, name_node)?;
@@ -2767,7 +2793,6 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             Ok(out_property.into_dyn_wrapped())
         }
     });
-    map
 }
 
 fn new_pad_template<'a, W>(

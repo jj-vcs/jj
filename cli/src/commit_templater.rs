@@ -106,11 +106,9 @@ use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_builder;
 use crate::template_builder::BuildContext;
 use crate::template_builder::TemplateBuildFnTable;
-use crate::template_builder::TemplateBuildFunctionFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::TemplatePropertyKind;
 use crate::template_builder::expect_stringify_expression;
-use crate::template_builder::merge_fn_map;
 use crate::template_builder::register_formattable_list_methods;
 use crate::template_builder::register_unformattable_list_methods;
 use crate::template_value::OpaqueTemplateValue;
@@ -172,10 +170,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         operation_templater::register_types(&mut type_registry);
         register_types(&mut type_registry);
         let mut build_fn_table = TemplateBuildFnTable::builtin();
-        merge_fn_map(
-            &mut build_fn_table.functions,
-            builtin_commit_template_functions(),
-        );
+        register_functions(&mut build_fn_table);
         operation_templater::register_methods(&mut build_fn_table);
         register_methods(&mut build_fn_table);
 
@@ -532,10 +527,9 @@ impl CommitKeywordCache {
 }
 
 /// Builtin functions for the commit template language.
-fn builtin_commit_template_functions<'repo>()
--> TemplateBuildFunctionFnMap<'repo, CommitTemplateLanguage<'repo>> {
-    let mut map = TemplateBuildFunctionFnMap::<CommitTemplateLanguage>::new();
-    map.insert("revset", |language, diagnostics, build_ctx, function| {
+fn register_functions(table: &mut CommitTemplateBuildFnTable<'_>) {
+    let mut functions = table.register_functions();
+    functions.insert("revset", |language, diagnostics, build_ctx, function| {
         let [revset_node] = function.expect_exact_arguments()?;
         let revset_property =
             expect_stringify_expression(language, diagnostics, build_ctx, revset_node)?;
@@ -577,7 +571,7 @@ fn builtin_commit_template_functions<'repo>()
             Ok(out_property.into_dyn_wrapped())
         }
     });
-    map.insert(
+    functions.insert(
         "git_web_url",
         |language, diagnostics, build_ctx, function| {
             let ([], [remote_node]) = function.expect_named_arguments(&["remote"])?;
@@ -601,7 +595,6 @@ fn builtin_commit_template_functions<'repo>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 fn register_commit_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
@@ -2778,9 +2771,9 @@ mod tests {
                 ConflictMarkerStyle::Diff,
                 &[] as &[Box<dyn CommitTemplateLanguageExtension>],
             );
-            // Not using .extend() to infer lifetime of f
+            let mut functions = language.build_fn_table.register_functions();
             for (&name, &f) in &self.extra_functions {
-                language.build_fn_table.functions.insert(name, f);
+                functions.insert(name, f);
             }
             language
         }
