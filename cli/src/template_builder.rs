@@ -3257,11 +3257,9 @@ mod tests {
 
     impl OpaqueTemplateValue for Context {}
 
-    type TestTemplateLanguage = GenericTemplateLanguage<'static, Context>;
-
     /// Helper to set up template evaluation environment.
     struct TestTemplateEnv {
-        language: TestTemplateLanguage,
+        language: GenericTemplateLanguage,
         aliases_map: TemplateAliasesMap,
         color_rules: Vec<(Vec<String>, formatter::Style)>,
     }
@@ -3277,8 +3275,11 @@ mod tests {
 
         fn with_config_and_current_dir(config: StackedConfig, current_dir: PathBuf) -> Self {
             let settings = testutils::user_settings_from_config(config);
+            let mut language = GenericTemplateLanguage::new(&settings, &current_dir);
+            language.register_type::<Context>("Self").serializable();
+            language.register_methods::<Context>();
             Self {
-                language: TestTemplateLanguage::new(&settings, &current_dir),
+                language,
                 aliases_map: TemplateAliasesMap::new(),
                 color_rules: Vec::new(),
             }

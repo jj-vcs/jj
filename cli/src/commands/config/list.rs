@@ -124,14 +124,18 @@ pub async fn cmd_config_list(
     Ok(())
 }
 
-type ConfigTemplateLanguage = GenericTemplateLanguage<'static, AnnotatedValue>;
-
 impl OpaqueTemplateValue for AnnotatedValue {}
 
 // AnnotatedValue will be cloned internally in the templater. If the cloning
 // cost matters, wrap it with Rc.
-fn config_template_language(settings: &UserSettings, current_dir: &Path) -> ConfigTemplateLanguage {
-    let mut language = ConfigTemplateLanguage::new(settings, current_dir);
+fn config_template_language(
+    settings: &UserSettings,
+    current_dir: &Path,
+) -> GenericTemplateLanguage {
+    let mut language = GenericTemplateLanguage::new(settings, current_dir);
+    language
+        .register_type::<AnnotatedValue>("Self")
+        .serializable();
     let mut methods = language.register_methods::<AnnotatedValue>();
     methods.insert(
         "name",
