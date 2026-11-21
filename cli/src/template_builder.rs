@@ -540,10 +540,10 @@ type BuildMethodFn<'a, L, T> = fn(
 ) -> TemplateParseResult<TemplatePropertyKind<'a>>;
 
 /// Function that translates method call node of `Template`.
-pub type BuildTemplateMethodFn<'a, L> = BuildMethodFn<'a, L, Box<dyn Template + 'a>>;
+type BuildTemplateMethodFn<'a, L> = BuildMethodFn<'a, L, Box<dyn Template + 'a>>;
 
 /// Function that translates method call node of `Any*`.
-pub type BuildAnyMethodFn<'a, L> = BuildMethodFn<'a, L, BoxedAnyProperty<'a>>;
+type BuildAnyMethodFn<'a, L> = BuildMethodFn<'a, L, BoxedAnyProperty<'a>>;
 
 /// Table of functions that translate global function call node.
 type BuildFunctionFnMap<'a, L> = HashMap<&'static str, Box<BuildFunctionFn<'a, L>>>;
@@ -600,18 +600,18 @@ where
 }
 
 /// Table of functions that translate method call node of `Template`.
-pub type BuildTemplateMethodFnMap<'a, L> = HashMap<&'static str, BuildTemplateMethodFn<'a, L>>;
+type BuildTemplateMethodFnMap<'a, L> = HashMap<&'static str, BuildTemplateMethodFn<'a, L>>;
 
 /// Table of functions that translate method call node of `Any*`.
-pub type BuildAnyMethodFnMap<'a, L> = HashMap<&'static str, BuildAnyMethodFn<'a, L>>;
+type BuildAnyMethodFnMap<'a, L> = HashMap<&'static str, BuildAnyMethodFn<'a, L>>;
 
 /// Symbol table of functions and methods.
 pub struct TemplateBuildFnTable<'a, L: ?Sized> {
     functions: BuildFunctionFnMap<'a, L>,
     methods: HashMap<TemplateValueType, BuildValueMethodMap<'a, L>>,
-    pub template_methods: BuildTemplateMethodFnMap<'a, L>,
-    pub any_methods: BuildAnyMethodFnMap<'a, L>,
-    pub any_list_methods: BuildAnyMethodFnMap<'a, L>,
+    template_methods: BuildTemplateMethodFnMap<'a, L>,
+    any_methods: BuildAnyMethodFnMap<'a, L>,
+    any_list_methods: BuildAnyMethodFnMap<'a, L>,
 }
 
 /// Converts a type-erased property back to the concrete type.
