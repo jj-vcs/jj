@@ -134,7 +134,7 @@ fn config_template_language(
 ) -> GenericTemplateLanguage {
     let mut language = GenericTemplateLanguage::new(settings, current_dir);
     language
-        .register_type::<AnnotatedValue>("Self")
+        .register_type::<AnnotatedValue>("AnnotatedConfigValue")
         .serializable();
     let mut methods = language.register_methods::<AnnotatedValue>();
     methods.insert(

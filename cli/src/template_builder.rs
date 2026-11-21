@@ -3276,7 +3276,7 @@ mod tests {
         fn with_config_and_current_dir(config: StackedConfig, current_dir: PathBuf) -> Self {
             let settings = testutils::user_settings_from_config(config);
             let mut language = GenericTemplateLanguage::new(&settings, &current_dir);
-            language.register_type::<Context>("Self").serializable();
+            language.register_type::<Context>("Context").serializable();
             language.register_methods::<Context>();
             Self {
                 language,
@@ -3752,7 +3752,7 @@ mod tests {
         1 | self
           | ^--^
           |
-          = Expected expression of type `Template`, but actual type is `Self`
+          = Expected expression of type `Template`, but actual type is `Context`
         ");
     }
 
