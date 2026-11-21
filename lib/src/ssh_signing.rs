@@ -258,7 +258,13 @@ impl SigningBackend for SshBackend {
             .arg("-n")
             .arg("git");
 
-        Ok(run_command(&mut command, data)?)
+        let mut signature = run_command(&mut command, data)?;
+        // On Windows, creating a signature with ssh-keygen and providing the data over stdin
+        // results in CRLF in the signature (even if the input data uses LF) due to line ending
+        // translation of the Windows C runtime library (CRT). Normalize the signature by simply
+        // dropping any '\r' characters.
+        signature.retain(|&b| b != b'\r');
+        Ok(signature)
     }
 
     fn verify(&self, data: &[u8], signature: &[u8]) -> Result<Verification, SignError> {
