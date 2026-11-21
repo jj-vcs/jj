@@ -38,7 +38,6 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::check_json_word_wrap_mangling;
-use crate::cli_util::format_template;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
@@ -248,8 +247,7 @@ pub(crate) async fn cmd_log(
         let formatter = formatter.as_mut();
 
         if !args.no_graph {
-            let mut raw_output = formatter.raw()?;
-            let mut graph = get_graphlog(graph_style, raw_output.as_mut());
+            let mut graph = get_graphlog(ui, graph_style, formatter);
             let stream: LocalBoxStream<_> = {
                 let mut topo_order = TopoGroupedGraph::new(revset.stream_graph(), |id| id);
 
@@ -330,11 +328,10 @@ pub(crate) async fn cmd_log(
                 }
 
                 let commit = Some(commit);
-                let node_symbol = format_template(ui, &commit, &node_template);
                 graph.add_node(
                     &key,
                     &graphlog_edges,
-                    &node_symbol,
+                    &|formatter| node_template.format(&commit, formatter),
                     &String::from_utf8_lossy(&buffer),
                 )?;
 
@@ -350,11 +347,10 @@ pub(crate) async fn cmd_log(
                             writeln!(formatter.labeled("elided"), "(elided revisions)")
                         })
                         .await?;
-                    let node_symbol = format_template(ui, &None, &node_template);
                     graph.add_node(
                         &elided_key,
                         &edges,
-                        &node_symbol,
+                        &|formatter| node_template.format(&None, formatter),
                         &String::from_utf8_lossy(&buffer),
                     )?;
                 }

@@ -33,7 +33,6 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::check_json_word_wrap_mangling;
-use crate::cli_util::format_template;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
@@ -154,8 +153,7 @@ pub(crate) async fn cmd_evolog(
     let repo = workspace_command.repo();
     let evolution_entries = walk_predecessors(repo, &start_commit_ids).boxed_local();
     if !args.no_graph {
-        let mut raw_output = formatter.raw()?;
-        let mut graph = get_graphlog(graph_style, raw_output.as_mut());
+        let mut graph = get_graphlog(ui, graph_style, formatter);
 
         let evolution_nodes = evolution_entries.map_ok(|entry| {
             let ids = entry.predecessor_ids();
@@ -207,11 +205,11 @@ pub(crate) async fn cmd_evolog(
                     )
                     .await?;
             }
-            let node_symbol = format_template(ui, &Some(entry.commit.clone()), &node_template);
+            let commit = Some(entry.commit.clone());
             graph.add_node(
                 entry.commit.id(),
                 &edges,
-                &node_symbol,
+                &|formatter| node_template.format(&commit, formatter),
                 &String::from_utf8_lossy(&buffer),
             )?;
         }
