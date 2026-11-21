@@ -47,7 +47,6 @@ use jj_lib::template_parser::TemplateParseErrorKind;
 use jj_lib::template_parser::TemplateParseResult;
 use jj_lib::template_parser::UnaryOp;
 use jj_lib::time_util::DatePattern;
-use maplit::hashmap;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
@@ -498,24 +497,24 @@ pub fn new_core_type_registry() -> TemplateTypeRegistry {
     registry
 }
 
-fn builtin_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L>> {
-    hashmap! {
-        BString::value_type() => builtin_byte_string_methods(),
-        <Vec<BString>>::value_type() => builtin_formattable_list_methods::<_, BString>(),
-        String::value_type() => builtin_string_methods(),
-        <Vec<String>>::value_type() => builtin_formattable_list_methods::<_, String>(),
-        bool::value_type() => hashmap! {},
-        i64::value_type() => hashmap! {},
-        ConfigValueWrapper::value_type() => builtin_config_value_methods(),
-        PathBuf::value_type() => builtin_fs_path_methods(),
-        Signature::value_type() => builtin_signature_methods(),
-        Email::value_type() => builtin_email_methods(),
-        SizeHint::value_type() => builtin_size_hint_methods(),
-        RegexCaptures::value_type() => builtin_regex_captures_methods(),
-        Timestamp::value_type() => builtin_timestamp_methods(),
-        TimestampRange::value_type() => builtin_timestamp_range_methods(),
-    }
+fn register_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
+    register_byte_string_methods(table);
+    register_formattable_list_methods::<_, BString>(table);
+    register_string_methods(table);
+    register_formattable_list_methods::<_, String>(table);
+    table.register_methods::<bool>();
+    table.register_methods::<i64>();
+    register_config_value_methods(table);
+    register_fs_path_methods(table);
+    register_signature_methods(table);
+    register_email_methods(table);
+    register_size_hint_methods(table);
+    register_regex_captures_methods(table);
+    register_timestamp_methods(table);
+    register_timestamp_range_methods(table);
 }
 
 /// Function that translates global function call node.
@@ -539,9 +538,6 @@ type BuildMethodFn<'a, L, T> = fn(
     &FunctionCallNode,
 ) -> TemplateParseResult<TemplatePropertyKind<'a>>;
 
-/// Function that translates method call node of self type `T`.
-pub type TemplateBuildMethodFn<'a, L, T> = BuildMethodFn<'a, L, BoxedTemplateProperty<'a, T>>;
-
 /// Function that translates method call node of `Template`.
 pub type BuildTemplateMethodFn<'a, L> = BuildMethodFn<'a, L, Box<dyn Template + 'a>>;
 
@@ -552,7 +548,6 @@ pub type BuildAnyMethodFn<'a, L> = BuildMethodFn<'a, L, BoxedAnyProperty<'a>>;
 pub type TemplateBuildFunctionFnMap<'a, L> = HashMap<&'static str, TemplateBuildFunctionFn<'a, L>>;
 
 /// Translates a method call node on a type-erased value type.
-#[expect(unused)] // TODO
 trait BuildValueMethod<'a, L: ?Sized> {
     fn build(
         &self,
@@ -565,15 +560,12 @@ trait BuildValueMethod<'a, L: ?Sized> {
 }
 
 /// Table of functions that translate method call node of type-erased value types.
-pub type BuildValueMethodFnMap<'a, L> =
-    HashMap<&'static str, TemplateBuildMethodFn<'a, L, TemplateValueRepr>>;
 type BuildValueMethodMap<'a, L> = HashMap<&'static str, Box<dyn BuildValueMethod<'a, L>>>;
 
 /// Translates a method call node on `T`.
 ///
 /// If `F` is a zero-sized type, this wrapper is also ZST and can be boxed
 /// without heap allocation.
-#[expect(unused)] // TODO
 struct TypedValueMethod<T, F> {
     build_fn: F,
     signature: PhantomData<fn(T)>,
@@ -615,8 +607,7 @@ pub type BuildAnyMethodFnMap<'a, L> = HashMap<&'static str, BuildAnyMethodFn<'a,
 /// Symbol table of functions and methods.
 pub struct TemplateBuildFnTable<'a, L: ?Sized> {
     pub functions: TemplateBuildFunctionFnMap<'a, L>,
-    pub methods: HashMap<TemplateValueType, BuildValueMethodFnMap<'a, L>>,
-    methods_: HashMap<TemplateValueType, BuildValueMethodMap<'a, L>>,
+    methods: HashMap<TemplateValueType, BuildValueMethodMap<'a, L>>,
     pub template_methods: BuildTemplateMethodFnMap<'a, L>,
     pub any_methods: BuildAnyMethodFnMap<'a, L>,
     pub any_list_methods: BuildAnyMethodFnMap<'a, L>,
@@ -721,7 +712,6 @@ impl<L: ?Sized> TemplateBuildFnTable<'_, L> {
         Self {
             functions: HashMap::new(),
             methods: HashMap::new(),
-            methods_: HashMap::new(),
             template_methods: HashMap::new(),
             any_methods: HashMap::new(),
             any_list_methods: HashMap::new(),
@@ -733,7 +723,6 @@ impl<L: ?Sized> TemplateBuildFnTable<'_, L> {
         let Self {
             functions,
             methods,
-            methods_: _,
             template_methods,
             any_methods,
             any_list_methods,
@@ -757,14 +746,15 @@ where
 {
     /// Creates new symbol table containing the builtin functions and methods.
     pub fn builtin() -> Self {
-        Self {
+        let mut table = Self {
             functions: builtin_functions(),
-            methods: builtin_methods(),
-            methods_: HashMap::new(),
+            methods: HashMap::new(),
             template_methods: HashMap::new(),
             any_methods: HashMap::new(),
             any_list_methods: builtin_any_list_methods(),
-        }
+        };
+        register_methods(&mut table);
+        table
     }
 
     /// Registers methods on `T`. Inserts a new empty method table as needed.
@@ -777,7 +767,7 @@ where
     ) -> TemplateMethodTableRegistration<'a, '_, L, T> {
         let ty = T::value_type();
         assert_matches!(ty, TemplateValueType::Scalar(_));
-        let map = self.methods_.entry(ty).or_default();
+        let map = self.methods.entry(ty).or_default();
         TemplateMethodTableRegistration {
             map,
             signature: PhantomData,
@@ -819,17 +809,17 @@ where
                     .get_type_name(&unwrapped_ty)
                     .expect("registered type");
                 if let Some(table) = self.methods.get(&unwrapped_ty) {
-                    let build = template_parser::lookup_method(type_name, table, function)?;
-                    build(language, diagnostics, build_ctx, property, function)
+                    let method = template_parser::lookup_method(type_name, table, function)?;
+                    method.build(language, diagnostics, build_ctx, property, function)
                 } else if let Some((inner_ty, cast)) = registry.get_newtype(&unwrapped_ty)
                     && let Some(table) = self.methods.get(inner_ty)
                 {
                     // Use the original type name for error
-                    let build = template_parser::lookup_method(type_name, table, function)?;
+                    let method = template_parser::lookup_method(type_name, table, function)?;
                     let inner_property = property
                         .and_then(move |repr| reject_missing_value(cast(repr), type_name))
                         .into_dyn();
-                    build(language, diagnostics, build_ctx, inner_property, function)
+                    method.build(language, diagnostics, build_ctx, inner_property, function)
                 } else {
                     panic!("no method table registered for type: {unwrapped_ty:?}");
                 }
@@ -1203,25 +1193,22 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
     }
 }
 
-fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> BuildValueMethodFnMap<'a, L> {
-    type T = BString;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+fn register_byte_string_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
+    let mut methods = table.register_methods::<BString>();
+    methods.insert(
         "len",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|s| Ok(i64::try_from(s.len())?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "contains",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [needle_node] = function.expect_exact_arguments()?;
             // TODO: or .try_into_byte_string() to disable implicit type cast?
             let needle_property =
@@ -1231,20 +1218,18 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "match",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             let [needle_node] = function.expect_exact_arguments()?;
             let needle = template_parser::expect_string_pattern(needle_node)?;
             let out_property = match_string_like(self_property, needle);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "starts_with",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [needle_node] = function.expect_exact_arguments()?;
             let needle_property =
                 expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
@@ -1253,10 +1238,9 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "ends_with",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [needle_node] = function.expect_exact_arguments()?;
             let needle_property =
                 expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
@@ -1265,10 +1249,9 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "remove_prefix",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [needle_node] = function.expect_exact_arguments()?;
             let needle_property =
                 expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
@@ -1281,10 +1264,9 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "remove_suffix",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [needle_node] = function.expect_exact_arguments()?;
             let needle_property =
                 expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
@@ -1297,37 +1279,33 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "trim",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| BString::from(s.trim_ascii()));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "trim_start",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| BString::from(s.trim_ascii_start()));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "trim_end",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| BString::from(s.trim_ascii_end()));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "substr",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([start_idx_node], [end_idx_node]) = function.expect_arguments()?;
             let start_idx_property =
                 expect_isize_expression(language, diagnostics, build_ctx, start_idx_node)?;
@@ -1344,29 +1322,26 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "first_line",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|s| s.lines().next().map(BString::from).unwrap_or_default());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "lines",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.lines().map(BString::from).collect_vec());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "split",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([separator_node], [limit_node]) = function.expect_arguments()?;
             let pattern = template_parser::expect_string_pattern(separator_node)?;
             if let Some(limit_node) = limit_node {
@@ -1380,10 +1355,9 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             }
         },
     );
-    map.insert(
+    methods.insert(
         "replace",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([pattern_node, replacement_node], [limit_node]) = function.expect_arguments()?;
             let pattern = template_parser::expect_string_pattern(pattern_node)?;
             let replacement_property = expect_byte_stringify_expression(
@@ -1409,45 +1383,40 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             }
         },
     );
-    map.insert(
+    methods.insert(
         "upper",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| BString::from(s.to_ascii_uppercase()));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "lower",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| BString::from(s.to_ascii_lowercase()));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
-fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMethodFnMap<'a, L> {
-    type T = String;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+fn register_string_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
+    let mut methods = table.register_methods::<String>();
+    methods.insert(
         "len",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|s| Ok(i64::try_from(s.len())?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "contains",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [needle_node] = function.expect_exact_arguments()?;
             // TODO: or .try_into_string() to disable implicit type cast?
             let needle_property =
@@ -1457,20 +1426,18 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "match",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             let [needle_node] = function.expect_exact_arguments()?;
             let needle = template_parser::expect_string_pattern(needle_node)?;
             let out_property = match_string_like(self_property, needle);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "starts_with",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [needle_node] = function.expect_exact_arguments()?;
             let needle_property =
                 expect_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
@@ -1479,10 +1446,9 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "ends_with",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [needle_node] = function.expect_exact_arguments()?;
             let needle_property =
                 expect_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
@@ -1491,10 +1457,9 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "remove_prefix",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [needle_node] = function.expect_exact_arguments()?;
             let needle_property =
                 expect_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
@@ -1507,10 +1472,9 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "remove_suffix",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [needle_node] = function.expect_exact_arguments()?;
             let needle_property =
                 expect_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
@@ -1523,37 +1487,33 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "trim",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.trim().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "trim_start",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.trim_start().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "trim_end",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.trim_end().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "substr",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([start_idx_node], [end_idx_node]) = function.expect_arguments()?;
             let start_idx_property =
                 expect_isize_expression(language, diagnostics, build_ctx, start_idx_node)?;
@@ -1571,29 +1531,26 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueM
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "first_line",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|s| s.lines().next().unwrap_or_default().to_string());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "lines",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.lines().map(|l| l.to_owned()).collect_vec());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "split",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([separator_node], [limit_node]) = function.expect_arguments()?;
             let pattern = template_parser::expect_string_pattern(separator_node)?;
             if let Some(limit_node) = limit_node {
@@ -1607,10 +1564,9 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueM
             }
         },
     );
-    map.insert(
+    methods.insert(
         "replace",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([pattern_node, replacement_node], [limit_node]) = function.expect_arguments()?;
             let pattern = template_parser::expect_string_pattern(pattern_node)?;
             let replacement_property =
@@ -1632,34 +1588,30 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueM
             }
         },
     );
-    map.insert(
+    methods.insert(
         "upper",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.to_uppercase());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "lower",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.to_lowercase());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "escape_json",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| serde_json::to_string(&s).unwrap());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 trait StringLike: AsRef<[u8]> + Sized {
@@ -1767,47 +1719,42 @@ fn string_index_to_char_boundary(s: &str, i: isize) -> usize {
     }
 }
 
-fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> BuildValueMethodFnMap<'a, L> {
-    type T = ConfigValueWrapper;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
+fn register_config_value_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
+    let mut methods = table.register_methods::<ConfigValueWrapper>();
     // These methods are called "as_<type>", not "to_<type>" to clarify that
     // they'll never convert types (e.g. integer to string.) Since templater
     // doesn't provide binding syntax, there's no need to distinguish between
     // reference and consuming access.
-    map.insert(
+    methods.insert(
         "as_boolean",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(ConfigValueWrapper::extract::<bool>);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "as_integer",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(ConfigValueWrapper::extract::<i64>);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "as_string",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(ConfigValueWrapper::extract::<String>);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "as_string_list",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(ConfigValueWrapper::extract::<Vec<String>>);
             Ok(out_property.into_dyn_wrapped())
@@ -1815,82 +1762,72 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     // TODO: add is_<type>() -> Boolean?
     // TODO: add .get(key) -> ConfigValue or Option<ConfigValue>?
-    map
 }
 
-fn builtin_fs_path_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMethodFnMap<'a, L> {
-    type T = PathBuf;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+fn register_fs_path_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
+    let mut methods = table.register_methods::<PathBuf>();
+    methods.insert(
         "absolute",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let cwd = language.current_dir().to_owned();
             let out_property = self_property.map(move |path| cwd.join(path));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "relative",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let cwd = language.current_dir().to_owned();
             let out_property = self_property.map(move |path| file_util::relative_path(&cwd, &path));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
-fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMethodFnMap<'a, L>
+fn register_signature_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
 {
-    type T = Signature;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+    let mut methods = table.register_methods::<Signature>();
+    methods.insert(
         "name",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|signature| signature.name);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "email",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|signature| Email(signature.email));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "timestamp",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|signature| signature.timestamp);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
-fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMethodFnMap<'a, L> {
-    type T = Email;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+fn register_email_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
+    let mut methods = table.register_methods::<Email>();
+    methods.insert(
         "local",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|email| {
                 let (local, _) = text_util::split_email(&email.0);
@@ -1899,10 +1836,9 @@ fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMe
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "domain",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|email| {
                 let (_, domain) = text_util::split_email(&email.0);
@@ -1911,38 +1847,33 @@ fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMe
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
-fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMethodFnMap<'a, L>
+fn register_size_hint_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
 {
-    type T = SizeHint;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+    let mut methods = table.register_methods::<SizeHint>();
+    methods.insert(
         "lower",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|(lower, _)| Ok(i64::try_from(lower)?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "upper",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|(_, upper)| Ok(upper.map(i64::try_from).transpose()?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "exact",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|(lower, upper)| {
                 let exact = (Some(lower) == upper).then_some(lower);
@@ -1951,38 +1882,33 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildVal
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "zero",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|(_, upper)| upper == Some(0));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
-fn builtin_regex_captures_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> BuildValueMethodFnMap<'a, L> {
-    type T = RegexCaptures;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+fn register_regex_captures_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
+    let mut methods = table.register_methods::<RegexCaptures>();
+    methods.insert(
         "len",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|captures| Ok(i64::try_from(captures.len())?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "get",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [index_node] = function.expect_exact_arguments()?;
             let index = expect_usize_expression(language, diagnostics, build_ctx, index_node)?;
             let out_property = (self_property, index).and_then(|(captures, index)| {
@@ -1995,10 +1921,9 @@ fn builtin_regex_captures_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "name",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [name_node] = function.expect_exact_arguments()?;
             let name = expect_stringify_expression(language, diagnostics, build_ctx, name_node)?;
             let out_property = (self_property, name).and_then(move |(c, name)| {
@@ -2011,19 +1936,16 @@ fn builtin_regex_captures_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
-fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildValueMethodFnMap<'a, L>
+fn register_timestamp_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
 {
-    type T = Timestamp;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+    let mut methods = table.register_methods::<Timestamp>();
+    methods.insert(
         "ago",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let now = Timestamp::now();
             let format = timeago::Formatter::new();
@@ -2033,10 +1955,9 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildVal
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "format",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [format_node] = function.expect_exact_arguments()?;
             let format_property =
                 expect_stringify_expression(language, diagnostics, build_ctx, format_node)?;
@@ -2065,10 +1986,9 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildVal
             }
         },
     );
-    map.insert(
+    methods.insert(
         "utc",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|mut timestamp| {
                 timestamp.tz_offset = 0;
@@ -2077,10 +1997,9 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildVal
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "local",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let tz_offset = std::env::var("JJ_TZ_OFFSET_MINS")
                 .ok()
@@ -2093,32 +2012,34 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildVal
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
-        "after",
-        |language, diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
-            let [date_pattern_node] = function.expect_exact_arguments()?;
-            let now = jiff::Zoned::now();
-            let date_pattern = template_parser::catch_aliases(
-                diagnostics,
-                date_pattern_node,
-                |_diagnostics, node| {
-                    let date_pattern = template_parser::expect_string_literal(node)?;
-                    DatePattern::from_str_kind(date_pattern, function.name, now).map_err(|err| {
-                        TemplateParseError::expression("Invalid date pattern", node.span)
-                            .with_source(err)
-                    })
-                },
-            )?;
-            let out_property = self_property.map(move |timestamp| date_pattern.matches(&timestamp));
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
-    map.insert("before", map["after"]);
-    map.insert(
+    for name in ["after", "before"] {
+        methods.insert(
+            name,
+            |_language, diagnostics, _build_ctx, self_property, function| {
+                let [date_pattern_node] = function.expect_exact_arguments()?;
+                let now = jiff::Zoned::now();
+                let date_pattern = template_parser::catch_aliases(
+                    diagnostics,
+                    date_pattern_node,
+                    |_diagnostics, node| {
+                        let date_pattern = template_parser::expect_string_literal(node)?;
+                        DatePattern::from_str_kind(date_pattern, function.name, now).map_err(
+                            |err| {
+                                TemplateParseError::expression("Invalid date pattern", node.span)
+                                    .with_source(err)
+                            },
+                        )
+                    },
+                )?;
+                let out_property =
+                    self_property.map(move |timestamp| date_pattern.matches(&timestamp));
+                Ok(out_property.into_dyn_wrapped())
+            },
+        );
+    }
+    methods.insert(
         "since",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let [date_node] = function.expect_exact_arguments()?;
             let date_property =
                 expect_timestamp_expression(language, diagnostics, build_ctx, date_node)?;
@@ -2132,37 +2053,32 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildVal
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
-fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> BuildValueMethodFnMap<'a, L> {
-    type T = TimestampRange;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+fn register_timestamp_range_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
+    let mut methods = table.register_methods::<TimestampRange>();
+    methods.insert(
         "start",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|time_range| time_range.start);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "end",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|time_range| time_range.end);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "duration",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             // TODO: Introduce duration type, and move formatting to it.
             let out_property = self_property.and_then(|time_range| {
@@ -2178,7 +2094,6 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 fn builtin_any_list_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildAnyMethodFnMap<'a, L> {
@@ -2205,20 +2120,19 @@ fn builtin_any_list_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildAnyM
     map
 }
 
-/// Creates new symbol table for printable value list property.
-pub fn builtin_formattable_list_methods<'a, L, O>() -> BuildValueMethodFnMap<'a, L>
+/// Registers list methods for formattable values.
+pub fn register_formattable_list_methods<'a, L, O>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
     O: OptionalTemplateValue + TemplateValue + Template + Clone,
     O::Optional: TemplateValue,
     Vec<O>: TemplateValue,
 {
-    let mut map = builtin_unformattable_list_methods::<L, O>();
-    map.insert(
+    register_unformattable_list_methods::<L, O>(table);
+    let mut methods = table.register_methods::<Vec<O>>();
+    methods.insert(
         "join",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let [separator_node] = function.expect_exact_arguments()?;
             let separator =
                 expect_template_expression(language, diagnostics, build_ctx, separator_node)?;
@@ -2229,96 +2143,77 @@ where
             Ok(TemplatePropertyKind::wrap_template(Box::new(template)))
         },
     );
-    map
 }
 
-/// Creates new symbol table for unprintable value list property.
-pub fn builtin_unformattable_list_methods<'a, L, O>() -> BuildValueMethodFnMap<'a, L>
+/// Registers list methods for unformattable values.
+pub fn register_unformattable_list_methods<'a, L, O>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
     O: OptionalTemplateValue + TemplateValue + Clone,
     O::Optional: TemplateValue,
     Vec<O>: TemplateValue,
 {
+    let mut methods = table.register_methods::<Vec<O>>();
     type P<'a> = TemplatePropertyKind<'a>;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+    methods.insert(
         "len",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|items| Ok(i64::try_from(items.len())?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "filter",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let out_property: BoxedTemplateProperty<'a, Vec<O>> =
                 build_filter_operation(language, diagnostics, build_ctx, self_property, function)?;
             Ok(P::wrap_property(out_property))
         },
     );
-    map.insert(
+    methods.insert(
         "map",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let map_result =
                 build_map_operation(language, diagnostics, build_ctx, self_property, function)?;
             Ok(P::wrap_any_list(map_result))
         },
     );
-    map.insert(
+    methods.insert(
         "any",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let out_property =
                 build_any_operation(language, diagnostics, build_ctx, self_property, function)?;
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "all",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let out_property =
                 build_all_operation(language, diagnostics, build_ctx, self_property, function)?;
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "first",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|items| O::from_option(items.into_iter().next()));
             Ok(P::wrap_property(out_property.into_dyn()))
         },
     );
-    map.insert(
+    methods.insert(
         "last",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|mut items| O::from_option(items.pop()));
             Ok(P::wrap_property(out_property.into_dyn()))
         },
     );
-    map.insert(
+    methods.insert(
         "get",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let [index_node] = function.expect_exact_arguments()?;
             let index = expect_usize_expression(language, diagnostics, build_ctx, index_node)?;
             let out_property = (self_property, index).map(|(mut items, index)| {
@@ -2327,11 +2222,9 @@ where
             Ok(P::wrap_property(out_property.into_dyn()))
         },
     );
-    map.insert(
+    methods.insert(
         "reverse",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|mut items| {
                 items.reverse();
@@ -2340,11 +2233,9 @@ where
             Ok(P::wrap_property(out_property.into_dyn()))
         },
     );
-    map.insert(
+    methods.insert(
         "skip",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let [count_node] = function.expect_exact_arguments()?;
             let count = expect_usize_expression(language, diagnostics, build_ctx, count_node)?;
             let out_property = (self_property, count)
@@ -2352,11 +2243,9 @@ where
             Ok(P::wrap_property(out_property.into_dyn()))
         },
     );
-    map.insert(
+    methods.insert(
         "take",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property =
-                cast_value_property::<Vec<O>>(self_property, language.type_registry());
             let [count_node] = function.expect_exact_arguments()?;
             let count = expect_usize_expression(language, diagnostics, build_ctx, count_node)?;
             let out_property = (self_property, count)
@@ -2364,7 +2253,6 @@ where
             Ok(P::wrap_property(out_property.into_dyn()))
         },
     );
-    map
 }
 
 /// Builds expression that extracts iterable property and filters its items.

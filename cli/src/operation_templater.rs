@@ -34,15 +34,12 @@ use pollster::FutureExt as _;
 
 use crate::template_builder;
 use crate::template_builder::BuildContext;
-use crate::template_builder::BuildValueMethodFnMap;
 use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::TemplatePropertyKind;
-use crate::template_builder::builtin_unformattable_list_methods;
-use crate::template_builder::cast_value_property;
+use crate::template_builder::register_unformattable_list_methods;
 use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
-use crate::template_value::TemplateValue as _;
 use crate::templater::NoTemplateBooleanCast;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
@@ -181,55 +178,44 @@ pub fn register_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
 {
-    let methods = &mut table.methods;
-    methods.insert(Operation::value_type(), builtin_operation_methods());
-    methods.insert(
-        <Vec<Operation>>::value_type(),
-        builtin_unformattable_list_methods::<_, Operation>(),
-    );
-    methods.insert(OperationId::value_type(), builtin_operation_id_methods());
+    register_operation_methods(table);
+    register_unformattable_list_methods::<_, Operation>(table);
+    register_operation_id_methods(table);
 }
 
-fn builtin_operation_methods<'a, L>() -> BuildValueMethodFnMap<'a, L>
+fn register_operation_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
 {
-    type T = Operation;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+    let mut methods = table.register_methods::<Operation>();
+    methods.insert(
         "current_operation",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let current_op_id = language.current_op_id().cloned();
             let out_property = self_property.map(move |op| Some(op.id()) == current_op_id.as_ref());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "description",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.metadata().description.clone());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "id",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.id().clone());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "attributes",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| {
                 // TODO: introduce map type
@@ -243,10 +229,9 @@ where
         },
     );
     // TODO: Remove in jj 0.47+
-    map.insert(
+    methods.insert(
         "tags",
-        |language, diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, diagnostics, _build_ctx, self_property, function| {
             diagnostics.add_warning(TemplateParseError::expression(
                 "operation.tags() is deprecated; use .attributes() instead",
                 function.name_span,
@@ -263,19 +248,17 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "snapshot",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.metadata().is_snapshot);
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "workspace_name",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| {
                 op.metadata()
@@ -287,19 +270,17 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "time",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.metadata().time.clone());
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "user",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| {
                 // TODO: introduce dedicated type and provide accessors?
@@ -308,10 +289,9 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "root",
         |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             function.expect_no_arguments()?;
             let op_store = language.repo_loader().op_store();
             let root_op_id = op_store.root_operation_id().clone();
@@ -319,10 +299,9 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
+    methods.insert(
         "parents",
-        |language, _diagnostics, _build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
+        |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|op| {
                 let ops = op.parents().block_on()?;
@@ -331,7 +310,6 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
 
 impl Template for OperationId {
@@ -340,18 +318,14 @@ impl Template for OperationId {
     }
 }
 
-fn builtin_operation_id_methods<'a, L>() -> BuildValueMethodFnMap<'a, L>
+fn register_operation_id_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
 {
-    type T = OperationId;
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = BuildValueMethodFnMap::<L>::new();
-    map.insert(
+    let mut methods = table.register_methods::<OperationId>();
+    methods.insert(
         "short",
         |language, diagnostics, build_ctx, self_property, function| {
-            let self_property = cast_value_property::<T>(self_property, language.type_registry());
             let ([], [len_node]) = function.expect_arguments()?;
             let len_property = len_node
                 .map(|node| {
@@ -371,5 +345,4 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map
 }
