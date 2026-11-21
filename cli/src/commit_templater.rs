@@ -123,7 +123,10 @@ use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 
 pub trait CommitTemplateLanguageExtension {
-    fn symbol_table<'repo>(&self) -> TemplateSymbolTable<'repo, CommitTemplateLanguage<'repo>>;
+    fn register_symbols<'repo>(
+        &self,
+        table: &mut TemplateSymbolTable<'repo, CommitTemplateLanguage<'repo>>,
+    );
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
@@ -173,10 +176,9 @@ impl<'repo> CommitTemplateLanguage<'repo> {
 
         let mut cache_extensions = ExtensionsMap::empty();
         for extension in extensions {
-            symbol_table.merge(extension.as_ref().symbol_table());
-            extension
-                .as_ref()
-                .build_cache_extensions(&mut cache_extensions);
+            let extension = extension.as_ref();
+            extension.register_symbols(&mut symbol_table);
+            extension.build_cache_extensions(&mut cache_extensions);
         }
 
         CommitTemplateLanguage {

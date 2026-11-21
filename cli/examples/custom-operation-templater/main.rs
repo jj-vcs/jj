@@ -47,8 +47,10 @@ fn num_char_in_id(operation: Operation, ch_match: char) -> i64 {
 }
 
 impl OperationTemplateLanguageExtension for HexCounter {
-    fn symbol_table(&self) -> TemplateSymbolTable<'static, OperationTemplateLanguage> {
-        let mut symbol_table = TemplateSymbolTable::<OperationTemplateLanguage>::empty();
+    fn register_symbols(
+        &self,
+        symbol_table: &mut TemplateSymbolTable<'static, OperationTemplateLanguage>,
+    ) {
         let mut methods = symbol_table.register_methods::<Operation>();
         methods.insert(
             "num_digits_in_id",
@@ -83,8 +85,6 @@ impl OperationTemplateLanguageExtension for HexCounter {
                 Ok(out_property.into_dyn_wrapped())
             },
         );
-
-        symbol_table
     }
 
     fn build_cache_extensions(&self, _extensions: &mut ExtensionsMap) {}

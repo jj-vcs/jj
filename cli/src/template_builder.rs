@@ -680,15 +680,6 @@ fn ignore_missing_value<T: Default>(result: Result<T, TemplateValueExtractionErr
     })
 }
 
-#[track_caller]
-fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'s str, F>) {
-    for (name, function) in extension {
-        if base.insert(name, function).is_some() {
-            panic!("Conflicting template definitions for '{name}' function");
-        }
-    }
-}
-
 impl<L: ?Sized> TemplateSymbolTable<'_, L> {
     pub fn empty() -> Self {
         Self {
@@ -698,27 +689,6 @@ impl<L: ?Sized> TemplateSymbolTable<'_, L> {
             any_methods: HashMap::new(),
             any_list_methods: HashMap::new(),
         }
-    }
-
-    #[track_caller]
-    pub fn merge(&mut self, other: Self) {
-        let Self {
-            functions,
-            methods,
-            template_methods,
-            any_methods,
-            any_list_methods,
-        } = other;
-
-        merge_fn_map(&mut self.functions, functions);
-        for (ty, table) in methods {
-            let base_table = self.methods.get_mut(&ty).expect("registered type");
-            merge_fn_map(base_table, table);
-        }
-
-        merge_fn_map(&mut self.template_methods, template_methods);
-        merge_fn_map(&mut self.any_methods, any_methods);
-        merge_fn_map(&mut self.any_list_methods, any_list_methods);
     }
 }
 

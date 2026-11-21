@@ -41,7 +41,7 @@ use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyExt as _;
 
 pub trait OperationTemplateLanguageExtension {
-    fn symbol_table(&self) -> TemplateSymbolTable<'static, OperationTemplateLanguage>;
+    fn register_symbols(&self, table: &mut TemplateSymbolTable<'static, OperationTemplateLanguage>);
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
@@ -78,10 +78,9 @@ impl OperationTemplateLanguage {
 
         let mut cache_extensions = ExtensionsMap::empty();
         for extension in extensions {
-            symbol_table.merge(extension.as_ref().symbol_table());
-            extension
-                .as_ref()
-                .build_cache_extensions(&mut cache_extensions);
+            let extension = extension.as_ref();
+            extension.register_symbols(&mut symbol_table);
+            extension.build_cache_extensions(&mut cache_extensions);
         }
 
         Self {
