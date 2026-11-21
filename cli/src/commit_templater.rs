@@ -103,9 +103,9 @@ use crate::operation_templater::OperationTemplateEnvironment;
 use crate::revset_util;
 use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_builder;
-use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::TemplatePropertyKind;
+use crate::template_builder::TemplateSymbolTable;
 use crate::template_builder::expect_stringify_expression;
 use crate::template_builder::register_formattable_list_methods;
 use crate::template_builder::register_unformattable_list_methods;
@@ -123,7 +123,7 @@ use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 
 pub trait CommitTemplateLanguageExtension {
-    fn build_fn_table<'repo>(&self) -> TemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>;
+    fn symbol_table<'repo>(&self) -> TemplateSymbolTable<'repo, CommitTemplateLanguage<'repo>>;
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
@@ -145,7 +145,7 @@ pub struct CommitTemplateLanguage<'repo> {
     immutable_expression: Arc<UserRevsetExpression>,
     conflict_marker_style: ConflictMarkerStyle,
     type_registry: TemplateTypeRegistry,
-    build_fn_table: TemplateBuildFnTable<'repo, Self>,
+    symbol_table: TemplateSymbolTable<'repo, Self>,
     keyword_cache: CommitKeywordCache,
     cache_extensions: ExtensionsMap,
 }
@@ -167,13 +167,13 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         let mut type_registry = template_builder::new_core_type_registry();
         operation_templater::register_types(&mut type_registry);
         register_types(&mut type_registry);
-        let mut build_fn_table = TemplateBuildFnTable::builtin();
-        operation_templater::register_symbols(&mut build_fn_table);
-        register_symbols(&mut build_fn_table);
+        let mut symbol_table = TemplateSymbolTable::builtin();
+        operation_templater::register_symbols(&mut symbol_table);
+        register_symbols(&mut symbol_table);
 
         let mut cache_extensions = ExtensionsMap::empty();
         for extension in extensions {
-            build_fn_table.merge(extension.as_ref().build_fn_table());
+            symbol_table.merge(extension.as_ref().symbol_table());
             extension
                 .as_ref()
                 .build_cache_extensions(&mut cache_extensions);
@@ -188,7 +188,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
             immutable_expression,
             conflict_marker_style,
             type_registry,
-            build_fn_table,
+            symbol_table,
             keyword_cache: CommitKeywordCache::default(),
             cache_extensions,
         }
@@ -224,8 +224,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
         &self.type_registry
     }
 
-    fn symbol_table(&self) -> &TemplateBuildFnTable<'repo, Self> {
-        &self.build_fn_table
+    fn symbol_table(&self) -> &TemplateSymbolTable<'repo, Self> {
+        &self.symbol_table
     }
 }
 
@@ -426,7 +426,7 @@ fn register_types(registry: &mut TemplateTypeRegistry) {
         .formattable();
 }
 
-fn register_symbols(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_symbols(table: &mut CommitTemplateSymbolTable<'_>) {
     register_functions(table);
     register_commit_methods(table);
     register_unformattable_list_methods::<_, Commit>(table);
@@ -456,7 +456,7 @@ fn register_symbols(table: &mut CommitTemplateBuildFnTable<'_>) {
     register_trailer_list_methods(table);
 }
 
-type CommitTemplateBuildFnTable<'repo> = TemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>;
+type CommitTemplateSymbolTable<'repo> = TemplateSymbolTable<'repo, CommitTemplateLanguage<'repo>>;
 
 #[derive(Default)]
 pub struct CommitKeywordCache {
@@ -508,7 +508,7 @@ impl CommitKeywordCache {
 }
 
 /// Builtin functions for the commit template language.
-fn register_functions(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_functions(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut functions = table.register_functions();
     functions.insert("revset", |language, diagnostics, build_ctx, function| {
         let [revset_node] = function.expect_exact_arguments()?;
@@ -578,7 +578,7 @@ fn register_functions(table: &mut CommitTemplateBuildFnTable<'_>) {
     );
 }
 
-fn register_commit_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_commit_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<Commit>();
     methods.insert(
         "description",
@@ -1014,7 +1014,7 @@ fn parse_evaluate_static_revset(
     })
 }
 
-fn register_commit_evolution_entry_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_commit_evolution_entry_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<CommitEvolutionEntry>();
     methods.insert(
         "commit",
@@ -1329,7 +1329,7 @@ impl Template for Vec<WorkspaceRef> {
     }
 }
 
-fn register_workspace_ref_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_workspace_ref_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<WorkspaceRef>();
     methods.insert(
         "name",
@@ -1384,7 +1384,7 @@ where
     target.serialize(serializer)
 }
 
-fn register_commit_ref_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_commit_ref_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<Rc<CommitRef>>();
     methods.insert(
         "name",
@@ -1630,7 +1630,7 @@ impl Template for RepoPathBuf {
     }
 }
 
-fn register_repo_path_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_repo_path_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<RepoPathBuf>();
     methods.insert(
         "absolute",
@@ -1681,7 +1681,7 @@ impl Template for ChangeId {
     }
 }
 
-fn register_change_id_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_change_id_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     register_commit_or_change_id_methods::<ChangeId>(table);
     let mut methods = table.register_methods::<ChangeId>();
     methods.insert(
@@ -1709,11 +1709,11 @@ impl Template for CommitId {
     }
 }
 
-fn register_commit_id_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_commit_id_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     register_commit_or_change_id_methods::<CommitId>(table);
 }
 
-fn register_commit_or_change_id_methods<'repo, O>(table: &mut CommitTemplateBuildFnTable<'repo>)
+fn register_commit_or_change_id_methods<'repo, O>(table: &mut CommitTemplateSymbolTable<'repo>)
 where
     O: Display + ShortestIdPrefixLen + TemplateValue + 'repo,
 {
@@ -1813,7 +1813,7 @@ impl ShortestIdPrefix {
     }
 }
 
-fn register_shortest_id_prefix_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_shortest_id_prefix_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<ShortestIdPrefix>();
     methods.insert(
         "prefix",
@@ -1930,7 +1930,7 @@ where
     }
 }
 
-fn register_tree_diff_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_tree_diff_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<TreeDiff>();
     type P<'repo> = TemplatePropertyKind<'repo>;
     methods.insert(
@@ -2150,7 +2150,7 @@ fn format_diff_path(
     }
 }
 
-fn register_tree_diff_entry_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_tree_diff_entry_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<TreeDiffEntry>();
     methods.insert(
         "path",
@@ -2211,7 +2211,7 @@ pub struct TreeEntry {
     pub value: MergedTreeValue,
 }
 
-fn register_tree_entry_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_tree_entry_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<TreeEntry>();
     methods.insert(
         "path",
@@ -2284,7 +2284,7 @@ fn register_tree_entry_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
     );
 }
 
-fn register_tree_value_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_tree_value_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<TreeValue>();
     methods.insert(
         "object_id",
@@ -2378,7 +2378,7 @@ impl Template for DiffStatsFormatted {
     }
 }
 
-fn register_diff_stats_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_diff_stats_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<DiffStatsFormatted>();
     methods.insert(
         "files",
@@ -2408,7 +2408,7 @@ fn register_diff_stats_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
     );
 }
 
-fn register_diff_stat_entry_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_diff_stat_entry_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<DiffStatEntry>();
     methods.insert(
         "path",
@@ -2513,7 +2513,7 @@ impl CryptographicSignature {
     }
 }
 
-fn register_cryptographic_signature_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_cryptographic_signature_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<CryptographicSignature>();
     methods.insert(
         "status",
@@ -2554,7 +2554,7 @@ pub struct AnnotationLine {
     pub first_line_in_hunk: bool,
 }
 
-fn register_annotation_line_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_annotation_line_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<AnnotationLine>();
     methods.insert(
         "commit",
@@ -2611,7 +2611,7 @@ impl Template for Vec<Trailer> {
     }
 }
 
-fn register_trailer_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_trailer_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     let mut methods = table.register_methods::<Trailer>();
     methods.insert(
         "key",
@@ -2631,7 +2631,7 @@ fn register_trailer_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
     );
 }
 
-fn register_trailer_list_methods(table: &mut CommitTemplateBuildFnTable<'_>) {
+fn register_trailer_list_methods(table: &mut CommitTemplateSymbolTable<'_>) {
     register_formattable_list_methods::<_, Trailer>(table);
     let mut methods = table.register_methods::<Vec<Trailer>>();
     methods.insert(
@@ -2754,7 +2754,7 @@ mod tests {
                 ConflictMarkerStyle::Diff,
                 &[] as &[Box<dyn CommitTemplateLanguageExtension>],
             );
-            let mut functions = language.build_fn_table.register_functions();
+            let mut functions = language.symbol_table.register_functions();
             for (&name, &f) in &self.extra_functions {
                 functions.insert(name, f);
             }

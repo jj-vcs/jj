@@ -18,7 +18,7 @@ use futures::TryStreamExt as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::commit_templater::CommitTemplateLanguage;
 use jj_cli::commit_templater::CommitTemplateLanguageExtension;
-use jj_cli::template_builder::TemplateBuildFnTable;
+use jj_cli::template_builder::TemplateSymbolTable;
 use jj_cli::templater::TemplatePropertyExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -123,9 +123,9 @@ impl SymbolResolverExtension for TheDigitest {
 }
 
 impl CommitTemplateLanguageExtension for HexCounter {
-    fn build_fn_table<'repo>(&self) -> TemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>> {
-        let mut fn_table = TemplateBuildFnTable::<CommitTemplateLanguage>::empty();
-        let mut methods = fn_table.register_methods::<Commit>();
+    fn symbol_table<'repo>(&self) -> TemplateSymbolTable<'repo, CommitTemplateLanguage<'repo>> {
+        let mut symbol_table = TemplateSymbolTable::<CommitTemplateLanguage>::empty();
+        let mut methods = symbol_table.register_methods::<Commit>();
         methods.insert(
             "has_most_digits",
             |language, _diagnostics, _build_context, property, call| {
@@ -172,7 +172,7 @@ impl CommitTemplateLanguageExtension for HexCounter {
             },
         );
 
-        fn_table
+        symbol_table
     }
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap) {

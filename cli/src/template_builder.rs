@@ -104,7 +104,7 @@ pub trait TemplateLanguage<'a> {
     fn current_dir(&self) -> &Path;
 
     fn type_registry(&self) -> &TemplateTypeRegistry;
-    fn symbol_table(&self) -> &TemplateBuildFnTable<'a, Self>;
+    fn symbol_table(&self) -> &TemplateSymbolTable<'a, Self>;
 }
 
 impl OpaqueTemplateValue for ConfigValueWrapper {}
@@ -478,7 +478,7 @@ pub fn new_core_type_registry() -> TemplateTypeRegistry {
     registry
 }
 
-fn register_symbols<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_symbols<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -587,7 +587,7 @@ type BuildTemplateMethodFnMap<'a, L> = HashMap<&'static str, BuildTemplateMethod
 type BuildAnyMethodFnMap<'a, L> = HashMap<&'static str, BuildAnyMethodFn<'a, L>>;
 
 /// Symbol table of functions and methods.
-pub struct TemplateBuildFnTable<'a, L: ?Sized> {
+pub struct TemplateSymbolTable<'a, L: ?Sized> {
     functions: BuildFunctionFnMap<'a, L>,
     methods: HashMap<TemplateValueType, BuildValueMethodMap<'a, L>>,
     template_methods: BuildTemplateMethodFnMap<'a, L>,
@@ -689,7 +689,7 @@ fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'s st
     }
 }
 
-impl<L: ?Sized> TemplateBuildFnTable<'_, L> {
+impl<L: ?Sized> TemplateSymbolTable<'_, L> {
     pub fn empty() -> Self {
         Self {
             functions: HashMap::new(),
@@ -722,7 +722,7 @@ impl<L: ?Sized> TemplateBuildFnTable<'_, L> {
     }
 }
 
-impl<'a, L> TemplateBuildFnTable<'a, L>
+impl<'a, L> TemplateSymbolTable<'a, L>
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -1209,7 +1209,7 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
     }
 }
 
-fn register_byte_string_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_byte_string_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -1417,7 +1417,7 @@ where
     );
 }
 
-fn register_string_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_string_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -1735,7 +1735,7 @@ fn string_index_to_char_boundary(s: &str, i: isize) -> usize {
     }
 }
 
-fn register_config_value_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_config_value_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -1780,7 +1780,7 @@ where
     // TODO: add .get(key) -> ConfigValue or Option<ConfigValue>?
 }
 
-fn register_fs_path_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_fs_path_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -1805,7 +1805,7 @@ where
     );
 }
 
-fn register_signature_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_signature_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -1836,7 +1836,7 @@ where
     );
 }
 
-fn register_email_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_email_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -1865,7 +1865,7 @@ where
     );
 }
 
-fn register_size_hint_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_size_hint_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -1908,7 +1908,7 @@ where
     );
 }
 
-fn register_regex_captures_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_regex_captures_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -1954,7 +1954,7 @@ where
     );
 }
 
-fn register_timestamp_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_timestamp_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -2071,7 +2071,7 @@ where
     );
 }
 
-fn register_timestamp_range_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_timestamp_range_methods<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
@@ -2137,7 +2137,7 @@ fn builtin_any_list_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildAnyM
 }
 
 /// Registers list methods for formattable values.
-pub fn register_formattable_list_methods<'a, L, O>(table: &mut TemplateBuildFnTable<'a, L>)
+pub fn register_formattable_list_methods<'a, L, O>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
     O: OptionalTemplateValue + TemplateValue + Template + Clone,
@@ -2162,7 +2162,7 @@ where
 }
 
 /// Registers list methods for unformattable values.
-pub fn register_unformattable_list_methods<'a, L, O>(table: &mut TemplateBuildFnTable<'a, L>)
+pub fn register_unformattable_list_methods<'a, L, O>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
     O: OptionalTemplateValue + TemplateValue + Clone,
@@ -2441,7 +2441,7 @@ fn build_lambda_expression<'a, 'i, T>(
     build_body(&inner_build_ctx, &lambda.body)
 }
 
-fn register_functions<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_functions<'a, L>(table: &mut TemplateSymbolTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
