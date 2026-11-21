@@ -127,6 +127,7 @@ nix = { workspace = true, features = [ "signal" ] }
 anstream = { workspace = true }
 assert_cmd = { workspace = true }
 datatest-stable = { workspace = true }
+gix = { workspace = true }
 insta = { workspace = true }
 jsonschema = { workspace = true }
 proptest = { workspace = true }
