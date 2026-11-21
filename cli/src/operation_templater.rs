@@ -26,17 +26,12 @@ use jj_lib::op_store::OperationId;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
 use jj_lib::settings::UserSettings;
-use jj_lib::template_parser::FunctionCallNode;
-use jj_lib::template_parser::TemplateDiagnostics;
 use jj_lib::template_parser::TemplateParseError;
-use jj_lib::template_parser::TemplateParseResult;
 use pollster::FutureExt as _;
 
 use crate::template_builder;
-use crate::template_builder::BuildContext;
 use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
-use crate::template_builder::TemplatePropertyKind;
 use crate::template_builder::register_unformattable_list_methods;
 use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
@@ -114,25 +109,8 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
         &self.type_registry
     }
 
-    fn build_function(
-        &self,
-        diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<'static, '_>,
-        function: &FunctionCallNode,
-    ) -> TemplateParseResult<TemplatePropertyKind<'static>> {
-        let table = &self.build_fn_table;
-        table.build_function(self, diagnostics, build_ctx, function)
-    }
-
-    fn build_method(
-        &self,
-        diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<'static, '_>,
-        property: TemplatePropertyKind<'static>,
-        function: &FunctionCallNode,
-    ) -> TemplateParseResult<TemplatePropertyKind<'static>> {
-        self.build_fn_table
-            .build_method(self, diagnostics, build_ctx, property, function)
+    fn symbol_table(&self) -> &TemplateBuildFnTable<'static, Self> {
+        &self.build_fn_table
     }
 }
 

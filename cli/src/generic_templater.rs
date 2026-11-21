@@ -16,16 +16,11 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use jj_lib::settings::UserSettings;
-use jj_lib::template_parser::FunctionCallNode;
-use jj_lib::template_parser::TemplateDiagnostics;
-use jj_lib::template_parser::TemplateParseResult;
 
 use crate::template_builder;
-use crate::template_builder::BuildContext;
 use crate::template_builder::TemplateBuildFnTable;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::TemplateMethodTableRegistration;
-use crate::template_builder::TemplatePropertyKind;
 use crate::template_value::TemplateTypeRegistration;
 use crate::template_value::TemplateTypeRegistry;
 use crate::template_value::TemplateValue;
@@ -80,24 +75,7 @@ impl TemplateLanguage<'static> for GenericTemplateLanguage {
         &self.type_registry
     }
 
-    fn build_function(
-        &self,
-        diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<'static, '_>,
-        function: &FunctionCallNode,
-    ) -> TemplateParseResult<TemplatePropertyKind<'static>> {
-        let table = &self.build_fn_table;
-        table.build_function(self, diagnostics, build_ctx, function)
-    }
-
-    fn build_method(
-        &self,
-        diagnostics: &mut TemplateDiagnostics,
-        build_ctx: &BuildContext<'static, '_>,
-        property: TemplatePropertyKind<'static>,
-        function: &FunctionCallNode,
-    ) -> TemplateParseResult<TemplatePropertyKind<'static>> {
-        self.build_fn_table
-            .build_method(self, diagnostics, build_ctx, property, function)
+    fn symbol_table(&self) -> &TemplateBuildFnTable<'static, Self> {
+        &self.build_fn_table
     }
 }
