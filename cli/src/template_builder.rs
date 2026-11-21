@@ -497,10 +497,11 @@ pub fn new_core_type_registry() -> TemplateTypeRegistry {
     registry
 }
 
-fn register_methods<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
+fn register_symbols<'a, L>(table: &mut TemplateBuildFnTable<'a, L>)
 where
     L: TemplateLanguage<'a> + ?Sized,
 {
+    register_functions(table);
     register_byte_string_methods(table);
     register_formattable_list_methods::<_, BString>(table);
     register_string_methods(table);
@@ -753,8 +754,7 @@ where
             any_methods: HashMap::new(),
             any_list_methods: builtin_any_list_methods(),
         };
-        register_functions(&mut table);
-        register_methods(&mut table);
+        register_symbols(&mut table);
         table
     }
 
