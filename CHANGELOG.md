@@ -77,6 +77,10 @@ and this project adheres to
   the same author name and email but different timestamps.
   [#10261](https://github.com/jj-vcs/jj/issues/10261)
 
+* `jj restore`, `jj squash`, `jj split`, `jj commit`, and `jj absorb` no longer
+  read directories that are the same in both revisions when given filesets,
+  which speeds up patterns like `glob:**/*.rs` in large repositories.
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
