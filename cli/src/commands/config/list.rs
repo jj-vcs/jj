@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::path::Path;
+use std::path::PathBuf;
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::config::ConfigNamePathBuf;
@@ -26,8 +27,11 @@ use crate::command_error::CommandError;
 use crate::complete;
 use crate::config::AnnotatedValue;
 use crate::config::resolved_config_values;
-use crate::generic_templater::GenericTemplateLanguage;
+use crate::template_builder;
+use crate::template_builder::TemplateLanguage;
+use crate::template_builder::TemplateSymbolTable;
 use crate::template_value::OpaqueTemplateValue;
+use crate::template_value::TemplateTypeRegistry;
 use crate::templater::ConfigValueWrapper;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
@@ -83,7 +87,7 @@ pub async fn cmd_config_list(
     args: &ConfigListArgs,
 ) -> Result<(), CommandError> {
     let template: TemplateRenderer<AnnotatedValue> = {
-        let language = config_template_language(command.settings(), command.cwd());
+        let language = ConfigTemplateLanguage::new(command.settings(), command.cwd());
         let text = match &args.template {
             Some(value) => value.to_owned(),
             None => command.settings().get_string("templates.config_list")?,
@@ -124,19 +128,54 @@ pub async fn cmd_config_list(
     Ok(())
 }
 
-impl OpaqueTemplateValue for AnnotatedValue {}
+struct ConfigTemplateLanguage {
+    settings: UserSettings,
+    current_dir: PathBuf,
+    type_registry: TemplateTypeRegistry,
+    symbol_table: TemplateSymbolTable<'static, Self>,
+}
+
+impl ConfigTemplateLanguage {
+    fn new(settings: &UserSettings, current_dir: &Path) -> Self {
+        let mut type_registry = template_builder::new_core_type_registry();
+        type_registry
+            .register::<AnnotatedValue>("AnnotatedConfigValue")
+            .serializable();
+        let mut symbol_table = TemplateSymbolTable::builtin();
+        register_symbols(&mut symbol_table);
+        Self {
+            settings: settings.clone(),
+            current_dir: current_dir.to_owned(),
+            type_registry,
+            symbol_table,
+        }
+    }
+}
+
+impl TemplateLanguage<'static> for ConfigTemplateLanguage {
+    fn settings(&self) -> &UserSettings {
+        &self.settings
+    }
+
+    fn current_dir(&self) -> &Path {
+        &self.current_dir
+    }
+
+    fn type_registry(&self) -> &TemplateTypeRegistry {
+        &self.type_registry
+    }
+
+    fn symbol_table(&self) -> &TemplateSymbolTable<'static, Self> {
+        &self.symbol_table
+    }
+}
 
 // AnnotatedValue will be cloned internally in the templater. If the cloning
 // cost matters, wrap it with Rc.
-fn config_template_language(
-    settings: &UserSettings,
-    current_dir: &Path,
-) -> GenericTemplateLanguage {
-    let mut language = GenericTemplateLanguage::new(settings, current_dir);
-    language
-        .register_type::<AnnotatedValue>("AnnotatedConfigValue")
-        .serializable();
-    let mut methods = language.register_methods::<AnnotatedValue>();
+impl OpaqueTemplateValue for AnnotatedValue {}
+
+fn register_symbols(table: &mut TemplateSymbolTable<'static, ConfigTemplateLanguage>) {
+    let mut methods = table.register_methods::<AnnotatedValue>();
     methods.insert(
         "name",
         |_language, _diagnostics, _build_ctx, self_property, function| {
@@ -178,5 +217,4 @@ fn config_template_language(
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    language
 }

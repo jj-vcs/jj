@@ -3205,7 +3205,31 @@ mod tests {
     use super::*;
     use crate::formatter;
     use crate::formatter::ColorFormatter;
-    use crate::generic_templater::GenericTemplateLanguage;
+
+    struct TestTemplateLanguage {
+        settings: UserSettings,
+        current_dir: PathBuf,
+        type_registry: TemplateTypeRegistry,
+        symbol_table: TemplateSymbolTable<'static, Self>,
+    }
+
+    impl TemplateLanguage<'static> for TestTemplateLanguage {
+        fn settings(&self) -> &UserSettings {
+            &self.settings
+        }
+
+        fn current_dir(&self) -> &Path {
+            &self.current_dir
+        }
+
+        fn type_registry(&self) -> &TemplateTypeRegistry {
+            &self.type_registry
+        }
+
+        fn symbol_table(&self) -> &TemplateSymbolTable<'static, Self> {
+            &self.symbol_table
+        }
+    }
 
     #[derive(Clone, Debug, serde::Serialize)]
     struct Context;
@@ -3214,7 +3238,7 @@ mod tests {
 
     /// Helper to set up template evaluation environment.
     struct TestTemplateEnv {
-        language: GenericTemplateLanguage,
+        language: TestTemplateLanguage,
         aliases_map: TemplateAliasesMap,
         color_rules: Vec<(Vec<String>, formatter::Style)>,
     }
@@ -3230,9 +3254,16 @@ mod tests {
 
         fn with_config_and_current_dir(config: StackedConfig, current_dir: PathBuf) -> Self {
             let settings = testutils::user_settings_from_config(config);
-            let mut language = GenericTemplateLanguage::new(&settings, &current_dir);
-            language.register_type::<Context>("Context").serializable();
-            language.register_methods::<Context>();
+            let mut type_registry = new_core_type_registry();
+            type_registry.register::<Context>("Context").serializable();
+            let mut symbol_table = TemplateSymbolTable::builtin();
+            symbol_table.register_methods::<Context>();
+            let language = TestTemplateLanguage {
+                settings,
+                current_dir,
+                type_registry,
+                symbol_table,
+            };
             Self {
                 language,
                 aliases_map: TemplateAliasesMap::new(),
@@ -3250,7 +3281,7 @@ mod tests {
         where
             F: Fn() -> TemplatePropertyKind<'static> + 'static,
         {
-            let mut methods = self.language.register_methods::<Context>();
+            let mut methods = self.language.symbol_table.register_methods::<Context>();
             methods.insert(
                 name,
                 move |_language, _diagnostics, _build_ctx, _self_property, function| {
@@ -3267,7 +3298,7 @@ mod tests {
             O: TemplateValue,
             F: Fn() -> O + Clone + 'static,
         {
-            let mut methods = self.language.register_methods::<Context>();
+            let mut methods = self.language.symbol_table.register_methods::<Context>();
             methods.insert(
                 name,
                 move |_language, _diagnostics, _build_ctx, self_property, function| {

@@ -26,7 +26,6 @@ pub mod config;
 pub mod description_util;
 pub mod diff_util;
 pub mod formatter;
-pub mod generic_templater;
 #[cfg(feature = "git")]
 pub mod git_util;
 pub mod graphlog;
