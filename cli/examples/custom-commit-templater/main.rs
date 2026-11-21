@@ -123,8 +123,10 @@ impl SymbolResolverExtension for TheDigitest {
 }
 
 impl CommitTemplateLanguageExtension for HexCounter {
-    fn symbol_table<'repo>(&self) -> TemplateSymbolTable<'repo, CommitTemplateLanguage<'repo>> {
-        let mut symbol_table = TemplateSymbolTable::<CommitTemplateLanguage>::empty();
+    fn register_symbols<'repo>(
+        &self,
+        symbol_table: &mut TemplateSymbolTable<'repo, CommitTemplateLanguage<'repo>>,
+    ) {
         let mut methods = symbol_table.register_methods::<Commit>();
         methods.insert(
             "has_most_digits",
@@ -171,8 +173,6 @@ impl CommitTemplateLanguageExtension for HexCounter {
                 Ok(out_property.into_dyn_wrapped())
             },
         );
-
-        symbol_table
     }
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap) {
