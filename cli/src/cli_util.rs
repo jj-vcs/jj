@@ -301,7 +301,7 @@ impl TracingSubscription {
                     .add_directive("jj_git_backend=debug".parse().unwrap())
                     .add_directive("jj_lib=debug".parse().unwrap())
                     .add_directive("jj_local_util=debug".parse().unwrap())
-                    .add_directive("jj_simple_stores=debug".parse().unwrap());
+                    .add_directive("jj_simple_backend=debug".parse().unwrap());
             })
             .map_err(|err| internal_error_with_message("failed to enable debug logging", err))?;
         tracing::info!("debug logging enabled");

@@ -84,7 +84,7 @@ use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
-use jj_simple_stores::simple_backend::SimpleBackend;
+use jj_simple_backend::simple_backend::SimpleBackend;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
 

@@ -31,7 +31,7 @@ const CRATES: &[(&str, &[&str])] = &[
     ("default-index", &["default_index.proto"]),
     ("git-backend", &["git_store.proto"]),
     (
-        "simple-stores",
+        "simple-backend",
         &["simple_op_store.proto", "simple_store.proto"],
     ),
 ];

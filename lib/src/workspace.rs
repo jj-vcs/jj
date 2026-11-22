@@ -223,7 +223,7 @@ impl Workspace {
     }
 
     /// Initializes a workspace with a new repo using the
-    /// [`SimpleBackend`](jj_simple_stores::simple_backend::SimpleBackend).
+    /// [`SimpleBackend`](jj_simple_backend::simple_backend::SimpleBackend).
     pub async fn init_simple(
         user_settings: &UserSettings,
         workspace_root: &Path,

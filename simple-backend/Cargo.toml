@@ -1,5 +1,5 @@
 [package]
-name = "jj-simple-stores"
+name = "jj-simple-backend"
 description = "Simple file-based commit backend, operation store, and operation heads store for Jujutsu - an experimental version control system"
 
 version.workspace = true
