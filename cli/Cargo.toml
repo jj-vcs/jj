@@ -99,7 +99,7 @@ regex = { workspace = true }
 ratatui = { workspace = true }
 rpassword = { workspace = true }
 sapling-renderdag = { workspace = true }
-sapling-streampager = { workspace = true }
+sapling-streampager = { workspace = true, optional = true }
 scm-record = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -137,11 +137,12 @@ testutils = { workspace = true }
 jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
 
 [features]
-default = ["watchman", "git"]
+default = ["watchman", "git", "builtin-pager"]
 bench = ["dep:criterion"]
 git = ["jj-lib/git", "jj-frontend/git", "dep:gix"]
 test-fakes = ["jj-lib/testing"]
 watchman = ["jj-lib/watchman"]
+builtin-pager = ["dep:sapling-streampager"]
 
 [package.metadata.binstall]
 # The archive name is jj, not jj-cli. Also, `cargo binstall` gets

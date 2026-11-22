@@ -17,6 +17,7 @@ use std::error;
 use std::fmt;
 use std::io;
 use std::io::IsTerminal as _;
+#[cfg(feature = "builtin-pager")]
 use std::io::PipeWriter;
 use std::io::Stderr;
 use std::io::StderrLock;
@@ -28,7 +29,9 @@ use std::mem;
 use std::process::Child;
 use std::process::ChildStdin;
 use std::process::Stdio;
+#[cfg(feature = "builtin-pager")]
 use std::thread;
+#[cfg(feature = "builtin-pager")]
 use std::thread::JoinHandle;
 
 use itertools::Itertools as _;
@@ -56,6 +59,7 @@ enum UiOutput {
         child: Child,
         child_stdin: ChildStdin,
     },
+    #[cfg(feature = "builtin-pager")]
     BuiltinPaged {
         out_wr: PipeWriter,
         err_wr: PipeWriter,
@@ -80,6 +84,7 @@ impl UiOutput {
         Ok(Self::Paged { child, child_stdin })
     }
 
+    #[cfg(feature = "builtin-pager")]
     fn new_builtin_paged(config: &StreampagerConfig) -> streampager::Result<Self> {
         let streampager_config = streampager::config::Config {
             wrapping_mode: config.wrapping.into(),
@@ -132,6 +137,7 @@ impl UiOutput {
                     .ok();
                 }
             }
+            #[cfg(feature = "builtin-pager")]
             Self::BuiltinPaged {
                 out_wr,
                 err_wr,
@@ -162,6 +168,7 @@ impl UiOutput {
 pub enum UiStdout<'a> {
     Terminal(StdoutLock<'static>),
     Paged(&'a ChildStdin),
+    #[cfg(feature = "builtin-pager")]
     Builtin(&'a PipeWriter),
     Null(io::Sink),
 }
@@ -169,6 +176,7 @@ pub enum UiStdout<'a> {
 pub enum UiStderr<'a> {
     Terminal(StderrLock<'static>),
     Paged(&'a ChildStdin),
+    #[cfg(feature = "builtin-pager")]
     Builtin(&'a PipeWriter),
     Null(io::Sink),
 }
@@ -178,6 +186,7 @@ macro_rules! for_outputs {
         match $output {
             $ty::Terminal($pat) => $expr,
             $ty::Paged($pat) => $expr,
+            #[cfg(feature = "builtin-pager")]
             $ty::Builtin($pat) => $expr,
             $ty::Null($pat) => $expr,
         }
@@ -270,6 +279,7 @@ pub enum PaginationChoice {
     Auto,
 }
 
+#[cfg(feature = "builtin-pager")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
 #[serde(rename_all(deserialize = "kebab-case"))]
 pub enum StreampagerAlternateScreenMode {
@@ -278,6 +288,7 @@ pub enum StreampagerAlternateScreenMode {
     QuitQuicklyOrClearOutput,
 }
 
+#[cfg(feature = "builtin-pager")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
 #[serde(rename_all(deserialize = "kebab-case"))]
 enum StreampagerWrappingMode {
@@ -286,6 +297,7 @@ enum StreampagerWrappingMode {
     Anywhere,
 }
 
+#[cfg(feature = "builtin-pager")]
 impl From<StreampagerWrappingMode> for streampager::config::WrappingMode {
     fn from(val: StreampagerWrappingMode) -> Self {
         match val {
@@ -296,6 +308,7 @@ impl From<StreampagerWrappingMode> for streampager::config::WrappingMode {
     }
 }
 
+#[cfg(feature = "builtin-pager")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
 #[serde(rename_all(deserialize = "kebab-case"))]
 struct StreampagerConfig {
@@ -307,6 +320,7 @@ struct StreampagerConfig {
     // of this writing, floating point numbers do not work with `--config`
 }
 
+#[cfg(feature = "builtin-pager")]
 impl StreampagerConfig {
     fn streampager_interface_mode(&self) -> streampager::config::InterfaceMode {
         use StreampagerAlternateScreenMode::*;
@@ -322,7 +336,10 @@ impl StreampagerConfig {
 
 enum PagerConfig {
     Disabled,
+    #[cfg(feature = "builtin-pager")]
     Builtin(StreampagerConfig),
+    #[cfg(not(feature = "builtin-pager"))]
+    BuiltinUnavailable,
     External(CommandNameAndArgs),
 }
 
@@ -332,10 +349,16 @@ impl PagerConfig {
             return Ok(Self::Disabled);
         }
         let args: CommandNameAndArgs = config.get("ui.pager")?;
-        if args.as_str() == Some(BUILTIN_PAGER_NAME) {
+        if args.as_str() != Some(BUILTIN_PAGER_NAME) {
+            return Ok(Self::External(args));
+        }
+        #[cfg(feature = "builtin-pager")]
+        {
             Ok(Self::Builtin(config.get("ui.streampager")?))
-        } else {
-            Ok(Self::External(args))
+        }
+        #[cfg(not(feature = "builtin-pager"))]
+        {
+            Ok(Self::BuiltinUnavailable)
         }
     }
 }
@@ -381,6 +404,21 @@ impl Ui {
             PagerConfig::Disabled => {
                 return;
             }
+            #[cfg(not(feature = "builtin-pager"))]
+            PagerConfig::BuiltinUnavailable => {
+                writeln!(
+                    self.warning_default(),
+                    "This build does not include the `:builtin` pager."
+                )
+                .ok();
+                writeln!(
+                    self.hint_default(),
+                    "Set `ui.pager` to an external pager such as `less -FRXK`."
+                )
+                .ok();
+                return;
+            }
+            #[cfg(feature = "builtin-pager")]
             PagerConfig::Builtin(streampager_config) => {
                 UiOutput::new_builtin_paged(streampager_config)
                     .inspect_err(|err| {
@@ -404,6 +442,7 @@ impl Ui {
                             err = format_error_with_sources(err),
                         )
                         .ok();
+                        #[cfg(feature = "builtin-pager")]
                         writeln!(self.hint_default(), "Consider using the `:builtin` pager.").ok();
                     })
                     .ok()
@@ -430,6 +469,7 @@ impl Ui {
         match &self.output {
             UiOutput::Terminal { stdout, .. } => UiStdout::Terminal(stdout.lock()),
             UiOutput::Paged { child_stdin, .. } => UiStdout::Paged(child_stdin),
+            #[cfg(feature = "builtin-pager")]
             UiOutput::BuiltinPaged { out_wr, .. } => UiStdout::Builtin(out_wr),
             UiOutput::Null => UiStdout::Null(io::sink()),
         }
@@ -448,6 +488,7 @@ impl Ui {
         match &self.output {
             UiOutput::Terminal { stderr, .. } => UiStderr::Terminal(stderr.lock()),
             UiOutput::Paged { child_stdin, .. } => UiStderr::Paged(child_stdin),
+            #[cfg(feature = "builtin-pager")]
             UiOutput::BuiltinPaged { err_wr, .. } => UiStderr::Builtin(err_wr),
             UiOutput::Null => UiStderr::Null(io::sink()),
         }
@@ -463,6 +504,7 @@ impl Ui {
         match &self.output {
             UiOutput::Terminal { .. } => Ok(Stdio::inherit()),
             UiOutput::Paged { child_stdin, .. } => Ok(duplicate_child_stdin(child_stdin)?.into()),
+            #[cfg(feature = "builtin-pager")]
             UiOutput::BuiltinPaged { err_wr, .. } => Ok(err_wr.try_clone()?.into()),
             UiOutput::Null => Ok(Stdio::null()),
         }
@@ -476,6 +518,7 @@ impl Ui {
                 !self.quiet && self.progress_indicator && stderr.is_terminal()
             }
             UiOutput::Paged { .. } => false,
+            #[cfg(feature = "builtin-pager")]
             UiOutput::BuiltinPaged { .. } => false,
             UiOutput::Null => false,
         }
