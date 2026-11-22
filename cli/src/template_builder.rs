@@ -756,32 +756,10 @@ where
         property: TemplatePropertyKind<'a>,
         function: &FunctionCallNode,
     ) -> TemplateParseResult<TemplatePropertyKind<'a>> {
-        let registry = language.type_registry();
-        let type_name = property.type_name(registry);
+        let type_name = property.type_name(language.type_registry());
         match property {
             TemplatePropertyKind::Value { ty, property } => {
-                let unwrapped_ty = match ty {
-                    TemplateValueType::Scalar(_) => ty,
-                    TemplateValueType::Option(id) => TemplateValueType::Scalar(id),
-                };
-                let type_name = registry
-                    .get_type_name(&unwrapped_ty)
-                    .expect("registered type");
-                if let Some(table) = self.methods.get(&unwrapped_ty) {
-                    let method = template_parser::lookup_method(type_name, table, function)?;
-                    method.build(language, diagnostics, build_ctx, property, function)
-                } else if let Some((inner_ty, cast)) = registry.get_newtype(&unwrapped_ty)
-                    && let Some(table) = self.methods.get(inner_ty)
-                {
-                    // Use the original type name for error
-                    let method = template_parser::lookup_method(type_name, table, function)?;
-                    let inner_property = property
-                        .and_then(move |repr| reject_missing_value(cast(repr), type_name))
-                        .into_dyn();
-                    method.build(language, diagnostics, build_ctx, inner_property, function)
-                } else {
-                    panic!("no method table registered for type: {unwrapped_ty:?}");
-                }
+                self.build_value_method(language, diagnostics, build_ctx, ty, property, function)
             }
             TemplatePropertyKind::Template(template) => {
                 let table = &self.template_methods;
@@ -798,6 +776,40 @@ where
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
             }
+        }
+    }
+
+    fn build_value_method(
+        &self,
+        language: &L,
+        diagnostics: &mut TemplateDiagnostics,
+        build_ctx: &BuildContext<'a, '_>,
+        ty: TemplateValueType,
+        property: BoxedTemplateProperty<'a, TemplateValueRepr>,
+        function: &FunctionCallNode,
+    ) -> TemplateParseResult<TemplatePropertyKind<'a>> {
+        let registry = language.type_registry();
+        let unwrapped_ty = match ty {
+            TemplateValueType::Scalar(_) => ty,
+            TemplateValueType::Option(id) => TemplateValueType::Scalar(id),
+        };
+        let type_name = registry
+            .get_type_name(&unwrapped_ty)
+            .expect("registered type");
+        if let Some(table) = self.methods.get(&unwrapped_ty) {
+            let method = template_parser::lookup_method(type_name, table, function)?;
+            method.build(language, diagnostics, build_ctx, property, function)
+        } else if let Some((inner_ty, cast)) = registry.get_newtype(&unwrapped_ty)
+            && let Some(table) = self.methods.get(inner_ty)
+        {
+            // Use the original type name for error
+            let method = template_parser::lookup_method(type_name, table, function)?;
+            let inner_property = property
+                .and_then(move |repr| reject_missing_value(cast(repr), type_name))
+                .into_dyn();
+            method.build(language, diagnostics, build_ctx, inner_property, function)
+        } else {
+            panic!("no method table registered for type: {unwrapped_ty:?}");
         }
     }
 }
