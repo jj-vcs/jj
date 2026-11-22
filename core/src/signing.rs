@@ -22,7 +22,7 @@ use std::sync::Mutex;
 use clru::CLruCache;
 use thiserror::Error;
 
-use crate::backend::CommitId;
+use crate::commit_store::CommitId;
 use crate::store::COMMIT_CACHE_CAPACITY;
 
 /// A status of the signature, part of the [Verification] type.

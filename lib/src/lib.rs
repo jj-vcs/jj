@@ -20,7 +20,7 @@
 
 pub mod absorb;
 pub mod annotate;
-pub use jj_core::backend;
+pub use jj_core::commit_store;
 pub mod bisect;
 pub use jj_core::commit;
 pub mod commit_builder;
@@ -33,7 +33,7 @@ pub mod converge;
 pub use jj_core::copies;
 pub use jj_core::dag_walk;
 pub use jj_core::dag_walk_async;
-pub mod default_backend_factories;
+pub mod default_commit_store_factories;
 pub use jj_default_index as default_index;
 pub mod default_submodule_store;
 pub use jj_core::diff;

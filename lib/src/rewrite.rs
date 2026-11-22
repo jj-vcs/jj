@@ -26,12 +26,12 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::CommitId;
 use jj_core::commit::Commit;
 use jj_core::commit::CommitIteratorExt as _;
 use jj_core::commit::conflict_label_for_commits;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreResult;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::index::Index;
 use jj_core::index::IndexResult;
@@ -51,7 +51,10 @@ use crate::repo::Repo;
 use crate::revset::RevsetExpression;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.
-pub async fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendResult<MergedTree> {
+pub async fn merge_commit_trees(
+    repo: &dyn Repo,
+    commits: &[Commit],
+) -> CommitStoreResult<MergedTree> {
     jj_core::commit::merge_commit_trees(repo.store(), repo.index(), commits).await
 }
 
@@ -59,7 +62,7 @@ pub async fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendR
 pub async fn merge_commit_trees_no_resolve(
     repo: &dyn Repo,
     commits: &[Commit],
-) -> BackendResult<MergedTree> {
+) -> CommitStoreResult<MergedTree> {
     jj_core::commit::merge_commit_trees_no_resolve(repo.store(), repo.index(), commits).await
 }
 
@@ -70,7 +73,7 @@ pub async fn restore_tree(
     source_label: String,
     destination_label: String,
     matcher: &dyn Matcher,
-) -> BackendResult<MergedTree> {
+) -> CommitStoreResult<MergedTree> {
     if matcher.visit(RepoPath::root()) == Visit::AllRecursively {
         // Optimization for a common case
         return Ok(source.clone());
@@ -126,7 +129,7 @@ pub async fn rebase_commit(
     mut_repo: &mut MutableRepo,
     old_commit: Commit,
     new_parents: Vec<CommitId>,
-) -> BackendResult<Commit> {
+) -> CommitStoreResult<Commit> {
     let rewriter = CommitRewriter::new(mut_repo, old_commit, new_parents);
     let builder = rewriter.rebase().await?;
     builder.write().await
@@ -229,7 +232,7 @@ impl<'repo> CommitRewriter<'repo> {
     pub async fn rebase_with_empty_behavior(
         self,
         empty: EmptyBehavior,
-    ) -> BackendResult<Option<CommitBuilder<'repo>>> {
+    ) -> CommitStoreResult<Option<CommitBuilder<'repo>>> {
         let old_parents_fut = self.old_commit.parents();
         let new_parents_fut = try_join_all(
             self.new_parents
@@ -313,7 +316,7 @@ impl<'repo> CommitRewriter<'repo> {
 
     /// Rebase the old commit onto the new parents. Returns a `CommitBuilder`
     /// for the new commit.
-    pub async fn rebase(self) -> BackendResult<CommitBuilder<'repo>> {
+    pub async fn rebase(self) -> CommitStoreResult<CommitBuilder<'repo>> {
         let builder = self.rebase_with_empty_behavior(EmptyBehavior::Keep).await?;
         Ok(builder.unwrap())
     }
@@ -344,14 +347,14 @@ pub enum RebasedCommit {
 pub async fn rebase_commit_with_options(
     mut rewriter: CommitRewriter<'_>,
     options: &RebaseOptions,
-) -> BackendResult<RebasedCommit> {
+) -> CommitStoreResult<RebasedCommit> {
     // If specified, don't create commit where one parent is an ancestor of another.
     if options.simplify_ancestor_merge {
         rewriter
             .simplify_ancestor_merge()
             .await
-            // TODO: indexing error shouldn't be a "BackendError"
-            .map_err(|err| BackendError::Other(err.into()))?;
+            // TODO: indexing error shouldn't be a "CommitStoreError"
+            .map_err(|err| CommitStoreError::Other(err.into()))?;
     }
 
     let single_parent = match &rewriter.new_parents[..] {
@@ -376,14 +379,14 @@ pub async fn rebase_to_dest_parent(
     index: &dyn Index,
     sources: &[Commit],
     destination: &Commit,
-) -> BackendResult<MergedTree> {
+) -> CommitStoreResult<MergedTree> {
     if let [source] = sources
         && source.parent_ids() == destination.parent_ids()
     {
         return Ok(source.tree());
     }
 
-    let diffs: Vec<_> = try_join_all(sources.iter().map(async |source| -> BackendResult<_> {
+    let diffs: Vec<_> = try_join_all(sources.iter().map(async |source| -> CommitStoreResult<_> {
         Ok(Diff::new(
             (
                 source.parent_tree(index).await?,
@@ -527,7 +530,7 @@ impl ComputedMoveCommits {
         self,
         mut_repo: &mut MutableRepo,
         options: &RebaseOptions,
-    ) -> BackendResult<MoveCommitsStats> {
+    ) -> CommitStoreResult<MoveCommitsStats> {
         apply_move_commits(mut_repo, self, options).await
     }
 }
@@ -544,7 +547,7 @@ pub async fn move_commits(
     mut_repo: &mut MutableRepo,
     loc: &MoveCommitsLocation,
     options: &RebaseOptions,
-) -> BackendResult<MoveCommitsStats> {
+) -> CommitStoreResult<MoveCommitsStats> {
     compute_move_commits(mut_repo, loc)
         .await?
         .apply(mut_repo, options)
@@ -556,7 +559,7 @@ pub async fn move_commits(
 pub async fn compute_move_commits(
     repo: &MutableRepo,
     loc: &MoveCommitsLocation,
-) -> BackendResult<ComputedMoveCommits> {
+) -> CommitStoreResult<ComputedMoveCommits> {
     let target_commit_ids: IndexSet<CommitId>;
     let connected_target_commits: Vec<Commit>;
     let connected_target_commits_internal_parents: HashMap<CommitId, IndexSet<CommitId>>;
@@ -573,12 +576,12 @@ pub async fn compute_move_commits(
             connected_target_commits = RevsetExpression::commits(commit_ids.clone())
                 .connected()
                 .evaluate(repo)
-                .map_err(|err| err.into_backend_error())?
+                .map_err(|err| err.into_commit_store_error())?
                 .stream()
                 .commits(repo.store())
                 .try_collect()
                 .await
-                .map_err(|err| err.into_backend_error())?;
+                .map_err(|err| err.into_commit_store_error())?;
             connected_target_commits_internal_parents =
                 compute_internal_parents_within(&target_commit_ids, &connected_target_commits);
 
@@ -598,11 +601,11 @@ pub async fn compute_move_commits(
             target_commit_ids = RevsetExpression::commits(root_ids.clone())
                 .descendants()
                 .evaluate(repo)
-                .map_err(|err| err.into_backend_error())?
+                .map_err(|err| err.into_commit_store_error())?
                 .stream()
                 .try_collect()
                 .await
-                .map_err(|err| err.into_backend_error())?;
+                .map_err(|err| err.into_commit_store_error())?;
 
             connected_target_commits = try_join_all(
                 target_commit_ids
@@ -664,12 +667,12 @@ pub async fn compute_move_commits(
                         .children(),
                 )
                 .evaluate(repo)
-                .map_err(|err| err.into_backend_error())?
+                .map_err(|err| err.into_commit_store_error())?
                 .stream()
                 .commits(repo.store())
                 .try_collect()
                 .await
-                .map_err(|err| err.into_backend_error())?;
+                .map_err(|err| err.into_commit_store_error())?;
 
         // For all commits in the target set, compute its transitive descendant commits
         // which are outside of the target set by up to 1 generation.
@@ -780,8 +783,8 @@ pub async fn compute_move_commits(
     let descendants = repo
         .find_descendants_for_rebase(roots.clone(), &RevsetExpression::none())
         .await?;
-    let commit_new_parents_entries =
-        try_join_all(descendants.iter().map(async |commit| -> BackendResult<_> {
+    let commit_new_parents_entries = try_join_all(descendants.iter().map(
+        async |commit| -> CommitStoreResult<_> {
             let commit_id = commit.id();
             let new_parent_ids =
                 if let Some(new_child_parents) = new_children_parents.get(commit_id) {
@@ -813,8 +816,8 @@ pub async fn compute_move_commits(
                                 repo.index().is_ancestor(child.id(), parent_id).await
                             })
                             .await
-                            // TODO: indexing error shouldn't be a "BackendError"
-                            .map_err(|err| BackendError::Other(err.into()))?
+                            // TODO: indexing error shouldn't be a "CommitStoreError"
+                            .map_err(|err| CommitStoreError::Other(err.into()))?
                             {
                                 new_parents.push(parent_id.clone());
                             }
@@ -841,8 +844,9 @@ pub async fn compute_move_commits(
                     commit.parent_ids().iter().cloned().collect_vec()
                 };
             Ok((commit.id().clone(), new_parent_ids))
-        }))
-        .await?;
+        },
+    ))
+    .await?;
     let commit_new_parents_map = commit_new_parents_entries.into_iter().collect();
 
     Ok(ComputedMoveCommits {
@@ -857,7 +861,7 @@ async fn apply_move_commits(
     mut_repo: &mut MutableRepo,
     commits: ComputedMoveCommits,
     options: &RebaseOptions,
-) -> BackendResult<MoveCommitsStats> {
+) -> CommitStoreResult<MoveCommitsStats> {
     let mut num_rebased_targets = 0;
     let mut num_rebased_descendants = 0;
     let mut num_skipped_rebases = 0;
@@ -952,7 +956,7 @@ pub async fn duplicate_commits(
     target_descriptions: &HashMap<CommitId, String>,
     parent_commit_ids: &[CommitId],
     children_commit_ids: &[CommitId],
-) -> BackendResult<DuplicateCommitsStats> {
+) -> CommitStoreResult<DuplicateCommitsStats> {
     if target_commit_ids.is_empty() {
         return Ok(DuplicateCommitsStats::default());
     }
@@ -966,12 +970,12 @@ pub async fn duplicate_commits(
         RevsetExpression::commits(target_commit_ids.iter().cloned().collect_vec())
             .connected()
             .evaluate(mut_repo)
-            .map_err(|err| err.into_backend_error())?
+            .map_err(|err| err.into_commit_store_error())?
             .stream()
             .commits(mut_repo.store())
             .try_collect()
             .await
-            .map_err(|err| err.into_backend_error())?;
+            .map_err(|err| err.into_commit_store_error())?;
 
     // Commits in the target set should only have other commits in the set as
     // parents, except the roots of the set, which persist their original
@@ -1096,7 +1100,7 @@ pub async fn duplicate_commits_onto_parents(
     mut_repo: &mut MutableRepo,
     target_commits: &[CommitId],
     target_descriptions: &HashMap<CommitId, String>,
-) -> BackendResult<DuplicateCommitsStats> {
+) -> CommitStoreResult<DuplicateCommitsStats> {
     if target_commits.is_empty() {
         return Ok(DuplicateCommitsStats::default());
     }
@@ -1228,7 +1232,7 @@ impl CommitWithSelection {
         parent_tree_label: &str,
         selected_tree_label: &str,
         full_selection_label: &str,
-    ) -> BackendResult<Diff<(MergedTree, String)>> {
+    ) -> CommitStoreResult<Diff<(MergedTree, String)>> {
         let parent_tree_label = format!(
             "{} ({parent_tree_label})",
             self.commit.parents_conflict_label().await?
@@ -1265,7 +1269,7 @@ pub async fn squash_commits<'repo>(
     sources: &[CommitWithSelection],
     destination: &Commit,
     keep_emptied: bool,
-) -> BackendResult<Option<SquashedCommit<'repo>>> {
+) -> CommitStoreResult<Option<SquashedCommit<'repo>>> {
     struct SourceCommit<'a> {
         commit: &'a CommitWithSelection,
         diff: Diff<(MergedTree, String)>,
@@ -1327,8 +1331,8 @@ pub async fn squash_commits<'repo>(
             .await
     })
     .await
-    // TODO: indexing error shouldn't be a "BackendError"
-    .map_err(|err| BackendError::Other(err.into()))?
+    // TODO: indexing error shouldn't be a "CommitStoreError"
+    .map_err(|err| CommitStoreError::Other(err.into()))?
     {
         // If we're moving changes to a descendant, first rebase descendants onto the
         // rewritten sources. Otherwise it will likely already have the content
@@ -1380,7 +1384,7 @@ pub async fn find_duplicate_divergent_commits(
     repo: &dyn Repo,
     new_parent_ids: &[CommitId],
     target: &MoveCommitsTarget,
-) -> BackendResult<Vec<Commit>> {
+) -> CommitStoreResult<Vec<Commit>> {
     let target_commits: Vec<Commit> = match target {
         MoveCommitsTarget::Commits(commit_ids) => {
             try_join_all(
@@ -1393,24 +1397,24 @@ pub async fn find_duplicate_divergent_commits(
         MoveCommitsTarget::Roots(root_ids) => RevsetExpression::commits(root_ids.clone())
             .descendants()
             .evaluate(repo)
-            .map_err(|err| err.into_backend_error())?
+            .map_err(|err| err.into_commit_store_error())?
             .stream()
             .commits(repo.store())
             .try_collect()
             .await
-            .map_err(|err| err.into_backend_error())?,
+            .map_err(|err| err.into_commit_store_error())?,
     };
     let target_commit_ids: HashSet<&CommitId> = target_commits.iter().map(Commit::id).collect();
 
     // For each divergent change being rebased, we want to find all of the other
     // commits with the same change ID which are not being rebased.
     let divergent_changes: Vec<_> = futures::stream::iter(&target_commits)
-        .map(async |target_commit| -> BackendResult<_> {
+        .map(async |target_commit| -> CommitStoreResult<_> {
             let mut ancestor_candidates = repo
                 .resolve_change_id(target_commit.change_id())
                 .await
-                // TODO: indexing error shouldn't be a "BackendError"
-                .map_err(|err| BackendError::Other(err.into()))?
+                // TODO: indexing error shouldn't be a "CommitStoreError"
+                .map_err(|err| CommitStoreError::Other(err.into()))?
                 .and_then(ResolvedChangeTargets::into_visible)
                 .unwrap_or_default();
             ancestor_candidates.retain(|commit_id| !target_commit_ids.contains(commit_id));
@@ -1434,7 +1438,7 @@ pub async fn find_duplicate_divergent_commits(
     let is_new_ancestor = RevsetExpression::commits(target_root_ids.clone())
         .range(&RevsetExpression::commits(new_parent_ids.to_owned()))
         .evaluate(repo)
-        .map_err(|err| err.into_backend_error())?
+        .map_err(|err| err.into_commit_store_error())?
         .containing_fn();
 
     let mut duplicate_divergent = Vec::new();
@@ -1446,7 +1450,7 @@ pub async fn find_duplicate_divergent_commits(
         for ancestor_candidate_id in ancestor_candidates {
             if !is_new_ancestor(&ancestor_candidate_id)
                 .await
-                .map_err(|err| err.into_backend_error())?
+                .map_err(|err| err.into_commit_store_error())?
             {
                 continue;
             }

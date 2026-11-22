@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Simple file-based commit backend, mainly used for testing.
+//! Simple file-based commit store, mainly used for testing.
 
 use std::fmt::Debug;
 use std::fs;
@@ -33,27 +33,27 @@ use futures::StreamExt as _;
 use futures::io::Cursor;
 use futures::stream;
 use futures::stream::BoxStream;
-use jj_core::backend::Backend;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::ChangeId;
-use jj_core::backend::Commit;
-use jj_core::backend::CommitId;
-use jj_core::backend::CopyHistory;
-use jj_core::backend::CopyId;
-use jj_core::backend::CopyRecord;
-use jj_core::backend::FileId;
-use jj_core::backend::MillisSinceEpoch;
-use jj_core::backend::RelatedCopy;
-use jj_core::backend::SecureSig;
-use jj_core::backend::Signature;
-use jj_core::backend::SigningFn;
-use jj_core::backend::SymlinkId;
-use jj_core::backend::Timestamp;
-use jj_core::backend::Tree;
-use jj_core::backend::TreeId;
-use jj_core::backend::TreeValue;
-use jj_core::backend::make_root_commit;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::Commit;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStore;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreResult;
+use jj_core::commit_store::CopyHistory;
+use jj_core::commit_store::CopyId;
+use jj_core::commit_store::CopyRecord;
+use jj_core::commit_store::FileId;
+use jj_core::commit_store::MillisSinceEpoch;
+use jj_core::commit_store::RelatedCopy;
+use jj_core::commit_store::SecureSig;
+use jj_core::commit_store::Signature;
+use jj_core::commit_store::SigningFn;
+use jj_core::commit_store::SymlinkId;
+use jj_core::commit_store::Timestamp;
+use jj_core::commit_store::Tree;
+use jj_core::commit_store::TreeId;
+use jj_core::commit_store::TreeValue;
+use jj_core::commit_store::make_root_commit;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::content_hash::blake2b_hash;
 use jj_core::merge::MergeBuilder;
@@ -69,15 +69,15 @@ use prost::Message as _;
 const COMMIT_ID_LENGTH: usize = 64;
 const CHANGE_ID_LENGTH: usize = 16;
 
-fn map_not_found_err(err: std::io::Error, id: &impl ObjectId) -> BackendError {
+fn map_not_found_err(err: std::io::Error, id: &impl ObjectId) -> CommitStoreError {
     if err.kind() == std::io::ErrorKind::NotFound {
-        BackendError::ObjectNotFound {
+        CommitStoreError::ObjectNotFound {
             object_type: id.object_type(),
             hash: id.hex(),
             source: Some(Box::new(err)),
         }
     } else {
-        BackendError::ReadObject {
+        CommitStoreError::ReadObject {
             object_type: id.object_type(),
             hash: id.hex(),
             source: Box::new(err),
@@ -85,22 +85,22 @@ fn map_not_found_err(err: std::io::Error, id: &impl ObjectId) -> BackendError {
     }
 }
 
-fn to_other_err(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> BackendError {
-    BackendError::Other(err.into())
+fn to_other_err(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> CommitStoreError {
+    CommitStoreError::Other(err.into())
 }
 
 /// Commit backend that stores objects as protobuf files on disk, mainly used
 /// for testing.
 #[derive(Debug)]
-pub struct SimpleBackend {
+pub struct SimpleCommitStore {
     path: PathBuf,
     root_commit_id: CommitId,
     root_change_id: ChangeId,
     empty_tree_id: TreeId,
 }
 
-impl SimpleBackend {
-    /// Name of this backend type.
+impl SimpleCommitStore {
+    /// Name of this commit store type.
     pub const NAME: &str = "Simple";
 
     /// Initializes a new backend at `store_path`.
@@ -110,13 +110,13 @@ impl SimpleBackend {
         fs::create_dir(store_path.join("files")).unwrap();
         fs::create_dir(store_path.join("symlinks")).unwrap();
         fs::create_dir(store_path.join("conflicts")).unwrap();
-        let backend = Self::load(store_path);
-        let empty_tree_id = backend
+        let commit_store = Self::load(store_path);
+        let empty_tree_id = commit_store
             .write_tree(RepoPath::root(), &Tree::default())
             .block_on()
             .unwrap();
-        assert_eq!(empty_tree_id, backend.empty_tree_id);
-        backend
+        assert_eq!(empty_tree_id, commit_store.empty_tree_id);
+        commit_store
     }
 
     /// Loads an existing backend from `store_path`.
@@ -152,7 +152,7 @@ impl SimpleBackend {
 }
 
 #[async_trait]
-impl Backend for SimpleBackend {
+impl CommitStore for SimpleCommitStore {
     fn name(&self) -> &str {
         Self::NAME
     }
@@ -185,12 +185,12 @@ impl Backend for SimpleBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
+    ) -> CommitStoreResult<Pin<Box<dyn AsyncRead + Send>>> {
         let disk_path = self.file_path(id);
         let mut file = File::open(disk_path).map_err(|err| map_not_found_err(err, id))?;
         let mut buf = vec![];
         file.read_to_end(&mut buf)
-            .map_err(|err| BackendError::ReadFile {
+            .map_err(|err| CommitStoreError::ReadFile {
                 path: path.to_owned(),
                 id: id.clone(),
                 source: err.into(),
@@ -202,7 +202,7 @@ impl Backend for SimpleBackend {
         &self,
         _path: &RepoPath,
         contents: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> BackendResult<FileId> {
+    ) -> CommitStoreResult<FileId> {
         // TODO: Write temporary file in the destination directory (#5712)
         let temp_file = new_temp_file_with_default_permissions(&self.path).map_err(to_other_err)?;
         let mut file = temp_file.as_file();
@@ -225,13 +225,13 @@ impl Backend for SimpleBackend {
         Ok(id)
     }
 
-    async fn read_symlink(&self, _path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
+    async fn read_symlink(&self, _path: &RepoPath, id: &SymlinkId) -> CommitStoreResult<String> {
         let path = self.symlink_path(id);
         let target = fs::read_to_string(path).map_err(|err| map_not_found_err(err, id))?;
         Ok(target)
     }
 
-    async fn write_symlink(&self, _path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
+    async fn write_symlink(&self, _path: &RepoPath, target: &str) -> CommitStoreResult<SymlinkId> {
         // TODO: Write temporary file in the destination directory (#5712)
         let mut temp_file =
             new_temp_file_with_default_permissions(&self.path).map_err(to_other_err)?;
@@ -247,25 +247,25 @@ impl Backend for SimpleBackend {
         Ok(id)
     }
 
-    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
-        Err(BackendError::Unsupported(
+    async fn read_copy(&self, _id: &CopyId) -> CommitStoreResult<CopyHistory> {
+        Err(CommitStoreError::Unsupported(
             "The simple backend doesn't support copies".to_string(),
         ))
     }
 
-    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
-        Err(BackendError::Unsupported(
+    async fn write_copy(&self, _contents: &CopyHistory) -> CommitStoreResult<CopyId> {
+        Err(CommitStoreError::Unsupported(
             "The simple backend doesn't support copies".to_string(),
         ))
     }
 
-    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>> {
-        Err(BackendError::Unsupported(
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> CommitStoreResult<Vec<RelatedCopy>> {
+        Err(CommitStoreError::Unsupported(
             "The simple backend doesn't support copies".to_string(),
         ))
     }
 
-    async fn read_tree(&self, _path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
+    async fn read_tree(&self, _path: &RepoPath, id: &TreeId) -> CommitStoreResult<Tree> {
         let path = self.tree_path(id);
         let buf = fs::read(path).map_err(|err| map_not_found_err(err, id))?;
 
@@ -273,7 +273,7 @@ impl Backend for SimpleBackend {
         Ok(tree_from_proto(proto))
     }
 
-    async fn write_tree(&self, _path: &RepoPath, tree: &Tree) -> BackendResult<TreeId> {
+    async fn write_tree(&self, _path: &RepoPath, tree: &Tree) -> CommitStoreResult<TreeId> {
         // TODO: Write temporary file in the destination directory (#5712)
         let temp_file = new_temp_file_with_default_permissions(&self.path).map_err(to_other_err)?;
 
@@ -290,7 +290,7 @@ impl Backend for SimpleBackend {
         Ok(id)
     }
 
-    async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {
+    async fn read_commit(&self, id: &CommitId) -> CommitStoreResult<Commit> {
         if *id == self.root_commit_id {
             return Ok(make_root_commit(
                 self.root_change_id().clone(),
@@ -309,11 +309,11 @@ impl Backend for SimpleBackend {
         &self,
         mut commit: Commit,
         sign_with: Option<&mut SigningFn>,
-    ) -> BackendResult<(CommitId, Commit)> {
+    ) -> CommitStoreResult<(CommitId, Commit)> {
         assert!(commit.secure_sig.is_none(), "commit.secure_sig was set");
 
         if commit.parents.is_empty() {
-            return Err(BackendError::Other(
+            return Err(CommitStoreError::Other(
                 "Cannot write a commit with no parents".into(),
             ));
         }
@@ -345,11 +345,11 @@ impl Backend for SimpleBackend {
         _paths: Option<&[RepoPathBuf]>,
         _root: &CommitId,
         _head: &CommitId,
-    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
+    ) -> CommitStoreResult<BoxStream<'_, CommitStoreResult<CopyRecord>>> {
         Ok(stream::empty().boxed())
     }
 
-    async fn gc(&self, _heads: &[CommitId], _keep_newer: SystemTime) -> BackendResult<()> {
+    async fn gc(&self, _heads: &[CommitId], _keep_newer: SystemTime) -> CommitStoreResult<()> {
         Ok(())
     }
 }
@@ -522,11 +522,11 @@ mod tests {
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
 
-        let backend = SimpleBackend::init(store_path);
+        let commit_store = SimpleCommitStore::init(store_path);
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],
-            root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+            root_tree: Merge::resolved(commit_store.empty_tree_id().clone()),
             conflict_labels: Merge::resolved(String::new()),
             change_id: ChangeId::from_hex("abc123"),
             description: "".to_string(),
@@ -535,39 +535,39 @@ mod tests {
             secure_sig: None,
         };
 
-        let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
-            backend.write_commit(commit, None).block_on()
+        let write_commit = |commit: Commit| -> CommitStoreResult<(CommitId, Commit)> {
+            commit_store.write_commit(commit, None).block_on()
         };
 
         // No parents
         commit.parents = vec![];
         assert_matches!(
             write_commit(commit.clone()),
-            Err(BackendError::Other(err)) if err.to_string().contains("no parents")
+            Err(CommitStoreError::Other(err)) if err.to_string().contains("no parents")
         );
 
         // Only root commit as parent
-        commit.parents = vec![backend.root_commit_id().clone()];
+        commit.parents = vec![commit_store.root_commit_id().clone()];
         let first_id = write_commit(commit.clone())?.0;
-        let first_commit = backend.read_commit(&first_id).block_on()?;
+        let first_commit = commit_store.read_commit(&first_id).block_on()?;
         assert_eq!(first_commit, commit);
 
         // Only non-root commit as parent
         commit.parents = vec![first_id.clone()];
         let second_id = write_commit(commit.clone())?.0;
-        let second_commit = backend.read_commit(&second_id).block_on()?;
+        let second_commit = commit_store.read_commit(&second_id).block_on()?;
         assert_eq!(second_commit, commit);
 
         // Merge commit
         commit.parents = vec![first_id.clone(), second_id.clone()];
         let merge_id = write_commit(commit.clone())?.0;
-        let merge_commit = backend.read_commit(&merge_id).block_on()?;
+        let merge_commit = commit_store.read_commit(&merge_id).block_on()?;
         assert_eq!(merge_commit, commit);
 
         // Merge commit with root as one parent
-        commit.parents = vec![first_id, backend.root_commit_id().clone()];
+        commit.parents = vec![first_id, commit_store.root_commit_id().clone()];
         let root_merge_id = write_commit(commit.clone())?.0;
-        let root_merge_commit = backend.read_commit(&root_merge_id).block_on()?;
+        let root_merge_commit = commit_store.read_commit(&root_merge_id).block_on()?;
         assert_eq!(root_merge_commit, commit);
         Ok(())
     }

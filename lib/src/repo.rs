@@ -29,12 +29,12 @@ use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
 use jj_core::commit::Commit;
 use jj_core::commit::CommitByCommitterTimestamp;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreResult;
 use jj_core::dag_walk;
 use jj_core::dag_walk_async;
 use jj_core::index::ChangeIdIndex;
@@ -289,9 +289,9 @@ impl Repo for ReadonlyRepo {
 /// Error from loading a repo.
 #[derive(Debug, Error)]
 pub enum RepoLoaderError {
-    /// Error from the commit backend.
+    /// Error from the commit store.
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    CommitStore(#[from] CommitStoreError),
     /// Error from the index.
     #[error(transparent)]
     Index(#[from] IndexError),
@@ -839,7 +839,7 @@ impl MutableRepo {
     fn resolve_rewrite_mapping_with(
         &self,
         mut predicate: impl FnMut(&Rewrite) -> bool,
-    ) -> BackendResult<HashMap<CommitId, Vec<CommitId>>> {
+    ) -> CommitStoreResult<HashMap<CommitId, Vec<CommitId>>> {
         let sorted_ids = dag_walk::topo_order_forward(
             self.parent_mapping.keys(),
             |&id| id,
@@ -848,7 +848,7 @@ impl MutableRepo {
                 Some(rewrite) => rewrite.new_parent_ids(),
             },
             |id| {
-                BackendError::Other(
+                CommitStoreError::Other(
                     format!("Cycle between rewritten commits involving commit {id}").into(),
                 )
             },
@@ -877,20 +877,23 @@ impl MutableRepo {
     pub async fn update_rewritten_references(
         &mut self,
         options: &RewriteRefsOptions,
-    ) -> BackendResult<()> {
+    ) -> CommitStoreResult<()> {
         self.update_all_references(options).await?;
         self.update_heads()
             .await
-            .map_err(|err| err.into_backend_error())?;
+            .map_err(|err| err.into_commit_store_error())?;
         Ok(())
     }
 
-    async fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
+    async fn update_all_references(
+        &mut self,
+        options: &RewriteRefsOptions,
+    ) -> CommitStoreResult<()> {
         let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true)?;
         self.update_local_bookmarks(&rewrite_mapping, options)
             .await
-            // TODO: indexing error shouldn't be a "BackendError"
-            .map_err(|err| BackendError::Other(err.into()))?;
+            // TODO: indexing error shouldn't be a "CommitStoreError"
+            .map_err(|err| CommitStoreError::Other(err.into()))?;
         self.update_wc_commits(&rewrite_mapping).await?;
         Ok(())
     }
@@ -934,7 +937,7 @@ impl MutableRepo {
     async fn update_wc_commits(
         &mut self,
         rewrite_mapping: &HashMap<CommitId, Vec<CommitId>>,
-    ) -> BackendResult<()> {
+    ) -> CommitStoreResult<()> {
         let changed_wc_commits = self
             .view()
             .wc_commit_ids()
@@ -971,10 +974,10 @@ impl MutableRepo {
             self.edit(name, &new_wc_commit)
                 .await
                 .map_err(|err| match err {
-                    EditCommitError::BackendError(backend_error) => backend_error,
-                    // TODO: index error shouldn't be a "BackendError"
+                    EditCommitError::CommitStoreError(commit_store_error) => commit_store_error,
+                    // TODO: index error shouldn't be a "CommitStoreError"
                     EditCommitError::IndexError(index_error) => {
-                        BackendError::Other(index_error.into())
+                        CommitStoreError::Other(index_error.into())
                     }
                     EditCommitError::WorkingCopyCommitNotFound(_)
                     | EditCommitError::RewriteRootCommit(_) => panic!("unexpected error: {err:?}"),
@@ -1015,7 +1018,7 @@ impl MutableRepo {
         &self,
         roots: Vec<CommitId>,
         immutable: &Arc<ResolvedRevsetExpression>,
-    ) -> BackendResult<Vec<Commit>> {
+    ) -> CommitStoreResult<Vec<Commit>> {
         let to_visit_revset = RevsetExpression::commits(roots)
             .descendants()
             .minus(immutable)
@@ -1023,13 +1026,13 @@ impl MutableRepo {
                 self.parent_mapping.keys().cloned().collect(),
             ))
             .evaluate(self)
-            .map_err(|err| err.into_backend_error())?;
+            .map_err(|err| err.into_commit_store_error())?;
         let to_visit = to_visit_revset
             .stream()
             .commits(self.store())
             .try_collect()
             .await
-            .map_err(|err| err.into_backend_error())?;
+            .map_err(|err| err.into_commit_store_error())?;
         Ok(to_visit)
     }
 
@@ -1039,7 +1042,7 @@ impl MutableRepo {
         &self,
         to_visit: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
-    ) -> BackendResult<Vec<Commit>> {
+    ) -> CommitStoreResult<Vec<Commit>> {
         let to_visit_set: HashSet<CommitId> =
             to_visit.iter().map(|commit| commit.id().clone()).collect();
         let mut visited = HashSet::new();
@@ -1049,7 +1052,7 @@ impl MutableRepo {
         dag_walk_async::topo_order_reverse(
             to_visit.into_iter().map(Ok),
             |commit| commit.id().clone(),
-            async |commit| -> Vec<BackendResult<Commit>> {
+            async |commit| -> Vec<CommitStoreResult<Commit>> {
                 visited.insert(commit.id().clone());
                 let mut dependents = vec![];
                 let parent_ids = new_parents_map
@@ -1093,8 +1096,8 @@ impl MutableRepo {
     pub async fn transform_descendants(
         &mut self,
         roots: Vec<CommitId>,
-        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
-    ) -> BackendResult<()> {
+        callback: impl AsyncFnMut(CommitRewriter) -> CommitStoreResult<()>,
+    ) -> CommitStoreResult<()> {
         self.transform_descendants_with_options(
             roots,
             &RevsetExpression::none(),
@@ -1120,8 +1123,8 @@ impl MutableRepo {
         immutable: &Arc<ResolvedRevsetExpression>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
-    ) -> BackendResult<()> {
+        callback: impl AsyncFnMut(CommitRewriter) -> CommitStoreResult<()>,
+    ) -> CommitStoreResult<()> {
         let descendants = self.find_descendants_for_rebase(roots, immutable).await?;
         self.transform_commits(descendants, new_parents_map, options, callback)
             .await
@@ -1137,8 +1140,8 @@ impl MutableRepo {
         commits: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
-    ) -> BackendResult<()> {
+        mut callback: impl AsyncFnMut(CommitRewriter) -> CommitStoreResult<()>,
+    ) -> CommitStoreResult<()> {
         let mut to_visit = self
             .order_commits_for_rebase(commits, new_parents_map)
             .await?;
@@ -1185,7 +1188,7 @@ impl MutableRepo {
         immutable: &Arc<ResolvedRevsetExpression>,
         options: &RebaseOptions,
         mut progress: impl FnMut(Commit, RebasedCommit),
-    ) -> BackendResult<()> {
+    ) -> CommitStoreResult<()> {
         let roots = self.parent_mapping.keys().cloned().collect();
         self.transform_descendants_with_options(
             roots,
@@ -1215,7 +1218,7 @@ impl MutableRepo {
     /// All rebased descendant commits will be preserved even if they were
     /// emptied following the rebase operation. To customize the rebase
     /// behavior, use [`MutableRepo::rebase_descendants_with_options`].
-    pub async fn rebase_descendants(&mut self) -> BackendResult<usize> {
+    pub async fn rebase_descendants(&mut self) -> CommitStoreResult<usize> {
         let mut num_rebased = 0;
         self.rebase_descendants_with_options(
             &RevsetExpression::none(),
@@ -1234,7 +1237,7 @@ impl MutableRepo {
     /// be recursively reparented onto the new version of their parents.
     /// The content of those descendants will remain untouched.
     /// Returns the number of reparented descendants.
-    pub async fn reparent_descendants(&mut self) -> BackendResult<usize> {
+    pub async fn reparent_descendants(&mut self) -> CommitStoreResult<usize> {
         let roots = self.parent_mapping.keys().cloned().collect_vec();
         let mut num_reparented = 0;
         self.transform_descendants(roots, async |rewriter| {
@@ -1382,7 +1385,7 @@ impl MutableRepo {
 
     /// Ensures that the given `head` and ancestor commits are reachable from
     /// the visible heads.
-    pub async fn add_head(&mut self, head: &Commit) -> BackendResult<()> {
+    pub async fn add_head(&mut self, head: &Commit) -> CommitStoreResult<()> {
         self.add_heads(slice::from_ref(head)).await
     }
 
@@ -1392,7 +1395,7 @@ impl MutableRepo {
     /// The `heads` may contain redundant commits such as already visible ones
     /// and ancestors of the other heads. The `heads` and ancestor commits
     /// should exist in the store.
-    pub async fn add_heads(&mut self, heads: &[Commit]) -> BackendResult<()> {
+    pub async fn add_heads(&mut self, heads: &[Commit]) -> CommitStoreResult<()> {
         let current_heads = self.view.heads();
         // Use incremental update for common case of adding a single commit on top a
         // current head. TODO: Also use incremental update when adding a single
@@ -1408,8 +1411,8 @@ impl MutableRepo {
                 self.index
                     .add_commit(head)
                     .await
-                    // TODO: indexing error shouldn't be a "BackendError"
-                    .map_err(|err| BackendError::Other(err.into()))?;
+                    // TODO: indexing error shouldn't be a "CommitStoreError"
+                    .map_err(|err| CommitStoreError::Other(err.into()))?;
                 self.view
                     .replace_heads(head.id().clone(), head.parent_ids());
             }
@@ -1430,7 +1433,7 @@ impl MutableRepo {
 
     /// Adds the given `heads` and ancestor commits to the index without making
     /// them visible. Returns newly-indexed commits.
-    pub async fn index_commits(&mut self, heads: &[Commit]) -> BackendResult<Vec<Commit>> {
+    pub async fn index_commits(&mut self, heads: &[Commit]) -> CommitStoreResult<Vec<Commit>> {
         let index = self.index();
         let missing_heads: Vec<_> = stream::iter(heads)
             .map(async move |commit| (commit, index.has_id(commit.id()).await))
@@ -1438,7 +1441,7 @@ impl MutableRepo {
             .filter_map(async |m| match m {
                 (commit, Ok(false)) => Some(Ok(CommitByCommitterTimestamp(commit.clone()))),
                 (_, Ok(true)) => None,
-                (_, Err(err)) => Some(Err(BackendError::Other(err.into()))),
+                (_, Err(err)) => Some(Err(CommitStoreError::Other(err.into()))),
             })
             .collect()
             .await;
@@ -1455,8 +1458,8 @@ impl MutableRepo {
                                 .map(CommitByCommitterTimestamp),
                         ),
                         Ok(true) => None,
-                        // TODO: indexing error shouldn't be a "BackendError"
-                        Err(err) => Some(Err(BackendError::Other(err.into()))),
+                        // TODO: indexing error shouldn't be a "CommitStoreError"
+                        Err(err) => Some(Err(CommitStoreError::Other(err.into()))),
                     })
                     .collect::<Vec<_>>()
                     .await
@@ -1468,8 +1471,8 @@ impl MutableRepo {
             self.index
                 .add_commit(missing_commit)
                 .await
-                // TODO: indexing error shouldn't be a "BackendError"
-                .map_err(|err| BackendError::Other(err.into()))?;
+                // TODO: indexing error shouldn't be a "CommitStoreError"
+                .map_err(|err| CommitStoreError::Other(err.into()))?;
         }
         let indexed_commits = missing_commits
             .into_iter()
@@ -1771,16 +1774,16 @@ impl MutableRepo {
         &mut self,
         old_heads: &[CommitId],
         new_heads: &[CommitId],
-    ) -> BackendResult<()> {
+    ) -> CommitStoreResult<()> {
         let mut removed_changes: HashMap<ChangeId, Vec<CommitId>> = HashMap::new();
         {
             let mut stream = revset::walk_revs(self, old_heads, new_heads)
-                .map_err(|err| err.into_backend_error())?
+                .map_err(|err| err.into_commit_store_error())?
                 .commit_change_ids();
             while let Some((commit_id, change_id)) = stream
                 .try_next()
                 .await
-                .map_err(|err| err.into_backend_error())?
+                .map_err(|err| err.into_commit_store_error())?
             {
                 removed_changes
                     .entry(change_id)
@@ -1796,12 +1799,12 @@ impl MutableRepo {
         let mut rewritten_commits: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         {
             let mut stream = revset::walk_revs(self, new_heads, old_heads)
-                .map_err(|err| err.into_backend_error())?
+                .map_err(|err| err.into_commit_store_error())?
                 .commit_change_ids();
             while let Some((commit_id, change_id)) = stream
                 .try_next()
                 .await
-                .map_err(|err| err.into_backend_error())?
+                .map_err(|err| err.into_commit_store_error())?
             {
                 if let Some(old_commits) = removed_changes.get(&change_id) {
                     for old_commit in old_commits {
@@ -1895,13 +1898,13 @@ pub struct RewriteRootCommit;
 pub enum EditCommitError {
     /// The current working-copy commit could not be read.
     #[error("Current working-copy commit not found")]
-    WorkingCopyCommitNotFound(#[source] BackendError),
+    WorkingCopyCommitNotFound(#[source] CommitStoreError),
     /// Attempted to edit the root commit.
     #[error(transparent)]
     RewriteRootCommit(#[from] RewriteRootCommit),
-    /// Error from the commit backend.
+    /// Error from the commit store.
     #[error(transparent)]
-    BackendError(#[from] BackendError),
+    CommitStoreError(#[from] CommitStoreError),
     /// Error from the index.
     #[error(transparent)]
     IndexError(#[from] IndexError),
@@ -1912,7 +1915,7 @@ pub enum EditCommitError {
 pub enum CheckOutCommitError {
     /// Failed to create the new working-copy commit.
     #[error("Failed to create new working-copy commit")]
-    CreateCommit(#[from] BackendError),
+    CreateCommit(#[from] CommitStoreError),
     /// Failed to edit the new working-copy commit.
     #[error("Failed to edit commit")]
     EditCommit(#[from] EditCommitError),

@@ -23,11 +23,11 @@ use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use thiserror::Error;
 
-use crate::backend::BackendResult;
-use crate::backend::MergedTreeValue;
-use crate::backend::MergedTreeValueExt as _;
-use crate::backend::TreeId;
-use crate::backend::TreeValue;
+use crate::commit_store::CommitStoreResult;
+use crate::commit_store::MergedTreeValue;
+use crate::commit_store::MergedTreeValueExt as _;
+use crate::commit_store::TreeId;
+use crate::commit_store::TreeValue;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPathBuf;
@@ -106,7 +106,7 @@ impl MergedTreeBuilder {
     }
 
     /// Create new tree(s) from the base tree(s) and overrides.
-    pub async fn write_tree(self) -> BackendResult<MergedTree> {
+    pub async fn write_tree(self) -> CommitStoreResult<MergedTree> {
         if self.overrides.is_empty() {
             return Ok(self.base_tree);
         }
@@ -120,7 +120,7 @@ impl MergedTreeBuilder {
         Ok(MergedTree::new(store, new_tree_ids, labels))
     }
 
-    async fn write_merged_trees(mut self) -> BackendResult<Merge<TreeId>> {
+    async fn write_merged_trees(mut self) -> CommitStoreResult<Merge<TreeId>> {
         let store = self.base_tree.store().clone();
         let base_tree_ids = self.base_tree.into_tree_ids();
         let mut unresolved = Vec::new();
@@ -130,7 +130,7 @@ impl MergedTreeBuilder {
                 let old_values = std::mem::replace(values, Merge::absent());
                 unresolved.push(async move {
                     *values = resolve_file_values(store, path, old_values).await?;
-                    BackendResult::Ok(())
+                    CommitStoreResult::Ok(())
                 });
             }
         }

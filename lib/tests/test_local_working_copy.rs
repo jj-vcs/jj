@@ -31,8 +31,8 @@ use futures::StreamExt as _;
 use gix::odb::pack::FindExt as _;
 use indoc::indoc;
 use itertools::Itertools as _;
-use jj_core::backend::CopyId;
-use jj_core::backend::TreeValue;
+use jj_core::commit_store::CopyId;
+use jj_core::commit_store::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::conflicts::ConflictMaterializeOptions;
 use jj_core::files::FileMergeHunkLevel;
@@ -46,9 +46,9 @@ use jj_core::op_store::OperationId;
 use jj_core::ref_name::WorkspaceName;
 use jj_core::repo_path::RepoPath;
 use jj_core::repo_path::RepoPathBuf;
-use jj_git_backend::secret_backend::SecretBackend;
+use jj_git_backend::secret_backend::SecretCommitStore;
 use jj_lib::fsmonitor::FsmonitorSettings;
-use jj_lib::git::get_git_backend;
+use jj_lib::git::get_git_commit_store;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::local_working_copy::LockedLocalWorkingCopy;
@@ -72,7 +72,7 @@ use prost::Message as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::assert_tree_eq;
@@ -142,14 +142,14 @@ fn test_root() -> TestResult {
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_checkout_file_transitions(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_checkout_file_transitions(commit_store: TestRepoCommitStore) -> TestResult {
     // Tests switching between commits where a certain path is of one type in one
     // commit and another type in the other. Includes a "missing" type, so we cover
     // additions and removals as well.
 
-    let mut test_workspace = TestWorkspace::init_with_backend(backend);
+    let mut test_workspace = TestWorkspace::init_with_commit_store(commit_store);
     let repo = &test_workspace.repo;
     let store = repo.store().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
@@ -188,7 +188,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) -> TestResult {
                 })
             }
             Kind::Executable => {
-                let id: jj_core::backend::FileId =
+                let id: jj_core::commit_store::FileId =
                     testutils::write_file(store, path, "executable file contents");
                 Merge::normal(TreeValue::File {
                     id,
@@ -291,7 +291,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) -> TestResult {
         Kind::Tree,
     ];
     kinds.push(Kind::Symlink);
-    if backend == TestRepoBackend::Git {
+    if commit_store == TestRepoCommitStore::Git {
         kinds.push(Kind::GitSubmodule);
     }
     // Some of the paths are 2-sided conflicts, so the builders need a base tree
@@ -467,7 +467,7 @@ fn test_conflict_subdirectory() -> TestResult {
 fn test_acl() -> TestResult {
     let settings = testutils::user_settings();
     let test_workspace =
-        TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &settings);
+        TestWorkspace::init_with_commit_store_and_settings(TestRepoCommitStore::Git, &settings);
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -496,7 +496,7 @@ fn test_acl() -> TestResult {
     );
     let commit1 = commit_with_tree(repo.store(), tree1);
     let commit2 = commit_with_tree(repo.store(), tree2);
-    SecretBackend::adopt_git_repo(&workspace_root);
+    SecretCommitStore::adopt_git_repo(&workspace_root);
 
     let mut ws = test_workspace
         .env
@@ -1890,7 +1890,7 @@ fn test_nested_repo_ignored_icase_fs(marker: &str, reserved: &str) -> TestResult
 fn test_git_submodule(gitignore_content: &str) -> TestResult {
     // Tests that git submodules are ignored.
 
-    let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
+    let mut test_workspace = TestWorkspace::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = test_workspace.repo.clone();
     let store = repo.store().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
@@ -3292,9 +3292,9 @@ fn test_snapshot_and_update_valid_symlink(
 
 #[test]
 fn test_always_store_empty_tree() -> TestResult {
-    let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
-    let git_backend = get_git_backend(test_workspace.repo.store())?;
-    let git_repo = git_backend.git_repo();
+    let mut test_workspace = TestWorkspace::init_with_commit_store(TestRepoCommitStore::Git);
+    let git_commit_store = get_git_commit_store(test_workspace.repo.store())?;
+    let git_repo = git_commit_store.git_repo();
     let empty_tree_id = gix::ObjectId::empty_tree(git_repo.object_hash());
 
     test_workspace.snapshot()?;

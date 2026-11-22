@@ -31,12 +31,12 @@ use bstr::BString;
 use futures::StreamExt as _;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
-use jj_core::backend::BackendResult;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
-use jj_core::backend::MillisSinceEpoch;
 use jj_core::commit::Commit;
 use jj_core::commit::merge_commit_trees_no_resolve;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreResult;
+use jj_core::commit_store::MillisSinceEpoch;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::conflicts::MaterializedTreeValue;
 use jj_core::conflicts::materialize_tree_value;
@@ -1428,7 +1428,7 @@ async fn has_diff_from_parent(
     index: &CompositeIndex,
     commit: &Commit,
     matcher: &dyn Matcher,
-) -> BackendResult<bool> {
+) -> CommitStoreResult<bool> {
     let parents = commit.parents().await?;
     if let [parent] = parents.as_slice() {
         // Fast path: no need to load the root tree
@@ -1464,7 +1464,7 @@ async fn matches_diff_from_parent(
     text_matcher: &StringMatcher,
     files_matcher: &dyn Matcher,
     side: DiffMatchSide,
-) -> BackendResult<bool> {
+) -> CommitStoreResult<bool> {
     let parents = commit.parents().await?;
     // Conflict resolution is expensive, try that only for matched files.
     let from_tree = merge_commit_trees_no_resolve(store, index, &parents).await?;
@@ -1506,7 +1506,7 @@ fn diff_match_lines(
     matcher: &StringMatcher,
     merge_options: &MergeOptions,
     side: DiffMatchSide,
-) -> BackendResult<bool> {
+) -> CommitStoreResult<bool> {
     // Filter lines prior to comparison. This might produce inferior hunks due
     // to lack of contexts, but is way faster than full diff.
     if side == DiffMatchSide::Either
@@ -1537,7 +1537,7 @@ fn diff_match_lines(
 async fn to_file_content(
     path: &RepoPath,
     value: MaterializedTreeValue,
-) -> BackendResult<Merge<BString>> {
+) -> CommitStoreResult<Merge<BString>> {
     let empty = || Merge::resolved(BString::default());
     match value {
         MaterializedTreeValue::Absent => Ok(empty()),

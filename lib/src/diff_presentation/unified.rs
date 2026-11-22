@@ -18,8 +18,8 @@ use std::ops::Range;
 
 use bstr::BStr;
 use bstr::BString;
-use jj_core::backend::BackendError;
-use jj_core::backend::MergedTreeValueExt as _;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::MergedTreeValueExt as _;
 use jj_core::conflicts::ConflictMaterializeOptions;
 use jj_core::conflicts::MaterializedTreeValue;
 use jj_core::conflicts::materialize_merge_result_to_bytes;
@@ -52,9 +52,9 @@ pub struct GitDiffPart {
 /// Error from preparing a unified diff.
 #[derive(Debug, Error)]
 pub enum UnifiedDiffError {
-    /// Error from the commit backend.
+    /// Error from the commit store.
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    CommitStore(#[from] CommitStoreError),
     /// Access to the file was denied.
     #[error("Access denied to {path}")]
     AccessDenied {

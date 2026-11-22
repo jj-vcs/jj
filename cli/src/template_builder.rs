@@ -22,8 +22,8 @@ use std::path::PathBuf;
 use bstr::BString;
 use bstr::ByteSlice as _;
 use itertools::Itertools as _;
-use jj_lib::backend::Signature;
-use jj_lib::backend::Timestamp;
+use jj_lib::commit_store::Signature;
+use jj_lib::commit_store::Timestamp;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::content_hash::blake2b_hash;
@@ -3366,7 +3366,7 @@ mod tests {
     use std::assert_matches;
     use std::path::Component;
 
-    use jj_lib::backend::MillisSinceEpoch;
+    use jj_lib::commit_store::MillisSinceEpoch;
     use jj_lib::config::ConfigValue;
     use jj_lib::config::StackedConfig;
 

@@ -191,7 +191,7 @@ pub(crate) async fn cmd_abandon(
     tx.finish(ui, transaction_description).await?;
 
     #[cfg(feature = "git")]
-    if jj_lib::git::get_git_backend(workspace_command.repo().store()).is_ok() {
+    if jj_lib::git::get_git_commit_store(workspace_command.repo().store()).is_ok() {
         let repo = workspace_command.repo().as_ref();
         if deleted_bookmarks
             .iter()

@@ -34,14 +34,14 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 
-use crate::backend::BackendError;
-use crate::backend::BackendResult;
-use crate::backend::CopyHistory;
-use crate::backend::CopyId;
-use crate::backend::CopyRecord;
-use crate::backend::MergedTreeValue;
-use crate::backend::MergedTreeValueExt as _;
-use crate::backend::TreeValue;
+use crate::commit_store::CommitStoreError;
+use crate::commit_store::CommitStoreResult;
+use crate::commit_store::CopyHistory;
+use crate::commit_store::CopyId;
+use crate::commit_store::CopyRecord;
+use crate::commit_store::MergedTreeValue;
+use crate::commit_store::MergedTreeValueExt as _;
+use crate::commit_store::TreeValue;
 use crate::dag_walk;
 use crate::merge::Diff;
 use crate::merge::Merge;
@@ -134,7 +134,7 @@ pub struct CopiesTreeDiffEntry {
     /// The path.
     pub path: CopiesTreeDiffEntryPath,
     /// The resolved tree values if available.
-    pub values: BackendResult<Diff<MergedTreeValue>>,
+    pub values: CommitStoreResult<Diff<MergedTreeValue>>,
 }
 
 /// Path and copy information of `CopiesTreeDiffEntry`.
@@ -229,8 +229,8 @@ async fn resolve_copy_source(
     source_tree: &MergedTree,
     target_tree: &MergedTree,
     source: &RepoPath,
-    values: BackendResult<Diff<MergedTreeValue>>,
-) -> BackendResult<(CopyOperation, Diff<MergedTreeValue>)> {
+    values: CommitStoreResult<Diff<MergedTreeValue>>,
+) -> CommitStoreResult<(CopyOperation, Diff<MergedTreeValue>)> {
     let target_value = values?.after;
     let source_value = source_tree.path_value(source).await?;
     // If the source path is deleted in the target tree, it's a rename.
@@ -350,7 +350,7 @@ pub struct CopyHistoryTreeDiffEntry {
     /// The final source path (after copy/rename if applicable)
     pub target_path: RepoPathBuf,
     /// The resolved values for the target and source(s), if available
-    pub diffs: BackendResult<Merge<CopyHistoryDiffTerm>>,
+    pub diffs: CommitStoreResult<Merge<CopyHistoryDiffTerm>>,
 }
 
 impl CopyHistoryTreeDiffEntry {
@@ -526,13 +526,13 @@ async fn diffs_from_copies(
     before_tree: MergedTree,
     after_tree: MergedTree,
     after_file: TreeValue,
-) -> BackendResult<Merge<CopyHistoryDiffTerm>> {
-    let copy_id = after_file.copy_id().ok_or(BackendError::Other(
+) -> CommitStoreResult<Merge<CopyHistoryDiffTerm>> {
+    let copy_id = after_file.copy_id().ok_or(CommitStoreError::Other(
         "Expected TreeValue::File with a CopyId".into(),
     ))?;
     let copy_graph: CopyGraph = before_tree
         .store()
-        .backend()
+        .commit_store()
         .get_related_copies(copy_id)
         .await?
         .into_iter()
@@ -571,7 +571,7 @@ async fn classify_source(
     before_path: RepoPathBuf,
     before_id: &CopyId,
     copy_graph: &CopyGraph,
-) -> BackendResult<CopyHistorySource> {
+) -> CommitStoreResult<CopyHistorySource> {
     let history = copy_graph
         .get(after_id)
         .expect("copy_graph should already include after_id");
@@ -618,10 +618,10 @@ async fn find_diff_sources_from_copies(
     copy_id: &CopyId,
     copy_graph: &CopyGraph,
     descendants: &IndexMap<CopyId, IndexSet<CopyId>>,
-) -> BackendResult<Vec<(RepoPathBuf, TreeValue)>> {
+) -> CommitStoreResult<Vec<(RepoPathBuf, TreeValue)>> {
     // Related copies MUST contain ancestors AND descendants. It may also contain
     // unrelated copies.
-    let history = copy_graph.get(copy_id).ok_or(BackendError::Other(
+    let history = copy_graph.get(copy_id).ok_or(CommitStoreError::Other(
         "CopyId should be present in `get_related_copies()` result".into(),
     ))?;
 
@@ -664,7 +664,7 @@ async fn find_diff_sources_from_copies(
 
         // First, try to find the parent or a direct ancestor in the tree
         for ancestor_id in iterate_ancestors(copy_graph, parent_copy_id) {
-            let ancestor_history = copy_graph.get(ancestor_id).ok_or(BackendError::Other(
+            let ancestor_history = copy_graph.get(ancestor_id).ok_or(CommitStoreError::Other(
                 "Ancestor CopyId should be present in `get_related_copies()` result".into(),
             ))?;
             if let Some(ancestor) = tree.copy_value(ancestor_id).await? {

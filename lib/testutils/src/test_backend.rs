@@ -32,23 +32,23 @@ use futures::io::Cursor;
 use futures::stream;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
-use jj_core::backend::Backend;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::ChangeId;
-use jj_core::backend::Commit;
-use jj_core::backend::CommitId;
-use jj_core::backend::CopyHistory;
-use jj_core::backend::CopyId;
-use jj_core::backend::CopyRecord;
-use jj_core::backend::FileId;
-use jj_core::backend::RelatedCopy;
-use jj_core::backend::SecureSig;
-use jj_core::backend::SigningFn;
-use jj_core::backend::SymlinkId;
-use jj_core::backend::Tree;
-use jj_core::backend::TreeId;
-use jj_core::backend::make_root_commit;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::Commit;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStore;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreResult;
+use jj_core::commit_store::CopyHistory;
+use jj_core::commit_store::CopyId;
+use jj_core::commit_store::CopyRecord;
+use jj_core::commit_store::FileId;
+use jj_core::commit_store::RelatedCopy;
+use jj_core::commit_store::SecureSig;
+use jj_core::commit_store::SigningFn;
+use jj_core::commit_store::SymlinkId;
+use jj_core::commit_store::Tree;
+use jj_core::commit_store::TreeId;
+use jj_core::commit_store::make_root_commit;
 use jj_core::dag_walk::topo_order_reverse;
 use jj_core::object_id::ObjectId as _;
 use jj_core::repo_path::RepoPath;
@@ -62,10 +62,10 @@ const CHANGE_ID_LENGTH: usize = 16;
 // rely on on the file system to resolve two different uncanonicalized paths to
 // the same real path (as we would if we just used the path with `std::fs`
 // functions).
-type TestBackendDataMap = HashMap<PathBuf, Arc<Mutex<TestBackendData>>>;
+type TestCommitStoreDataMap = HashMap<PathBuf, Arc<Mutex<TestCommitStoreData>>>;
 
 #[derive(Default)]
-pub struct TestBackendData {
+pub struct TestCommitStoreData {
     commits: HashMap<CommitId, Commit>,
     trees: HashMap<RepoPathBuf, HashMap<TreeId, Tree>>,
     files: HashMap<RepoPathBuf, HashMap<FileId, Vec<u8>>>,
@@ -76,35 +76,36 @@ pub struct TestBackendData {
 }
 
 #[derive(Clone, Default)]
-pub struct TestBackendFactory {
-    backend_data: Arc<Mutex<TestBackendDataMap>>,
+pub struct TestCommitStoreFactory {
+    commit_store_data: Arc<Mutex<TestCommitStoreDataMap>>,
 }
 
-impl TestBackendFactory {
-    pub fn init(&self, store_path: &Path) -> TestBackend {
-        let data = Arc::new(Mutex::new(TestBackendData::default()));
-        self.backend_data
+impl TestCommitStoreFactory {
+    pub fn init(&self, store_path: &Path) -> TestCommitStore {
+        let data = Arc::new(Mutex::new(TestCommitStoreData::default()));
+        self.commit_store_data
             .lock()
             .unwrap()
             .insert(store_path.canonicalize().unwrap(), data.clone());
-        TestBackend::with_data(data)
+        TestCommitStore::with_data(data)
     }
 
-    pub fn load(&self, store_path: &Path) -> TestBackend {
+    pub fn load(&self, store_path: &Path) -> TestCommitStore {
         let data = self
-            .backend_data
+            .commit_store_data
             .lock()
             .unwrap()
             .get(&store_path.canonicalize().unwrap())
             .unwrap()
             .clone();
-        TestBackend::with_data(data)
+        TestCommitStore::with_data(data)
     }
 }
 
-impl Debug for TestBackendFactory {
+impl Debug for TestCommitStoreFactory {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        f.debug_struct("TestBackendFactory").finish_non_exhaustive()
+        f.debug_struct("TestCommitStoreFactory")
+            .finish_non_exhaustive()
     }
 }
 
@@ -112,24 +113,24 @@ fn get_hash(content: &(impl jj_core::content_hash::ContentHash + ?Sized)) -> Vec
     jj_core::content_hash::blake2b_hash(content).as_slice()[..HASH_LENGTH].to_vec()
 }
 
-/// A commit backend for use in tests.
+/// A commit store for use in tests.
 ///
 /// It's meant to be strict, in order to catch bugs where we make the
-/// wrong assumptions. For example, unlike both `GitBackend` and
-/// `SimpleBackend`, this backend doesn't share objects written to
+/// wrong assumptions. For example, unlike both `GitCommitStore` and
+/// `SimpleCommitStore`, this backend doesn't share objects written to
 /// different paths (writing a file with contents X to path A will not
 /// make it possible to read that contents from path B given the same
 /// `FileId`).
-pub struct TestBackend {
+pub struct TestCommitStore {
     root_commit_id: CommitId,
     root_change_id: ChangeId,
     empty_tree_id: TreeId,
-    data: Arc<Mutex<TestBackendData>>,
+    data: Arc<Mutex<TestCommitStoreData>>,
     runtime: Runtime,
 }
 
-impl TestBackend {
-    pub fn with_data(data: Arc<Mutex<TestBackendData>>) -> Self {
+impl TestCommitStore {
+    pub fn with_data(data: Arc<Mutex<TestCommitStoreData>>) -> Self {
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
         let empty_tree_id = TreeId::new(get_hash(&Tree::default()));
@@ -144,7 +145,7 @@ impl TestBackend {
         }
     }
 
-    fn locked_data(&self) -> MutexGuard<'_, TestBackendData> {
+    fn locked_data(&self) -> MutexGuard<'_, TestCommitStoreData> {
         self.data.lock().unwrap()
     }
 
@@ -166,7 +167,7 @@ impl TestBackend {
 
     async fn run_async<R: Send + 'static>(
         &self,
-        process: impl FnOnce(MutexGuard<TestBackendData>) -> R + Send + 'static,
+        process: impl FnOnce(MutexGuard<TestCommitStoreData>) -> R + Send + 'static,
     ) -> R {
         let data = self.data.clone();
         self.runtime
@@ -176,14 +177,14 @@ impl TestBackend {
     }
 }
 
-impl Debug for TestBackend {
+impl Debug for TestCommitStore {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        f.debug_struct("TestBackend").finish_non_exhaustive()
+        f.debug_struct("TestCommitStore").finish_non_exhaustive()
     }
 }
 
 #[async_trait]
-impl Backend for TestBackend {
+impl CommitStore for TestCommitStore {
     fn name(&self) -> &'static str {
         "test"
     }
@@ -217,7 +218,7 @@ impl Backend for TestBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
+    ) -> CommitStoreResult<Pin<Box<dyn AsyncRead + Send>>> {
         let path = path.to_owned();
         let id = id.clone();
         self.run_async(move |mut data| {
@@ -228,7 +229,7 @@ impl Backend for TestBackend {
                 .and_then(|items| items.get(&id))
                 .cloned()
             {
-                None => Err(BackendError::ObjectNotFound {
+                None => Err(CommitStoreError::ObjectNotFound {
                     object_type: "file".to_string(),
                     hash: id.hex(),
                     source: Some(format!("at path {path:?}").into()),
@@ -246,7 +247,7 @@ impl Backend for TestBackend {
         &self,
         path: &RepoPath,
         contents: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> BackendResult<FileId> {
+    ) -> CommitStoreResult<FileId> {
         let path = path.to_owned();
         let mut bytes = Vec::new();
         contents.read_to_end(&mut bytes).await.unwrap();
@@ -261,7 +262,7 @@ impl Backend for TestBackend {
         .await
     }
 
-    async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
+    async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> CommitStoreResult<String> {
         let path = path.to_owned();
         let id = id.clone();
         self.run_async(move |data| {
@@ -271,7 +272,7 @@ impl Backend for TestBackend {
                 .and_then(|items| items.get(&id))
                 .cloned()
             {
-                None => Err(BackendError::ObjectNotFound {
+                None => Err(CommitStoreError::ObjectNotFound {
                     object_type: "symlink".to_string(),
                     hash: id.hex(),
                     source: Some(format!("at path {path:?}").into()),
@@ -282,7 +283,7 @@ impl Backend for TestBackend {
         .await
     }
 
-    async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
+    async fn write_symlink(&self, path: &RepoPath, target: &str) -> CommitStoreResult<SymlinkId> {
         let id = SymlinkId::new(get_hash(target.as_bytes()));
         let path = path.to_owned();
         let target = target.to_owned();
@@ -296,14 +297,14 @@ impl Backend for TestBackend {
         .await
     }
 
-    async fn read_copy(&self, id: &CopyId) -> BackendResult<CopyHistory> {
+    async fn read_copy(&self, id: &CopyId) -> CommitStoreResult<CopyHistory> {
         let id = id.clone();
         self.run_async(move |data| {
             let copy =
                 data.copies
                     .get(&id)
                     .cloned()
-                    .ok_or_else(|| BackendError::ObjectNotFound {
+                    .ok_or_else(|| CommitStoreError::ObjectNotFound {
                         object_type: "copy".to_string(),
                         hash: id.hex(),
                         source: None,
@@ -313,7 +314,7 @@ impl Backend for TestBackend {
         .await
     }
 
-    async fn write_copy(&self, contents: &CopyHistory) -> BackendResult<CopyId> {
+    async fn write_copy(&self, contents: &CopyHistory) -> CommitStoreResult<CopyId> {
         let contents = contents.clone();
         self.run_async(move |mut data| {
             let id = CopyId::new(get_hash(&contents));
@@ -323,12 +324,12 @@ impl Backend for TestBackend {
         .await
     }
 
-    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>> {
+    async fn get_related_copies(&self, copy_id: &CopyId) -> CommitStoreResult<Vec<RelatedCopy>> {
         let copy_id = copy_id.clone();
         self.run_async(move |data| {
             let copies = &data.copies;
             if !copies.contains_key(&copy_id) {
-                return Err(BackendError::ObjectNotFound {
+                return Err(CommitStoreError::ObjectNotFound {
                     object_type: "copy history".to_string(),
                     hash: copy_id.hex(),
                     source: None,
@@ -355,7 +356,7 @@ impl Backend for TestBackend {
         .await
     }
 
-    async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
+    async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> CommitStoreResult<Tree> {
         if id == &self.empty_tree_id {
             return Ok(Tree::default());
         }
@@ -368,7 +369,7 @@ impl Backend for TestBackend {
                 .and_then(|items| items.get(&id))
                 .cloned()
             {
-                None => Err(BackendError::ObjectNotFound {
+                None => Err(CommitStoreError::ObjectNotFound {
                     object_type: "tree".to_string(),
                     hash: id.hex(),
                     source: Some(format!("at path {path:?}").into()),
@@ -379,7 +380,7 @@ impl Backend for TestBackend {
         .await
     }
 
-    async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
+    async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> CommitStoreResult<TreeId> {
         let path = path.to_owned();
         let contents = contents.clone();
         self.run_async(move |mut data| {
@@ -394,7 +395,7 @@ impl Backend for TestBackend {
         .await
     }
 
-    async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {
+    async fn read_commit(&self, id: &CommitId) -> CommitStoreResult<Commit> {
         if id == &self.root_commit_id {
             return Ok(make_root_commit(
                 self.root_change_id.clone(),
@@ -403,7 +404,7 @@ impl Backend for TestBackend {
         }
         let id = id.clone();
         self.run_async(move |data| match data.commits.get(&id).cloned() {
-            None => Err(BackendError::ObjectNotFound {
+            None => Err(CommitStoreError::ObjectNotFound {
                 object_type: "commit".to_string(),
                 hash: id.hex(),
                 source: None,
@@ -417,12 +418,12 @@ impl Backend for TestBackend {
         &self,
         mut contents: Commit,
         mut sign_with: Option<&mut SigningFn>,
-    ) -> BackendResult<(CommitId, Commit)> {
+    ) -> CommitStoreResult<(CommitId, Commit)> {
         assert!(contents.secure_sig.is_none(), "commit.secure_sig was set");
 
         if let Some(sign) = &mut sign_with {
             let data = format!("{contents:?}").into_bytes();
-            let sig = sign(&data).map_err(|err| BackendError::Other(Box::new(err)))?;
+            let sig = sign(&data).map_err(|err| CommitStoreError::Other(Box::new(err)))?;
             contents.secure_sig = Some(SecureSig { data, sig });
         }
 
@@ -439,11 +440,11 @@ impl Backend for TestBackend {
         _paths: Option<&[RepoPathBuf]>,
         _root: &CommitId,
         _head: &CommitId,
-    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
+    ) -> CommitStoreResult<BoxStream<'_, CommitStoreResult<CopyRecord>>> {
         Ok(stream::empty().boxed())
     }
 
-    async fn gc(&self, _heads: &[CommitId], _keep_newer: SystemTime) -> BackendResult<()> {
+    async fn gc(&self, _heads: &[CommitId], _keep_newer: SystemTime) -> CommitStoreResult<()> {
         Ok(())
     }
 }
@@ -467,19 +468,20 @@ mod tests {
 
     #[test]
     fn get_related_copies() -> TestResult {
-        let backend = TestBackend::with_data(Arc::new(Mutex::new(TestBackendData::default())));
+        let commit_store =
+            TestCommitStore::with_data(Arc::new(Mutex::new(TestCommitStoreData::default())));
 
         // Test with a single chain so the resulting order is deterministic
         let copy1 = copy_history("foo1", &[]);
-        let copy1_id = backend.write_copy(&copy1).block_on()?;
+        let copy1_id = commit_store.write_copy(&copy1).block_on()?;
         let copy2 = copy_history("foo2", std::slice::from_ref(&copy1_id));
-        let copy2_id = backend.write_copy(&copy2).block_on()?;
+        let copy2_id = commit_store.write_copy(&copy2).block_on()?;
         let copy3 = copy_history("foo3", std::slice::from_ref(&copy2_id));
-        let copy3_id = backend.write_copy(&copy3).block_on()?;
+        let copy3_id = commit_store.write_copy(&copy3).block_on()?;
 
         // Error when looking up by non-existent id
         assert!(
-            backend
+            commit_store
                 .get_related_copies(&CopyId::from_hex("abcd"))
                 .block_on()
                 .is_err()
@@ -487,7 +489,7 @@ mod tests {
 
         // Looking up by any id returns the related copies in the same order (children
         // before parents)
-        let related = backend.get_related_copies(&copy1_id).block_on()?;
+        let related = commit_store.get_related_copies(&copy1_id).block_on()?;
         assert_eq!(
             related,
             vec![
@@ -505,7 +507,7 @@ mod tests {
                 },
             ]
         );
-        let related = backend.get_related_copies(&copy3_id).block_on()?;
+        let related = commit_store.get_related_copies(&copy3_id).block_on()?;
         assert_eq!(
             related,
             vec![

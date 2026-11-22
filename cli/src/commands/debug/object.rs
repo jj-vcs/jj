@@ -17,12 +17,12 @@ use std::io::Write as _;
 
 use clap::Subcommand;
 use futures::AsyncReadExt as _;
-use jj_lib::backend::CommitId;
-use jj_lib::backend::FileId;
-use jj_lib::backend::MergedTreeValue;
-use jj_lib::backend::SymlinkId;
-use jj_lib::backend::TreeId;
-use jj_lib::backend::TreeValue;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::FileId;
+use jj_lib::commit_store::MergedTreeValue;
+use jj_lib::commit_store::SymlinkId;
+use jj_lib::commit_store::TreeId;
+use jj_lib::commit_store::TreeValue;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::ViewId;
 use jj_lib::repo_path::RepoPath;

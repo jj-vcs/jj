@@ -26,9 +26,9 @@ use jj_frontend::runner::StaleWorkingCopyError;
 use jj_frontend::runner::WorkingCopyNotWritableReason;
 use jj_frontend::workspace_env::WorkspaceEnvironmentError;
 use jj_lib::absorb::AbsorbError;
-use jj_lib::backend::BackendError;
-use jj_lib::backend::CommitId;
 use jj_lib::bisect::BisectionError;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStoreError;
 use jj_lib::config::ConfigFileSaveError;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLoadError;
@@ -322,7 +322,7 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
                 }
             },
             RunnerError::Environment(err) => err.into(),
-            RunnerError::Backend(err) => err.into(),
+            RunnerError::CommitStore(err) => err.into(),
             RunnerError::OpStore(err) => err.into(),
             RunnerError::RepoLoader(err) => err.into(),
             RunnerError::Snapshot(err) => err.into(),
@@ -468,10 +468,10 @@ impl From<RenameWorkspaceError> for CommandError {
     }
 }
 
-impl From<BackendError> for CommandError {
-    fn from(err: BackendError) -> Self {
+impl From<CommitStoreError> for CommandError {
+    fn from(err: CommitStoreError) -> Self {
         match &err {
-            BackendError::Unsupported(_) => user_error(err),
+            CommitStoreError::Unsupported(_) => user_error(err),
             _ => internal_error_with_message("Unexpected error from backend", err),
         }
     }
@@ -514,7 +514,7 @@ impl From<WorkspaceInitError> for CommandError {
             WorkspaceInitError::WorkspaceStore(err) => {
                 internal_error_with_message("Failed to record workspace path", err)
             }
-            WorkspaceInitError::Backend(err) => {
+            WorkspaceInitError::CommitStore(err) => {
                 user_error_with_message("Failed to access the repository", err)
             }
             WorkspaceInitError::WorkingCopyState(err) => {
@@ -574,7 +574,7 @@ impl From<TransactionCommitError> for CommandError {
 impl From<WalkPredecessorsError> for CommandError {
     fn from(err: WalkPredecessorsError) -> Self {
         match err {
-            WalkPredecessorsError::Backend(err) => err.into(),
+            WalkPredecessorsError::CommitStore(err) => err.into(),
             WalkPredecessorsError::OpStore(err) => err.into(),
             WalkPredecessorsError::CycleDetected(_) => internal_error(err),
         }
@@ -584,7 +584,7 @@ impl From<WalkPredecessorsError> for CommandError {
 impl From<ConvergeError> for CommandError {
     fn from(err: ConvergeError) -> Self {
         match err {
-            ConvergeError::Backend(err) => err.into(),
+            ConvergeError::CommitStore(err) => err.into(),
             ConvergeError::Index(err) => err.into(),
             ConvergeError::RevsetEvaluation(err) => err.into(),
             ConvergeError::WalkPredecessors(err) => err.into(),
@@ -721,7 +721,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                      the full repository contents."
                         .to_string(),
                 ),
-                GitImportError::Backend(_) => None,
+                GitImportError::CommitStore(_) => None,
                 GitImportError::Index(_) => None,
                 GitImportError::RevsetEvaluation(_) => None,
                 GitImportError::Git(_) => None,
@@ -844,7 +844,7 @@ impl From<FilesetParseError> for CommandError {
 impl From<RecoverWorkspaceError> for CommandError {
     fn from(err: RecoverWorkspaceError) -> Self {
         match err {
-            RecoverWorkspaceError::Backend(err) => err.into(),
+            RecoverWorkspaceError::CommitStore(err) => err.into(),
             RecoverWorkspaceError::Reset(err) => err.into(),
             RecoverWorkspaceError::RewriteRootCommit(err) => err.into(),
             RecoverWorkspaceError::TransactionCommit(err) => err.into(),
@@ -927,7 +927,7 @@ impl From<ParseBulkEditMessageError> for CommandError {
 impl From<AbsorbError> for CommandError {
     fn from(err: AbsorbError) -> Self {
         match err {
-            AbsorbError::Backend(err) => err.into(),
+            AbsorbError::CommitStore(err) => err.into(),
             AbsorbError::RevsetEvaluation(err) => err.into(),
         }
     }
@@ -936,7 +936,7 @@ impl From<AbsorbError> for CommandError {
 impl From<FixError> for CommandError {
     fn from(err: FixError) -> Self {
         match err {
-            FixError::Backend(err) => err.into(),
+            FixError::CommitStore(err) => err.into(),
             FixError::RevsetEvaluation(err) => err.into(),
             FixError::Io(err) => err.into(),
             FixError::FixContent(err) => internal_error_with_message(
@@ -950,7 +950,7 @@ impl From<FixError> for CommandError {
 impl From<BisectionError> for CommandError {
     fn from(err: BisectionError) -> Self {
         match err {
-            BisectionError::BackendError(_) => user_error(err),
+            BisectionError::CommitStoreError(_) => user_error(err),
             BisectionError::RevsetEvaluationError(_) => user_error(err),
         }
     }
@@ -1146,7 +1146,7 @@ fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
         | RevsetResolutionError::WorkspaceMissingWorkingCopy { .. }
         | RevsetResolutionError::AmbiguousCommitIdPrefix(_)
         | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
-        | RevsetResolutionError::Backend(_)
+        | RevsetResolutionError::CommitStore(_)
         | RevsetResolutionError::Other(_) => vec![],
     }
 }

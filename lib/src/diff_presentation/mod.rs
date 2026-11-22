@@ -19,7 +19,7 @@ use std::mem;
 
 use bstr::BString;
 use itertools::Itertools as _;
-use jj_core::backend::BackendResult;
+use jj_core::commit_store::CommitStoreResult;
 use jj_core::conflicts::MaterializedFileValue;
 use jj_core::diff::CompareBytesExactly;
 use jj_core::diff::CompareBytesIgnoreAllWhitespace;
@@ -64,7 +64,7 @@ pub async fn file_content_for_diff<T>(
     path: &RepoPath,
     file: &mut MaterializedFileValue,
     map_resolved: impl FnOnce(BString) -> T,
-) -> BackendResult<FileContent<T>> {
+) -> CommitStoreResult<FileContent<T>> {
     // TODO: currently we look at the whole file, even though for binary files we
     // only need to know the file size. To change that we'd have to extend all
     // the data backends to support getting the length.

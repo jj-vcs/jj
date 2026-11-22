@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use jj_core::backend::Timestamp;
+use jj_core::commit_store::Timestamp;
 use jj_core::index::IndexError;
 use jj_core::index::ReadonlyIndex;
 use jj_core::index_store::IndexStoreError;

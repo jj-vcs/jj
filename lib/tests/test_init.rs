@@ -17,13 +17,13 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use jj_core::ref_name::WorkspaceName;
-use jj_git_backend::git_backend::GitBackend;
+use jj_git_backend::git_backend::GitCommitStore;
 use jj_lib::config::StackedConfig;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use test_case::test_case;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::assert_tree_eq;
@@ -43,7 +43,7 @@ fn test_init_local() -> TestResult {
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
     let (workspace, repo) =
         Workspace::init_simple(&settings, &uncanonical, WorkspaceName::DEFAULT).block_on()?;
-    assert!(repo.store().backend_impl::<GitBackend>().is_none());
+    assert!(repo.store().commit_store_impl::<GitCommitStore>().is_none());
     assert_eq!(workspace.workspace_root(), &canonical);
 
     // Just test that we can write a commit to the store
@@ -61,14 +61,14 @@ fn test_init_internal_git(object_hash: gix::hash::Kind) -> TestResult {
     let (workspace, repo) =
         Workspace::init_internal_git(&settings, &uncanonical, WorkspaceName::DEFAULT, object_hash)
             .block_on()?;
-    let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
+    let git_commit_store: &GitCommitStore = repo.store().commit_store_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
     assert_eq!(
-        git_backend.git_repo_path(),
+        git_commit_store.git_repo_path(),
         canonical.join(PathBuf::from_iter([".jj", "repo", "store", "git"])),
     );
-    assert!(git_backend.git_repo().workdir().is_none());
+    assert!(git_commit_store.git_repo().workdir().is_none());
     assert_eq!(
         std::fs::read_to_string(repo_path.join("store").join("git_target"))?,
         "git"
@@ -89,11 +89,14 @@ fn test_init_colocated_git(object_hash: gix::hash::Kind) -> TestResult {
     let (workspace, repo) =
         Workspace::init_colocated_git(&settings, &uncanonical, WorkspaceName::DEFAULT, object_hash)
             .block_on()?;
-    let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
+    let git_commit_store: &GitCommitStore = repo.store().commit_store_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
-    assert_eq!(git_backend.git_repo_path(), canonical.join(".git"));
-    assert_eq!(git_backend.git_repo().workdir(), Some(canonical.as_ref()));
+    assert_eq!(git_commit_store.git_repo_path(), canonical.join(".git"));
+    assert_eq!(
+        git_commit_store.git_repo().workdir(),
+        Some(canonical.as_ref())
+    );
     assert_eq!(
         std::fs::read_to_string(repo_path.join("store").join("git_target"))?,
         "../../../.git"
@@ -120,14 +123,14 @@ fn test_init_external_git() -> TestResult {
         &git_repo_path.join(".git"),
     )
     .block_on()?;
-    let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
+    let git_commit_store: &GitCommitStore = repo.store().commit_store_impl().unwrap();
     assert_eq!(workspace.workspace_root(), &canonical.join("jj"));
     assert_eq!(
-        git_backend.git_repo_path(),
+        git_commit_store.git_repo_path(),
         canonical.join("git").join(".git")
     );
     assert_eq!(
-        git_backend.git_repo().workdir(),
+        git_commit_store.git_repo().workdir(),
         Some(canonical.join("git").as_ref())
     );
 
@@ -137,12 +140,13 @@ fn test_init_external_git() -> TestResult {
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_init_with_default_config(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_init_with_default_config(commit_store: TestRepoCommitStore) -> TestResult {
     // Test that we can create a repo without setting any non-default config
     let settings = testutils::user_settings_from_config(StackedConfig::with_defaults());
-    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
+    let test_workspace =
+        TestWorkspace::init_with_commit_store_and_settings(commit_store, &settings);
     let repo = &test_workspace.repo;
     let wc_commit_id = repo
         .view()
@@ -156,12 +160,13 @@ fn test_init_with_default_config(backend: TestRepoBackend) -> TestResult {
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_init_checkout(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_init_checkout(commit_store: TestRepoCommitStore) -> TestResult {
     // Test the contents of the working-copy commit after init
     let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
+    let test_workspace =
+        TestWorkspace::init_with_commit_store_and_settings(commit_store, &settings);
     let repo = &test_workspace.repo;
     let wc_commit_id = repo
         .view()

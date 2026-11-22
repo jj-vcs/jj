@@ -27,13 +27,13 @@ use futures::future;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
 
-use crate::backend;
-use crate::backend::BackendResult;
-use crate::backend::MergedTreeVal;
-use crate::backend::MergedTreeValueExt as _;
-use crate::backend::TreeEntriesNonRecursiveIterator;
-use crate::backend::TreeId;
-use crate::backend::TreeValue;
+use crate::commit_store;
+use crate::commit_store::CommitStoreResult;
+use crate::commit_store::MergedTreeVal;
+use crate::commit_store::MergedTreeValueExt as _;
+use crate::commit_store::TreeEntriesNonRecursiveIterator;
+use crate::commit_store::TreeId;
+use crate::commit_store::TreeValue;
 use crate::matchers::Matcher;
 use crate::merge::Merge;
 use crate::repo_path::RepoPath;
@@ -53,7 +53,7 @@ pub struct Tree {
     store: Arc<Store>,
     dir: RepoPathBuf,
     id: TreeId,
-    data: Arc<backend::Tree>,
+    data: Arc<commit_store::Tree>,
 }
 
 impl Debug for Tree {
@@ -82,7 +82,12 @@ impl Hash for Tree {
 
 impl Tree {
     /// Creates a tree object from its backend representation.
-    pub fn new(store: Arc<Store>, dir: RepoPathBuf, id: TreeId, data: Arc<backend::Tree>) -> Self {
+    pub fn new(
+        store: Arc<Store>,
+        dir: RepoPathBuf,
+        id: TreeId,
+        data: Arc<commit_store::Tree>,
+    ) -> Self {
         Self {
             store,
             dir,
@@ -98,7 +103,7 @@ impl Tree {
             store,
             dir,
             id,
-            data: Arc::new(backend::Tree::default()),
+            data: Arc::new(commit_store::Tree::default()),
         }
     }
 
@@ -118,7 +123,7 @@ impl Tree {
     }
 
     /// The backend representation of the tree.
-    pub fn data(&self) -> &backend::Tree {
+    pub fn data(&self) -> &commit_store::Tree {
         &self.data
     }
 
@@ -133,7 +138,7 @@ impl Tree {
     pub fn entries_matching<'matcher>(
         &self,
         matcher: &'matcher dyn Matcher,
-    ) -> BoxStream<'matcher, (RepoPathBuf, BackendResult<TreeValue>)> {
+    ) -> BoxStream<'matcher, (RepoPathBuf, CommitStoreResult<TreeValue>)> {
         let mut queue = TreeWalkQueue::new(self.store.concurrency());
         if !matcher.visit(&self.dir).is_nothing() {
             queue.schedule(self.dir.clone(), future::ready(Ok(self.clone())));
@@ -149,7 +154,7 @@ impl Tree {
 
     /// Looks up the value at `path`, which is relative to this tree. Must be
     /// called on the root tree.
-    pub async fn path_value(&self, path: &RepoPath) -> BackendResult<Option<TreeValue>> {
+    pub async fn path_value(&self, path: &RepoPath) -> CommitStoreResult<Option<TreeValue>> {
         assert_eq!(self.dir(), RepoPath::root());
         match path.split() {
             Some((dir, basename)) => {
@@ -162,7 +167,7 @@ impl Tree {
 
     /// Loads the subtree named `name` directly in this tree. Returns `None` if
     /// there's no such entry or if it's not a tree.
-    pub async fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>> {
+    pub async fn sub_tree(&self, name: &RepoPathComponent) -> CommitStoreResult<Option<Self>> {
         if let Some(sub_tree) = self.data.value(name) {
             match sub_tree {
                 TreeValue::Tree(sub_tree_id) => {
@@ -178,7 +183,7 @@ impl Tree {
     }
 
     /// Look up the tree at the given path.
-    pub async fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
+    pub async fn sub_tree_recursive(&self, path: &RepoPath) -> CommitStoreResult<Option<Self>> {
         let mut current_tree = self.clone();
         for name in path.components() {
             match current_tree.sub_tree(name).await? {
@@ -237,14 +242,14 @@ impl<'matcher> TreeWalkVisitor<'matcher> for TreeEntriesVisitor<'matcher> {
 /// Extension method for converting a tree-value merge to a `Merge<Tree>`.
 pub(crate) trait ToTreeMergeExt {
     /// If a `MergedTreeValue` is a tree merge as defined by
-    /// `jj_lib::backend::MergedTreeValueExt::is_tree()`, this converts it to
+    /// `jj_lib::commit_store::MergedTreeValueExt::is_tree()`, this converts it to
     /// a `Merge<Tree>`, with empty trees instead of any `None` terms and of any
     /// non-tree terms that cancel out. Otherwise, returns `None`.
     async fn to_tree_merge(
         &self,
         store: &Arc<Store>,
         dir: &RepoPath,
-    ) -> BackendResult<Option<Merge<Tree>>>;
+    ) -> CommitStoreResult<Option<Merge<Tree>>>;
 }
 
 impl<T> ToTreeMergeExt for Merge<Option<T>>
@@ -255,7 +260,7 @@ where
         &self,
         store: &Arc<Store>,
         dir: &RepoPath,
-    ) -> BackendResult<Option<Merge<Tree>>> {
+    ) -> CommitStoreResult<Option<Merge<Tree>>> {
         let tree_id_merge = self.to_tree_id_merge();
         if let Some(tree_id_merge) = tree_id_merge {
             Ok(Some(
@@ -289,10 +294,10 @@ pub(crate) trait TreeMergeExt: Sized {
     /// Gets the `Merge<Tree>` in a subdirectory of the current tree. If the
     /// path doesn't correspond to a tree in any of the inputs to the merge,
     /// then that entry will be replaced by an empty tree in the result.
-    async fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>>;
+    async fn sub_tree(&self, name: &RepoPathComponent) -> CommitStoreResult<Option<Self>>;
 
     /// Look up the tree at the given path.
-    async fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>>;
+    async fn sub_tree_recursive(&self, path: &RepoPath) -> CommitStoreResult<Option<Self>>;
 }
 
 impl TreeMergeExt for Merge<Tree> {
@@ -313,7 +318,7 @@ impl TreeMergeExt for Merge<Tree> {
         value
     }
 
-    async fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>> {
+    async fn sub_tree(&self, name: &RepoPathComponent) -> CommitStoreResult<Option<Self>> {
         let store = self.first().store();
         match self.value(name).into_resolved() {
             Ok(Some(TreeValue::Tree(sub_tree_id))) => {
@@ -332,7 +337,7 @@ impl TreeMergeExt for Merge<Tree> {
         }
     }
 
-    async fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
+    async fn sub_tree_recursive(&self, path: &RepoPath) -> CommitStoreResult<Option<Self>> {
         let mut current_tree = self.clone();
         for name in path.components() {
             match current_tree.sub_tree(name).await? {

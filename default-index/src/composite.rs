@@ -24,8 +24,8 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use itertools::Itertools as _;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
 use jj_core::hex_util;
 use jj_core::index::ChangeIdIndex;
 use jj_core::index::Index;

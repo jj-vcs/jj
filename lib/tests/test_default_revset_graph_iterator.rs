@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use itertools::Itertools as _;
-use jj_core::backend::CommitId;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitId;
 use jj_core::graph::GraphEdge;
 use jj_default_index::DefaultReadonlyIndex;
 use jj_default_index::DefaultReadonlyIndexRevset;

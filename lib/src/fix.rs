@@ -23,11 +23,11 @@ use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use indexmap::IndexSet;
-use jj_core::backend::BackendError;
-use jj_core::backend::CommitId;
-use jj_core::backend::FileId;
-use jj_core::backend::TreeValue;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::FileId;
+use jj_core::commit_store::TreeValue;
 use jj_core::diff::ContentDiff;
 use jj_core::diff::DiffHunkKind;
 use jj_core::matchers::Matcher;
@@ -66,9 +66,9 @@ pub struct FileToFix {
 /// Error fixing files.
 #[derive(Debug, thiserror::Error)]
 pub enum FixError {
-    /// Error while contacting the Backend.
+    /// Error while contacting the CommitStore.
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    CommitStore(#[from] CommitStoreError),
     /// Error resolving commit ancestry.
     #[error(transparent)]
     RevsetEvaluation(#[from] RevsetEvaluationError),

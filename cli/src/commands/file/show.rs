@@ -21,8 +21,8 @@ use futures::Stream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::MergedTreeValueExt as _;
+use jj_lib::commit_store::CommitStoreResult;
+use jj_lib::commit_store::MergedTreeValueExt as _;
 use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_merge_result;
@@ -160,7 +160,7 @@ async fn write_tree_entries(
     workspace_command: &WorkspaceCommandHelper,
     template: &TemplateRenderer<'_, TreeEntry>,
     tree: &MergedTree,
-    entries: impl Stream<Item = BackendResult<TreeEntry>>,
+    entries: impl Stream<Item = CommitStoreResult<TreeEntry>>,
 ) -> Result<(), CommandError> {
     let repo = workspace_command.repo();
     let mut entries = pin!(entries);

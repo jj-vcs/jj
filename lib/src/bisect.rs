@@ -22,9 +22,9 @@ use std::pin::pin;
 use std::sync::Arc;
 
 use futures::TryStreamExt as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::CommitId;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
 use jj_core::revset_backend::Revset;
 use jj_core::revset_backend::RevsetEvaluationError;
 use jj_core::revset_backend::RevsetStreamExt as _;
@@ -38,8 +38,8 @@ use crate::revset::RevsetExpression;
 #[derive(Error, Debug)]
 pub enum BisectionError {
     /// Failed to read data from the backend
-    #[error("Failed to read data from the backend involved in bisection")]
-    BackendError(#[from] BackendError),
+    #[error("Failed to read data from the commit store involved in bisection")]
+    CommitStoreError(#[from] CommitStoreError),
     /// Failed to evaluate a revset
     #[error("Failed to evaluate a revset involved in bisection")]
     RevsetEvaluationError(#[from] RevsetEvaluationError),

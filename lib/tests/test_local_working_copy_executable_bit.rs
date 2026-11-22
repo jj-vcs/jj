@@ -19,8 +19,8 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::Arc;
 
-use jj_core::backend::TreeValue;
 use jj_core::commit::Commit;
+use jj_core::commit_store::TreeValue;
 use jj_core::merged_tree::MergedTree;
 use jj_core::repo_path::RepoPath;
 use jj_core::store::Store;

@@ -26,8 +26,8 @@ use std::sync::LazyLock;
 
 use itertools::Itertools as _;
 use jiff::Zoned;
-use jj_core::backend::BackendError;
-use jj_core::backend::CommitId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
 use jj_core::index::MutableIndex;
 use jj_core::index::ResolvedChangeTargets;
 use jj_core::object_id::HexPrefix;
@@ -136,9 +136,9 @@ pub enum RevsetResolutionError {
         /// Commits the conflicted ref points to.
         targets: Vec<CommitId>,
     },
-    /// Error from the commit backend.
-    #[error("Unexpected error from commit backend")]
-    Backend(#[source] BackendError),
+    /// Error from the commit store.
+    #[error("Unexpected error from commit store")]
+    CommitStore(#[source] CommitStoreError),
     /// Other error, e.g. from a symbol resolver extension.
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
@@ -2671,7 +2671,7 @@ fn reload_repo_at_operation(
         .reload_at(&operation)
         .block_on()
         .map_err(|err| match err {
-            RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
+            RepoLoaderError::CommitStore(err) => RevsetResolutionError::CommitStore(err),
             RepoLoaderError::Index(_)
             | RepoLoaderError::IndexStore(_)
             | RepoLoaderError::OpHeadsStoreError(_)
@@ -3129,7 +3129,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
                     | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
                     | RevsetResolutionError::DivergentChangeId { .. }
                     | RevsetResolutionError::ConflictedRef { .. }
-                    | RevsetResolutionError::Backend(_)
+                    | RevsetResolutionError::CommitStore(_)
                     | RevsetResolutionError::Other(_) => Err(err),
                 })
             }

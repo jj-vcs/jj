@@ -16,7 +16,7 @@ use std::fmt::Debug;
 use std::io::Write as _;
 
 use futures::StreamExt as _;
-use jj_lib::backend::CopyRecord;
+use jj_lib::commit_store::CopyRecord;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;

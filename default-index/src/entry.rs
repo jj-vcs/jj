@@ -17,8 +17,8 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
 use jj_core::object_id::ObjectId as _;
 use smallvec::SmallVec;
 

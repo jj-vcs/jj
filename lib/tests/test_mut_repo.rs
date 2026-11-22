@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_core::backend::CommitId;
+use jj_core::commit_store::CommitId;
 use jj_core::index::Index;
 use jj_core::merge::Merge;
 use jj_core::merged_tree::MergedTree;

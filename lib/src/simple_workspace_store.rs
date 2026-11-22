@@ -19,8 +19,8 @@ use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 
-use jj_core::backend::BackendInitError;
-use jj_core::backend::BackendLoadError;
+use jj_core::commit_store::CommitStoreInitError;
+use jj_core::commit_store::CommitStoreLoadError;
 use jj_core::ref_name::WorkspaceName;
 use jj_core::workspace_store::WorkspaceStore;
 use jj_core::workspace_store::WorkspaceStoreError;
@@ -88,26 +88,26 @@ impl SimpleWorkspaceStore {
     }
 
     /// Loads the workspace store from the given store path and repo.
-    pub fn load(store_dir: &Path) -> Result<Self, BackendLoadError> {
+    pub fn load(store_dir: &Path) -> Result<Self, CommitStoreLoadError> {
         let store = Self::new(store_dir);
         if !store.store_file.exists() {
             // TODO: Remove this in jj 0.57+: older repos do not have a workspace store index so we initialize it here.
-            store.initialize().map_err(BackendLoadError::new)?;
+            store.initialize().map_err(CommitStoreLoadError::new)?;
         }
         Ok(store)
     }
 
     /// Initializes this SimpleWorkspaceStore with an empty index.
-    pub fn init(store_dir: &Path) -> Result<Self, BackendInitError> {
+    pub fn init(store_dir: &Path) -> Result<Self, CommitStoreInitError> {
         let store = Self::new(store_dir);
         store.initialize()?;
         Ok(store)
     }
 
-    fn initialize(&self) -> Result<(), BackendInitError> {
-        let _lock = self.lock().map_err(BackendInitError::new)?;
+    fn initialize(&self) -> Result<(), CommitStoreInitError> {
+        let _lock = self.lock().map_err(CommitStoreInitError::new)?;
         self.write_store(simple_workspace_store::Workspaces::default())
-            .map_err(BackendInitError::new)?;
+            .map_err(CommitStoreInitError::new)?;
         Ok(())
     }
 

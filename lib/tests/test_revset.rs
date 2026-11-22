@@ -22,12 +22,12 @@ use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jiff::Zoned;
 use jiff::tz;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
-use jj_core::backend::MillisSinceEpoch;
-use jj_core::backend::Signature;
-use jj_core::backend::Timestamp;
 use jj_core::commit::Commit;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::MillisSinceEpoch;
+use jj_core::commit_store::Signature;
+use jj_core::commit_store::Timestamp;
 use jj_core::graph::GraphEdge;
 use jj_core::graph::reverse_graph;
 use jj_core::merge::Merge;
@@ -74,7 +74,7 @@ use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::assert_rebased_onto;
@@ -158,7 +158,7 @@ fn test_resolve_symbol_empty_string() -> TestResult {
 fn test_resolve_symbol_commit_id() -> TestResult {
     let settings = testutils::user_settings();
     // Test only with SHA-1 git so we can get predictable commit ids
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::GitSha1);
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
@@ -281,7 +281,7 @@ fn test_resolve_symbol_commit_id() -> TestResult {
 #[test_case(true ; "readonly")]
 fn test_resolve_symbol_change_id(readonly: bool) -> TestResult {
     // Test only with SHA-1 git so we can get predictable commit ids
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::GitSha1);
     let repo = &test_repo.repo;
 
     // Add some commits that will end up having change ids with common prefixes
@@ -4152,8 +4152,11 @@ fn test_evaluate_expression_signed() {
     let settings = testutils::user_settings();
     let signing_backend = TestSigningBackend::from_settings(&settings).unwrap();
     let signer = Signer::new(Some(Box::new(signing_backend)), vec![]);
-    let test_workspace =
-        TestWorkspace::init_with_backend_and_signer(TestRepoBackend::Test, signer, &settings);
+    let test_workspace = TestWorkspace::init_with_commit_store_and_signer(
+        TestRepoCommitStore::Test,
+        signer,
+        &settings,
+    );
     let repo = &test_workspace.repo;
     let repo = repo.clone();
 

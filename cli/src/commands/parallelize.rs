@@ -18,9 +18,9 @@ use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
+use jj_lib::commit_store::CommitId;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;

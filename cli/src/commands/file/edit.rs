@@ -15,8 +15,8 @@
 use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
-use jj_lib::backend::MergedTreeValueExt as _;
-use jj_lib::backend::TreeValue;
+use jj_lib::commit_store::MergedTreeValueExt as _;
+use jj_lib::commit_store::TreeValue;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;

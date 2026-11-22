@@ -22,7 +22,7 @@ use clap_complete::CompletionCandidate;
 use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigNamePathBuf;
-use jj_lib::default_backend_factories::default_workspace_loader_factory;
+use jj_lib::default_commit_store_factories::default_workspace_loader_factory;
 use jj_lib::file_util::normalize_path;
 use jj_lib::file_util::slash_path;
 use jj_lib::settings::UserSettings;

@@ -19,9 +19,9 @@ use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use jj_lib::backend::BackendError;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::lock::FileLock;
@@ -323,9 +323,9 @@ pub enum RunnerError {
     /// The workspace environment couldn't be loaded.
     #[error(transparent)]
     Environment(#[from] WorkspaceEnvironmentError),
-    /// Error from the commit backend.
+    /// Error from the commit store.
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    CommitStore(#[from] CommitStoreError),
     /// Error from the operation store.
     #[error(transparent)]
     OpStore(#[from] OpStoreError),

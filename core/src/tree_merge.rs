@@ -29,14 +29,14 @@ use futures::future::try_join_all;
 use futures::stream::FuturesUnordered;
 use itertools::Itertools as _;
 
-use crate::backend;
-use crate::backend::BackendError;
-use crate::backend::BackendResult;
-use crate::backend::MergedTreeVal;
-use crate::backend::MergedTreeValue;
-use crate::backend::MergedTreeValueExt as _;
-use crate::backend::TreeId;
-use crate::backend::TreeValue;
+use crate::commit_store;
+use crate::commit_store::CommitStoreError;
+use crate::commit_store::CommitStoreResult;
+use crate::commit_store::MergedTreeVal;
+use crate::commit_store::MergedTreeValue;
+use crate::commit_store::MergedTreeValueExt as _;
+use crate::commit_store::TreeId;
+use crate::commit_store::TreeValue;
 use crate::files;
 use crate::merge::Merge;
 use crate::merge::SameChange;
@@ -51,7 +51,10 @@ use crate::tree::Tree;
 
 /// The returned conflict will either be resolved or have the same number of
 /// sides as the input.
-pub async fn merge_trees(store: &Arc<Store>, merge: Merge<TreeId>) -> BackendResult<Merge<TreeId>> {
+pub async fn merge_trees(
+    store: &Arc<Store>,
+    merge: Merge<TreeId>,
+) -> CommitStoreResult<Merge<TreeId>> {
     let merge = match merge.into_resolved() {
         Ok(tree) => return Ok(Merge::resolved(tree)),
         Err(merge) => merge,
@@ -105,7 +108,7 @@ impl MergedTreeInput {
         }
     }
 
-    fn into_backend_trees(self) -> Merge<backend::Tree> {
+    fn into_commit_store_trees(self) -> Merge<commit_store::Tree> {
         assert!(self.pending_lookup.is_empty());
 
         fn by_name(
@@ -117,7 +120,7 @@ impl MergedTreeInput {
 
         if self.conflicts.is_empty() {
             let all_entries = self.resolved.into_iter().collect();
-            Merge::resolved(backend::Tree::from_sorted_entries(all_entries))
+            Merge::resolved(commit_store::Tree::from_sorted_entries(all_entries))
         } else {
             // Create a Merge with the conflict entries for each side.
             let mut conflict_entries = self.conflicts.first_key_value().unwrap().1.map(|_| vec![]);
@@ -130,18 +133,18 @@ impl MergedTreeInput {
                 }
             }
 
-            let mut backend_trees = vec![];
+            let mut commit_store_trees = vec![];
             for entries in conflict_entries {
-                let backend_tree = backend::Tree::from_sorted_entries(
+                let commit_store_tree = commit_store::Tree::from_sorted_entries(
                     self.resolved
                         .iter()
                         .map(|(name, value)| (name.clone(), value.clone()))
                         .merge_by(entries, by_name)
                         .collect(),
                 );
-                backend_trees.push(backend_tree);
+                commit_store_trees.push(commit_store_tree);
             }
-            Merge::from_vec(backend_trees)
+            Merge::from_vec(commit_store_trees)
         }
     }
 }
@@ -151,15 +154,15 @@ enum TreeMergerWorkOutput {
     /// Trees that have been read (i.e. `Read` is past tense)
     ReadTrees {
         dir: RepoPathBuf,
-        result: BackendResult<Merge<Tree>>,
+        result: CommitStoreResult<Merge<Tree>>,
     },
     WrittenTrees {
         dir: RepoPathBuf,
-        result: BackendResult<Merge<Tree>>,
+        result: CommitStoreResult<Merge<Tree>>,
     },
     MergedFiles {
         path: RepoPathBuf,
-        result: BackendResult<MergedTreeValue>,
+        result: CommitStoreResult<MergedTreeValue>,
     },
 }
 
@@ -182,7 +185,7 @@ struct TreeMerger {
 }
 
 impl TreeMerger {
-    async fn merge(mut self) -> BackendResult<Merge<Tree>> {
+    async fn merge(mut self) -> CommitStoreResult<Merge<Tree>> {
         while let Some(work_item) = self.work.next().await {
             match work_item {
                 TreeMergerWorkOutput::ReadTrees { dir, result } => {
@@ -240,8 +243,9 @@ impl TreeMerger {
 
         // If there are no non-trivial merges, we can write the tree now.
         if non_trivial.is_empty() {
-            let backend_trees = Merge::resolved(backend::Tree::from_sorted_entries(resolved));
-            self.enqueue_tree_write(dir, backend_trees);
+            let commit_store_trees =
+                Merge::resolved(commit_store::Tree::from_sorted_entries(resolved));
+            self.enqueue_tree_write(dir, commit_store_trees);
             return;
         }
 
@@ -273,8 +277,12 @@ impl TreeMerger {
         }
     }
 
-    fn enqueue_tree_write(&mut self, dir: RepoPathBuf, backend_trees: Merge<backend::Tree>) {
-        let work_fut = write_trees(self.store.clone(), dir.clone(), backend_trees)
+    fn enqueue_tree_write(
+        &mut self,
+        dir: RepoPathBuf,
+        commit_store_trees: Merge<commit_store::Tree>,
+    ) {
+        let work_fut = write_trees(self.store.clone(), dir.clone(), commit_store_trees)
             .map(|result| TreeMergerWorkOutput::WrittenTrees { dir, result });
         // Bypass the `unstarted_work` queue because writing trees usually results in
         // saving memory (each tree gets replaced by a `TreeValue::Tree`)
@@ -301,7 +309,7 @@ impl TreeMerger {
         // conflict), schedule the writing of the tree(s) to the backend.
         if tree.pending_lookup.is_empty() {
             let tree = self.trees_to_resolve.remove(dir).unwrap();
-            self.enqueue_tree_write(dir.to_owned(), tree.into_backend_trees());
+            self.enqueue_tree_write(dir.to_owned(), tree.into_commit_store_trees());
         }
     }
 }
@@ -310,7 +318,7 @@ async fn read_trees(
     store: Arc<Store>,
     dir: RepoPathBuf,
     value: MergedTreeValue,
-) -> BackendResult<Merge<Tree>> {
+) -> CommitStoreResult<Merge<Tree>> {
     let trees = value
         .to_tree_merge(&store, &dir)
         .await?
@@ -321,14 +329,14 @@ async fn read_trees(
 async fn write_trees(
     store: Arc<Store>,
     dir: RepoPathBuf,
-    backend_trees: Merge<backend::Tree>,
-) -> BackendResult<Merge<Tree>> {
-    // TODO: Could use `backend_trees.try_map_async()` here if it took `self` by
-    // value or if `Backend::write_tree()` to an `Arc<backend::Tree>`.
+    commit_store_trees: Merge<commit_store::Tree>,
+) -> CommitStoreResult<Merge<Tree>> {
+    // TODO: Could use `commit_store_trees.try_map_async()` here if it took `self` by
+    // value or if `CommitStore::write_tree()` to an `Arc<commit_store::Tree>`.
     let trees = try_join_all(
-        backend_trees
+        commit_store_trees
             .into_iter()
-            .map(|backend_tree| store.write_tree(&dir, backend_tree)),
+            .map(|commit_store_tree| store.write_tree(&dir, commit_store_tree)),
     )
     .await?;
     Ok(Merge::from_vec(trees))
@@ -338,7 +346,7 @@ async fn resolve_file_values_owned(
     store: Arc<Store>,
     path: RepoPathBuf,
     values: MergedTreeValue,
-) -> BackendResult<MergedTreeValue> {
+) -> CommitStoreResult<MergedTreeValue> {
     let maybe_resolved = try_resolve_file_values(&store, &path, &values).await?;
     Ok(maybe_resolved.unwrap_or(values))
 }
@@ -350,7 +358,7 @@ pub async fn resolve_file_values(
     store: &Arc<Store>,
     path: &RepoPath,
     values: MergedTreeValue,
-) -> BackendResult<MergedTreeValue> {
+) -> CommitStoreResult<MergedTreeValue> {
     let same_change = store.merge_options().same_change;
     if let Some(resolved) = values.resolve_trivial(same_change) {
         return Ok(Merge::resolved(resolved.clone()));
@@ -364,7 +372,7 @@ async fn try_resolve_file_values<T: Borrow<TreeValue>>(
     store: &Arc<Store>,
     path: &RepoPath,
     values: &Merge<Option<T>>,
-) -> BackendResult<Option<MergedTreeValue>> {
+) -> CommitStoreResult<Option<MergedTreeValue>> {
     // The values may contain trees canceling each other (notably padded absent
     // trees), so we need to simplify them first.
     let simplified = values
@@ -388,7 +396,7 @@ async fn try_resolve_file_conflict(
     store: &Store,
     filename: &RepoPath,
     conflict: &MergedTreeVal<'_>,
-) -> BackendResult<Option<TreeValue>> {
+) -> CommitStoreResult<Option<TreeValue>> {
     let options = store.merge_options();
     // If there are any non-file or any missing parts in the conflict, we can't
     // merge it. We check early so we don't waste time reading file contents if
@@ -459,12 +467,12 @@ async fn try_resolve_file_conflict(
             reader
                 .read_to_end(&mut content)
                 .await
-                .map_err(|err| BackendError::ReadObject {
+                .map_err(|err| CommitStoreError::ReadObject {
                     object_type: file_id.object_type(),
                     hash: file_id.hex(),
                     source: err.into(),
                 })?;
-            BackendResult::Ok(content)
+            CommitStoreResult::Ok(content)
         })
         .await?;
     if let Some(merged_content) = files::try_merge(&contents, options) {

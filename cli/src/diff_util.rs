@@ -33,14 +33,14 @@ use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendError;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::CommitId;
-use jj_lib::backend::CopyRecord;
-use jj_lib::backend::MergedTreeValue;
-use jj_lib::backend::MergedTreeValueExt as _;
-use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStoreError;
+use jj_lib::commit_store::CommitStoreResult;
+use jj_lib::commit_store::CopyRecord;
+use jj_lib::commit_store::MergedTreeValue;
+use jj_lib::commit_store::MergedTreeValueExt as _;
+use jj_lib::commit_store::TreeValue;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::conflict_labels::ConflictLabels;
@@ -416,7 +416,7 @@ pub enum DiffRenderError {
     #[error("Failed to generate diff")]
     DiffGenerate(#[source] DiffGenerateError),
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    Backend(#[from] CommitStoreError),
     #[error("Access denied to {path}")]
     AccessDenied {
         path: String,
@@ -431,7 +431,7 @@ pub enum DiffRenderError {
 impl From<UnifiedDiffError> for DiffRenderError {
     fn from(value: UnifiedDiffError) -> Self {
         match value {
-            UnifiedDiffError::Backend(error) => Self::Backend(error),
+            UnifiedDiffError::CommitStore(error) => Self::Backend(error),
             UnifiedDiffError::AccessDenied { path, source } => Self::AccessDenied { path, source },
         }
     }
@@ -711,7 +711,7 @@ pub async fn get_copy_records(
     root: &CommitId,
     head: &CommitId,
     matcher: &dyn Matcher,
-) -> BackendResult<Vec<CopyRecord>> {
+) -> CommitStoreResult<Vec<CopyRecord>> {
     // TODO: teach backend about matching path prefixes?
     let stream = store.get_copy_records(None, root, head)?;
     // TODO: test record.source as well? should be AND-ed or OR-ed?
@@ -1413,7 +1413,7 @@ async fn diff_content(
     path: &RepoPath,
     value: MaterializedTreeValue,
     materialize_options: &ConflictMaterializeOptions,
-) -> BackendResult<FileContent<BString>> {
+) -> CommitStoreResult<FileContent<BString>> {
     diff_content_with(
         path,
         value,
@@ -1442,7 +1442,7 @@ impl DiffContentAsMerge {
 async fn diff_content_as_merge(
     path: &RepoPath,
     value: MaterializedTreeValue,
-) -> BackendResult<FileContent<DiffContentAsMerge>> {
+) -> CommitStoreResult<FileContent<DiffContentAsMerge>> {
     diff_content_with(
         path,
         value,
@@ -1463,7 +1463,7 @@ async fn diff_content_with<T>(
     value: MaterializedTreeValue,
     map_resolved: impl FnOnce(BString) -> T,
     map_conflict: impl FnOnce(Merge<BString>, ConflictLabels) -> T,
-) -> BackendResult<FileContent<T>> {
+) -> CommitStoreResult<FileContent<T>> {
     match value {
         MaterializedTreeValue::Absent => Ok(FileContent {
             is_binary: false,
@@ -2116,7 +2116,7 @@ impl DiffStats {
         tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
         options: &DiffStatOptions,
         materialize_options: &ConflictMaterializeOptions,
-    ) -> BackendResult<Self> {
+    ) -> CommitStoreResult<Self> {
         let conflict_labels = ConflictLabels::unlabeled();
         let entries = materialized_diff_stream(
             store,
@@ -2137,7 +2137,7 @@ impl DiffStats {
                 Diff::new(&left_content, &right_content),
                 options,
             );
-            BackendResult::Ok(stat)
+            CommitStoreResult::Ok(stat)
         })
         .try_collect()
         .await?;
@@ -2444,7 +2444,7 @@ pub async fn show_templated(
     template: &TemplateRenderer<'_, commit_templater::TreeDiffEntry>,
 ) -> Result<(), DiffRenderError> {
     while let Some(entry) = tree_diff.next().await {
-        let entry = commit_templater::TreeDiffEntry::from_backend_entry_with_copies(entry)?;
+        let entry = commit_templater::TreeDiffEntry::from_commit_store_entry_with_copies(entry)?;
         template.format(&entry, formatter)?;
     }
     Ok(())

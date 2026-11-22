@@ -18,7 +18,7 @@ use std::io::Write as _;
 use clap_complete::ArgValueCompleter;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
-use jj_lib::backend::BackendResult;
+use jj_lib::commit_store::CommitStoreResult;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_tree_value;
 use jj_lib::file_util;
@@ -111,7 +111,7 @@ pub(crate) async fn cmd_file_search(
     let pattern_matcher = pattern.to_matcher();
     let mut entries = tree
         .entries_matching(file_matcher.as_ref())
-        .map(async |(path, value)| -> BackendResult<_> {
+        .map(async |(path, value)| -> CommitStoreResult<_> {
             let mut materialized =
                 materialize_tree_value(store.as_ref(), &path, value?, tree.labels()).await?;
             let content = match &mut materialized {

@@ -16,12 +16,12 @@ use std::fmt::Write as _;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use jj_core::backend::CommitId;
-use jj_core::backend::MillisSinceEpoch;
-use jj_core::backend::Signature;
-use jj_core::backend::Timestamp;
-use jj_core::backend::TreeValue;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::MillisSinceEpoch;
+use jj_core::commit_store::Signature;
+use jj_core::commit_store::Timestamp;
+use jj_core::commit_store::TreeValue;
 use jj_core::merged_tree::MergedTree;
 use jj_core::repo_path::RepoPath;
 use jj_lib::annotate::FileAnnotation;
@@ -34,12 +34,12 @@ use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::create_tree;
 use testutils::read_file;
 use testutils::repo_path;
-use testutils::test_backend::TestBackend;
+use testutils::test_backend::TestCommitStore;
 
 fn create_commit_fn(
     mut_repo: &mut MutableRepo,
@@ -114,10 +114,10 @@ fn format_annotation(annotation: &FileAnnotation) -> String {
     output
 }
 
-#[test_case(TestRepoBackend::Test; "concurrent")]
-#[test_case(TestRepoBackend::Git; "no concurrent")]
-fn test_annotate_linear(backend: TestRepoBackend) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(backend);
+#[test_case(TestRepoCommitStore::Test; "concurrent")]
+#[test_case(TestRepoCommitStore::Git; "no concurrent")]
+fn test_annotate_linear(commit_store: TestRepoCommitStore) -> TestResult {
+    let test_repo = TestRepo::init_with_commit_store(commit_store);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -161,10 +161,10 @@ fn test_annotate_linear(backend: TestRepoBackend) -> TestResult {
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Test; "concurrent")]
-#[test_case(TestRepoBackend::Git; "no concurrent")]
-fn test_annotate_merge_simple(backend: TestRepoBackend) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(backend);
+#[test_case(TestRepoCommitStore::Test; "concurrent")]
+#[test_case(TestRepoCommitStore::Git; "no concurrent")]
+fn test_annotate_merge_simple(commit_store: TestRepoCommitStore) -> TestResult {
+    let test_repo = TestRepo::init_with_commit_store(commit_store);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -294,7 +294,7 @@ fn test_annotate_merge_simple(backend: TestRepoBackend) -> TestResult {
 fn test_annotate_merge_loads_shared_parent_once() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
+    let test_commit_store: &TestCommitStore = repo.store().commit_store_impl().unwrap();
 
     let root_commit_id = repo.store().root_commit_id();
     let file_path = repo_path("file");
@@ -318,7 +318,7 @@ fn test_annotate_merge_loads_shared_parent_once() -> TestResult {
     let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4);
     drop(create_commit);
 
-    let num_file_reads_before = test_backend.num_file_reads();
+    let num_file_reads_before = test_commit_store.num_file_reads();
     insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @"
     commit1:1 : a
     commit4:2 : b
@@ -326,7 +326,10 @@ fn test_annotate_merge_loads_shared_parent_once() -> TestResult {
     ");
     // commit1 is a parent of both commit2 and commit3, but its contents are
     // loaded only once even though the loads are started ahead of time.
-    assert_eq!(test_backend.num_file_reads() - num_file_reads_before, 4);
+    assert_eq!(
+        test_commit_store.num_file_reads() - num_file_reads_before,
+        4
+    );
     Ok(())
 }
 
@@ -334,7 +337,7 @@ fn test_annotate_merge_loads_shared_parent_once() -> TestResult {
 fn test_annotate_merge_does_not_load_ancestors_of_unused_side() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
+    let test_commit_store: &TestCommitStore = repo.store().commit_store_impl().unwrap();
 
     let root_commit_id = repo.store().root_commit_id();
     let file_path = repo_path("file");
@@ -369,7 +372,7 @@ fn test_annotate_merge_does_not_load_ancestors_of_unused_side() -> TestResult {
     let commit_merge = create_commit("merge", &[commit_side1.id(), commit_side2.id()], tree_side);
     drop(create_commit);
 
-    let num_file_reads_before = test_backend.num_file_reads();
+    let num_file_reads_before = test_commit_store.num_file_reads();
     insta::assert_snapshot!(annotate(tx.repo(), &commit_merge, file_path), @"
     base:1 : a
     side1:2 : b
@@ -378,16 +381,16 @@ fn test_annotate_merge_does_not_load_ancestors_of_unused_side() -> TestResult {
     // ahead of time, so up to `concurrency` commits in the chain may also
     // have been loaded before it was known that side2 gets no lines, but the
     // rest of the chain must not be.
-    let num_file_reads = test_backend.num_file_reads() - num_file_reads_before;
+    let num_file_reads = test_commit_store.num_file_reads() - num_file_reads_before;
     assert!(num_file_reads >= 4, "{num_file_reads}");
     assert!(num_file_reads <= 4 + concurrency, "{num_file_reads}");
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Test; "concurrent")]
-#[test_case(TestRepoBackend::Git; "no concurrent")]
-fn test_annotate_merge_split(backend: TestRepoBackend) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(backend);
+#[test_case(TestRepoCommitStore::Test; "concurrent")]
+#[test_case(TestRepoCommitStore::Git; "no concurrent")]
+fn test_annotate_merge_split(commit_store: TestRepoCommitStore) -> TestResult {
+    let test_repo = TestRepo::init_with_commit_store(commit_store);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -428,10 +431,10 @@ fn test_annotate_merge_split(backend: TestRepoBackend) -> TestResult {
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Test; "concurrent")]
-#[test_case(TestRepoBackend::Git; "no concurrent")]
-fn test_annotate_merge_split_interleaved(backend: TestRepoBackend) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(backend);
+#[test_case(TestRepoCommitStore::Test; "concurrent")]
+#[test_case(TestRepoCommitStore::Git; "no concurrent")]
+fn test_annotate_merge_split_interleaved(commit_store: TestRepoCommitStore) -> TestResult {
+    let test_repo = TestRepo::init_with_commit_store(commit_store);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -484,10 +487,10 @@ fn test_annotate_merge_split_interleaved(backend: TestRepoBackend) -> TestResult
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Test; "concurrent")]
-#[test_case(TestRepoBackend::Git; "no concurrent")]
-fn test_annotate_merge_dup(backend: TestRepoBackend) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(backend);
+#[test_case(TestRepoCommitStore::Test; "concurrent")]
+#[test_case(TestRepoCommitStore::Git; "no concurrent")]
+fn test_annotate_merge_dup(commit_store: TestRepoCommitStore) -> TestResult {
+    let test_repo = TestRepo::init_with_commit_store(commit_store);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
@@ -542,10 +545,10 @@ fn test_annotate_merge_dup(backend: TestRepoBackend) -> TestResult {
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Test; "concurrent")]
-#[test_case(TestRepoBackend::Git; "no concurrent")]
-fn test_annotate_file_directory_transition(backend: TestRepoBackend) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(backend);
+#[test_case(TestRepoCommitStore::Test; "concurrent")]
+#[test_case(TestRepoCommitStore::Git; "no concurrent")]
+fn test_annotate_file_directory_transition(commit_store: TestRepoCommitStore) -> TestResult {
+    let test_repo = TestRepo::init_with_commit_store(commit_store);
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();

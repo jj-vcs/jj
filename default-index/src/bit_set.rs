@@ -201,8 +201,8 @@ impl AncestorsBitSet {
 
 #[cfg(test)]
 mod tests {
-    use jj_core::backend::ChangeId;
-    use jj_core::backend::CommitId;
+    use jj_core::commit_store::ChangeId;
+    use jj_core::commit_store::CommitId;
 
     use super::super::composite::AsCompositeIndex as _;
     use super::super::mutable::DefaultMutableIndex;

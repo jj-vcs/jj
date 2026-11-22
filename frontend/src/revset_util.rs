@@ -37,7 +37,7 @@ pub fn default_ignored_remote_name(store: &Store) -> Option<&'static RemoteName>
     #[cfg(feature = "git")]
     {
         use jj_lib::git;
-        if git::get_git_backend(store).is_ok() {
+        if git::get_git_commit_store(store).is_ok() {
             return Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO);
         }
     }

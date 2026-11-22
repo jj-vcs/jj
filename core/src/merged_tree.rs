@@ -30,13 +30,13 @@ use futures::stream::BoxStream;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 
-use crate::backend::BackendResult;
-use crate::backend::CopyId;
-use crate::backend::MergedTreeVal;
-use crate::backend::MergedTreeValue;
-use crate::backend::MergedTreeValueExt as _;
-use crate::backend::TreeId;
-use crate::backend::TreeValue;
+use crate::commit_store::CommitStoreResult;
+use crate::commit_store::CopyId;
+use crate::commit_store::MergedTreeVal;
+use crate::commit_store::MergedTreeValue;
+use crate::commit_store::MergedTreeValueExt as _;
+use crate::commit_store::TreeId;
+use crate::commit_store::TreeValue;
 use crate::conflict_labels::ConflictLabels;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopyHistoryDiffStream;
@@ -136,7 +136,7 @@ impl MergedTree {
     }
 
     /// Reads the merge of tree objects represented by this `MergedTree`.
-    async fn trees(&self) -> BackendResult<Merge<Tree>> {
+    async fn trees(&self) -> CommitStoreResult<Merge<Tree>> {
         self.tree_ids
             .try_map_async(|id| self.store.get_tree(RepoPathBuf::root(), id))
             .await
@@ -167,7 +167,7 @@ impl MergedTree {
 
     /// Tries to resolve any conflicts, resolving any conflicts that can be
     /// automatically resolved and leaving the rest unresolved.
-    pub async fn resolve(self) -> BackendResult<Self> {
+    pub async fn resolve(self) -> CommitStoreResult<Self> {
         let merged = merge_trees(&self.store, self.tree_ids).await?;
         // If the result can be resolved, then `merge_trees()` above would have returned
         // a resolved merge. However, that function will always preserve the arity of
@@ -232,7 +232,7 @@ impl MergedTree {
     /// The value at the given path. The value can be `Resolved` even if
     /// `self` is a `Conflict`, which happens if the value at the path can be
     /// trivially merged.
-    pub async fn path_value(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
+    pub async fn path_value(&self, path: &RepoPath) -> CommitStoreResult<MergedTreeValue> {
         match path.split() {
             Some((dir, basename)) => {
                 let trees = self.trees().await?;
@@ -248,7 +248,7 @@ impl MergedTree {
     /// Whether `dir` is a directory in this tree. The root directory is always
     /// considered to exist. A path that's a directory in some terms of a
     /// conflict and a file in others is not considered a directory.
-    pub async fn has_dir(&self, dir: &RepoPath) -> BackendResult<bool> {
+    pub async fn has_dir(&self, dir: &RepoPath) -> CommitStoreResult<bool> {
         if dir.is_root() {
             return Ok(true);
         }
@@ -257,8 +257,8 @@ impl MergedTree {
 
     /// Returns the `TreeValue` associated with `id` if it exists at the
     /// expected path and is resolved.
-    pub async fn copy_value(&self, id: &CopyId) -> BackendResult<Option<TreeValue>> {
-        let copy = self.store().backend().read_copy(id).await?;
+    pub async fn copy_value(&self, id: &CopyId) -> CommitStoreResult<Option<TreeValue>> {
+        let copy = self.store().commit_store().read_copy(id).await?;
         let merged_val = self.path_value(&copy.current_path).await?;
         match merged_val.into_resolved() {
             Ok(Some(val)) if val.copy_id() == Some(id) => Ok(Some(val)),
@@ -347,7 +347,7 @@ impl MergedTree {
     /// has been written to the backend; it is not a lazily calculated  view of
     /// the original tree. The arity and conflict labels will be the same as
     /// this tree's.
-    pub async fn filtered(&self, matcher: &dyn Matcher) -> BackendResult<Self> {
+    pub async fn filtered(&self, matcher: &dyn Matcher) -> CommitStoreResult<Self> {
         FilteredTreeWriter::new(self, matcher).write().await
     }
 
@@ -377,7 +377,7 @@ impl MergedTree {
     /// conflict arises. However, if one of the input trees is already
     /// conflicted, the corresponding label will be ignored, and its existing
     /// labels will be used instead.
-    pub async fn merge(merge: Merge<(Self, String)>) -> BackendResult<Self> {
+    pub async fn merge(merge: Merge<(Self, String)>) -> CommitStoreResult<Self> {
         Self::merge_no_resolve(merge).resolve().await
     }
 
@@ -412,16 +412,16 @@ pub struct TreeDiffEntry {
     /// The path.
     pub path: RepoPathBuf,
     /// The resolved tree values if available.
-    pub values: BackendResult<Diff<MergedTreeValue>>,
+    pub values: CommitStoreResult<Diff<MergedTreeValue>>,
 }
 
 /// Type alias for the result from `MergedTree::conflicts()`.
 pub type TreeConflictsStream<'matcher> =
-    BoxStream<'matcher, (RepoPathBuf, BackendResult<MergedTreeValue>)>;
+    BoxStream<'matcher, (RepoPathBuf, CommitStoreResult<MergedTreeValue>)>;
 
 /// Type alias for the result from `MergedTree::entries()`.
 pub type TreeEntriesStream<'matcher> =
-    BoxStream<'matcher, (RepoPathBuf, BackendResult<MergedTreeValue>)>;
+    BoxStream<'matcher, (RepoPathBuf, CommitStoreResult<MergedTreeValue>)>;
 
 /// Type alias for the result from `MergedTree::diff()`. We use a
 /// `Stream` instead of an `Iterator` so high-latency backends (e.g. cloud-based
@@ -499,7 +499,7 @@ async fn read_trees(
     store: Arc<Store>,
     dir: RepoPathBuf,
     value: MergedTreeValue,
-) -> BackendResult<Merge<Tree>> {
+) -> CommitStoreResult<Merge<Tree>> {
     let trees = value
         .to_tree_merge(&store, &dir)
         .await?
@@ -591,7 +591,7 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
     ///
     /// `max_concurrent_reads` is the maximum number of paths to read trees for
     /// concurrently. There will often be twice as many pending
-    /// `Backend::read_tree()` calls - for the "before" and "after" sides. For
+    /// `CommitStore::read_tree()` calls - for the "before" and "after" sides. For
     /// conflicts, there will be even more.
     pub fn new(
         tree1: &MergedTree,
@@ -646,7 +646,7 @@ impl TreeDiffVisitor<'_> {
         store: Arc<Store>,
         dir: RepoPathBuf,
         values: MergedTreeValue,
-    ) -> BackendResult<Merge<Tree>> {
+    ) -> CommitStoreResult<Merge<Tree>> {
         let trees = values.to_tree_merge(&store, &dir).await?;
         Ok(trees.unwrap_or_else(|| Merge::resolved(Tree::empty(store, dir))))
     }

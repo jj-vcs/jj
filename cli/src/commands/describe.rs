@@ -21,7 +21,7 @@ use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendResult;
+use jj_lib::commit_store::CommitStoreResult;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetStreamExt as _;
@@ -169,7 +169,7 @@ pub(crate) async fn cmd_describe(
             iter::zip(&commits, &commit_builders)
                 // Edit descriptions in topological order
                 .rev()
-                .map(async |(commit, commit_builder)| -> BackendResult<_> {
+                .map(async |(commit, commit_builder)| -> CommitStoreResult<_> {
                     let temp_commit = commit_builder.write_hidden().await?;
                     let intro = "";
                     Ok((commit.id(), intro, temp_commit))

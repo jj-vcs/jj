@@ -25,10 +25,10 @@ use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::CommitId;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreResult;
 use jj_core::dag_walk;
 use jj_core::op_store::OpStoreError;
 use jj_core::op_store::OpStoreResult;
@@ -58,7 +58,7 @@ impl CommitEvolutionEntry {
     }
 
     /// Predecessor commit objects of this commit.
-    pub async fn predecessors(&self) -> BackendResult<Vec<Commit>> {
+    pub async fn predecessors(&self) -> CommitStoreResult<Vec<Commit>> {
         let store = self.commit.store();
         try_join_all(
             self.predecessor_ids()
@@ -72,9 +72,9 @@ impl CommitEvolutionEntry {
 /// Error from [`walk_predecessors()`].
 #[derive(Debug, Error)]
 pub enum WalkPredecessorsError {
-    /// Error from the commit backend.
+    /// Error from the commit store.
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    CommitStore(#[from] CommitStoreError),
     /// Error from the operation store.
     #[error(transparent)]
     OpStore(#[from] OpStoreError),

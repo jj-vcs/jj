@@ -27,13 +27,13 @@ use futures::future::try_join_all;
 use itertools::Itertools as _;
 use tracing::instrument;
 
-use crate::backend;
-use crate::backend::BackendError;
-use crate::backend::BackendResult;
-use crate::backend::ChangeId;
-use crate::backend::CommitId;
-use crate::backend::Signature;
-use crate::backend::TreeId;
+use crate::commit_store;
+use crate::commit_store::ChangeId;
+use crate::commit_store::CommitId;
+use crate::commit_store::CommitStoreError;
+use crate::commit_store::CommitStoreResult;
+use crate::commit_store::Signature;
+use crate::commit_store::TreeId;
 use crate::conflict_labels::ConflictLabels;
 use crate::index::Index;
 use crate::merge::Merge;
@@ -53,7 +53,7 @@ pub struct Commit {
     #[serde(rename = "commit_id")]
     id: CommitId,
     #[serde(flatten)]
-    data: Arc<backend::Commit>,
+    data: Arc<commit_store::Commit>,
 }
 
 impl Debug for Commit {
@@ -95,7 +95,7 @@ impl Hash for Commit {
 
 impl Commit {
     /// Creates a commit object from its backend representation.
-    pub fn new(store: Arc<Store>, id: CommitId, data: Arc<backend::Commit>) -> Self {
+    pub fn new(store: Arc<Store>, id: CommitId, data: Arc<commit_store::Commit>) -> Self {
         Self { store, id, data }
     }
 
@@ -115,7 +115,7 @@ impl Commit {
     }
 
     /// Loads the commit's parents from the store.
-    pub async fn parents(&self) -> BackendResult<Vec<Self>> {
+    pub async fn parents(&self) -> CommitStoreResult<Vec<Self>> {
         try_join_all(
             self.data
                 .parents
@@ -141,7 +141,7 @@ impl Commit {
 
     /// Return the parent tree, merging the parent trees if there are multiple
     /// parents.
-    pub async fn parent_tree(&self, index: &dyn Index) -> BackendResult<MergedTree> {
+    pub async fn parent_tree(&self, index: &dyn Index) -> CommitStoreResult<MergedTree> {
         // Avoid merging parent trees if known to be empty. The index could be
         // queried only when parents.len() > 1, but index query would be cheaper
         // than extracting parent commit from the store.
@@ -154,7 +154,7 @@ impl Commit {
 
     /// Returns the parent tree, merging the parent trees if there are multiple
     /// parents, without resolving conflicts.
-    pub async fn parent_tree_no_resolve(&self, index: &dyn Index) -> BackendResult<MergedTree> {
+    pub async fn parent_tree_no_resolve(&self, index: &dyn Index) -> CommitStoreResult<MergedTree> {
         // Avoid merging parent trees if known to be empty. The index could be
         // queried only when parents.len() > 1, but index query would be cheaper
         // than extracting parent commit from the store.
@@ -167,11 +167,11 @@ impl Commit {
 
     /// Returns whether commit's content is empty. Commit description is not
     /// taken into consideration.
-    pub async fn is_empty(&self, index: &dyn Index) -> BackendResult<bool> {
+    pub async fn is_empty(&self, index: &dyn Index) -> CommitStoreResult<bool> {
         if let Some(empty) = is_commit_empty_by_index(index, &self.id).await? {
             return Ok(empty);
         }
-        is_backend_commit_empty(index, &self.store, &self.data).await
+        is_commit_store_commit_empty(index, &self.store, &self.data).await
     }
 
     /// Returns whether the commit's root tree has conflicts.
@@ -185,7 +185,7 @@ impl Commit {
     }
 
     /// The backend representation of the commit.
-    pub fn store_commit(&self) -> &Arc<backend::Commit> {
+    pub fn store_commit(&self) -> &Arc<commit_store::Commit> {
         &self.data
     }
 
@@ -206,7 +206,7 @@ impl Commit {
 
     /// A commit is discardable if it has no change from its parent, and an
     /// empty description.
-    pub async fn is_discardable(&self, index: &dyn Index) -> BackendResult<bool> {
+    pub async fn is_discardable(&self, index: &dyn Index) -> CommitStoreResult<bool> {
         Ok(self.description().is_empty() && self.is_empty(index).await?)
     }
 
@@ -250,7 +250,7 @@ impl Commit {
     }
 
     /// A string describing the commit's parents to be used in conflict markers.
-    pub async fn parents_conflict_label(&self) -> BackendResult<String> {
+    pub async fn parents_conflict_label(&self) -> CommitStoreResult<String> {
         let parents = self.parents().await?;
         Ok(conflict_label_for_commits(&parents))
     }
@@ -275,7 +275,7 @@ pub async fn merge_commit_trees(
     store: &Arc<Store>,
     index: &dyn Index,
     commits: &[Commit],
-) -> BackendResult<MergedTree> {
+) -> CommitStoreResult<MergedTree> {
     if let [commit] = commits {
         return Ok(commit.tree());
     }
@@ -291,7 +291,7 @@ pub async fn merge_commit_trees_no_resolve(
     store: &Arc<Store>,
     index: &dyn Index,
     commits: &[Commit],
-) -> BackendResult<MergedTree> {
+) -> CommitStoreResult<MergedTree> {
     if let [commit] = commits {
         return Ok(commit.tree());
     }
@@ -303,7 +303,7 @@ pub async fn merge_commit_trees_no_resolve(
     let tree_merge: Merge<(MergedTree, String)> = commit_id_merge
         .try_map_async(async |commit_id| {
             let commit = store.get_commit_async(commit_id).await?;
-            Ok::<_, BackendError>((commit.tree(), commit.conflict_label()))
+            Ok::<_, CommitStoreError>((commit.tree(), commit.conflict_label()))
         })
         .await?;
     Ok(MergedTree::merge_no_resolve(tree_merge))
@@ -314,7 +314,7 @@ pub async fn find_recursive_merge_commits(
     store: &Arc<Store>,
     index: &dyn Index,
     commit_ids: Vec<CommitId>,
-) -> BackendResult<Merge<CommitId>> {
+) -> CommitStoreResult<Merge<CommitId>> {
     #[derive(Debug)]
     struct WorkItem {
         commit_ids: Vec<CommitId>,
@@ -368,8 +368,8 @@ pub async fn find_recursive_merge_commits(
             let ancestor_ids = index
                 .common_ancestors(&top.commit_ids[0..top.pos], &top.commit_ids[top.pos..][..1])
                 .await
-                // TODO: indexing error shouldn't be a "BackendError"
-                .map_err(|err| BackendError::Other(err.into()))?;
+                // TODO: indexing error shouldn't be a "CommitStoreError"
+                .map_err(|err| CommitStoreError::Other(err.into()))?;
             match maybe_resolved(ancestor_ids) {
                 Ok(ancestor) => top.merge_next(ancestor),
                 Err(ancestor_ids) => stack.push(WorkItem::new(ancestor_ids)),
@@ -386,11 +386,11 @@ pub async fn find_recursive_merge_commits(
 
 /// Returns whether the backend commit's tree is the same as its parent tree
 /// (the merged parent trees if there are multiple parents).
-pub async fn is_backend_commit_empty(
+pub async fn is_commit_store_commit_empty(
     index: &dyn Index,
     store: &Arc<Store>,
-    commit: &backend::Commit,
-) -> BackendResult<bool> {
+    commit: &commit_store::Commit,
+) -> CommitStoreResult<bool> {
     if let [parent_id] = &*commit.parents {
         return Ok(commit.root_tree == *store.get_commit_async(parent_id).await?.tree_ids());
     }
@@ -399,12 +399,15 @@ pub async fn is_backend_commit_empty(
     Ok(commit.root_tree == *parent_tree.tree_ids())
 }
 
-async fn is_commit_empty_by_index(index: &dyn Index, id: &CommitId) -> BackendResult<Option<bool>> {
+async fn is_commit_empty_by_index(
+    index: &dyn Index,
+    id: &CommitId,
+) -> CommitStoreResult<Option<bool>> {
     let maybe_paths = index
         .changed_paths_in_commit(id)
         .await
-        // TODO: index error shouldn't be a "BackendError"
-        .map_err(|err| BackendError::Other(err.into()))?;
+        // TODO: index error shouldn't be a "CommitStoreError"
+        .map_err(|err| CommitStoreError::Other(err.into()))?;
     Ok(maybe_paths.map(|mut paths| paths.next().is_none()))
 }
 

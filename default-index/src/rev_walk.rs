@@ -688,8 +688,8 @@ pub(super) fn filter_slice_by_range<'a, T: Copy>(slice: &'a [T], range: &Range<u
 )]
 mod tests {
     use itertools::Itertools as _;
-    use jj_core::backend::ChangeId;
-    use jj_core::backend::CommitId;
+    use jj_core::commit_store::ChangeId;
+    use jj_core::commit_store::CommitId;
 
     use super::super::composite::AsCompositeIndex as _;
     use super::super::mutable::DefaultMutableIndex;

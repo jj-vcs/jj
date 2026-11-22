@@ -16,15 +16,15 @@
 
 use std::sync::Arc;
 
-use jj_core::backend;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
-use jj_core::backend::Signature;
-use jj_core::backend::TreeId;
 use jj_core::commit::Commit;
-use jj_core::commit::is_backend_commit_empty;
+use jj_core::commit::is_commit_store_commit_empty;
+use jj_core::commit_store;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreResult;
+use jj_core::commit_store::Signature;
+use jj_core::commit_store::TreeId;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::merge::Merge;
 use jj_core::merged_tree::MergedTree;
@@ -101,7 +101,7 @@ impl CommitBuilder<'_> {
     }
 
     /// [`Commit::is_empty()`] for the new commit.
-    pub async fn is_empty(&self) -> BackendResult<bool> {
+    pub async fn is_empty(&self) -> CommitStoreResult<bool> {
         self.inner.is_empty(self.mut_repo).await
     }
 
@@ -156,7 +156,7 @@ impl CommitBuilder<'_> {
     }
 
     /// [`Commit::is_discardable()`] for the new commit.
-    pub async fn is_discardable(&self) -> BackendResult<bool> {
+    pub async fn is_discardable(&self) -> CommitStoreResult<bool> {
         self.inner.is_discardable(self.mut_repo).await
     }
 
@@ -184,7 +184,7 @@ impl CommitBuilder<'_> {
     }
 
     /// Writes the new commit and makes it visible in the repo.
-    pub async fn write(self) -> BackendResult<Commit> {
+    pub async fn write(self) -> CommitStoreResult<Commit> {
         self.inner.write(self.mut_repo).await
     }
 
@@ -200,7 +200,7 @@ impl CommitBuilder<'_> {
 pub struct DetachedCommitBuilder {
     store: Arc<Store>,
     rng: Arc<JJRng>,
-    commit: backend::Commit,
+    commit: commit_store::Commit,
     predecessors: Vec<CommitId>,
     rewrite_source: Option<Commit>,
     sign_key_override: Option<String>,
@@ -222,7 +222,7 @@ impl DetachedCommitBuilder {
         let rng = settings.get_rng();
         let (root_tree, conflict_labels) = tree.into_tree_ids_and_labels();
         let change_id = rng.new_change_id(store.change_id_length());
-        let commit = backend::Commit {
+        let commit = commit_store::Commit {
             parents,
             predecessors: vec![],
             root_tree,
@@ -256,7 +256,7 @@ impl DetachedCommitBuilder {
         predecessor: &Commit,
     ) -> Self {
         let store = repo.store().clone();
-        let mut commit = backend::Commit::clone(predecessor.store_commit());
+        let mut commit = commit_store::Commit::clone(predecessor.store_commit());
         commit.predecessors = vec![];
         commit.committer = settings.signature();
         // If the user had not configured a name and email before but now they have,
@@ -359,8 +359,8 @@ impl DetachedCommitBuilder {
     }
 
     /// [`Commit::is_empty()`] for the new commit.
-    pub async fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        is_backend_commit_empty(repo.index(), &self.store, &self.commit).await
+    pub async fn is_empty(&self, repo: &dyn Repo) -> CommitStoreResult<bool> {
+        is_commit_store_commit_empty(repo.index(), &self.store, &self.commit).await
     }
 
     /// Returns the change id of the new commit.
@@ -414,7 +414,7 @@ impl DetachedCommitBuilder {
     }
 
     /// [`Commit::is_discardable()`] for the new commit.
-    pub async fn is_discardable(&self, repo: &dyn Repo) -> BackendResult<bool> {
+    pub async fn is_discardable(&self, repo: &dyn Repo) -> CommitStoreResult<bool> {
         Ok(self.description().is_empty() && self.is_empty(repo).await?)
     }
 
@@ -442,7 +442,7 @@ impl DetachedCommitBuilder {
     }
 
     /// Writes the new commit and makes it visible in the `mut_repo`.
-    pub async fn write(mut self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
+    pub async fn write(mut self, mut_repo: &mut MutableRepo) -> CommitStoreResult<Commit> {
         if self.record_predecessors_in_commit {
             self.commit.predecessors = self.predecessors.clone();
         }
@@ -459,13 +459,13 @@ impl DetachedCommitBuilder {
                 .index()
                 .has_id(commit.id())
                 .await
-                // TODO: indexing error shouldn't be a "BackendError"
-                .map_err(|err| BackendError::Other(err.into()))?
+                // TODO: indexing error shouldn't be a "CommitStoreError"
+                .map_err(|err| CommitStoreError::Other(err.into()))?
         {
             // Recording existing commit as new would create cycle in
             // predecessors/parent mappings within the current transaction, and
             // in predecessors graph globally.
-            return Err(BackendError::Other(
+            return Err(CommitStoreError::Other(
                 format!("Newly-created commit {id} already exists", id = commit.id()).into(),
             ));
         }
@@ -481,7 +481,7 @@ impl DetachedCommitBuilder {
     ///
     /// This does not consume the builder, so you can reuse the current
     /// configuration to create another commit later.
-    pub async fn write_hidden(&self) -> BackendResult<Commit> {
+    pub async fn write_hidden(&self) -> CommitStoreResult<Commit> {
         let mut commit = self.commit.clone();
         if self.record_predecessors_in_commit {
             commit.predecessors = self.predecessors.clone();
@@ -510,10 +510,10 @@ impl DetachedCommitBuilder {
 
 async fn write_to_store(
     store: &Arc<Store>,
-    mut commit: backend::Commit,
+    mut commit: commit_store::Commit,
     sign_key: Option<&str>,
     sign_settings: &SignSettings,
-) -> BackendResult<Commit> {
+) -> CommitStoreResult<Commit> {
     let should_sign = store.signer().can_sign() && sign_settings.should_sign(&commit);
     let sign_fn = |data: &[u8]| store.signer().sign(data, sign_key);
 

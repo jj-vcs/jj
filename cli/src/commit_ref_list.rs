@@ -22,9 +22,9 @@ use std::sync::Arc;
 
 use clap::ValueEnum;
 use itertools::Itertools as _;
-use jj_lib::backend;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::CommitId;
+use jj_lib::commit_store;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStoreResult;
 use jj_lib::config::ConfigValue;
 use jj_lib::op_store::LocalRemoteRefTarget;
 use jj_lib::ref_name::RefName;
@@ -189,8 +189,8 @@ pub fn sort(
     store: &Arc<Store>,
     items: &mut [RefListItem],
     sort_keys: &[SortKey],
-) -> BackendResult<()> {
-    let mut commits: HashMap<CommitId, Arc<backend::Commit>> = HashMap::new();
+) -> CommitStoreResult<()> {
+    let mut commits: HashMap<CommitId, Arc<commit_store::Commit>> = HashMap::new();
     if sort_keys.iter().any(|key| key.is_commit_dependant()) {
         commits = items
             .iter()
@@ -209,7 +209,7 @@ pub fn sort(
 fn sort_inner(
     items: &mut [RefListItem],
     sort_keys: &[SortKey],
-    commits: &HashMap<CommitId, Arc<backend::Commit>>,
+    commits: &HashMap<CommitId, Arc<commit_store::Commit>>,
 ) {
     let to_commit = |item: &RefListItem| {
         let id = item.primary.target().present_adds().next()?;
@@ -299,18 +299,21 @@ fn sort_inner(
 
 #[cfg(test)]
 mod tests {
-    use jj_lib::backend::ChangeId;
-    use jj_lib::backend::MillisSinceEpoch;
-    use jj_lib::backend::Signature;
-    use jj_lib::backend::Timestamp;
-    use jj_lib::backend::TreeId;
+    use jj_lib::commit_store::ChangeId;
+    use jj_lib::commit_store::MillisSinceEpoch;
+    use jj_lib::commit_store::Signature;
+    use jj_lib::commit_store::Timestamp;
+    use jj_lib::commit_store::TreeId;
     use jj_lib::merge::Merge;
     use jj_lib::op_store::RefTarget;
 
     use super::*;
 
-    fn make_backend_commit(author: Signature, committer: Signature) -> Arc<backend::Commit> {
-        Arc::new(backend::Commit {
+    fn make_commit_store_commit(
+        author: Signature,
+        committer: Signature,
+    ) -> Arc<commit_store::Commit> {
+        Arc::new(commit_store::Commit {
             parents: vec![],
             predecessors: vec![],
             root_tree: Merge::resolved(TreeId::new(vec![])),
@@ -365,7 +368,7 @@ mod tests {
         let remote_names = [None, Some("upstream"), None, Some("origin"), Some("origin")];
         let deleted = [false, false, false, false, true];
         let mut bookmark_items: Vec<RefListItem> = Vec::new();
-        let mut commits: HashMap<CommitId, Arc<backend::Commit>> = HashMap::new();
+        let mut commits: HashMap<CommitId, Arc<commit_store::Commit>> = HashMap::new();
         for (&name, &email, bookmark_name, remote_name, &is_deleted) in
             itertools::izip!(&names, &emails, &bookmark_names, &remote_names, &deleted)
         {
@@ -434,7 +437,7 @@ mod tests {
                 });
             }
 
-            commits.insert(commit_id, make_backend_commit(author, committer));
+            commits.insert(commit_id, make_commit_store_commit(author, committer));
         }
 
         // The sort function has an assumption that refs are sorted by name.
@@ -453,7 +456,7 @@ mod tests {
     fn sort_and_snapshot(
         items: &mut [RefListItem],
         sort_keys: &[SortKey],
-        commits: &HashMap<CommitId, Arc<backend::Commit>>,
+        commits: &HashMap<CommitId, Arc<commit_store::Commit>>,
     ) -> String {
         sort_inner(items, sort_keys, commits);
 

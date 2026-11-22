@@ -14,8 +14,8 @@
 
 //! Writes a version of a given `MergedTree` that's filtered by a `Matcher`.
 
-use crate::backend::BackendResult;
-use crate::backend::TreeValue;
+use crate::commit_store::CommitStoreResult;
+use crate::commit_store::TreeValue;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merged_tree::MergedTree;
@@ -43,7 +43,7 @@ impl<'matcher> FilteredTreeWriter<'matcher> {
     }
 
     /// Writes the filtered tree and returns it.
-    pub async fn write(self) -> BackendResult<MergedTree> {
+    pub async fn write(self) -> CommitStoreResult<MergedTree> {
         let store = self.tree.store().clone();
         let labels = self.tree.labels().clone();
         // Fast paths for when the matcher includes or excludes everything

@@ -36,7 +36,7 @@ fn test_load_at_operation() -> TestResult {
     // removed
     let loader = test_repo
         .env
-        .default_backend_factories()
+        .default_commit_store_factories()
         .load_repo(&settings, test_repo.repo_path())?;
     let head_repo = loader
         .load_at_head(Some(WorkspaceName::DEFAULT))
@@ -47,7 +47,7 @@ fn test_load_at_operation() -> TestResult {
     // it has not been removed yet
     let loader = test_repo
         .env
-        .default_backend_factories()
+        .default_commit_store_factories()
         .load_repo(&settings, test_repo.repo_path())?;
     let old_repo = loader.load_at(repo.operation()).block_on()?;
     assert!(old_repo.view().heads().contains(commit.id()));

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 //! The core library powering the Jujutsu Version Control System. It contains
-//! all "base" types such as `Commit` and the `Backend` trait.
+//! all "base" types such as `Commit` and the `CommitStore` trait.
 
 #![warn(missing_docs)]
 #![forbid(unsafe_code)]
@@ -31,9 +31,9 @@ extern crate self as jj_core;
 #[doc(hidden)]
 pub use serde;
 
-pub mod backend;
 mod cached_loader;
 pub mod commit;
+pub mod commit_store;
 pub mod conflict_labels;
 pub mod conflicts;
 pub mod content_hash;

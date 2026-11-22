@@ -22,11 +22,11 @@ use std::time::SystemTime;
 
 use futures::executor::block_on_stream;
 use itertools::Itertools as _;
-use jj_core::backend::Backend as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::CommitId;
-use jj_core::backend::CopyRecord;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStore as _;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CopyRecord;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::index::Index;
 use jj_core::merge::Merge;
@@ -35,7 +35,7 @@ use jj_core::object_id::ObjectId as _;
 use jj_core::repo_path::RepoPath;
 use jj_core::repo_path::RepoPathBuf;
 use jj_core::store::Store;
-use jj_git_backend::git_backend::GitBackend;
+use jj_git_backend::git_backend::GitCommitStore;
 use jj_git_backend::git_backend::JJ_TREES_COMMIT_HEADER;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -47,7 +47,7 @@ use maplit::hashset;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::assert_tree_eq;
 use testutils::commit_with_tree;
@@ -60,8 +60,8 @@ use testutils::repo_path_buf;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
 
-fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
-    repo.store().backend_impl().unwrap()
+fn get_git_commit_store(repo: &Arc<ReadonlyRepo>) -> &GitCommitStore {
+    repo.store().commit_store_impl().unwrap()
 }
 
 fn collect_no_gc_refs(git_repo_path: &Path) -> HashSet<CommitId> {
@@ -118,9 +118,9 @@ fn test_gc() -> TestResult {
         return Ok(());
     }
 
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = test_repo.repo;
-    let git_repo_path = get_git_backend(&repo).git_repo_path();
+    let git_repo_path = get_git_commit_store(&repo).git_repo_path();
     let base_index = repo.readonly_index();
 
     // Set up commits:
@@ -174,7 +174,7 @@ fn test_gc() -> TestResult {
 
     // Empty list of heads, but all kept by file modification time
     // (Beware that this invokes "git gc" and refs will be packed.)
-    get_git_backend(&repo)
+    get_git_commit_store(&repo)
         .gc(&[], SystemTime::UNIX_EPOCH)
         .block_on()?;
     assert_eq!(
@@ -197,7 +197,7 @@ fn test_gc() -> TestResult {
 
     let gc = |repo: &Arc<ReadonlyRepo>, index: &dyn Index| -> TestResult {
         let heads: Vec<_> = index.all_heads_for_gc().unwrap().collect_vec();
-        get_git_backend(repo).gc(&heads, now()).block_on()?;
+        get_git_commit_store(repo).gc(&heads, now()).block_on()?;
         Ok(())
     };
 
@@ -270,7 +270,7 @@ fn test_gc_extra_table() -> TestResult {
         return Ok(());
     }
 
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let extra_path = test_repo.repo_path().join("store").join("extra");
     let extra_key_size = test_repo.repo.store().root_commit_id().as_bytes().len();
     let load_repo = || {
@@ -315,7 +315,7 @@ fn test_gc_extra_table() -> TestResult {
         .collect_vec();
 
     // All segments should be kept by modification time
-    get_git_backend(&repo)
+    get_git_commit_store(&repo)
         .gc(&heads, SystemTime::UNIX_EPOCH)
         .block_on()?;
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
@@ -323,7 +323,7 @@ fn test_gc_extra_table() -> TestResult {
 
     // All unreachable segments should be removed
     let now = SystemTime::now() + Duration::from_secs(1);
-    get_git_backend(&repo).gc(&heads, now).block_on()?;
+    get_git_commit_store(&repo).gc(&heads, now).block_on()?;
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 2 + 1);
 
@@ -334,7 +334,7 @@ fn test_gc_extra_table() -> TestResult {
 
 #[test]
 fn test_copy_detection() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
 
     let paths = &[
@@ -390,7 +390,7 @@ fn test_copy_detection() -> TestResult {
 
 #[test]
 fn test_copy_detection_file_and_dir() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
 
     // a -> b (file)
@@ -429,10 +429,10 @@ fn test_copy_detection_file_and_dir() -> TestResult {
 
 #[test]
 fn test_jj_trees_header_with_one_tree() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = test_repo.repo;
-    let git_backend = get_git_backend(&repo);
-    let git_repo = git_backend.git_repo();
+    let git_commit_store = get_git_commit_store(&repo);
+    let git_repo = git_commit_store.git_repo();
 
     let tree_1 = create_single_tree(&repo, &[(repo_path("file"), "aaa")]);
     let tree_2 = create_single_tree(&repo, &[(repo_path("file"), "bbb")]);
@@ -458,8 +458,8 @@ fn test_jj_trees_header_with_one_tree() -> TestResult {
     // non-conflicted commit to have a different tree in `jj` than in Git could be
     // used to hide malicious code.
     assert_matches!(
-        git_backend.import_head_commits(std::slice::from_ref(&new_commit_id)),
-        Err(BackendError::ReadObject { object_type, hash, source })
+        git_commit_store.import_head_commits(std::slice::from_ref(&new_commit_id)),
+        Err(CommitStoreError::ReadObject { object_type, hash, source })
             if object_type == "commit"
                 && hash == new_commit_id.hex()
                 && source.to_string() == "Invalid jj:trees header"
@@ -469,7 +469,7 @@ fn test_jj_trees_header_with_one_tree() -> TestResult {
 
 #[test]
 fn test_conflict_headers_roundtrip() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = test_repo.repo;
 
     let tree_1 = create_single_tree(&repo, &[(repo_path("file"), "aaa")]);

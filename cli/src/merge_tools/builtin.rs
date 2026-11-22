@@ -6,11 +6,11 @@ use std::sync::Arc;
 use futures::StreamExt as _;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::CopyId;
-use jj_lib::backend::MergedTreeValue;
-use jj_lib::backend::MergedTreeValueExt as _;
-use jj_lib::backend::TreeValue;
+use jj_lib::commit_store::CommitStoreResult;
+use jj_lib::commit_store::CopyId;
+use jj_lib::commit_store::MergedTreeValue;
+use jj_lib::commit_store::MergedTreeValueExt as _;
+use jj_lib::commit_store::TreeValue;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -51,8 +51,8 @@ pub enum BuiltinToolError {
     },
     #[error("Rendering {item} {id} is unimplemented for the builtin difftool/mergetool")]
     Unimplemented { item: &'static str, id: String },
-    #[error("Backend error")]
-    BackendError(#[from] jj_lib::backend::BackendError),
+    #[error("Commit store error")]
+    CommitStoreError(#[from] jj_lib::commit_store::CommitStoreError),
 }
 
 #[derive(Clone, Debug)]
@@ -410,7 +410,7 @@ async fn apply_diff_builtin(
     right_tree: &MergedTree,
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File<'_>],
-) -> BackendResult<MergedTree> {
+) -> CommitStoreResult<MergedTree> {
     let selected_values = select_changes(
         changed_files.clone(),
         files,
@@ -505,10 +505,10 @@ enum SelectedValue {
 async fn select_changes(
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File<'_>],
-    select_left: impl AsyncFn(&RepoPath) -> BackendResult<MergedTreeValue>,
-    select_right: impl AsyncFn(&RepoPath) -> BackendResult<MergedTreeValue>,
-    write_file: impl AsyncFn(&RepoPath, &[u8], bool) -> BackendResult<MergedTreeValue>,
-) -> BackendResult<Vec<(RepoPathBuf, SelectedValue)>> {
+    select_left: impl AsyncFn(&RepoPath) -> CommitStoreResult<MergedTreeValue>,
+    select_right: impl AsyncFn(&RepoPath) -> CommitStoreResult<MergedTreeValue>,
+    write_file: impl AsyncFn(&RepoPath, &[u8], bool) -> CommitStoreResult<MergedTreeValue>,
+) -> CommitStoreResult<Vec<(RepoPathBuf, SelectedValue)>> {
     assert_eq!(
         changed_files.len(),
         files.len(),
@@ -628,7 +628,7 @@ pub async fn edit_diff_builtin(
         &result.files,
     )
     .await
-    .map_err(BuiltinToolError::BackendError)
+    .map_err(BuiltinToolError::CommitStoreError)
 }
 
 fn make_merge_sections(
@@ -767,7 +767,7 @@ pub async fn edit_merge_builtin(
         &state.files,
     )
     .await
-    .map_err(BuiltinToolError::BackendError)
+    .map_err(BuiltinToolError::CommitStoreError)
 }
 
 async fn apply_merge_builtin(
@@ -775,7 +775,7 @@ async fn apply_merge_builtin(
     tree: &MergedTree,
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File<'_>],
-) -> BackendResult<MergedTree> {
+) -> CommitStoreResult<MergedTree> {
     let selected_values = select_changes(
         changed_files,
         files,
@@ -809,7 +809,7 @@ mod tests {
     use std::collections::BTreeSet;
 
     use hegel::generators;
-    use jj_lib::backend::FileId;
+    use jj_lib::commit_store::FileId;
     use jj_lib::conflict_labels::ConflictLabels;
     use jj_lib::conflicts::extract_as_single_hunk;
     use jj_lib::matchers::EverythingMatcher;

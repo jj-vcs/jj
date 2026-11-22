@@ -16,13 +16,13 @@ use std::collections::HashMap;
 
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use jj_core::backend::CommitId;
-use jj_core::backend::CopyHistory;
-use jj_core::backend::CopyRecord;
-use jj_core::backend::FileId;
-use jj_core::backend::MergedTreeValue;
-use jj_core::backend::MergedTreeValueExt as _;
-use jj_core::backend::TreeValue;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CopyHistory;
+use jj_core::commit_store::CopyRecord;
+use jj_core::commit_store::FileId;
+use jj_core::commit_store::MergedTreeValue;
+use jj_core::commit_store::MergedTreeValueExt as _;
+use jj_core::commit_store::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::copies::CopiesTreeDiffEntryPath;
 use jj_core::copies::CopyHistoryDiffTerm;
@@ -59,7 +59,7 @@ use testutils::create_tree_with_copy_id;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
-use testutils::test_backend::TestBackend;
+use testutils::test_backend::TestCommitStore;
 use testutils::write_copy_histories;
 
 fn diff_entry_tuple(diff: TreeDiffEntry) -> (RepoPathBuf, (MergedTreeValue, MergedTreeValue)) {
@@ -487,8 +487,8 @@ fn test_merged_tree_builder_resolved_overrides_on_conflict() -> TestResult {
         repo,
         &[(conflicted_path, "resolved"), (added_path, "added")],
     );
-    let test_backend: &TestBackend = store.backend_impl().unwrap();
-    let written_before = test_backend.num_tree_writes();
+    let test_commit_store: &TestCommitStore = store.commit_store_impl().unwrap();
+    let written_before = test_commit_store.num_tree_writes();
     let mut tree_builder = MergedTreeBuilder::new(base_tree.clone());
     tree_builder.set_or_remove_merge(
         conflicted_path.to_owned(),
@@ -500,7 +500,7 @@ fn test_merged_tree_builder_resolved_overrides_on_conflict() -> TestResult {
     )?;
     let tree = tree_builder.write_tree().block_on()?;
     // `shared/`, `dir/`, and the root tree are each written only once.
-    assert_eq!(test_backend.num_tree_writes() - written_before, 3);
+    assert_eq!(test_commit_store.num_tree_writes() - written_before, 3);
     let expected = create_single_tree(
         repo,
         &[
@@ -516,14 +516,14 @@ fn test_merged_tree_builder_resolved_overrides_on_conflict() -> TestResult {
     // all terms without writing any new trees, regardless of the order in which
     // the terms are processed.
     for term in [&side1, &base, &side2] {
-        let written_before = test_backend.num_tree_writes();
+        let written_before = test_commit_store.num_tree_writes();
         let mut tree_builder = MergedTreeBuilder::new(base_tree.clone());
         tree_builder.set_or_remove_merge(
             conflicted_path.to_owned(),
             Merge::normal(term.path_value(conflicted_path).block_on()?.unwrap()),
         )?;
         let tree = tree_builder.write_tree().block_on()?;
-        assert_eq!(test_backend.num_tree_writes() - written_before, 0);
+        assert_eq!(test_commit_store.num_tree_writes() - written_before, 0);
         assert_eq!(*tree.tree_ids(), Merge::resolved(term.id().clone()));
     }
     Ok(())
@@ -1865,13 +1865,13 @@ fn test_filtered_redundant_writes() {
 
     // Match only dir/unchanged. This would require reading multiple trees but
     // should only require writing one tree each for `dir/` and for the root.
-    let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
-    let written_before = test_backend.num_tree_writes();
+    let test_commit_store: &TestCommitStore = repo.store().commit_store_impl().unwrap();
+    let written_before = test_commit_store.num_tree_writes();
     let filtered = tree
         .filtered(&FilesMatcher::new([unchanged_file]))
         .block_on()
         .unwrap();
-    assert_eq!(test_backend.num_tree_writes() - written_before, 2);
+    assert_eq!(test_commit_store.num_tree_writes() - written_before, 2);
     let expected_tree = create_single_tree(repo, &[(unchanged_file, "unchanged")])
         .id()
         .clone();
@@ -3849,7 +3849,7 @@ fn test_copy_diffstream_same_path_parent() -> TestResult {
     };
     let foo_copyid1 = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&foo_history1)
         .block_on()?;
 
@@ -3860,7 +3860,7 @@ fn test_copy_diffstream_same_path_parent() -> TestResult {
     };
     let foo_copyid2 = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&foo_history2)
         .block_on()?;
 
@@ -3903,7 +3903,11 @@ fn test_copy_diffstream_merge_oneway() -> TestResult {
         parents: vec![],
         salt: vec![],
     };
-    let foo_copyid = repo.store().backend().write_copy(&foo_history).block_on()?;
+    let foo_copyid = repo
+        .store()
+        .commit_store()
+        .write_copy(&foo_history)
+        .block_on()?;
 
     let bar = repo_path("bar.txt");
     let bar_history_orig = CopyHistory {
@@ -3913,7 +3917,7 @@ fn test_copy_diffstream_merge_oneway() -> TestResult {
     };
     let bar_copyid_orig = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&bar_history_orig)
         .block_on()?;
     let bar_history_merged = CopyHistory {
@@ -3923,7 +3927,7 @@ fn test_copy_diffstream_merge_oneway() -> TestResult {
     };
     let bar_copyid_merged = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&bar_history_merged)
         .block_on()?;
 
@@ -4026,7 +4030,7 @@ fn test_copy_diffstream_merge_twoway() -> TestResult {
     };
     let foo_copyid_orig = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&foo_history_orig)
         .block_on()?;
 
@@ -4038,7 +4042,7 @@ fn test_copy_diffstream_merge_twoway() -> TestResult {
     };
     let bar_copyid_orig = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&bar_history_orig)
         .block_on()?;
 
@@ -4049,7 +4053,7 @@ fn test_copy_diffstream_merge_twoway() -> TestResult {
     };
     let foo_copyid_merged = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&foo_history_merged)
         .block_on()?;
     let bar_history_merged = CopyHistory {
@@ -4059,7 +4063,7 @@ fn test_copy_diffstream_merge_twoway() -> TestResult {
     };
     let bar_copyid_merged = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&bar_history_merged)
         .block_on()?;
 
@@ -4116,7 +4120,7 @@ fn test_copy_diffstream_merge_twoway() -> TestResult {
 
     // NOTE: the copy-detection in this test case is somewhat arbitrary.
     //
-    // `Backend::get_related_copies()` does not fully specify an ordering
+    // `CommitStore::get_related_copies()` does not fully specify an ordering
     // for the list of related CopyHistories. If files X and Y are both copies
     // of A, then [X, Y, A] and [Y, X, A] are both valid orderings. We specify that
     // the backend should always return the same ordering, so the result is
@@ -4160,7 +4164,7 @@ fn test_copy_diffstream_rename_overwrite() -> TestResult {
     };
     let foo_copyid_orig = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&foo_history_orig)
         .block_on()?;
 
@@ -4172,7 +4176,7 @@ fn test_copy_diffstream_rename_overwrite() -> TestResult {
     };
     let bar_copyid_orig = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&bar_history_orig)
         .block_on()?;
     let bar_history_copied = CopyHistory {
@@ -4182,7 +4186,7 @@ fn test_copy_diffstream_rename_overwrite() -> TestResult {
     };
     let bar_copyid_copied = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&bar_history_copied)
         .block_on()?;
 
@@ -4228,7 +4232,7 @@ fn test_copy_diffstream_rename_overwrite() -> TestResult {
     };
     let foo_copyid_copied = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&foo_history_copied)
         .block_on()?;
     let right2 = create_tree_with_copy_id(
@@ -4278,7 +4282,7 @@ fn test_copy_diffstream_double_rename() -> TestResult {
     };
     let foo_copyid_orig = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&foo_history_orig)
         .block_on()?;
 
@@ -4290,7 +4294,7 @@ fn test_copy_diffstream_double_rename() -> TestResult {
     };
     let bar_copyid_orig = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&bar_history_orig)
         .block_on()?;
 
@@ -4301,7 +4305,7 @@ fn test_copy_diffstream_double_rename() -> TestResult {
     };
     let foo_copyid_copied = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&foo_history_copied)
         .block_on()?;
     let bar_history_copied = CopyHistory {
@@ -4311,7 +4315,7 @@ fn test_copy_diffstream_double_rename() -> TestResult {
     };
     let bar_copyid_copied = repo
         .store()
-        .backend()
+        .commit_store()
         .write_copy(&bar_history_copied)
         .block_on()?;
 
