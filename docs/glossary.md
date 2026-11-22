@@ -20,14 +20,14 @@ stored as Git's native author date field.
 
 ## Backend
 
-A backend is an implementation of the storage layer. There is currently only one
-production-ready builtin commit backend: the Git backend. The Git backend stores
-commits in a Git repository. There are several backends used for testing. Google
-also has its own cloud-based backend.
+A backend is the collection of stores that together make up the storage layer:
+the *commit store* for commits and trees, the *operation store* and *operation
+heads store* for [the operation log](#operation-log), the index store, and so
+on. Each of these stores is pluggable.
 
-There are also pluggable backends for storing other information than commits,
-such as the "operation store backend" for storing
-[the operation log](#operation-log).
+There is currently only one production-ready builtin backend: the Git backend,
+whose commit store keeps commits in a Git repository. There are several
+backends used for testing. Google also has its own cloud-based backend.
 
 ## Bookmark
 
