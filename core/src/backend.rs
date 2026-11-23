@@ -27,7 +27,7 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use futures::AsyncRead;
 use futures::stream::BoxStream;
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 use jiff::tz::Offset;
 use jiff::tz::TimeZone;
 use smallvec::SmallVec;
@@ -115,11 +115,11 @@ pub struct Timestamp {
 impl Timestamp {
     /// Returns the current local time as a `Timestamp`.
     pub fn now() -> Self {
-        Self::from_zoned(Zoned::now())
+        Self::from_zoned(ZonedDateTime::now())
     }
 
     /// Creates a `Timestamp` from the given `Zoned`.
-    pub fn from_zoned(zoned: Zoned) -> Self {
+    pub fn from_zoned(zoned: ZonedDateTime) -> Self {
         Self {
             timestamp: MillisSinceEpoch(zoned.timestamp().as_millisecond()),
             tz_offset: zoned.offset().seconds() / 60,
@@ -127,13 +127,13 @@ impl Timestamp {
     }
 
     /// Converts this `Timestamp` to a `Zoned`.
-    pub fn to_zoned(&self) -> Result<Zoned, TimestampOutOfRange> {
+    pub fn to_zoned(&self) -> Result<ZonedDateTime, TimestampOutOfRange> {
         let timestamp =
             jiff::Timestamp::from_millisecond(self.timestamp.0).map_err(|_| TimestampOutOfRange)?;
         let offset = Offset::from_seconds(self.tz_offset * 60)
             .unwrap_or_else(|_| Offset::from_seconds(0).unwrap());
         let tz = TimeZone::fixed(offset);
-        Ok(timestamp.to_zoned(tz))
+        Ok(timestamp.to_zoned_datetime(tz))
     }
 }
 

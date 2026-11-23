@@ -175,7 +175,7 @@ impl TestEnvironment {
         let zoned = base_ts
             .checked_add(jiff::SignedDuration::from_secs(*command_number))
             .unwrap()
-            .to_zoned(jiff::tz::TimeZone::fixed(jiff::tz::offset(7)));
+            .to_zoned_datetime(jiff::tz::TimeZone::fixed(jiff::tz::offset(7)));
         let timestamp_str = zoned.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string();
         cmd.env("JJ_TIMESTAMP", &timestamp_str);
         cmd.env("JJ_OP_TIMESTAMP", &timestamp_str);

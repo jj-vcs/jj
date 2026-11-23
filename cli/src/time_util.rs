@@ -3,7 +3,7 @@ use jj_lib::backend::TimestampOutOfRange;
 
 /// Validates the format string by trying to format a dummy timestamp.
 pub fn validate_format(format: &str) -> Result<(), jiff::Error> {
-    let dummy_ts = jiff::Zoned::UNIX_EPOCH;
+    let dummy_ts = jiff::ZonedDateTime::UNIX_EPOCH;
     // note that the usage of a `String` is load-bearing; using an `io::sink`
     // will not result in `write!` returning an error even if the format string
     // is invalid.

@@ -2738,7 +2738,7 @@ mod tests {
                 aliases_map: &self.revset_aliases_map,
                 local_variables: HashMap::new(),
                 user_email: "test.user@example.com",
-                current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned(TimeZone::UTC),
+                current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned_datetime(TimeZone::UTC),
                 default_ignored_remote: None,
                 fileset_aliases_map: &self.fileset_aliases_map,
                 extensions: &self.revset_extensions,

@@ -24,7 +24,7 @@ use std::task::Poll;
 use async_trait::async_trait;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 use jiff::tz;
 use jj_config::settings::SignBehavior;
 use jj_core::backend::ChangeId;
@@ -111,7 +111,7 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: "",
-        current_time: Zoned::now(),
+        current_time: ZonedDateTime::now(),
         default_ignored_remote: Some(REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
@@ -248,7 +248,7 @@ fn test_resolve_symbol_commit_id() -> TestResult {
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        current_time: jiff::Timestamp::now().to_zoned(tz::TimeZone::UTC),
+        current_time: jiff::Timestamp::now().to_zoned_datetime(tz::TimeZone::UTC),
         default_ignored_remote: Some(REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
@@ -1175,7 +1175,7 @@ fn try_resolve_expression<'a>(
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned(tz::TimeZone::UTC),
+        current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned_datetime(tz::TimeZone::UTC),
         default_ignored_remote: Some(REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
@@ -1227,7 +1227,7 @@ fn resolve_commit_ids_in_workspace(
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        current_time: jiff::Timestamp::now().to_zoned(tz::TimeZone::UTC),
+        current_time: jiff::Timestamp::now().to_zoned_datetime(tz::TimeZone::UTC),
         default_ignored_remote: Some(REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
