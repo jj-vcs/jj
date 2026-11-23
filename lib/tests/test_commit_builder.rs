@@ -122,13 +122,13 @@ fn test_initial(backend: TestRepoBackend) -> TestResult {
     let repo = tx.commit("test").block_on()?;
 
     let parents = commit.parents().block_on()?;
-    assert_eq!(parents, vec![store.root_commit()]);
+    assert_eq!(parents, vec![store.root_commit().block_on()]);
     assert!(commit.store_commit().predecessors.is_empty());
     assert_eq!(commit.description(), "description");
     assert_eq!(commit.author(), &author_signature);
     assert_eq!(commit.committer(), &committer_signature);
     assert_eq!(
-        diff_paths(&store.root_commit().tree(), &commit.tree()),
+        diff_paths(&store.root_commit().block_on().tree(), &commit.tree()),
         to_owned_path_vec(&[dir_file_path, root_file_path]),
     );
     assert_matches!(
@@ -197,7 +197,7 @@ fn test_rewrite(backend: TestRepoBackend) -> TestResult {
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
     let parents = rewritten_commit.parents().block_on()?;
-    assert_eq!(parents, vec![store.root_commit()]);
+    assert_eq!(parents, vec![store.root_commit().block_on()]);
     assert_eq!(
         rewritten_commit.store_commit().predecessors,
         [initial_commit.id().clone()]
@@ -213,7 +213,10 @@ fn test_rewrite(backend: TestRepoBackend) -> TestResult {
         rewrite_settings.user_email()
     );
     assert_eq!(
-        diff_paths(&store.root_commit().tree(), &rewritten_commit.tree()),
+        diff_paths(
+            &store.root_commit().block_on().tree(),
+            &rewritten_commit.tree()
+        ),
         to_owned_path_vec(&[dir_file_path, root_file_path]),
     );
     assert_eq!(

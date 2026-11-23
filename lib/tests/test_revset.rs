@@ -1227,7 +1227,7 @@ fn test_evaluate_expression_root_and_checkout() -> TestResult {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let commit1 = write_random_commit(mut_repo);
 
     // Can find the root commit
@@ -1272,7 +1272,7 @@ fn test_evaluate_expression_heads() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let commit1 = write_random_commit(mut_repo);
@@ -1381,7 +1381,7 @@ fn test_evaluate_expression_roots() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let commit1 = write_random_commit(mut_repo);
@@ -1434,7 +1434,7 @@ fn test_evaluate_expression_forks() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     /*
@@ -1492,7 +1492,7 @@ fn test_evaluate_expression_parents() -> TestResult {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let commit1 = write_random_commit(mut_repo);
@@ -1680,7 +1680,7 @@ fn test_evaluate_expression_ancestors() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let commit1 = write_random_commit(mut_repo);
@@ -1829,7 +1829,7 @@ fn test_evaluate_expression_first_ancestors() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let commit1 = write_random_commit(mut_repo);
@@ -3136,7 +3136,7 @@ fn test_evaluate_expression_fork_point() {
     // 0
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let commit1 = write_random_commit(mut_repo);
     let commit2 = write_random_commit(mut_repo);
     let commit3 = write_random_commit(mut_repo);
@@ -3314,7 +3314,7 @@ fn test_evaluate_expression_merge_point() {
     // 0
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let commit1 = write_random_commit(mut_repo);
     let commit2 = write_random_commit(mut_repo);
     let commit3 = write_random_commit(mut_repo);
@@ -3642,7 +3642,7 @@ fn test_evaluate_expression_bisect_linear() {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let commit1 = write_random_commit(mut_repo);
     let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
     let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
@@ -3705,7 +3705,7 @@ fn test_evaluate_expression_bisect_nonlinear() {
     // 0
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let commit1 = write_random_commit(mut_repo);
     let commit2 = write_random_commit(mut_repo);
     let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1]);
@@ -3969,7 +3969,7 @@ fn test_evaluate_expression_author_date() {
     let timestamp2 = parse_timestamp("2023-03-25T12:30:00Z");
     let timestamp3 = parse_timestamp("2023-03-25T13:30:00Z");
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let commit1 = create_random_commit(mut_repo)
         .set_author(Signature {
             name: "name1".to_string(),
@@ -4032,7 +4032,7 @@ fn test_evaluate_expression_committer_date() {
     let timestamp2 = parse_timestamp("2023-03-25T12:30:00Z");
     let timestamp3 = parse_timestamp("2023-03-25T13:30:00Z");
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let commit1 = create_random_commit(mut_repo)
         .set_author(Signature {
             name: "name1".to_string(),
@@ -4287,7 +4287,7 @@ fn test_evaluate_expression_committer() {
 fn test_evaluate_expression_at_operation() -> TestResult {
     let test_repo = TestRepo::init();
     let repo0 = &test_repo.repo;
-    let root_commit = repo0.store().root_commit();
+    let root_commit = repo0.store().root_commit().block_on();
 
     let mut tx = repo0.start_transaction();
     let commit1_op1 = create_random_commit(tx.repo_mut())
@@ -4455,7 +4455,7 @@ fn test_evaluate_expression_at_operation() -> TestResult {
 fn test_evaluate_expression_at_operation_that_is_not_ancestor() -> TestResult {
     let test_repo = TestRepo::init();
     let repo0 = &test_repo.repo;
-    let root_commit = repo0.store().root_commit();
+    let root_commit = repo0.store().root_commit().block_on();
 
     let mut tx = repo0.start_transaction();
     let commit1 = create_random_commit(tx.repo_mut())
@@ -4631,7 +4631,7 @@ fn test_evaluate_expression_union() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let commit1 = write_random_commit(mut_repo);
@@ -4721,7 +4721,7 @@ fn test_evaluate_expression_intersection() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let commit1 = write_random_commit(mut_repo);
@@ -4755,7 +4755,7 @@ fn test_evaluate_expression_difference() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let commit1 = write_random_commit(mut_repo);

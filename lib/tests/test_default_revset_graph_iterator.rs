@@ -74,7 +74,7 @@ fn test_graph_iterator_linearized(skip_transitive_edges: bool, padding: u32) -> 
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let repo = tx.commit("test").block_on()?;
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_a, &commit_d]);
     let commits: Vec<_> = revset
@@ -116,7 +116,7 @@ fn test_graph_iterator_merge_of_ancestor(skip_transitive_edges: bool, padding: u
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c, &commit_a]);
     let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
     let repo = tx.commit("test").block_on()?;
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_a, &commit_e]);
     let commits: Vec<_> = revset
@@ -159,7 +159,7 @@ fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool, padding: u32
     let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_e]);
     let repo = tx.commit("test").block_on()?;
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_a, &commit_b, &commit_c, &commit_f]);
     let commits: Vec<_> = revset
@@ -213,7 +213,7 @@ fn test_graph_iterator_simple_fork(skip_transitive_edges: bool, padding: u32) ->
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
     let repo = tx.commit("test").block_on()?;
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_a, &commit_c, &commit_e]);
     let commits: Vec<_> = revset
@@ -257,7 +257,7 @@ fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool, padding: u3
     let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_e]);
     let repo = tx.commit("test").block_on()?;
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_b, &commit_f]);
     let commits: Vec<_> = revset
@@ -363,7 +363,7 @@ fn test_graph_iterator_edge_escapes_from_(skip_transitive_edges: bool, padding: 
     let commit_i = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e, &commit_h]);
     let commit_j = write_random_commit_with_parents(tx.repo_mut(), &[&commit_g, &commit_i]);
     let repo = tx.commit("test").block_on()?;
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
 
     let revset = revset_for_commits(
         repo.as_ref(),

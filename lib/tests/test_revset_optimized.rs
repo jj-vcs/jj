@@ -194,7 +194,7 @@ fn test_mostly_linear() -> TestResult {
     // |/
     // 0
     let mut tx = repo.start_transaction();
-    let commit0 = repo.store().root_commit();
+    let commit0 = repo.store().root_commit().block_on();
     let commit1 = write_new_commit(tx.repo_mut(), "1", [&commit0]);
     let commit2 = write_new_commit(tx.repo_mut(), "2", [&commit0]);
     let commit3 = write_new_commit(tx.repo_mut(), "3", [&commit1]);
@@ -254,7 +254,7 @@ fn test_weird_merges() -> TestResult {
     //  \|/
     //   0
     let mut tx = repo.start_transaction();
-    let commit0 = repo.store().root_commit();
+    let commit0 = repo.store().root_commit().block_on();
     let commit1 = write_new_commit(tx.repo_mut(), "1", [&commit0]);
     let commit2 = write_new_commit(tx.repo_mut(), "2", [&commit0]);
     let commit3 = write_new_commit(tx.repo_mut(), "3", [&commit0]);
@@ -322,7 +322,7 @@ fn test_feature_branches() -> TestResult {
 
     // Fetch branch 2 and 5
     let mut tx = repo.start_transaction();
-    let commit0 = repo.store().root_commit();
+    let commit0 = repo.store().root_commit().block_on();
     let commit1 = write_new_commit(tx.repo_mut(), "1", [&commit0]);
     let commit2 = write_new_commit(tx.repo_mut(), "2", [&commit1]);
     let commit3 = write_new_commit(tx.repo_mut(), "3", [&commit0]);
@@ -397,7 +397,7 @@ fn test_rewritten() -> TestResult {
     // |/
     // 0
     let mut tx = repo.start_transaction();
-    let commit0 = repo.store().root_commit();
+    let commit0 = repo.store().root_commit().block_on();
     let commit1 = write_new_commit(tx.repo_mut(), "1", [&commit0]);
     let commit2 = write_new_commit(tx.repo_mut(), "2", [&commit0]);
     let commit3 = write_new_commit(tx.repo_mut(), "3", [&commit2]);

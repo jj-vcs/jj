@@ -2001,7 +2001,7 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
     // Check out the empty tree, which shouldn't fail
     let ws = &mut test_workspace.workspace;
     let stats = ws
-        .check_out(repo.op_id().clone(), None, &store.root_commit())
+        .check_out(repo.op_id().clone(), None, &store.root_commit().block_on())
         .block_on()?;
     assert_eq!(stats.skipped_files, 0, "Empty tree should checkout cleanly");
 
@@ -2012,7 +2012,7 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
         .block_on()?;
     std::fs::remove_file(added_submodule_path.to_fs_path_unchecked(&workspace_root))?;
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &store.root_commit())
+    ws.check_out(repo.op_id().clone(), None, &store.root_commit().block_on())
         .block_on()?;
 
     // Check that the empty submodule directory was removed
@@ -2046,7 +2046,7 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
     // a commit without the submodule
     let ws = &mut test_workspace.workspace;
     let stats = ws
-        .check_out(repo.op_id().clone(), None, &store.root_commit())
+        .check_out(repo.op_id().clone(), None, &store.root_commit().block_on())
         .block_on()?;
     let file_in_submodule_path = added_submodule_path.to_fs_path_unchecked(&workspace_root);
     assert!(
@@ -3254,7 +3254,7 @@ fn test_snapshot_and_update_valid_symlink(
         .workspace
         .start_working_copy_mutation()
         .block_on()?;
-    let root_commit = test_workspace.repo.store().root_commit();
+    let root_commit = test_workspace.repo.store().root_commit().block_on();
     locked_ws.locked_wc().check_out(&root_commit).block_on()?;
     locked_ws
         .finish(test_workspace.repo.op_id().clone())

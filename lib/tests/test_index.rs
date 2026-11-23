@@ -479,7 +479,7 @@ fn test_index_commits_incremental() -> TestResult {
     // |/
     // o root
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[]);
     let repo = tx.commit("test").block_on()?;
@@ -526,7 +526,7 @@ fn test_index_commits_incremental_empty_transaction() -> TestResult {
     // |/
     // o root
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[]);
     let repo = tx.commit("test").block_on()?;
@@ -1150,7 +1150,7 @@ fn test_change_id_index() {
 
     let mut tx = repo.start_transaction();
 
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
     let mut commit_number = 0;
     let mut commit_with_change_id = |change_id| {
         commit_number += 1;
