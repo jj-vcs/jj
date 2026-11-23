@@ -52,9 +52,8 @@ pub fn default_backend_factories() -> StoreFactories {
     factories.add_backend(
         jj_git_backend::git_backend::GitBackend::NAME,
         Box::new(|settings, store_path| {
-            let git_settings = settings
-                .git_backend_settings()
-                .map_err(jj_core::backend::BackendLoadError::new)?;
+            let git_settings =
+                git_backend_settings(settings).map_err(jj_core::backend::BackendLoadError::new)?;
             Ok(Box::new(jj_git_backend::git_backend::GitBackend::load(
                 &git_settings,
                 store_path,
@@ -65,9 +64,8 @@ pub fn default_backend_factories() -> StoreFactories {
     factories.add_backend(
         SecretBackend::NAME,
         Box::new(|settings, store_path| {
-            let git_settings = settings
-                .git_backend_settings()
-                .map_err(jj_core::backend::BackendLoadError::new)?;
+            let git_settings =
+                git_backend_settings(settings).map_err(jj_core::backend::BackendLoadError::new)?;
             Ok(Box::new(SecretBackend::load(&git_settings, store_path)?))
         }),
     );
@@ -126,6 +124,8 @@ pub fn default_backend_initializer() -> &'static BackendInitializer<'static> {
 
 #[cfg(feature = "git")]
 pub use git::git_backend_initializer;
+#[cfg(feature = "git")]
+pub use git::git_backend_settings;
 
 /// Returns the initializer for the default workspace store.
 pub fn default_workspace_store_initializer() -> &'static WorkspaceStoreInitializer<'static> {
@@ -184,7 +184,20 @@ mod git {
     use jj_git_backend::git_backend::GitBackendInitError;
     use jj_git_backend::git_backend::GitBackendSettings;
 
+    use crate::config::ConfigGetError;
     use crate::settings::UserSettings;
+
+    /// Loads the settings needed by the Git backend from the user settings.
+    pub fn git_backend_settings(
+        settings: &UserSettings,
+    ) -> Result<GitBackendSettings, ConfigGetError> {
+        Ok(GitBackendSettings {
+            git_executable: settings.get("git.executable-path")?,
+            write_change_id_header: settings.get("git.write-change-id-header")?,
+            user_name: settings.user_name().to_owned(),
+            user_email: settings.user_email().to_owned(),
+        })
+    }
 
     /// Returns a backend initializer that creates a `GitBackend` by calling `init`
     /// with the Git backend settings from the user settings.
@@ -195,9 +208,7 @@ mod git {
         F: Fn(&GitBackendSettings, &Path) -> Result<GitBackend, Box<GitBackendInitError>> + 'a,
     {
         move |settings, store_path| {
-            let git_settings = settings
-                .git_backend_settings()
-                .map_err(BackendInitError::new)?;
+            let git_settings = git_backend_settings(settings).map_err(BackendInitError::new)?;
             Ok(Box::new(init(&git_settings, store_path)?))
         }
     }

@@ -66,6 +66,7 @@ use jj_lib::default_backend_factories::default_backend_factories;
 use jj_lib::default_backend_factories::default_store_initializers;
 use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_workspace_loader_factory;
+use jj_lib::default_backend_factories::git_backend_settings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
@@ -242,9 +243,7 @@ impl TestEnvironment {
         factories.add_backend(
             SecretBackend::NAME,
             Box::new(|settings, store_path| {
-                let git_settings = settings
-                    .git_backend_settings()
-                    .map_err(BackendLoadError::new)?;
+                let git_settings = git_backend_settings(settings).map_err(BackendLoadError::new)?;
                 Ok(Box::new(SecretBackend::load(&git_settings, store_path)?))
             }),
         );
@@ -317,9 +316,7 @@ fn init_git_backend(
     store_path: &Path,
     object_hash: gix::hash::Kind,
 ) -> Result<Box<dyn Backend>, BackendInitError> {
-    let git_settings = settings
-        .git_backend_settings()
-        .map_err(BackendInitError::new)?;
+    let git_settings = git_backend_settings(settings).map_err(BackendInitError::new)?;
     Ok(Box::new(GitBackend::init_internal(
         &git_settings,
         store_path,
