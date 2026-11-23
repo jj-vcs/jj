@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
+use bstr::BString;
 use futures::StreamExt as _;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
@@ -722,10 +723,25 @@ fn make_merge_file(
     } else {
         mode::NORMAL
     };
-    // TODO: Maybe we should test binary contents here, and generate per-file
-    // Binary section to select either "our" or "their" file.
-    let merge_result = files::merge_hunks(&file.contents, options);
-    let sections = make_merge_sections(merge_result)?;
+    let sections = if is_binary_conflict(&file.contents) {
+        // Binary contents can't be split into line-based hunks. Show a single
+        // binary section describing the base and the sides instead. Selecting
+        // the section keeps the conflict unchanged; use another merge tool or
+        // edit the file manually to resolve a binary conflict.
+        vec![scm_record::Section::Binary {
+            is_checked: false,
+            old_description: Some(Cow::Owned(describe_conflict_side(
+                file.ids.first().as_ref(),
+                file.contents.first().len(),
+            ))),
+            new_description: Some(describe_binary_conflict(&file.contents, &file.ids)),
+        }]
+    } else {
+        // TODO: Maybe we should test binary contents here, and generate per-file
+        // Binary section to select either "our" or "their" file.
+        let merge_result = files::merge_hunks(&file.contents, options);
+        make_merge_sections(merge_result)?
+    };
     Ok(scm_record::File {
         old_path: None,
         // Path for displaying purposes, not for file access.
@@ -737,6 +753,44 @@ fn make_merge_file(
         file_mode,
         sections,
     })
+}
+
+/// Detects whether the conflict contains binary contents, in the same way as
+/// `buf_to_file_contents()` does for a single file: a NUL byte or invalid
+/// UTF-8 on any side.
+fn is_binary_conflict(contents: &Merge<BString>) -> bool {
+    contents
+        .as_slice()
+        .iter()
+        .any(|contents| contents.contains(&0) || std::str::from_utf8(contents).is_err())
+}
+
+/// Formats a description of a conflict side: file id hash and byte length.
+fn describe_conflict_side(id: Option<&jj_lib::backend::FileId>, size: usize) -> String {
+    match id {
+        Some(id) => format!("{} ({}B)", id.hex(), size),
+        None => "absent".to_owned(),
+    }
+}
+
+/// Describes a binary conflict for the UI, e.g.
+/// "base 7a1b.. (4B), sides 3c9d.. (4B), 8f0e.. (4B)".
+fn describe_binary_conflict(
+    contents: &Merge<BString>,
+    ids: &Merge<Option<jj_lib::backend::FileId>>,
+) -> Cow<'static, str> {
+    let describe = |(contents, id): (&BString, &Option<jj_lib::backend::FileId>)| {
+        describe_conflict_side(id.as_ref(), contents.len())
+    };
+    let base = describe((contents.first(), ids.first()));
+    let sides = contents
+        .as_slice()
+        .iter()
+        .zip(ids.as_slice())
+        .skip(1)
+        .map(describe)
+        .join(", ");
+    Cow::Owned(format!("base {base}, sides {sides}"))
 }
 
 pub async fn edit_merge_builtin(
@@ -781,9 +835,9 @@ async fn apply_merge_builtin(
         files,
         async |path| tree.path_value(path).await,
         // FIXME: It doesn't make sense to select a new value from the source tree.
-        // Presently, `select_right` is never actually called, since it is used to select binary
-        // sections, but `make_merge_file` does not produce `Binary` sections for conflicted files.
-        // This needs to be revisited when the UI becomes capable of representing binary conflicts.
+        // Selecting a binary section calls `select_right`, which yields the
+        // conflicted value unchanged. This needs to be revisited when the UI
+        // becomes capable of representing binary conflicts.
         async |path| tree.path_value(path).await,
         async |path, contents, executable| {
             let id = store.write_file(path, &mut &contents[..]).await?;
@@ -1263,6 +1317,43 @@ mod tests {
             "Expect the copy id of the file to be resolved to {new_copy_id:?}, but got \
              {actual_copy_ids:?}."
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_make_merge_file_binary_conflict() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let file_path = repo_path("binary-file");
+        let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(store));
+        tree_builder
+            .base()
+            .file(file_path, b"\xff\xfe\x00A\n".as_slice());
+        tree_builder
+            .parent1()
+            .file(file_path, b"\xff\xfe\x00B\n".as_slice());
+        tree_builder
+            .parent2()
+            .file(file_path, b"\xff\xfe\x00C\n".as_slice());
+        let tree = tree_builder.write_merged_tree();
+
+        let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path).block_on()?;
+        let merge_file = make_merge_file(&merge_tool_file, store.merge_options())?;
+
+        assert_eq!(merge_file.sections.len(), 1);
+        match &merge_file.sections[0] {
+            scm_record::Section::Binary {
+                is_checked,
+                old_description,
+                new_description,
+            } => {
+                assert!(!*is_checked);
+                assert!(old_description.as_ref().is_some_and(|d| d.contains("(5B)")));
+                assert!(new_description.as_ref().is_some_and(|d| d.contains("(5B)")));
+            }
+            section => panic!("Expected binary section, but got {section:?}"),
+        }
         Ok(())
     }
 

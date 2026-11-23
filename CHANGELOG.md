@@ -51,6 +51,12 @@ and this project adheres to
 
 ### Fixed bugs
 
+* `jj resolve` no longer fails with "Failed to decode UTF-8 text" when a
+  conflicted file contains binary contents. The `:builtin` merge tool now
+  shows such conflicts as binary sections; the conflict can still be resolved
+  with `:ours`/`:theirs`, another merge tool, or a manual edit.
+  [#10371](https://github.com/jj-vcs/jj/issues/10371)
+
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
   changes from being exported to Git HEAD and refs.
 
