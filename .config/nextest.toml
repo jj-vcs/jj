@@ -1,5 +1,9 @@
 [profile.default]
 slow-timeout = { period = "10s" }
+# Rely on the new nextest feature that shows all the currently running
+# tests instead of taking over the terminal scrollback with every
+# passed test
+status-level = "leak"
 
 [profile.ci]
 slow-timeout = { period = "10s", terminate-after = 10 }
