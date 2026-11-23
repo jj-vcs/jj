@@ -82,7 +82,7 @@ jobs:
         toolchain: 1.97.1
         # comma-separated list of extra targets to install
         targets: ${{ matrix.extra_targets }}
-    - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39
+    - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519
       with:
         tool: nextest
     - name: Install mold
@@ -178,7 +178,7 @@ jobs:
         with:
           persist-credentials: false
       # Keep the version in sync with mise and the Nix development shell.
-      - uses: rvben/rumdl@1e0f1d13c87418c31e0d59dacddd98f27a02efcc # v0.3.2
+      - uses: rvben/rumdl@0d3d6e4f07c585a9433df162949ca0fe280a40dd # v0.3.4
         with:
           version: "0.2.78"
           config: .config/rumdl.toml
@@ -218,7 +218,7 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         persist-credentials: false
-    - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25
+    - uses: EmbarkStudios/cargo-deny-action@70f81531115945ba6eb6b941ec9d39d063438eb9
       with:
         command: check ${{ matrix.checks }}
 
