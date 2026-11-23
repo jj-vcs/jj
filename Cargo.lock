@@ -2732,6 +2732,7 @@ dependencies = [
  "scm-record",
  "serde",
  "serde_json",
+ "sha1dc",
  "shlex",
  "slab",
  "tempfile",
@@ -2748,6 +2749,7 @@ dependencies = [
  "tracing-subscriber",
  "unicode-width 0.2.3",
  "whoami",
+ "zlib-rs",
 ]
 
 [[package]]

@@ -148,6 +148,13 @@ pub struct DiffFormatArgs {
     #[arg(long)]
     pub git: bool,
 
+    /// Include binary files in the diff
+    ///
+    /// The diff will be in Git's binary patch format, which can be applied
+    /// with `git apply`. Implies `--git`.
+    #[arg(long, conflicts_with = "color_words")]
+    pub binary: bool,
+
     /// Show a word-level diff with changes indicated only by color
     #[arg(long)]
     pub color_words: bool,
@@ -383,6 +390,11 @@ fn diff_formats_from_args(
                 .unwrap_or_else(|| ExternalMergeTool::with_program(name));
             long_format = Some(DiffFormat::Tool(Box::new(tool)));
         }
+    }
+    // `--binary` implies the Git diff format if no other long format was
+    // requested.
+    if args.binary && long_format.is_none() {
+        long_format = Some(BuiltinFormatKind::Git.to_format(settings, args)?);
     }
     Ok([short_format, long_format])
 }
@@ -1780,6 +1792,8 @@ pub struct UnifiedDiffOptions {
     pub show_path_prefix: bool,
     /// How lines are tokenized and compared.
     pub line_diff: LineDiffOptions,
+    /// Whether to emit binary files as Git binary patches.
+    pub binary: bool,
 }
 
 impl UnifiedDiffOptions {
@@ -1788,6 +1802,7 @@ impl UnifiedDiffOptions {
             context: settings.get("diff.git.context")?,
             show_path_prefix: settings.get("diff.git.show-path-prefix")?,
             line_diff: LineDiffOptions::default(),
+            binary: false,
         })
     }
 
@@ -1796,6 +1811,7 @@ impl UnifiedDiffOptions {
             self.context = context;
         }
         self.line_diff.merge_args(args);
+        self.binary |= args.binary;
     }
 }
 
@@ -1940,8 +1956,18 @@ pub async fn show_git_diff(
                 formatter,
                 "diff --git {left_prefix}{left_path_string} {right_prefix}{right_path_string}"
             )?;
-            let left_hash = &left_part.hash;
-            let right_hash = &right_part.hash;
+            // `git apply` requires full object IDs to apply binary patches, so
+            // compute the Git blob hashes instead of showing abbreviated jj
+            // file IDs. Text patches don't need full IDs.
+            let is_binary = left_part.content.is_binary || right_part.content.is_binary;
+            let (left_hash, right_hash) = if options.binary && is_binary {
+                (
+                    git_blob_hash(left_part.mode.is_some(), &left_part.content.contents),
+                    git_blob_hash(right_part.mode.is_some(), &right_part.content.contents),
+                )
+            } else {
+                (left_part.hash.clone(), right_part.hash.clone())
+            };
             match (left_part.mode, right_part.mode) {
                 (None, Some(right_mode)) => {
                     writeln!(formatter, "new file mode {right_mode}")?;
@@ -1988,11 +2014,16 @@ pub async fn show_git_diff(
             None => "/dev/null".to_owned(),
         };
         if left_part.content.is_binary || right_part.content.is_binary {
-            // TODO: add option to emit Git binary diff
-            writeln!(
-                formatter,
-                "Binary files {left_path} and {right_path} differ"
-            )?;
+            if options.binary {
+                writeln!(formatter, "GIT binary patch")?;
+                write_git_binary_literal(formatter, &right_part.content.contents)?;
+                write_git_binary_literal(formatter, &left_part.content.contents)?;
+            } else {
+                writeln!(
+                    formatter,
+                    "Binary files {left_path} and {right_path} differ"
+                )?;
+            }
         } else {
             writeln!(formatter.labeled("file_header"), "--- {left_path}")?;
             writeln!(formatter.labeled("file_header"), "+++ {right_path}")?;
@@ -2448,4 +2479,68 @@ pub async fn show_templated(
         template.format(&entry, formatter)?;
     }
     Ok(())
+}
+
+/// Git's base85 alphabet, as defined in `base85.c` of Git.
+const GIT_BASE85_ALPHABET: &[u8] =
+    b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~";
+
+/// Writes a `literal` block of a Git binary patch.
+fn write_git_binary_literal(formatter: &mut dyn Formatter, content: &[u8]) -> io::Result<()> {
+    let compressed = zlib_compress(content);
+    writeln!(formatter, "literal {}", content.len())?;
+    // Each line decodes to at most 52 bytes. The first character encodes the
+    // number of bytes the rest of the line decodes to.
+    for chunk in compressed.chunks(52) {
+        let mut line = String::with_capacity(1 + chunk.len().div_ceil(4) * 5);
+        line.push(git_base85_length_char(chunk.len()));
+        for group in chunk.chunks(4) {
+            let mut bytes = [0; 4];
+            bytes[..group.len()].copy_from_slice(group);
+            let mut value = u32::from_be_bytes(bytes);
+            let mut encoded = [0; 5];
+            for digit in encoded.iter_mut().rev() {
+                *digit = GIT_BASE85_ALPHABET[(value % 85) as usize];
+                value /= 85;
+            }
+            line.push_str(str::from_utf8(&encoded).expect("base85 alphabet is ASCII"));
+        }
+        writeln!(formatter, "{line}")?;
+    }
+    // A blank line terminates the literal block.
+    writeln!(formatter)?;
+    Ok(())
+}
+
+fn git_base85_length_char(len: usize) -> char {
+    debug_assert!((1..=52).contains(&len), "invalid Git base85 line length");
+    if len <= 26 {
+        char::from(b'A' + (len - 1) as u8)
+    } else {
+        char::from(b'a' + (len - 27) as u8)
+    }
+}
+
+fn zlib_compress(content: &[u8]) -> Vec<u8> {
+    let mut buffer = vec![0; zlib_rs::compress_bound(content.len())];
+    let (compressed, status) =
+        zlib_rs::compress_slice(&mut buffer, content, zlib_rs::DeflateConfig::default());
+    assert!(
+        matches!(status, zlib_rs::ReturnCode::Ok),
+        "zlib compression failed"
+    );
+    compressed.to_vec()
+}
+
+/// Returns the full Git blob object ID of `content`, or an all-zero ID if the
+/// file is absent on that side of the diff.
+fn git_blob_hash(present: bool, content: &[u8]) -> String {
+    if !present {
+        return "0".repeat(40);
+    }
+    let mut hasher = sha1dc::Hasher::new();
+    hasher.update(format!("blob {}\0", content.len()).as_bytes());
+    hasher.update(content);
+    let digest = hasher.finalize().expect("SHA-1 collision detected");
+    jj_lib::hex_util::encode_hex(digest.as_bytes())
 }
