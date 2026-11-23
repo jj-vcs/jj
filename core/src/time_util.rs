@@ -17,7 +17,7 @@
 use interim::DateError;
 use interim::Dialect;
 use interim::parse_date_string;
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 use jiff::fmt::temporal::Pieces;
 use jiff::tz::TimeZone;
 use thiserror::Error;
@@ -53,13 +53,17 @@ impl DatePattern {
     /// * `kind` must be either "after" or "before". This determines whether the
     ///   pattern will match dates after or before the parsed date.
     ///
-    /// * `now` is the user's current time as a [`jiff::Zoned`]. Knowledge of
+    /// * `now` is the user's current time as a [`jiff::ZonedDateTime`]. Knowledge of
     ///   offset changes is needed to correctly process relative times like
     ///   "yesterday". For example, California entered DST on March 10, 2024,
     ///   shifting clocks from UTC-8 to UTC-7 at 2:00 AM. If the pattern
     ///   "yesterday" was parsed at noon on that day, it should be interpreted as
     ///   2024-03-09T12:00:00-08:00 even though the current offset is -07:00.
-    pub fn from_str_kind(s: &str, kind: &str, now: Zoned) -> Result<Self, DatePatternParseError> {
+    pub fn from_str_kind(
+        s: &str,
+        kind: &str,
+        now: ZonedDateTime,
+    ) -> Result<Self, DatePatternParseError> {
         let d =
             parse_date_string(s, now, Dialect::Us).map_err(DatePatternParseError::ParseError)?;
         let millis_since_epoch = MillisSinceEpoch(d.timestamp().as_millisecond());
@@ -110,7 +114,7 @@ pub fn parse_from_rfc3339(s: &str) -> Result<Timestamp, TimestampParseError> {
     let zoned = pieces
         .date()
         .to_datetime(time)
-        .to_zoned(TimeZone::fixed(offset))?;
+        .to_zoned_datetime(TimeZone::fixed(offset))?;
     Ok(Timestamp::from_zoned(zoned))
 }
 
@@ -135,7 +139,7 @@ mod tests {
 
     use super::*;
 
-    fn test_equal(now: &Zoned, expression: &str, should_equal_time: &str) {
+    fn test_equal(now: &ZonedDateTime, expression: &str, should_equal_time: &str) {
         let expression = DatePattern::from_str_kind(expression, "after", now.clone()).unwrap();
         let expected_ts: jiff::Timestamp = should_equal_time.parse().unwrap();
         assert_eq!(
@@ -148,7 +152,7 @@ mod tests {
     fn test_date_pattern_parses_dates_without_times_as_the_date_at_local_midnight() {
         let ts: jiff::Timestamp = "2024-01-01T00:00:00-08:00".parse().unwrap();
         let tz = jiff::tz::TimeZone::fixed(jiff::tz::offset(-8));
-        let now = ts.to_zoned(tz);
+        let now = ts.to_zoned_datetime(tz);
         test_equal(&now, "2023-03-25", "2023-03-25T08:00:00Z");
         test_equal(&now, "3/25/2023", "2023-03-25T08:00:00Z");
         test_equal(&now, "3/25/23", "2023-03-25T08:00:00Z");
@@ -158,7 +162,7 @@ mod tests {
     fn test_date_pattern_parses_dates_with_times_without_specifying_an_offset() {
         let ts: jiff::Timestamp = "2024-01-01T00:00:00-08:00".parse().unwrap();
         let tz = jiff::tz::TimeZone::fixed(jiff::tz::offset(-8));
-        let now = ts.to_zoned(tz);
+        let now = ts.to_zoned_datetime(tz);
         test_equal(&now, "2023-03-25T00:00:00", "2023-03-25T08:00:00Z");
         test_equal(&now, "2023-03-25 00:00:00", "2023-03-25T08:00:00Z");
     }
@@ -167,7 +171,7 @@ mod tests {
     fn test_date_pattern_parses_dates_with_a_specified_offset() {
         let ts: jiff::Timestamp = "2024-01-01T00:00:00-08:00".parse().unwrap();
         let tz = jiff::tz::TimeZone::fixed(jiff::tz::offset(-8));
-        let now = ts.to_zoned(tz);
+        let now = ts.to_zoned_datetime(tz);
         test_equal(
             &now,
             "2023-03-25T00:00:00-05:00",
@@ -179,7 +183,7 @@ mod tests {
     fn test_date_pattern_parses_dates_with_the_z_offset() {
         let ts: jiff::Timestamp = "2024-01-01T00:00:00-08:00".parse().unwrap();
         let tz = jiff::tz::TimeZone::fixed(jiff::tz::offset(-8));
-        let now = ts.to_zoned(tz);
+        let now = ts.to_zoned_datetime(tz);
         test_equal(&now, "2023-03-25T00:00:00Z", "2023-03-25T00:00:00Z");
     }
 
@@ -187,7 +191,7 @@ mod tests {
     fn test_date_pattern_parses_relative_durations() {
         let ts: jiff::Timestamp = "2024-01-01T00:00:00-08:00".parse().unwrap();
         let tz = jiff::tz::TimeZone::fixed(jiff::tz::offset(-8));
-        let now = ts.to_zoned(tz);
+        let now = ts.to_zoned_datetime(tz);
         test_equal(&now, "2 hours ago", "2024-01-01T06:00:00Z");
         test_equal(&now, "5 minutes", "2024-01-01T08:05:00Z");
         test_equal(&now, "1 week ago", "2023-12-25T08:00:00Z");
@@ -199,7 +203,7 @@ mod tests {
     fn test_date_pattern_parses_relative_dates_with_times() {
         let ts: jiff::Timestamp = "2024-01-01T08:00:00-08:00".parse().unwrap();
         let tz = jiff::tz::TimeZone::fixed(jiff::tz::offset(-8));
-        let now = ts.to_zoned(tz);
+        let now = ts.to_zoned_datetime(tz);
         test_equal(&now, "yesterday 5pm", "2024-01-01T01:00:00Z");
         test_equal(&now, "yesterday 10am", "2023-12-31T18:00:00Z");
         test_equal(&now, "yesterday 10:30", "2023-12-31T18:30:00Z");
@@ -211,7 +215,7 @@ mod tests {
         // 2024-03-10.
         let tz = jiff::tz::TimeZone::posix("PST8PDT,M3.2.0,M11.1.0").unwrap();
         let ts: jiff::Timestamp = "2024-03-10T12:00:00-07:00".parse().unwrap();
-        let now = ts.to_zoned(tz.clone());
+        let now = ts.to_zoned_datetime(tz.clone());
         test_equal(&now, "yesterday", "2024-03-09T20:00:00Z");
         test_equal(&now, "1 day ago", "2024-03-09T20:00:00Z");
         test_equal(&now, "2 hours ago", "2024-03-10T17:00:00Z");
@@ -225,7 +229,7 @@ mod tests {
         // for these, so they were an hour late.
         test_equal(&now, "2024-03-10 03:30", "2024-03-10T10:30:00Z");
         let ts: jiff::Timestamp = "2024-03-10T03:30:00-07:00".parse().unwrap();
-        let now = ts.to_zoned(tz);
+        let now = ts.to_zoned_datetime(tz);
         test_equal(&now, "now", "2024-03-10T10:30:00Z");
         test_equal(&now, "2 hours ago", "2024-03-10T08:30:00Z");
     }
@@ -236,7 +240,7 @@ mod tests {
         // 2024-11-03.
         let tz = jiff::tz::TimeZone::posix("PST8PDT,M3.2.0,M11.1.0").unwrap();
         let ts: jiff::Timestamp = "2024-11-03T12:00:00-08:00".parse().unwrap();
-        let now = ts.to_zoned(tz.clone());
+        let now = ts.to_zoned_datetime(tz.clone());
         test_equal(&now, "yesterday", "2024-11-02T19:00:00Z");
         test_equal(&now, "1 day ago", "2024-11-02T19:00:00Z");
         test_equal(&now, "2024-11-03", "2024-11-03T07:00:00Z");
@@ -249,7 +253,7 @@ mod tests {
         test_equal(&now, "today 2:30", "2024-11-03T10:30:00Z");
         // Relative durations are absolute, so the repeated hour is counted.
         let ts: jiff::Timestamp = "2024-11-03T01:30:00-08:00".parse().unwrap();
-        let now = ts.to_zoned(tz);
+        let now = ts.to_zoned_datetime(tz);
         test_equal(&now, "2 hours ago", "2024-11-03T07:30:00Z");
     }
 

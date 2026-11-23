@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use jiff::Timestamp;
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 use jiff::tz::TimeZone;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
@@ -245,9 +245,9 @@ impl WorkspaceEnvironment {
         let now = if let Some(timestamp) = self.settings.commit_timestamp() {
             Timestamp::from_millisecond(timestamp.timestamp.0)
                 .unwrap()
-                .to_zoned(TimeZone::system())
+                .to_zoned_datetime(TimeZone::system())
         } else {
-            Zoned::now()
+            ZonedDateTime::now()
         };
         RevsetParseContext {
             aliases_map: &self.revset_aliases_map,

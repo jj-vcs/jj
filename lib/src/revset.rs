@@ -27,7 +27,7 @@ use std::sync::LazyLock;
 use async_trait::async_trait;
 use futures::future;
 use itertools::Itertools as _;
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 use jj_core::backend::BackendError;
 use jj_core::backend::CommitId;
 use jj_core::fileset_backend::FilesetExpression;
@@ -1358,7 +1358,7 @@ pub fn expect_string_expression(
 pub fn expect_date_pattern(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
-    current_time: &Zoned,
+    current_time: &ZonedDateTime,
 ) -> Result<DatePattern, RevsetParseError> {
     revset_parser::catch_aliases(diagnostics, node, |_diagnostics, node| {
         let (value, kind) = revset_parser::expect_string_pattern("date pattern", node)?;
@@ -3767,7 +3767,7 @@ pub struct RevsetParseContext<'a> {
     /// Email address of the current user, used by e.g. `mine()`.
     pub user_email: &'a str,
     /// Current time, used to resolve relative date patterns.
-    pub current_time: Zoned,
+    pub current_time: ZonedDateTime,
     /// Special remote that should be ignored by default. (e.g. "git")
     pub default_ignored_remote: Option<&'a RemoteName>,
     /// Fileset aliases to expand in file arguments.
@@ -3805,7 +3805,7 @@ impl<'a> RevsetParseContext<'a> {
 #[derive(Clone)]
 pub struct LoweringContext<'a> {
     user_email: &'a str,
-    current_time: Zoned,
+    current_time: ZonedDateTime,
     default_ignored_remote: Option<&'a RemoteName>,
     fileset_aliases_map: &'a FilesetAliasesMap,
     extensions: &'a RevsetExtensions,
@@ -3819,7 +3819,7 @@ impl<'a> LoweringContext<'a> {
     }
 
     /// Returns the current time, used to resolve relative date patterns.
-    pub fn current_time(&self) -> &Zoned {
+    pub fn current_time(&self) -> &ZonedDateTime {
         &self.current_time
     }
 
@@ -3882,7 +3882,7 @@ mod tests {
             aliases_map: &aliases_map,
             local_variables: HashMap::new(),
             user_email: "test.user@example.com",
-            current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned(jiff::tz::TimeZone::UTC),
+            current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned_datetime(jiff::tz::TimeZone::UTC),
             default_ignored_remote: Some("ignored".as_ref()),
             fileset_aliases_map: &FilesetAliasesMap::new(),
             extensions: &RevsetExtensions::default(),
@@ -3913,7 +3913,7 @@ mod tests {
             aliases_map: &aliases_map,
             local_variables: HashMap::new(),
             user_email: "test.user@example.com",
-            current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned(jiff::tz::TimeZone::UTC),
+            current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned_datetime(jiff::tz::TimeZone::UTC),
             default_ignored_remote: Some("ignored".as_ref()),
             fileset_aliases_map: &FilesetAliasesMap::new(),
             extensions: &RevsetExtensions::default(),

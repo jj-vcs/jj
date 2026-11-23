@@ -1990,7 +1990,7 @@ where
             let tz_offset = std::env::var("JJ_TZ_OFFSET_MINS")
                 .ok()
                 .and_then(|tz_string| tz_string.parse::<i32>().ok())
-                .unwrap_or_else(|| jiff::Zoned::now().offset().seconds() / 60);
+                .unwrap_or_else(|| jiff::ZonedDateTime::now().offset().seconds() / 60);
             let out_property = self_property.map(move |mut timestamp| {
                 timestamp.tz_offset = tz_offset;
                 timestamp
@@ -2003,7 +2003,7 @@ where
             name,
             |_language, diagnostics, _build_ctx, self_property, function| {
                 let [date_pattern_node] = function.expect_exact_arguments()?;
-                let now = jiff::Zoned::now();
+                let now = jiff::ZonedDateTime::now();
                 let date_pattern = template_parser::catch_aliases(
                     diagnostics,
                     date_pattern_node,
