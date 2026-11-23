@@ -10,12 +10,12 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/markdown-remark": "^7.3.6",
-    "@astrojs/starlight": "^0.42.10",
-    "astro": "^7.4.8",
+    "@astrojs/markdown-remark": "^7.3.9",
+    "@astrojs/starlight": "^0.43.1",
+    "astro": "^7.4.12",
     "astro-mermaid": "^2.2.0",
     "js-yaml": "^4.3.2",
-    "marked": "^18.1.3",
+    "marked": "^18.2.0",
     "mdast-util-from-markdown": "^2.1.0",
     "mdast-util-gfm": "^3.1.0",
     "mermaid": "^12.3.0",
