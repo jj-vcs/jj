@@ -204,7 +204,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     // A B
     // |/
     // (empty)
-    let root_commit = test_workspace.repo.store().root_commit();
+    let root_commit = test_workspace.repo.store().root_commit().block_on();
     testutils::write_working_copy_file(
         test_workspace.workspace.workspace_root(),
         file_repo_path,
@@ -283,7 +283,12 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         .check_out(
             test_workspace.repo.op_id().clone(),
             None,
-            &test_workspace.workspace.repo_loader().store().root_commit(),
+            &test_workspace
+                .workspace
+                .repo_loader()
+                .store()
+                .root_commit()
+                .block_on(),
         )
         .block_on()
         .unwrap();
@@ -407,7 +412,7 @@ fn test_eol_conversion_update_conflicts(
     // A B
     // |/
     // (empty)
-    let root_commit = test_workspace.repo.store().root_commit();
+    let root_commit = test_workspace.repo.store().root_commit().block_on();
     let mut tx = test_workspace.repo.start_transaction();
     let tree = testutils::create_tree(&test_workspace.repo, &[(file_repo_path, parent1_contents)]);
     let parent1_commit = tx
@@ -542,7 +547,12 @@ fn test_eol_conversion_checkout(
         .check_out(
             test_workspace.repo.op_id().clone(),
             None,
-            &test_workspace.workspace.repo_loader().store().root_commit(),
+            &test_workspace
+                .workspace
+                .repo_loader()
+                .store()
+                .root_commit()
+                .block_on(),
         )
         .block_on()
         .unwrap();

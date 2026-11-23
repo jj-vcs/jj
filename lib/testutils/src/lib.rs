@@ -852,7 +852,7 @@ pub fn write_random_commit(mut_repo: &mut MutableRepo) -> Commit {
 
 pub fn write_random_commit_with_parents(mut_repo: &mut MutableRepo, parents: &[&Commit]) -> Commit {
     let parents = if parents.is_empty() {
-        &[&mut_repo.store().root_commit()]
+        &[&mut_repo.store().root_commit().block_on()]
     } else {
         parents
     };
@@ -867,7 +867,7 @@ pub fn write_random_commit_with_parents_and_description(
     description: &str,
 ) -> Commit {
     let parents = if parents.is_empty() {
-        &[&mut_repo.store().root_commit()]
+        &[&mut_repo.store().root_commit().block_on()]
     } else {
         parents
     };

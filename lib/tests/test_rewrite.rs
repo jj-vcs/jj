@@ -2356,7 +2356,7 @@ fn test_commit_with_selection() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let root_tree = repo.store().root_commit().tree();
+    let root_tree = repo.store().root_commit().block_on().tree();
     let commit = write_random_commit(tx.repo_mut());
     let commit_tree = commit.tree();
     let empty_selection = CommitWithSelection {

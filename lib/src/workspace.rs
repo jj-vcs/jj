@@ -170,7 +170,7 @@ async fn init_working_copy(
         tx.set_workspace_name(operation_workspace_name);
     }
     tx.repo_mut()
-        .check_out(workspace_name.clone(), &repo.store().root_commit())
+        .check_out(workspace_name.clone(), &repo.store().root_commit().await)
         .await?;
     let repo = tx
         .commit(format!("add workspace '{}'", workspace_name.as_symbol()))

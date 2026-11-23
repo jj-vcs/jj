@@ -787,7 +787,7 @@ fn test_bookmark_hidden_commit() -> TestResult {
     // it visible.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let root_commit = repo.store().root_commit();
+    let root_commit = repo.store().root_commit().block_on();
 
     let mut tx = repo.start_transaction();
     let commit = write_random_commit(tx.repo_mut());

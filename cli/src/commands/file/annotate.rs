@@ -108,11 +108,11 @@ pub(crate) async fn cmd_file_annotate(
         .await?;
     let annotation = annotator.to_annotation();
 
-    render_file_annotation(repo.as_ref(), ui, &template, &annotation)?;
+    render_file_annotation(repo.as_ref(), ui, &template, &annotation).await?;
     Ok(())
 }
 
-fn render_file_annotation(
+async fn render_file_annotation(
     repo: &dyn Repo,
     ui: &mut Ui,
     template_render: &TemplateRenderer<'_, AnnotationLine>,
@@ -126,7 +126,7 @@ fn render_file_annotation(
     // because jj does not import the unshallow'd commits. So we default
     // to the root commit for now.
     let default_line_origin = LineOrigin {
-        commit: repo.store().root_commit(),
+        commit: repo.store().root_commit().await,
         line_number: 0,
     };
     for (line_number, (line_origin, content)) in annotation.line_origins().enumerate() {

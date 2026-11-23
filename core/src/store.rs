@@ -158,8 +158,10 @@ impl Store {
     }
 
     /// Returns the root commit.
-    pub fn root_commit(self: &Arc<Self>) -> Commit {
-        self.get_commit(self.backend.root_commit_id()).unwrap()
+    pub async fn root_commit(self: &Arc<Self>) -> Commit {
+        self.get_commit_async(self.backend.root_commit_id())
+            .await
+            .unwrap()
     }
 
     /// Reads a commit, blocking until it's loaded. Prefer

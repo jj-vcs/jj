@@ -48,7 +48,7 @@ fn collect_predecessors(repo: &ReadonlyRepo, start_commit: &CommitId) -> Vec<Com
 fn test_walk_predecessors_basic() -> TestResult {
     let test_repo = TestRepo::init();
     let repo0 = test_repo.repo;
-    let root_commit = repo0.store().root_commit();
+    let root_commit = repo0.store().root_commit().block_on();
 
     let mut tx = repo0.start_transaction();
     let commit1 = write_random_commit(tx.repo_mut());

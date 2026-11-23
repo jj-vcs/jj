@@ -147,7 +147,7 @@ pub async fn cmd_workspace_add(
         if let Some(old_wc_commit) = old_workspace_command.get_wc_commit().await? {
             old_wc_commit.parents().await?
         } else {
-            vec![repo.store().root_commit()]
+            vec![repo.store().root_commit().await]
         }
     } else {
         try_join_all(
