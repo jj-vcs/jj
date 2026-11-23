@@ -2555,6 +2555,7 @@ pub struct AnnotationLine {
     pub line_number: usize,
     pub original_line_number: usize,
     pub first_line_in_hunk: bool,
+    pub hunk_index: usize,
 }
 
 fn register_annotation_line_methods(table: &mut CommitTemplateSymbolTable<'_>) {
@@ -2597,6 +2598,14 @@ fn register_annotation_line_methods(table: &mut CommitTemplateSymbolTable<'_>) {
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|line| line.first_line_in_hunk);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    methods.insert(
+        "hunk_index",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|line| Ok(i64::try_from(line.hunk_index)?));
             Ok(out_property.into_dyn_wrapped())
         },
     );

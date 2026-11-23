@@ -121,6 +121,7 @@ async fn render_file_annotation(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let mut last_id = None;
+    let mut hunk_number = 0;
     // At least in cases where the repository was jj-initialized shallowly,
     // then unshallow'd with git, some changes will not have a commit id
     // because jj does not import the unshallow'd commits. So we default
@@ -132,12 +133,16 @@ async fn render_file_annotation(
     for (line_number, (line_origin, content)) in annotation.line_origins().enumerate() {
         let line_origin = line_origin.unwrap_or(&default_line_origin);
         let first_line_in_hunk = last_id != Some(line_origin.commit.id());
+        if first_line_in_hunk {
+            hunk_number += 1;
+        }
         let annotation_line = AnnotationLine {
             commit: line_origin.commit.clone(),
             content: content.to_owned(),
             line_number: line_number + 1,
             original_line_number: line_origin.line_number + 1,
             first_line_in_hunk,
+            hunk_index: hunk_number - 1,
         };
         template_render.format(&annotation_line, formatter.as_mut())?;
         last_id = Some(line_origin.commit.id());

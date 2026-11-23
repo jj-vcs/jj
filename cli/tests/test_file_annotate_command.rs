@@ -282,7 +282,13 @@ fn test_annotate_with_template() {
         commit_timestamp(commit).local().format('%Y-%m-%d %H:%M:%S')
             ++ " "
             ++ commit.author(),
-    ) ++ "\n") ++ pad_start(4, original_line_number) ++ " ->" ++ pad_start(4, line_number) ++ ": " ++ content
+    ) ++ "\n") ++ separate(" ",
+        '#' ++ hunk_index,
+        pad_start(4, original_line_number),
+        "->",
+        pad_start(4, line_number) ++ ":",
+        content
+    )
     "#};
 
     let output = work_dir.run_jj(["file", "annotate", "file.txt", "-T", template]);
@@ -290,18 +296,18 @@ fn test_annotate_with_template() {
 
     qpvuntsm initial
     2001-02-03 08:05:08 Test User <test.user@example.com>
-       2 ->   1: initial 2
+    #0    2 ->    1: initial 2
 
     rlvkpnrz commit1
     2001-02-03 08:05:09 Test User <test.user@example.com>
-       2 ->   2: new text from new commit 1
-       3 ->   3: that splits into multiple lines
+    #1    2 ->    2: new text from new commit 1
+    #1    3 ->    3: that splits into multiple lines
 
     kkmpptxz commit2
     2001-02-03 08:05:10 Test User <test.user@example.com>
-       4 ->   4: new text from new commit 2
-       5 ->   5: also continuing on a second line
-       6 ->   6: and a third!
+    #2    4 ->    4: new text from new commit 2
+    #2    5 ->    5: also continuing on a second line
+    #2    6 ->    6: and a third!
     [EOF]
     ");
 }

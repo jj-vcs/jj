@@ -164,6 +164,9 @@ The following methods are defined.
 * `.original_line_number() -> Integer`: 1-based line number in the original commit.
 * `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
   references the same commit.
+* `.hunk_index() -> Integer`: 0-based hunk index, incremented whenever the
+  directly preceding line references a different commit. Useful for things like
+  alternating colors per hunk using `hunk_index % 2 == 0`.
 
 ### `Any` type
 
