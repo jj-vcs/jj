@@ -466,11 +466,24 @@ where
         }
     }
 
-    if let Some(inner) = inner_node_map.into_values().next() {
-        Err(cycle_fn(inner.node.unwrap()))
-    } else {
-        Ok(result)
+    if inner_node_map.is_empty() {
+        return Ok(result);
     }
+
+    // Kahn's remaining nodes include both cycles and nodes downstream of them.
+    // Find an actual cycle before selecting the node passed to cycle_fn().
+    let Err(cycle_id) = topo_order_forward(
+        inner_node_map.keys().cloned().map(Ok),
+        |id| id.clone(),
+        async |id: &ID| neighbor_ids_map[id].iter().cloned().map(Ok),
+        |id| id,
+    )
+    .await
+    else {
+        unreachable!("Kahn's remaining graph must contain a cycle");
+    };
+    let inner = inner_node_map.remove(&cycle_id).unwrap();
+    Err(cycle_fn(inner.node.unwrap()))
 }
 
 /// Finds `Ok` nodes in the start set that are not reachable from other nodes in
@@ -1248,6 +1261,27 @@ mod tests {
             .block_on()
             .unwrap();
         assert_eq!(common, vec!['D', 'C', 'B', 'A']);
+    }
+
+    #[test]
+    fn test_topo_order_reverse_ord_cycle_with_downstream_nodes() {
+        // B and C are blocked by A's cycle, but are not themselves on a cycle.
+        let neighbors = hashmap! {
+            'A' => vec!['A', 'B'],
+            'B' => vec!['C'],
+            'C' => vec![],
+        };
+        // Exercise different internal HashMap orders with fixed graph inputs.
+        for _ in 0..64 {
+            let result = topo_order_reverse_ord(
+                [Ok('A')],
+                |node| *node,
+                async |node: &char| to_ok_iter(neighbors[node].clone()),
+                |node| node,
+            )
+            .block_on();
+            assert_eq!(result, Err('A'));
+        }
     }
 
     #[test]
