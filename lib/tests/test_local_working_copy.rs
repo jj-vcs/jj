@@ -2151,6 +2151,67 @@ fn test_check_out_existing_file_replaced_with_directory() -> TestResult {
     Ok(())
 }
 
+#[cfg(windows)]
+#[test_case("NUL"; "nul")]
+#[test_case("AUX.txt"; "aux extension")]
+#[test_case("COM1"; "com port")]
+#[test_case("COM\u{b9}"; "superscript com port")]
+#[test_case("name:stream"; "colon")]
+#[test_case("name."; "trailing dot")]
+#[test_case("name "; "trailing space")]
+fn test_check_out_windows_reserved_path(name: &str) -> TestResult {
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let path = repo_path(name);
+    assert!(path.has_windows_unsupported_component());
+    let tree = create_tree(repo, &[(path, "contents")]);
+    let commit = commit_with_tree(repo.store(), tree.clone());
+
+    let stats = test_workspace
+        .workspace
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()?;
+    assert_eq!(stats.skipped_files, 1);
+    let (snapshot, _) = test_workspace.snapshot_with_options(&empty_snapshot_options())?;
+    assert_tree_eq!(snapshot, tree);
+    let empty_tree = test_workspace.repo.store().empty_merged_tree();
+    let empty_commit = commit_with_tree(test_workspace.repo.store(), empty_tree.clone());
+    let stats = test_workspace
+        .workspace
+        .check_out(
+            test_workspace.repo.op_id().clone(),
+            Some(&commit.tree()),
+            &empty_commit,
+        )
+        .block_on()?;
+    assert_eq!(stats.skipped_files, 0);
+    let (snapshot, _) = test_workspace.snapshot_with_options(&empty_snapshot_options())?;
+    assert_tree_eq!(snapshot, empty_tree);
+    Ok(())
+}
+
+#[cfg(windows)]
+#[test]
+fn test_check_out_windows_valid_control_character() -> TestResult {
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let path = repo_path("valid\u{85}name.txt");
+    let tree = create_tree(repo, &[(path, "contents")]);
+    let commit = commit_with_tree(repo.store(), tree.clone());
+    let stats = test_workspace
+        .workspace
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()?;
+    assert_eq!(stats.skipped_files, 0);
+    assert_eq!(
+        std::fs::read_to_string(path.to_fs_path(test_workspace.workspace.workspace_root())?)?,
+        "contents"
+    );
+    let (snapshot, _) = test_workspace.snapshot_with_options(&empty_snapshot_options())?;
+    assert_tree_eq!(snapshot, tree);
+    Ok(())
+}
+
 #[test]
 fn test_check_out_existing_directory_symlink() -> TestResult {
     if !check_symlink_support()? {
