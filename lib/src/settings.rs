@@ -28,8 +28,6 @@ use jj_core::backend::Timestamp;
 use jj_core::files::MergeOptions;
 use jj_core::ref_name::RemoteNameBuf;
 use jj_core::time_util;
-#[cfg(feature = "git")]
-use jj_git_backend::git_backend::GitBackendSettings;
 use jj_local_util::file_util::expand_home_path;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
@@ -221,17 +219,6 @@ impl UserSettings {
     /// Returns the configured user email (`user.email`).
     pub fn user_email(&self) -> &str {
         &self.data.user_email
-    }
-
-    /// Loads the settings needed by the Git backend.
-    #[cfg(feature = "git")]
-    pub fn git_backend_settings(&self) -> Result<GitBackendSettings, ConfigGetError> {
-        Ok(GitBackendSettings {
-            git_executable: self.get("git.executable-path")?,
-            write_change_id_header: self.get("git.write-change-id-header")?,
-            user_name: self.user_name().to_owned(),
-            user_email: self.user_email().to_owned(),
-        })
     }
 
     /// Returns the timestamp to use for commits instead of the current time,
