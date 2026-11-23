@@ -27,7 +27,6 @@ use std::sync::Mutex;
 
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
-use futures::executor::block_on_stream;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use jj_core::backend::BackendError;
@@ -271,17 +270,15 @@ impl TruncatedEvolutionGraph {
         let mut to_visit = HashSet::with_capacity(divergent_commit_ids.len());
         to_visit.extend(divergent_commit_ids.iter().cloned());
 
-        let evolution_nodes = block_on_stream(
-            walk_predecessors(&repo, divergent_commit_ids.as_slice()).boxed_local(),
-        );
+        let mut evolution_nodes =
+            walk_predecessors(&repo, divergent_commit_ids.as_slice()).boxed_local();
 
         // These are the commits in the graph that have no predecessors. Typically
         // there is exactly one entry in initial_nodes (the first commit for the
         // change-id).
         let mut initial_nodes = vec![];
 
-        for node in evolution_nodes {
-            let entry = node?;
+        while let Some(entry) = evolution_nodes.try_next().await? {
             let commit_id = entry.commit.id();
             if *entry.commit.change_id() != divergent_change_id {
                 // Skip commits with unrelated change ids.
@@ -322,6 +319,7 @@ impl TruncatedEvolutionGraph {
                 to_visit.extend(predecessors);
             }
         }
+        drop(evolution_nodes);
 
         validate(
             !initial_nodes.is_empty(),
