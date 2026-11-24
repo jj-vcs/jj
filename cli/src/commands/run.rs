@@ -969,7 +969,7 @@ pub async fn cmd_run(
                         // Descendant outside the run set
                         if rewriter.parents_changed() {
                             if restore_descendants {
-                                rewriter.reparent().write().await?;
+                                rewriter.reparent().await.write().await?;
                             } else {
                                 rewriter.rebase().await?.write().await?;
                             }

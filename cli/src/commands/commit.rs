@@ -133,7 +133,7 @@ new working-copy commit.
         )?;
     }
 
-    let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).detach();
+    let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).await.detach();
     commit_builder.set_tree(tree);
 
     let use_editor = args.message_paragraphs.is_none() || args.editor;

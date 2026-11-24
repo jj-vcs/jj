@@ -472,6 +472,7 @@ fn test_resolve_symbol_hidden_change_id() -> TestResult {
     let commit2 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("updated commit")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -543,7 +544,11 @@ fn test_resolve_symbol_in_different_disambiguation_context() -> TestResult {
     let repo1 = tx.commit("test").block_on()?;
 
     let mut tx = repo1.start_transaction();
-    let commit2 = tx.repo_mut().rewrite_commit(&commit1).write_unwrap();
+    let commit2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .block_on()
+        .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo2 = tx.commit("test").block_on()?;
 
@@ -3629,6 +3634,7 @@ fn test_evaluate_expression_merge_point_at_operation() -> TestResult {
     let mut_repo = tx.repo_mut();
     let commit3 = mut_repo
         .rewrite_commit(&commit3prime)
+        .block_on()
         .set_description("rewritten")
         .write_unwrap();
     let rebase_map =
@@ -4414,6 +4420,7 @@ fn test_evaluate_expression_at_operation() -> TestResult {
     let commit1_op2 = tx
         .repo_mut()
         .rewrite_commit(&commit1_op1)
+        .block_on()
         .set_description("commit1@op2")
         .write_unwrap();
     let commit3_op2 = create_random_commit(tx.repo_mut())

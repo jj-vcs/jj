@@ -108,7 +108,7 @@ fn keep_on_rewrite(backend: TestRepoBackend) -> TestResult {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let rewritten = mut_repo.rewrite_commit(&commit).write_unwrap();
+    let rewritten = mut_repo.rewrite_commit(&commit).block_on().write_unwrap();
 
     let commit = repo.store().get_commit(rewritten.id())?;
     assert_eq!(commit.verification()?, good_verification());
@@ -135,6 +135,7 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) -> TestResult {
     let mut_repo = tx.repo_mut();
     let rewritten = mut_repo
         .rewrite_commit(&commit)
+        .block_on()
         .set_sign_behavior(SignBehavior::Drop)
         .write_unwrap();
 
@@ -204,7 +205,10 @@ fn drop_behavior(backend: TestRepoBackend) -> TestResult {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let rewritten = mut_repo.rewrite_commit(&original_commit).write_unwrap();
+    let rewritten = mut_repo
+        .rewrite_commit(&original_commit)
+        .block_on()
+        .write_unwrap();
 
     let rewritten_commit = repo.store().get_commit(rewritten.id())?;
     assert_eq!(rewritten_commit.verification()?, None);
