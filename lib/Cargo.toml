@@ -49,7 +49,6 @@ jj-working-copy = { workspace = true }
 maplit = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }
-pollster = { workspace = true }
 prost = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
@@ -68,6 +67,7 @@ hegeltest = { workspace = true }
 indoc = { workspace = true }
 insta = { workspace = true }
 num_cpus = { workspace = true }
+pollster = { workspace = true }
 pretty_assertions = { workspace = true }
 rustversion = { workspace = true }
 test-case = { workspace = true }

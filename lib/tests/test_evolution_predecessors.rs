@@ -58,6 +58,7 @@ fn test_walk_predecessors_basic() -> TestResult {
     let commit2 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -102,6 +103,7 @@ fn test_walk_predecessors_basic_legacy_op() -> TestResult {
     let commit2 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -137,6 +139,7 @@ fn test_walk_predecessors_concurrent_ops() -> TestResult {
     let commit2 = tx2
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten 2")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on()?;
@@ -144,6 +147,7 @@ fn test_walk_predecessors_concurrent_ops() -> TestResult {
     let commit3 = tx3
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten 3")
         .write_unwrap();
     tx3.repo_mut().rebase_descendants().block_on()?;
@@ -161,11 +165,13 @@ fn test_walk_predecessors_concurrent_ops() -> TestResult {
     let commit4 = tx
         .repo_mut()
         .rewrite_commit(&commit2)
+        .block_on()
         .set_description("rewritten 4")
         .write_unwrap();
     let commit5 = tx
         .repo_mut()
         .rewrite_commit(&commit3)
+        .block_on()
         .set_description("rewritten 5")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -214,6 +220,7 @@ fn test_walk_predecessors_multiple_predecessors_across_ops() -> TestResult {
     let commit3 = tx
         .repo_mut()
         .rewrite_commit(&commit2)
+        .block_on()
         .set_predecessors(vec![commit2.id().clone(), commit1.id().clone()])
         .set_description("rewritten")
         .write_unwrap();
@@ -252,6 +259,7 @@ fn test_walk_predecessors_multiple_predecessors_within_op() -> TestResult {
     let commit3 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_predecessors(vec![commit1.id().clone(), commit2.id().clone()])
         .set_description("rewritten")
         .write_unwrap();
@@ -288,11 +296,13 @@ fn test_walk_predecessors_transitive() -> TestResult {
     let commit2 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten 2")
         .write_unwrap();
     let commit3 = tx
         .repo_mut()
         .rewrite_commit(&commit2)
+        .block_on()
         .set_description("rewritten 3")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -330,16 +340,19 @@ fn test_walk_predecessors_transitive_graph_order() -> TestResult {
     let commit2 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten 2")
         .write_unwrap();
     let commit3 = tx
         .repo_mut()
         .rewrite_commit(&commit2)
+        .block_on()
         .set_description("rewritten 3")
         .write_unwrap();
     let commit4 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten 4")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -349,6 +362,7 @@ fn test_walk_predecessors_transitive_graph_order() -> TestResult {
     let commit5 = tx
         .repo_mut()
         .rewrite_commit(&commit4)
+        .block_on()
         .set_predecessors(vec![commit4.id().clone(), commit3.id().clone()])
         .set_description("rewritten 5")
         .write_unwrap();
@@ -397,6 +411,7 @@ fn test_walk_predecessors_unsimplified() -> TestResult {
     let commit2 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten 2")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -406,6 +421,7 @@ fn test_walk_predecessors_unsimplified() -> TestResult {
     let commit3 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_predecessors(vec![commit1.id().clone(), commit2.id().clone()])
         .set_description("rewritten 3")
         .write_unwrap();
@@ -514,6 +530,7 @@ fn test_accumulate_predecessors() -> TestResult {
 
     fn rewrite_commit(repo: &mut MutableRepo, predecessors: &[&Commit], desc: &str) -> Commit {
         repo.rewrite_commit(predecessors[0])
+            .block_on()
             .set_predecessors(predecessors.iter().map(|c| c.id().clone()).collect())
             .set_description(desc)
             .write_unwrap()

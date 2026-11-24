@@ -341,6 +341,7 @@ fn test_build_truncated_evolution_graph() -> TestResult {
     let commit2 = tx2
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten->foo")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on()?;
@@ -349,6 +350,7 @@ fn test_build_truncated_evolution_graph() -> TestResult {
     let commit3 = tx3
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten->bar")
         .write_unwrap();
     tx3.repo_mut().rebase_descendants().block_on()?;
@@ -406,6 +408,7 @@ fn test_simple_converge_description() -> TestResult {
     let commit2 = tx2
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten->foo")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on()?;
@@ -414,6 +417,7 @@ fn test_simple_converge_description() -> TestResult {
     let commit3 = tx3
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten->bar")
         .write_unwrap();
     tx3.repo_mut().rebase_descendants().block_on()?;
@@ -472,6 +476,7 @@ fn test_manual_converge_description_concurrent_ops() -> TestResult {
     let commit2 = tx2
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten 2")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on()?;
@@ -479,6 +484,7 @@ fn test_manual_converge_description_concurrent_ops() -> TestResult {
     let commit3 = tx3
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("rewritten 3")
         .write_unwrap();
     tx3.repo_mut().rebase_descendants().block_on()?;
@@ -488,11 +494,13 @@ fn test_manual_converge_description_concurrent_ops() -> TestResult {
     let commit4 = tx
         .repo_mut()
         .rewrite_commit(&commit2)
+        .block_on()
         .set_description("rewritten 4")
         .write_unwrap();
     let commit5 = tx
         .repo_mut()
         .rewrite_commit(&commit3)
+        .block_on()
         .set_description("rewritten 5")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -581,6 +589,7 @@ fn test_automatic_converge_description_and_parent() -> TestResult {
     let commit2 = tx2
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("bar")
         .set_parents(vec![parent_y.clone()])
         .write_unwrap();
@@ -589,6 +598,7 @@ fn test_automatic_converge_description_and_parent() -> TestResult {
     let commit3 = tx3
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("bar")
         .write_unwrap();
     tx3.repo_mut().rebase_descendants().block_on()?;
@@ -598,6 +608,7 @@ fn test_automatic_converge_description_and_parent() -> TestResult {
     let commit4 = tx
         .repo_mut()
         .rewrite_commit(&commit2)
+        .block_on()
         .set_description("baz")
         .set_parents(vec![parent_x.clone()])
         .write_unwrap();
@@ -712,6 +723,7 @@ fn test_automatic_converge_description_parent_and_trees() -> TestResult {
     let commit2 = tx2
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("bar")
         .set_parents(vec![commit_y.id().clone()])
         .set_tree(tree2)
@@ -721,6 +733,7 @@ fn test_automatic_converge_description_parent_and_trees() -> TestResult {
     let commit3 = tx3
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("bar")
         .set_tree(tree3.clone())
         .write_unwrap();
@@ -731,6 +744,7 @@ fn test_automatic_converge_description_parent_and_trees() -> TestResult {
     let commit4 = tx
         .repo_mut()
         .rewrite_commit(&commit2)
+        .block_on()
         .set_description("baz")
         .set_parents(vec![commit_x.id().clone()])
         .set_tree(tree4.clone())
@@ -918,6 +932,7 @@ fn test_automatic_converge_description_parent_and_trees_with_reparent() -> TestR
     let commit2 = tx2
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("bar")
         .set_parents(vec![commit_y.id().clone()])
         .set_tree(tree2)
@@ -927,6 +942,7 @@ fn test_automatic_converge_description_parent_and_trees_with_reparent() -> TestR
     let commit3 = tx3
         .repo_mut()
         .rewrite_commit(&commit1)
+        .block_on()
         .set_description("bar")
         .set_parents(vec![commit_x.id().clone()])
         .set_tree(tree3.clone())
@@ -938,6 +954,7 @@ fn test_automatic_converge_description_parent_and_trees_with_reparent() -> TestR
     let commit4 = tx
         .repo_mut()
         .rewrite_commit(&commit2)
+        .block_on()
         .set_description("baz")
         .set_parents(vec![commit_y.id().clone()])
         .set_tree(tree4.clone())
@@ -1138,6 +1155,7 @@ fn converge_divergent_authors(
     let commit_left = tx_left
         .repo_mut()
         .rewrite_commit(&predecessor)
+        .block_on()
         .set_author(left_author.clone())
         .write_unwrap();
     tx_left.repo_mut().rebase_descendants().block_on()?;
@@ -1145,6 +1163,7 @@ fn converge_divergent_authors(
     let commit_right = tx_right
         .repo_mut()
         .rewrite_commit(&predecessor)
+        .block_on()
         .set_author(right_author.clone())
         .write_unwrap();
     tx_right.repo_mut().rebase_descendants().block_on()?;

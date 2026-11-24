@@ -292,7 +292,7 @@ pub(crate) async fn cmd_split(
 
     // The first commit includes the changes selected by the user.
     let mut first_commit_builder = {
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).await.detach();
         commit_builder.set_tree(target.selected_tree.clone());
         if use_move_flags {
             commit_builder.clear_rewrite_source();
@@ -344,7 +344,7 @@ pub(crate) async fn cmd_split(
         } else {
             target_tree
         };
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).await.detach();
         commit_builder.set_tree(new_tree);
         if !use_move_flags {
             commit_builder.clear_rewrite_source();

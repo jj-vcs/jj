@@ -33,7 +33,6 @@ use jj_core::conflict_labels::ConflictLabels;
 use jj_core::merge::Merge;
 use jj_core::merged_tree::MergedTree;
 use jj_core::store::Store;
-use pollster::FutureExt as _;
 
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
@@ -250,7 +249,7 @@ impl DetachedCommitBuilder {
 
     /// Only called from [`MutableRepo::rewrite_commit`]. Use that function
     /// instead.
-    pub(crate) fn for_rewrite_from(
+    pub(crate) async fn for_rewrite_from(
         repo: &dyn Repo,
         settings: &UserSettings,
         predecessor: &Commit,
@@ -275,7 +274,7 @@ impl DetachedCommitBuilder {
             && commit.author.email == commit.committer.email
             && predecessor
                 .is_discardable(repo.index())
-                .block_on()
+                .await
                 .unwrap_or_default()
         {
             commit.author.timestamp = commit.committer.timestamp;

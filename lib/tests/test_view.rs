@@ -566,6 +566,7 @@ fn test_merge_views_divergent() -> TestResult {
     let commit_a2 = tx1
         .repo_mut()
         .rewrite_commit(&commit_a)
+        .block_on()
         .set_description("A2")
         .write_unwrap();
     tx1.repo_mut().rebase_descendants().block_on()?;
@@ -574,6 +575,7 @@ fn test_merge_views_divergent() -> TestResult {
     let commit_a3 = tx2
         .repo_mut()
         .rewrite_commit(&commit_a)
+        .block_on()
         .set_description("A3")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on()?;
@@ -606,6 +608,7 @@ fn test_merge_views_child_on_rewritten(child_first: bool) -> TestResult {
     let commit_a2 = tx2
         .repo_mut()
         .rewrite_commit(&commit_a)
+        .block_on()
         .set_description("A2")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on()?;
@@ -655,6 +658,7 @@ fn test_merge_views_child_on_rewritten_divergent(
     let commit_a4 = tx2
         .repo_mut()
         .rewrite_commit(&commit_a2)
+        .block_on()
         .set_description("A4")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on()?;
@@ -748,6 +752,7 @@ fn test_merge_three_operations() -> TestResult {
     let commit_k2 = tx_b
         .repo_mut()
         .rewrite_commit(&commit_k)
+        .block_on()
         .set_description("K2")
         .write_unwrap();
     tx_b.repo_mut().rebase_descendants().block_on()?;
@@ -820,6 +825,7 @@ fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
     let commit_l = tx_b
         .repo_mut()
         .rewrite_commit(&commit_k)
+        .block_on()
         .set_description("L")
         .write_unwrap();
     tx_b.repo_mut().rebase_descendants().block_on()?;
@@ -854,6 +860,7 @@ fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
     let commit_m = tx_f
         .repo_mut()
         .rewrite_commit(&commit_l)
+        .block_on()
         .set_description("M")
         .write_unwrap();
     tx_f.repo_mut().rebase_descendants().block_on()?;
@@ -896,6 +903,7 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
     let _commit_k2 = tx_b
         .repo_mut()
         .rewrite_commit(&commit_k)
+        .block_on()
         .set_description("K2")
         .write_unwrap();
     tx_b.repo_mut().rebase_descendants().block_on()?;

@@ -211,6 +211,7 @@ fn find_unique_successor(repo: &ReadonlyRepo, old_id: &CommitId) -> Option<Commi
 #[track_caller]
 fn rewrite_commit(repo: &mut MutableRepo, predecessor: &Commit, description: &str) -> Commit {
     repo.rewrite_commit(predecessor)
+        .block_on()
         .set_description(description)
         .write()
         .block_on()
@@ -3956,6 +3957,7 @@ fn test_reset_head_with_index() -> TestResult {
     let changed_wc = tx
         .repo_mut()
         .rewrite_commit(&other_wc)
+        .block_on()
         .set_tree(changed_tree)
         .write_unwrap();
     reset_head_from(
@@ -3981,6 +3983,7 @@ fn test_reset_head_with_index() -> TestResult {
     let merge_wc = tx
         .repo_mut()
         .rewrite_commit(&other_wc)
+        .block_on()
         .set_parents(vec![commit1.id().clone(), second_parent.id().clone()])
         .write_unwrap();
     reset_head_from(
@@ -4013,6 +4016,7 @@ fn test_reset_head_waits_for_index_lock() -> TestResult {
     let changed_wc = tx
         .repo_mut()
         .rewrite_commit(&wc_commit)
+        .block_on()
         .set_tree(changed_tree)
         .write_unwrap();
     std::fs::write(&lock_path, b"")?;

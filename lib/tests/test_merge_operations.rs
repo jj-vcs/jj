@@ -75,6 +75,7 @@ fn run_merge_operations_deep_criss_cross(num_levels: usize) -> TestResult {
     let _commit_k2 = tx_b
         .repo_mut()
         .rewrite_commit(&commit_k)
+        .block_on()
         .set_description("K2")
         .write_unwrap();
     tx_b.repo_mut().rebase_descendants().block_on()?;

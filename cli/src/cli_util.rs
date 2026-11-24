@@ -1885,6 +1885,7 @@ impl WorkspaceOperationRunner {
             } else {
                 new_wc_commit = mut_repo
                     .rewrite_commit(&wc_commit)
+                    .await
                     .set_tree(new_tree.clone())
                     .write()
                     .await?;

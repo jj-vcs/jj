@@ -81,6 +81,7 @@ pub(crate) async fn cmd_file_delete(
     let mut tx = workspace_command.start_transaction();
     tx.repo_mut()
         .rewrite_commit(&commit)
+        .await
         .set_tree(new_tree)
         .write()
         .await?;

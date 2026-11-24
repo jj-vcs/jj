@@ -20,7 +20,6 @@ use std::iter;
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
-use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
@@ -138,16 +137,14 @@ pub(crate) async fn cmd_describe(
             .map(join_message_paragraphs)
     };
 
-    let mut commit_builders = commits
-        .iter()
-        .map(|commit| {
-            let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
-            if let Some(description) = &shared_description {
-                commit_builder.set_description(description);
-            }
-            commit_builder
-        })
-        .collect_vec();
+    let mut commit_builders = Vec::with_capacity(commits.len());
+    for commit in &commits {
+        let mut commit_builder = tx.repo_mut().rewrite_commit(commit).await.detach();
+        if let Some(description) = &shared_description {
+            commit_builder.set_description(description);
+        }
+        commit_builders.push(commit_builder);
+    }
 
     let use_editor = args.editor || shared_description.is_none();
 
@@ -214,7 +211,7 @@ pub(crate) async fn cmd_describe(
             commit_builders.keys().map(|&id| id.clone()).collect(),
             async |rewriter| {
                 let old_commit_id = rewriter.old_commit().id().clone();
-                let commit_builder = rewriter.reparent();
+                let commit_builder = rewriter.reparent().await;
                 if let Some(temp_builder) = commit_builders.get(&old_commit_id) {
                     commit_builder
                         .set_description(temp_builder.description())
