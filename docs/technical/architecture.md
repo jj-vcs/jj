@@ -59,24 +59,21 @@ location][types-drawing], and Right Click > "Copy to Clipboard as SVG"._
 [Excalidraw]: https://excalidraw.com/
 [types-drawing]: https://excalidraw.com/#json=X081PJVRW2h4iW12qZxc1,H2Yg3qnycVG0Vpq5Z90Miw
 
-### Backend
+### CommitStore
 
-The `Backend` trait defines the interface each
-commit backend needs to implement. The current in-tree commit backends
-are `GitBackend`
-and `SimpleBackend`.
+The `CommitStore` trait defines the interface each
+commit store needs to implement. The current in-tree commit stores
+are `GitCommitStore`
+and `SimpleCommitStore`.
 
-Since there are non-commit backends, the `Backend` trait should probably be
-renamed to `CommitBackend`.
+### GitCommitStore
 
-### GitBackend
-
-The `GitBackend` stores commits in a Git repository. It uses
+The `GitCommitStore` stores commits in a Git repository. It uses
 [`gitoxide`](https://github.com/GitoxideLabs/gitoxide) to read and write commits
 and refs.
 
 To prevent GC from deleting commits that are still reachable from the operation
-log, the `GitBackend` stores a ref for each commit in the operation log in
+log, the `GitCommitStore` stores a ref for each commit in the operation log in
 the `refs/jj/keep/` namespace.
 
 Commit data that is available in Jujutsu's model but not in Git's model is
@@ -89,15 +86,15 @@ Because we use the Git Object ID as commit ID, two commits that differ only in
 their change ID, for example, will get the same commit ID, so we error out when
 trying to write the second one of them.
 
-### SimpleBackend
+### SimpleCommitStore
 
-The `SimpleBackend` is just a proof of concept. It stores objects addressed by
-their hash, with one file per object.
+The `SimpleCommitStore` is just a proof of concept. It stores objects addressed
+by their hash, with one file per object.
 
 ### Store
 
-The `Store` type wraps the `Backend` and returns wrapped types for commits and
-trees to make them easier to use. The wrapped objects have a reference to
+The `Store` type wraps the `CommitStore` and returns wrapped types for commits
+and trees to make them easier to use. The wrapped objects have a reference to
 the `Store` itself, so you can do e.g. `commit.parents()` without having to
 provide the `Store` as an argument.
 
@@ -163,11 +160,11 @@ crashed, for example).
 ### Git
 
 The `git` module contains functionality for interoperating with a Git repo, at a
-higher level than the `GitBackend`. The `GitBackend` is restricted by
-the `Backend` trait; the `git` module is specifically for Git-backed repos. It
-has functionality for importing refs from the Git repo and for exporting to refs
-in the Git repo. It also has functionality for pushing and pulling to/from Git
-remotes.
+higher level than the `GitCommitStore`. The `GitCommitStore` is restricted by
+the `CommitStore` trait; the `git` module is specifically for Git-backed repos.
+It has functionality for importing refs from the Git repo and for exporting to
+refs in the Git repo. It also has functionality for pushing and pulling to/from
+Git remotes.
 
 ### Revsets
 
