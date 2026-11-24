@@ -4099,7 +4099,11 @@ fn test_diff_binary() {
     work_dir.write_file("binary_modified.png", b"\x89PNG\r\n\x1a\n012345x\0");
     // this file's contents became a valid text file
     work_dir.write_file("binary_modified_to_text.png", "foo\nbar\n");
-    work_dir.write_file("binary_added.png", b"\x89PNG\r\n\x1a\nxyz\0");
+    // Keep the shared PNG header below the rename similarity threshold.
+    work_dir.write_file(
+        "binary_added.png",
+        b"\x89PNG\r\n\x1a\nADDED BINARY PAYLOAD\0",
+    );
     // try a file that's valid UTF-8 but contains control characters
     work_dir.write_file("binary_valid_utf8.png", b"\0\0\0");
 
@@ -4122,7 +4126,7 @@ fn test_diff_binary() {
     insta::assert_snapshot!(output, @"
     diff --git a/binary_added.png b/binary_added.png
     new file mode 100644
-    index 0000000000..deacfbc286
+    index 0000000000..51827eb736
     Binary files /dev/null and b/binary_added.png differ
     diff --git a/binary_modified.png b/binary_modified.png
     index 7f036ce788..f666e11aeb 100644
@@ -4144,7 +4148,7 @@ fn test_diff_binary() {
     let output = work_dir.run_jj(["diff", "--stat"]);
     // Rightmost display column          ->|
     insta::assert_snapshot!(output, @"
-    binary_added.png    | (binary) +12 bytes
+    binary_added.png    | (binary) +29 bytes
     binary_modified.png | (binary)
     ...fied_to_text.png | (binary) -8 bytes
     binary_removed.png  | (binary) -16 bytes

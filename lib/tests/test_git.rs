@@ -4743,28 +4743,28 @@ fn test_load_default_fetch_bookmarks() -> TestResult {
     }
 
     insta::assert_snapshot!(warnings, @"
-    fetch-only refspecs are not supported: refs/heads/non-forced
     fetch-only refspecs are not supported: refs/heads/src-only
-    only refs/heads/ is supported for refspec sources: ^refs/tags/unsupported
+    fetch-only refspecs are not supported: refs/heads/non-forced
     non-forced refspecs are not supported: refs/heads/non-forced:refs/remotes/origin/non-forced
     remote renaming not supported: +refs/heads/wrong-dst:refs/remotes/tags/wrong-dst
     remote renaming not supported: +refs/heads/wrong-remote:refs/remotes/origin2/wrong-remote
     only refs/heads/ is supported for refspec sources: +refs/tags/wrong-src:refs/remotes/origin/wrong-src
+    only refs/heads/ is supported for refspec sources: ^refs/tags/unsupported
     ");
 
     insta::assert_debug_snapshot!(bookmark_expr, @r#"
     Intersection(
         Union(
             Pattern(
+                Exact(
+                    "main",
+                ),
+            ),
+            Pattern(
                 Glob(
                     GlobPattern(
                         "foo*",
                     ),
-                ),
-            ),
-            Pattern(
-                Exact(
-                    "main",
                 ),
             ),
         ),

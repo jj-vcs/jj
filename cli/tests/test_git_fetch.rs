@@ -371,9 +371,9 @@ fn test_git_fetch_with_ignored_refspecs() {
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Ignored refspec `refs/heads/bar` from `origin`: fetch-only refspecs are not supported
-    Warning: Ignored refspec `+refs/heads/bar*:refs/tags/bar*` from `origin`: only refs/remotes/ is supported for fetch destinations
     Warning: Ignored refspec `+refs/heads/foo*:refs/remotes/origin/baz*` from `origin`: renaming is not supported
+    Warning: Ignored refspec `+refs/heads/bar*:refs/tags/bar*` from `origin`: only refs/remotes/ is supported for fetch destinations
+    Warning: Ignored refspec `refs/heads/bar` from `origin`: fetch-only refspecs are not supported
     Fetching from Git remotes: origin
     bookmark: main@origin    [new] untracked
     bookmark: sub/yes@origin [new] untracked
@@ -414,9 +414,9 @@ fn test_git_fetch_with_ignored_refspecs() {
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Ignored refspec `refs/heads/bar` from `origin`: fetch-only refspecs are not supported
-    Warning: Ignored refspec `+refs/heads/bar*:refs/tags/bar*` from `origin`: only refs/remotes/ is supported for fetch destinations
     Warning: Ignored refspec `+refs/heads/foo*:refs/remotes/origin/baz*` from `origin`: renaming is not supported
+    Warning: Ignored refspec `+refs/heads/bar*:refs/tags/bar*` from `origin`: only refs/remotes/ is supported for fetch destinations
+    Warning: Ignored refspec `refs/heads/bar` from `origin`: fetch-only refspecs are not supported
     Fetching from Git remotes: origin
     Nothing changed.
     [EOF]

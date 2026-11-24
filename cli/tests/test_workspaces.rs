@@ -1146,7 +1146,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         let output = secondary_dir.run_jj(["st"]);
         insta::assert_snapshot!(output, @"
         Working copy changes:
-        C {modified => added}
+        A added
         D deleted
         M modified
         Working copy  (@) : kmkuslsw 18851b39 RECOVERY COMMIT FROM `jj workspace update-stale`
@@ -1203,7 +1203,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @"
         Working copy changes:
-        C {modified => added}
+        A added
         D deleted
         M modified
         Working copy  (@) : kmkuslsw 18851b39 RECOVERY COMMIT FROM `jj workspace update-stale`
@@ -2790,10 +2790,10 @@ fn test_workspaces_add_colocated_unborn_head() {
 /// Returns the repo's Git HEAD: the ref name if HEAD points at a ref, or the
 /// commit id if HEAD is detached.
 fn git_head(repo: &gix::Repository) -> String {
-    match repo.head().unwrap().kind {
-        gix::head::Kind::Unborn(name) => name.as_bstr().to_string(),
-        gix::head::Kind::Symbolic(reference) => reference.name.as_bstr().to_string(),
-        gix::head::Kind::Detached { target, .. } => target.to_string(),
+    match repo.head().unwrap().detach_repo() {
+        gix::HeadOwned::Unborn(name) => name.as_bstr().to_string(),
+        gix::HeadOwned::Symbolic(reference) => reference.name.as_bstr().to_string(),
+        gix::HeadOwned::Detached { target, .. } => target.to_string(),
     }
 }
 

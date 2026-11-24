@@ -377,7 +377,7 @@ impl<'a> IndexManager<'a> {
         // `write()` would re-emit it as-is.
         self.index.remove_tree();
         self.index
-            .write(gix::index::write::Options::default())
+            .write(gix::index::write::Options::default(), Default::default())
             .unwrap();
     }
 }

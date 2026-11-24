@@ -472,7 +472,7 @@ fn resolve_git_ref_to_commit_id(
 
     // Try fast path if we have a candidate id which is known to be a commit object.
     if let Some(known_oid) = known_commit_oid {
-        let raw_ref = &git_ref.inner;
+        let raw_ref = git_ref.inner();
         if let Some(oid) = raw_ref.target.try_id()
             && oid == known_oid
         {
@@ -501,7 +501,7 @@ fn resolve_git_ref_to_commit_id(
                 }
                 // Unknown id. Recurse from the current state. A tag may point to
                 // non-commit object.
-                peeling_ref.to_mut().inner.target = gix::refs::Target::Object(oid);
+                peeling_ref.to_mut().inner_mut().target = gix::refs::Target::Object(oid);
             }
         }
     }
@@ -1404,7 +1404,7 @@ pub fn export_some_refs(
         let Some(head_ref) = git_repo.try_find_reference("HEAD")? else {
             return Ok(());
         };
-        let old_target = head_ref.inner.target;
+        let old_target = head_ref.target();
         if let Some(target_name) = old_target.try_name()
             && let Ok(target_name_str) = str::from_utf8(target_name.as_bstr())
             && let Some((kind, symbol)) = parse_git_ref(target_name_str.as_ref())
@@ -1429,7 +1429,9 @@ pub fn export_some_refs(
             if new_oid != current_oid.as_ref() {
                 update_git_head(
                     git_repo,
-                    gix::refs::transaction::PreviousValue::MustExistAndMatch(old_target),
+                    gix::refs::transaction::PreviousValue::MustExistAndMatch(
+                        old_target.into_owned(),
+                    ),
                     current_oid,
                 )?;
             }
@@ -1747,7 +1749,7 @@ fn find_git_tag_oid_to_copy(
         .filter(|git_ref| {
             resolve_git_ref_to_commit_id(git_ref, Some(commit_oid)).as_deref() == Some(commit_oid)
         })
-        .find_map(|git_ref| git_ref.inner.target.try_into_id().ok())
+        .find_map(|git_ref| git_ref.try_id().map(|id| id.detach()))
 }
 
 /// Returns an edit for deleting the ref.
@@ -1856,7 +1858,7 @@ fn move_git_ref(
     } else if git_commit_oid == Some(old_commit_oid) {
         // The reference would point to annotated tag, try again
         let constraint =
-            gix::refs::transaction::PreviousValue::MustExistAndMatch(git_ref.inner.target);
+            gix::refs::transaction::PreviousValue::MustExistAndMatch(git_ref.detach().target);
         git_repo
             .reference(name, new_oid, constraint, "export from jj")
             .map_err(FailedRefExportReason::FailedToSet)?;
@@ -2413,7 +2415,7 @@ fn lock_index(git_repo: &gix::Repository) -> Result<gix::lock::File, GitResetHea
         git_repo.index_path(),
         gix::lock::acquire::Fail::AfterDurationWithBackoff(INDEX_LOCK_TIMEOUT),
         None,
-        0,
+        Default::default(),
     )?;
     Ok(lock)
 }

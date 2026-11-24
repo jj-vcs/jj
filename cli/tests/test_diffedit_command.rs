@@ -196,7 +196,7 @@ fn test_diffedit() -> TestResult {
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @"
-    C {file3 => file1}
+    A file1
     M file3
     [EOF]
     ");
@@ -689,22 +689,25 @@ fn test_diffedit_merge() -> TestResult {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    work_dir.write_file("file1", "a\n");
+    // Keep enough content in common for both parents to detect the copy of file1.
+    let file1_contents = |last_line| format!("common heading\ncommon body\n{last_line}\n");
+    work_dir.write_file("file1", file1_contents("a"));
     work_dir.write_file("file2", "a\n");
     work_dir.run_jj(["new"]).success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "b"])
         .success();
-    work_dir.write_file("file1", "b\n");
+    work_dir.write_file("file1", file1_contents("b"));
     work_dir.write_file("file2", "b\n");
     work_dir.run_jj(["new", "@-"]).success();
     work_dir.run_jj(["new"]).success();
-    work_dir.write_file("file1", "c\n");
+    work_dir.write_file("file1", file1_contents("c"));
     work_dir.write_file("file2", "c\n");
     work_dir.run_jj(["new", "@", "b", "-m", "merge"]).success();
     // Resolve the conflict in file1, but leave the conflict in file2
-    work_dir.write_file("file1", "d\n");
-    work_dir.write_file("file3", "d\n");
+    let resolved_contents = file1_contents("d");
+    work_dir.write_file("file1", &resolved_contents);
+    work_dir.write_file("file3", &resolved_contents);
     work_dir.run_jj(["new"]).success();
     // Test the setup
     let output = work_dir.run_jj(["diff", "-r", "@-", "-s"]);
@@ -723,8 +726,8 @@ fn test_diffedit_merge() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
-    Working copy  (@) now at: yqosqzyt 9fc53f3e (conflict) (empty) (no description set)
-    Parent commit (@-)      : royxmykx 70ca98fe (conflict) merge
+    Working copy  (@) now at: yqosqzyt 22fb619f (conflict) (empty) (no description set)
+    Parent commit (@-)      : royxmykx d2fb917c (conflict) merge
     Added 0 files, modified 0 files, removed 1 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
@@ -732,19 +735,18 @@ fn test_diffedit_merge() -> TestResult {
     ");
     let output = work_dir.run_jj(["diff", "-s", "-r", "@-"]);
     insta::assert_snapshot!(output, @"
-    D file1
-    A file3
+    R {file1 => file3}
     [EOF]
     ");
     assert!(!work_dir.root().join("file1").exists());
     let output = work_dir.run_jj(["file", "show", "file2"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: qpvuntsm fc6f5e82
-    \\\\\\\        to: mzvwutvl e3b18dc7
+    %%%%%%% diff from: qpvuntsm bea7fdcd
+    \\\\\\\        to: mzvwutvl c5dd3850
     -a
     +c
-    +++++++ rlvkpnrz 7027fb26
+    +++++++ rlvkpnrz 323fdb09
     b
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -779,7 +781,7 @@ fn test_diffedit_old_restore_interactive_tests() -> TestResult {
     insta::assert_snapshot!(output, @"
     D file1
     M file2
-    C {file2 => file3}
+    A file3
     [EOF]
     ");
 
@@ -797,7 +799,7 @@ fn test_diffedit_old_restore_interactive_tests() -> TestResult {
     insta::assert_snapshot!(output, @"
     D file1
     M file2
-    C {file2 => file3}
+    A file3
     [EOF]
     ");
 
