@@ -32,10 +32,10 @@ use jj_core::commit::Commit;
 use jj_core::dag_walk;
 use jj_core::op_store::OpStoreError;
 use jj_core::op_store::OpStoreResult;
+use jj_core::op_walk;
 use jj_core::operation::Operation;
 use thiserror::Error;
 
-use crate::op_walk;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 
