@@ -2222,19 +2222,7 @@ async fn reset_index(
     // same changes as `jj diff`. If the merged parent tree has conflicts, then the
     // Git index will also be conflicted.
     let mut index = if let Some(tree_id) = parent_tree.tree_ids().as_resolved() {
-        if tree_id == repo.store().empty_tree_id() {
-            // If the tree is empty, gix can fail to load the object (since Git doesn't
-            // require the empty tree to actually be present in the object database), so we
-            // just use an empty index directly.
-            gix::index::File::from_state(
-                gix::index::State::new(git_repo.object_hash()),
-                git_repo.index_path(),
-            )
-        } else {
-            // If the parent tree is resolved, we can use gix's `index_from_tree` method.
-            // This is more efficient than iterating over the tree and adding each entry.
-            git_repo.index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))?
-        }
+        git_repo.index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))?
     } else {
         build_index_from_merged_tree(git_repo, &parent_tree).await?
     };
