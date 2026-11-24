@@ -137,7 +137,6 @@ use jj_lib::template_parser::TemplateDiagnostics;
 use jj_lib::transaction::Transaction;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::ui_path::UiPathParseError;
-use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
@@ -146,9 +145,10 @@ use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy;
 use jj_lib::working_copy::WorkingCopyFactory;
-use jj_lib::working_copy::WorkingCopyFreshness;
+use jj_lib::workspace;
 use jj_lib::workspace::LockedWorkspace;
 use jj_lib::workspace::WorkingCopyFactories;
+use jj_lib::workspace::WorkingCopyFreshness;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
 use jj_lib::workspace::WorkspaceLoader;
@@ -2260,7 +2260,7 @@ impl WorkspaceCommandHelper {
 
         let workspace_name = self.workspace_name().to_owned();
         let mut locked_ws = self.runner.workspace.start_working_copy_mutation().await?;
-        let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
+        let (repo, new_commit) = workspace::create_and_check_out_recovery_commit(
             locked_ws.locked_wc(),
             self.runner.user_repo.repo(),
             workspace_name,

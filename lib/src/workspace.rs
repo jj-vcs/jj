@@ -22,11 +22,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use jj_config::settings::UserSettings;
+use jj_core::backend::BackendError;
 use jj_core::backend::BackendInitError;
 use jj_core::commit::Commit;
 use jj_core::merged_tree::MergedTree;
 use jj_core::op_heads_store::OpHeadsStoreError;
+use jj_core::op_store::OpStoreError;
 use jj_core::op_store::OperationId;
+use jj_core::op_walk;
 use jj_core::operation::Operation;
 use jj_core::ref_name::WorkspaceName;
 use jj_core::ref_name::WorkspaceNameBuf;
@@ -41,6 +44,7 @@ use jj_local_util::file_util::BadPathEncoding;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
 use thiserror::Error;
+use tracing::instrument;
 
 use crate::default_backend_factories::default_backend_initializer;
 use crate::default_backend_factories::default_store_initializers;
@@ -52,6 +56,7 @@ use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RepoLoader;
 use crate::repo::RepoLoaderError;
+use crate::repo::RewriteRootCommit;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::store_factories::BackendInitializer;
@@ -64,6 +69,7 @@ use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
+use crate::working_copy::ResetError;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
@@ -694,4 +700,115 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
     fn get_working_copy_type(&self) -> Result<String, StoreLoadError> {
         read_store_type("working copy", self.working_copy_state_path.join("type"))
     }
+}
+
+/// Whether the working copy is stale or not.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WorkingCopyFreshness {
+    /// The working copy isn't stale, and no need to reload the repo.
+    Fresh,
+    /// The working copy was updated since we loaded the repo. The repo must be
+    /// reloaded at the working copy's operation.
+    Updated(Box<Operation>),
+    /// The working copy is behind the latest operation.
+    WorkingCopyStale,
+    /// The working copy is a sibling of the latest operation.
+    SiblingOperation,
+}
+
+impl WorkingCopyFreshness {
+    /// Determine the freshness of the provided working copy relative to the
+    /// target commit.
+    #[instrument(skip_all)]
+    pub async fn check_stale(
+        locked_wc: &dyn LockedWorkingCopy,
+        wc_commit: &Commit,
+        repo: &ReadonlyRepo,
+    ) -> Result<Self, OpStoreError> {
+        // Check if the working copy's operation matches the repo's operation
+        if locked_wc.old_operation_id() == repo.op_id() {
+            // The working copy isn't stale, and no need to reload the repo.
+            Ok(Self::Fresh)
+        } else {
+            let wc_operation = repo
+                .loader()
+                .load_operation(locked_wc.old_operation_id())
+                .await?;
+            let repo_operation = repo.operation();
+            let ancestor_ops =
+                op_walk::closest_common_ancestors([wc_operation.clone()], [repo_operation.clone()])
+                    .await?;
+            // TODO: test all operations instead of using only a single common operation
+            let ancestor_op = ancestor_ops.into_iter().next().unwrap();
+            if ancestor_op.id() == repo_operation.id() {
+                // The working copy was updated since we loaded the repo. The repo must be
+                // reloaded at the working copy's operation.
+                Ok(Self::Updated(Box::new(wc_operation)))
+            } else if ancestor_op.id() == wc_operation.id() {
+                // The working copy was not updated when some repo operation committed,
+                // meaning that it's stale compared to the repo view.
+                if locked_wc.old_tree().tree_ids_and_labels()
+                    == wc_commit.tree().tree_ids_and_labels()
+                {
+                    // The working copy doesn't require any changes
+                    Ok(Self::Fresh)
+                } else {
+                    Ok(Self::WorkingCopyStale)
+                }
+            } else {
+                Ok(Self::SiblingOperation)
+            }
+        }
+    }
+}
+
+/// An error while recovering a stale working copy.
+#[derive(Debug, Error)]
+pub enum RecoverWorkspaceError {
+    /// Backend error.
+    #[error(transparent)]
+    Backend(#[from] BackendError),
+    /// Error during checkout.
+    #[error(transparent)]
+    Reset(#[from] ResetError),
+    /// Checkout attempted to modify the root commit.
+    #[error(transparent)]
+    RewriteRootCommit(#[from] RewriteRootCommit),
+    /// Error during transaction.
+    #[error(transparent)]
+    TransactionCommit(#[from] TransactionCommitError),
+    /// Working copy commit is missing.
+    #[error(r#""{}" doesn't have a working-copy commit"#, .0.as_symbol())]
+    WorkspaceMissingWorkingCopy(WorkspaceNameBuf),
+}
+
+/// Recover this workspace to its last known checkout.
+pub async fn create_and_check_out_recovery_commit(
+    locked_wc: &mut dyn LockedWorkingCopy,
+    repo: &Arc<ReadonlyRepo>,
+    workspace_name: WorkspaceNameBuf,
+    description: &str,
+) -> Result<(Arc<ReadonlyRepo>, Commit), RecoverWorkspaceError> {
+    let mut tx = repo.start_transaction();
+    tx.set_workspace_name(&workspace_name);
+    let repo_mut = tx.repo_mut();
+
+    let commit_id = repo
+        .view()
+        .get_wc_commit_id(&workspace_name)
+        .ok_or_else(|| {
+            RecoverWorkspaceError::WorkspaceMissingWorkingCopy(workspace_name.clone())
+        })?;
+    let commit = repo.store().get_commit_async(commit_id).await?;
+    let new_commit = repo_mut
+        .new_commit(vec![commit_id.clone()], commit.tree())
+        .set_description(description)
+        .write()
+        .await?;
+    repo_mut.set_wc_commit(workspace_name, new_commit.id().clone())?;
+
+    let repo = tx.commit("recovery commit").await?;
+    locked_wc.recover(&new_commit).await?;
+
+    Ok((repo, new_commit))
 }
