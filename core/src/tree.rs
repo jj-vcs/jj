@@ -237,7 +237,7 @@ impl<'matcher> TreeWalkVisitor<'matcher> for TreeEntriesVisitor<'matcher> {
 /// Extension method for converting a tree-value merge to a `Merge<Tree>`.
 pub(crate) trait ToTreeMergeExt {
     /// If a `MergedTreeValue` is a tree merge as defined by
-    /// `jj_lib::backend::MergedTreeValueExt::is_tree()`, this converts it to
+    /// [`MergedTreeValueExt::is_tree()`](crate::backend::MergedTreeValueExt::is_tree), this converts it to
     /// a `Merge<Tree>`, with empty trees instead of any `None` terms and of any
     /// non-tree terms that cancel out. Otherwise, returns `None`.
     async fn to_tree_merge(
