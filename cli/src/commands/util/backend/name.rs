@@ -33,7 +33,7 @@ pub async fn cmd_util_backend_name(
     writeln!(
         ui.stdout(),
         "{}",
-        workspace_command.repo().store().backend().name()
+        workspace_command.repo().store().commit_store().name()
     )?;
     Ok(())
 }

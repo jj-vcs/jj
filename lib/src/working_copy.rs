@@ -23,8 +23,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use jj_core::backend::BackendError;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitStoreError;
 use jj_core::matchers::Matcher;
 use jj_core::merged_tree::MergedTree;
 use jj_core::op_store::OpStoreError;
@@ -180,9 +180,9 @@ pub enum SnapshotError {
         /// This path itself is valid UTF-8.
         path: PathBuf,
     },
-    /// Reading or writing from the commit backend failed.
+    /// Reading or writing from the commit store failed.
     #[error(transparent)]
-    BackendError(#[from] BackendError),
+    CommitStoreError(#[from] CommitStoreError),
     /// Checking path with ignore patterns failed.
     #[error(transparent)]
     GitIgnoreError(#[from] GitIgnoreError),
@@ -296,9 +296,9 @@ pub enum CheckoutError {
         /// The reserved path component.
         name: &'static str,
     },
-    /// Reading or writing from the commit backend failed.
-    #[error("Internal backend error")]
-    InternalBackendError(#[from] BackendError),
+    /// Reading or writing from the commit store failed.
+    #[error("Internal commit store error")]
+    InternalCommitStoreError(#[from] CommitStoreError),
     /// Failed to load the working copy state.
     #[error(transparent)]
     WorkingCopyStateError(#[from] WorkingCopyStateError),
@@ -323,9 +323,9 @@ pub enum ResetError {
         /// The underlying error.
         source: Box<dyn std::error::Error + Send + Sync>,
     },
-    /// Reading or writing from the commit backend failed.
+    /// Reading or writing from the commit store failed.
     #[error("Internal error")]
-    InternalBackendError(#[from] BackendError),
+    InternalCommitStoreError(#[from] CommitStoreError),
     /// Failed to load the working copy state.
     #[error(transparent)]
     WorkingCopyStateError(#[from] WorkingCopyStateError),
@@ -403,9 +403,9 @@ impl WorkingCopyFreshness {
 /// An error while recovering a stale working copy.
 #[derive(Debug, Error)]
 pub enum RecoverWorkspaceError {
-    /// Backend error.
+    /// CommitStore error.
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    CommitStore(#[from] CommitStoreError),
     /// Error during checkout.
     #[error(transparent)]
     Reset(#[from] ResetError),

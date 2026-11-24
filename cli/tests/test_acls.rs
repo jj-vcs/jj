@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_lib::secret_backend::SecretBackend;
+use jj_lib::secret_backend::SecretCommitStore;
 
 use crate::common::TestEnvironment;
 
@@ -36,7 +36,7 @@ fn test_diff() {
     work_dir.write_file("modified-secret", "bar\n");
     work_dir.write_file("z-last", "bar\n");
 
-    SecretBackend::adopt_git_repo(work_dir.root());
+    SecretCommitStore::adopt_git_repo(work_dir.root());
 
     let output = work_dir.run_jj(["diff", "--color-words"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
@@ -113,7 +113,7 @@ fn test_file_list_show() {
     work_dir.write_file("secret", "bar\n");
     work_dir.write_file("z-last", "baz\n");
 
-    SecretBackend::adopt_git_repo(work_dir.root());
+    SecretCommitStore::adopt_git_repo(work_dir.root());
 
     // "file list" should just work since it doesn't access file content
     let output = work_dir.run_jj(["file", "list"]);

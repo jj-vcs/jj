@@ -33,9 +33,9 @@ use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStoreResult;
 use jj_lib::dag_walk;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
@@ -214,7 +214,7 @@ struct State {
 impl State {
     /// Creates a new `State` from a list of commits and a list of external
     /// children. The list of commits must not have gaps between commits.
-    async fn new(commits: Vec<Commit>, external_children: Vec<Commit>) -> BackendResult<Self> {
+    async fn new(commits: Vec<Commit>, external_children: Vec<Commit>) -> CommitStoreResult<Self> {
         // Initialize head_order to match the heads in the input's order.
         let commit_set: HashSet<_> = commits.iter().map(|commit| commit.id()).collect();
         let mut heads: HashSet<_> = commit_set.clone();

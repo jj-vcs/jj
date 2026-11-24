@@ -61,8 +61,8 @@ mod tests {
     use std::sync::Arc;
 
     use itertools::Itertools as _;
-    use jj_core::backend::ChangeId;
-    use jj_core::backend::CommitId;
+    use jj_core::commit_store::ChangeId;
+    use jj_core::commit_store::CommitId;
     use jj_core::index::Index as _;
     use jj_core::object_id::HexPrefix;
     use jj_core::object_id::PrefixResolution;

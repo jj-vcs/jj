@@ -18,7 +18,7 @@ use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
 use pollster::FutureExt as _;
 use test_case::test_case;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::write_random_commit;
@@ -99,13 +99,14 @@ fn merge_directories(left: &Path, base: &Path, right: &Path, output: &Path) {
     }
 }
 
-#[test_case(TestRepoBackend::Simple; "simple backend")]
-#[test_case(TestRepoBackend::Git; "git backend")]
-fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple; "simple backend")]
+#[test_case(TestRepoCommitStore::Git; "git backend")]
+fn test_bad_locking_children(commit_store: TestRepoCommitStore) -> TestResult {
     // Test that two new commits created on separate machines are both visible (not
     // lost due to lack of locking)
     let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
+    let test_workspace =
+        TestWorkspace::init_with_commit_store_and_settings(commit_store, &settings);
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root();
 
@@ -149,14 +150,15 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_bad_locking_interrupted(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_bad_locking_interrupted(commit_store: TestRepoCommitStore) -> TestResult {
     // Test that an interrupted update of the op-heads resulting in on op-head
     // that's a descendant of the other is resolved without creating a new
     // operation.
     let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
+    let test_workspace =
+        TestWorkspace::init_with_commit_store_and_settings(commit_store, &settings);
     let test_env = &test_workspace.env;
     let repo = &test_workspace.repo;
 

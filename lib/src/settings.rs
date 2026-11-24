@@ -21,10 +21,10 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use itertools::Itertools as _;
-use jj_core::backend::ChangeId;
-use jj_core::backend::Commit;
-use jj_core::backend::Signature;
-use jj_core::backend::Timestamp;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::Commit;
+use jj_core::commit_store::Signature;
+use jj_core::commit_store::Timestamp;
 use jj_core::files::MergeOptions;
 use jj_core::ref_name::RemoteNameBuf;
 use jj_core::time_util;
@@ -463,7 +463,7 @@ fn parse_human_byte_size(v: &str) -> Result<u64, &'static str> {
 mod tests {
     use std::assert_matches;
 
-    use jj_core::backend::MillisSinceEpoch;
+    use jj_core::commit_store::MillisSinceEpoch;
 
     use super::*;
 

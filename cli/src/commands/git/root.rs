@@ -35,7 +35,7 @@ pub async fn cmd_git_root(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
     let store = workspace_command.repo().store();
-    let git_backend = jj_lib::git::get_git_backend(store)?;
+    let git_backend = jj_lib::git::get_git_commit_store(store)?;
     let path_bytes = file_util::path_to_bytes(git_backend.git_repo_path()).map_err(user_error)?;
     ui.stdout().write_all(path_bytes)?;
     writeln!(ui.stdout())?;

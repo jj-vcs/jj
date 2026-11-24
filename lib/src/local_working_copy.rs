@@ -51,16 +51,16 @@ use futures::TryStreamExt as _;
 use futures::io::AllowStdIo;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::CopyId;
-use jj_core::backend::FileId;
-use jj_core::backend::MergedTreeValue;
-use jj_core::backend::MergedTreeValueExt as _;
-use jj_core::backend::MillisSinceEpoch;
-use jj_core::backend::SymlinkId;
-use jj_core::backend::TreeId;
-use jj_core::backend::TreeValue;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CopyId;
+use jj_core::commit_store::FileId;
+use jj_core::commit_store::MergedTreeValue;
+use jj_core::commit_store::MergedTreeValueExt as _;
+use jj_core::commit_store::MillisSinceEpoch;
+use jj_core::commit_store::SymlinkId;
+use jj_core::commit_store::TreeId;
+use jj_core::commit_store::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::conflicts;
 use jj_core::conflicts::ConflictMarkerStyle;
@@ -1456,7 +1456,7 @@ impl TreeState {
                 .merge_in(changed_file_states, &deleted_files);
         });
         trace_span!("write tree")
-            .in_scope(async || -> Result<(), BackendError> {
+            .in_scope(async || -> Result<(), CommitStoreError> {
                 let new_tree = tree_builder.write_tree().await?;
                 is_dirty |= new_tree.tree_ids_and_labels() != self.tree.tree_ids_and_labels();
                 self.tree = new_tree.clone();
@@ -1757,7 +1757,7 @@ impl FileSnapshotter<'_> {
         reader
             .read_to_end(&mut buf)
             .await
-            .map_err(|err| BackendError::ReadFile {
+            .map_err(|err| CommitStoreError::ReadFile {
                 path: ignore_fallback_repo_path,
                 id: file_id.clone(),
                 source: err.into(),

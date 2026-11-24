@@ -31,7 +31,7 @@ use jj_core::merge::Diff;
 use jj_core::ref_name::GitRefNameBuf;
 use jj_core::ref_name::RefNameBuf;
 use jj_core::ref_name::RemoteName;
-use jj_git_backend::git_backend::GitBackend;
+use jj_git_backend::git_backend::GitCommitStore;
 use jj_local_util::subprocess_util::suppress_console_window;
 use thiserror::Error;
 
@@ -93,11 +93,11 @@ impl GitSubprocessContext {
         }
     }
 
-    pub(crate) fn from_git_backend(
-        git_backend: &GitBackend,
+    pub(crate) fn from_git_commit_store(
+        git_commit_store: &GitCommitStore,
         options: GitSubprocessOptions,
     ) -> Self {
-        Self::new(git_backend.git_repo_path(), options)
+        Self::new(git_commit_store.git_repo_path(), options)
     }
 
     /// Create the Git command

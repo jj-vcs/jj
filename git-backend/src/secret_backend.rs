@@ -21,28 +21,28 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use futures::AsyncRead;
 use futures::stream::BoxStream;
-use jj_core::backend::Backend;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendLoadError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::ChangeId;
-use jj_core::backend::Commit;
-use jj_core::backend::CommitId;
-use jj_core::backend::CopyHistory;
-use jj_core::backend::CopyId;
-use jj_core::backend::CopyRecord;
-use jj_core::backend::FileId;
-use jj_core::backend::RelatedCopy;
-use jj_core::backend::SigningFn;
-use jj_core::backend::SymlinkId;
-use jj_core::backend::Tree;
-use jj_core::backend::TreeId;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::Commit;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStore;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreLoadError;
+use jj_core::commit_store::CommitStoreResult;
+use jj_core::commit_store::CopyHistory;
+use jj_core::commit_store::CopyId;
+use jj_core::commit_store::CopyRecord;
+use jj_core::commit_store::FileId;
+use jj_core::commit_store::RelatedCopy;
+use jj_core::commit_store::SigningFn;
+use jj_core::commit_store::SymlinkId;
+use jj_core::commit_store::Tree;
+use jj_core::commit_store::TreeId;
 use jj_core::object_id::ObjectId as _;
 use jj_core::repo_path::RepoPath;
 use jj_core::repo_path::RepoPathBuf;
 
-use crate::git_backend::GitBackend;
 use crate::git_backend::GitBackendSettings;
+use crate::git_backend::GitCommitStore;
 
 const SECRET_CONTENTS_HEX: [&str; 4] = [
     // SHA-1
@@ -53,15 +53,15 @@ const SECRET_CONTENTS_HEX: [&str; 4] = [
     "ed23037c9393c06980d673c327ad1b6719aec4ba614e1a34544d0cabe35f8be8", // "secret"
 ];
 
-/// A commit backend that's completely compatible with the Git backend, except
+/// A commit store that's completely compatible with the Git backend, except
 /// that it refuses to read files and symlinks with the word "secret" in the
 /// path, or "secret" or "secret\n" in the content.
 #[derive(Debug)]
-pub struct SecretBackend {
-    inner: GitBackend,
+pub struct SecretCommitStore {
+    inner: GitCommitStore,
 }
 
-impl SecretBackend {
+impl SecretCommitStore {
     /// "secret"
     pub const NAME: &str = "secret";
 
@@ -69,12 +69,12 @@ impl SecretBackend {
     pub fn load(
         settings: &GitBackendSettings,
         store_path: &Path,
-    ) -> Result<Self, BackendLoadError> {
-        let inner = GitBackend::load(settings, store_path)?;
+    ) -> Result<Self, CommitStoreLoadError> {
+        let inner = GitCommitStore::load(settings, store_path)?;
         Ok(Self { inner })
     }
 
-    /// Convert a git repo to using `SecretBackend`
+    /// Convert a git repo to using `SecretCommitStore`
     // TODO: Avoid this hack
     pub fn adopt_git_repo(workspace_path: &Path) {
         std::fs::write(
@@ -90,7 +90,7 @@ impl SecretBackend {
 }
 
 #[async_trait]
-impl Backend for SecretBackend {
+impl CommitStore for SecretCommitStore {
     fn name(&self) -> &str {
         Self::NAME
     }
@@ -123,11 +123,11 @@ impl Backend for SecretBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
+    ) -> CommitStoreResult<Pin<Box<dyn AsyncRead + Send>>> {
         if path.as_internal_file_string().contains("secret")
             || SECRET_CONTENTS_HEX.contains(&id.hex().as_ref())
         {
-            return Err(BackendError::ReadAccessDenied {
+            return Err(CommitStoreError::ReadAccessDenied {
                 object_type: "file".to_string(),
                 hash: id.hex(),
                 source: "No access".into(),
@@ -140,15 +140,15 @@ impl Backend for SecretBackend {
         &self,
         path: &RepoPath,
         contents: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> BackendResult<FileId> {
+    ) -> CommitStoreResult<FileId> {
         self.inner.write_file(path, contents).await
     }
 
-    async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
+    async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> CommitStoreResult<String> {
         if path.as_internal_file_string().contains("secret")
             || SECRET_CONTENTS_HEX.contains(&id.hex().as_ref())
         {
-            return Err(BackendError::ReadAccessDenied {
+            return Err(CommitStoreError::ReadAccessDenied {
                 object_type: "symlink".to_string(),
                 hash: id.hex(),
                 source: "No access".into(),
@@ -157,37 +157,37 @@ impl Backend for SecretBackend {
         self.inner.read_symlink(path, id).await
     }
 
-    async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
+    async fn write_symlink(&self, path: &RepoPath, target: &str) -> CommitStoreResult<SymlinkId> {
         self.inner.write_symlink(path, target).await
     }
 
-    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
-        Err(BackendError::Unsupported(
+    async fn read_copy(&self, _id: &CopyId) -> CommitStoreResult<CopyHistory> {
+        Err(CommitStoreError::Unsupported(
             "The secret backend doesn't support copies".to_string(),
         ))
     }
 
-    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
-        Err(BackendError::Unsupported(
+    async fn write_copy(&self, _contents: &CopyHistory) -> CommitStoreResult<CopyId> {
+        Err(CommitStoreError::Unsupported(
             "The secret backend doesn't support copies".to_string(),
         ))
     }
 
-    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>> {
-        Err(BackendError::Unsupported(
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> CommitStoreResult<Vec<RelatedCopy>> {
+        Err(CommitStoreError::Unsupported(
             "The secret backend doesn't support copies".to_string(),
         ))
     }
 
-    async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
+    async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> CommitStoreResult<Tree> {
         self.inner.read_tree(path, id).await
     }
 
-    async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
+    async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> CommitStoreResult<TreeId> {
         self.inner.write_tree(path, contents).await
     }
 
-    async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {
+    async fn read_commit(&self, id: &CommitId) -> CommitStoreResult<Commit> {
         self.inner.read_commit(id).await
     }
 
@@ -195,7 +195,7 @@ impl Backend for SecretBackend {
         &self,
         contents: Commit,
         sign_with: Option<&mut SigningFn>,
-    ) -> BackendResult<(CommitId, Commit)> {
+    ) -> CommitStoreResult<(CommitId, Commit)> {
         self.inner.write_commit(contents, sign_with).await
     }
 
@@ -204,11 +204,11 @@ impl Backend for SecretBackend {
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
+    ) -> CommitStoreResult<BoxStream<'_, CommitStoreResult<CopyRecord>>> {
         self.inner.get_copy_records(paths, root, head)
     }
 
-    async fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()> {
+    async fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> CommitStoreResult<()> {
         self.inner.gc(heads, keep_newer).await
     }
 }

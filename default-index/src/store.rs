@@ -30,10 +30,10 @@ use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendInitError;
-use jj_core::backend::CommitId;
 use jj_core::commit::CommitByCommitterTimestamp;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreInitError;
 use jj_core::dag_walk_async;
 use jj_core::index::MutableIndex;
 use jj_core::index::ReadonlyIndex;
@@ -74,7 +74,7 @@ const SEGMENT_FILE_NAME_LENGTH: usize = 64 * 2;
 #[error("Failed to initialize index store")]
 pub struct DefaultIndexStoreInitError(#[from] pub PathError);
 
-impl From<DefaultIndexStoreInitError> for BackendInitError {
+impl From<DefaultIndexStoreInitError> for CommitStoreInitError {
     fn from(err: DefaultIndexStoreInitError) -> Self {
         Self::new(err)
     }
@@ -96,7 +96,7 @@ pub enum DefaultIndexStoreError {
     #[error("Failed to index commits at operation {op_id}")]
     IndexCommits {
         op_id: OperationId,
-        source: BackendError,
+        source: CommitStoreError,
     },
     #[error(transparent)]
     OpStore(#[from] OpStoreError),

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_core::backend::TreeValue;
+use jj_core::commit_store::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::merge::Merge;
 use jj_core::merge::SameChange;

@@ -19,8 +19,8 @@ use std::sync::Arc;
 
 use bstr::BStr;
 use futures::TryStreamExt as _;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::commit_store::CommitId;
 use jj_lib::git;
 use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitRefUpdate;

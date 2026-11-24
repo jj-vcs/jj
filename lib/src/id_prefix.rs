@@ -20,8 +20,8 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 
 use futures::TryStreamExt as _;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
 use jj_core::hex_util;
 use jj_core::index::IndexResult;
 use jj_core::index::ResolvedChangeTargets;

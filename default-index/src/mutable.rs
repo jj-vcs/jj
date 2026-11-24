@@ -27,10 +27,10 @@ use async_trait::async_trait;
 use blake2::Blake2b512;
 use digest::Digest as _;
 use itertools::Itertools as _;
-use jj_core::backend::BackendResult;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
 use jj_core::commit::Commit;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreResult;
 use jj_core::index::ChangeIdIndex;
 use jj_core::index::Index;
 use jj_core::index::IndexError;
@@ -497,7 +497,7 @@ impl DefaultMutableIndex {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(super) async fn add_commit(&mut self, commit: &Commit) -> BackendResult<()> {
+    pub(super) async fn add_commit(&mut self, commit: &Commit) -> CommitStoreResult<()> {
         let new_commit_pos = GlobalCommitPosition(self.num_commits());
         self.add_commit_data(
             commit.id().clone(),
@@ -525,7 +525,7 @@ impl DefaultMutableIndex {
 
     // CompositeChangedPathIndex::add_commit() isn't implemented because we need
     // a commit index to merge parent trees, which means we need to borrow self.
-    async fn add_commit_changed_paths(&mut self, commit: &Commit) -> BackendResult<()> {
+    async fn add_commit_changed_paths(&mut self, commit: &Commit) -> CommitStoreResult<()> {
         let paths = collect_changed_paths(self, commit).await?;
         self.0.changed_paths_mut().add_changed_paths(paths);
         Ok(())

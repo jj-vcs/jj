@@ -18,8 +18,8 @@ use bstr::ByteVec as _;
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::CommitId;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStoreResult;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::DuplicateCommitsStats;
 use jj_lib::rewrite::duplicate_commits;
@@ -182,7 +182,7 @@ pub(crate) async fn cmd_duplicate(
 
         to_duplicate
             .iter()
-            .map(|commit_id| -> BackendResult<_> {
+            .map(|commit_id| -> CommitStoreResult<_> {
                 let commit = tx.repo().store().get_commit(commit_id)?;
                 let output = parsed.format_plain_text(&commit);
                 let output = text_util::complete_newline(output.into_string_lossy());

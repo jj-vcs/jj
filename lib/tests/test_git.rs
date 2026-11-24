@@ -30,13 +30,13 @@ use std::thread;
 
 use gix::remote::Direction;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
-use jj_core::backend::MillisSinceEpoch;
-use jj_core::backend::Signature;
-use jj_core::backend::Timestamp;
 use jj_core::commit::Commit;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::MillisSinceEpoch;
+use jj_core::commit_store::Signature;
+use jj_core::commit_store::Timestamp;
 use jj_core::hex_util;
 use jj_core::index::ResolvedChangeTargets;
 use jj_core::merge::Diff;
@@ -53,13 +53,13 @@ use jj_core::ref_name::RemoteRefSymbol;
 use jj_core::ref_name::WorkspaceName;
 use jj_core::str_util::StringExpression;
 use jj_core::str_util::StringMatcher;
-use jj_git_backend::git_backend::GitBackend;
+use jj_git_backend::git_backend::GitCommitStore;
 use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
-use jj_lib::default_backend_factories::default_store_initializers;
-use jj_lib::default_backend_factories::default_working_copy_factory;
-use jj_lib::default_backend_factories::git_backend_initializer;
+use jj_lib::default_commit_store_factories::default_store_initializers;
+use jj_lib::default_commit_store_factories::default_working_copy_factory;
+use jj_lib::default_commit_store_factories::git_commit_store_initializer;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitFetch;
@@ -96,7 +96,7 @@ use tempfile::TempDir;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::base_user_config;
@@ -171,22 +171,22 @@ where
     }
 }
 
-fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
-    repo.store().backend_impl().unwrap()
+fn get_git_commit_store(repo: &Arc<ReadonlyRepo>) -> &GitCommitStore {
+    repo.store().commit_store_impl().unwrap()
 }
 
 fn get_git_repo(repo: &Arc<ReadonlyRepo>) -> gix::Repository {
-    get_git_backend(repo).git_repo()
+    get_git_commit_store(repo).git_repo()
 }
 
 fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<ReadonlyRepo>> {
     let settings = test_repo.repo.settings();
-    let git_repo_path = get_git_backend(&test_repo.repo).git_repo_path();
+    let git_repo_path = get_git_commit_store(&test_repo.repo).git_repo_path();
     let repo_dir = test_repo.env.root().join(name);
     fs::create_dir(&repo_dir)?;
     let store_initializers = StoreInitializers {
-        backend: &git_backend_initializer(|git_settings, store_path| {
-            GitBackend::init_external(git_settings, store_path, git_repo_path)
+        commit_store: &git_commit_store_initializer(|git_settings, store_path| {
+            GitCommitStore::init_external(git_settings, store_path, git_repo_path)
         }),
         ..default_store_initializers()
     };
@@ -436,7 +436,7 @@ fn test_import_refs() -> TestResult {
 
 #[test]
 fn test_import_refs_reimport() -> TestResult {
-    let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_workspace = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -559,7 +559,7 @@ fn test_import_refs_reimport() -> TestResult {
 #[test]
 fn test_import_refs_reimport_head_removed() -> TestResult {
     // Test that re-importing refs doesn't cause a deleted head to come back
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -697,7 +697,7 @@ fn test_import_refs_reimport_git_head_with_moved_ref() -> TestResult {
 
 #[test]
 fn test_import_refs_reimport_with_deleted_remote_ref() -> TestResult {
-    let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_workspace = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = auto_track_import_options();
@@ -823,7 +823,7 @@ fn test_import_refs_reimport_with_deleted_remote_ref() -> TestResult {
 /// moved sideways instead of being deleted.
 #[test]
 fn test_import_refs_reimport_with_moved_remote_ref() -> TestResult {
-    let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_workspace = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = auto_track_import_options();
@@ -969,7 +969,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() -> TestResult {
 
 #[test]
 fn test_import_refs_reimport_with_moved_untracked_remote_ref() -> TestResult {
-    let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_workspace = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -1021,7 +1021,7 @@ fn test_import_refs_reimport_with_moved_untracked_remote_ref() -> TestResult {
 
 #[test]
 fn test_import_refs_reimport_with_deleted_untracked_intermediate_remote_ref() -> TestResult {
-    let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_workspace = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -1083,7 +1083,7 @@ fn test_import_refs_reimport_with_deleted_untracked_intermediate_remote_ref() ->
 
 #[test]
 fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() -> TestResult {
-    let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_workspace = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -1160,7 +1160,7 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() -> Te
 
 #[test]
 fn test_import_refs_reimport_absent_tracked_remote_bookmarks() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -1230,7 +1230,7 @@ fn test_import_refs_reimport_absent_tracked_remote_bookmarks() -> TestResult {
 
 #[test]
 fn test_import_refs_reimport_absent_tracked_remote_tags() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -1305,7 +1305,7 @@ fn test_import_refs_reimport_absent_tracked_remote_tags() -> TestResult {
 
 #[test]
 fn test_import_refs_reimport_remote_tags_deleted() -> TestResult {
-    let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_workspace = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_workspace.repo;
     let import_options = default_import_options();
 
@@ -1396,7 +1396,7 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() -> TestResult {
 fn test_import_refs_reimport_all_from_root_removed() -> TestResult {
     // Test that if a chain of commits all the way from the root gets unreferenced,
     // we abandon the whole stack, but not including the root commit.
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -1419,7 +1419,7 @@ fn test_import_refs_reimport_all_from_root_removed() -> TestResult {
 #[test]
 fn test_import_refs_reimport_abandoning_disabled() -> TestResult {
     // Test that we don't abandoned unreachable commits if configured not to
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
     let import_options = GitImportOptions {
@@ -1445,7 +1445,7 @@ fn test_import_refs_reimport_abandoning_disabled() -> TestResult {
 
 #[test]
 fn test_import_refs_reimport_conflicted_remote_bookmark() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -1499,7 +1499,7 @@ fn test_import_refs_reimport_conflicted_remote_bookmark() -> TestResult {
 fn test_import_refs_synthetic_predecessors_simple(
     record_synthetic_predecessors: bool,
 ) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let main_repo = &test_repo.repo;
     let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
     let ext_store = ext_repo.store().clone();
@@ -1599,7 +1599,7 @@ fn test_import_refs_synthetic_predecessors_simple(
 
 #[test]
 fn test_import_refs_synthetic_predecessors_multiple_descendants() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let main_repo = &test_repo.repo;
     let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
     let ext_store = ext_repo.store().clone();
@@ -1683,7 +1683,7 @@ fn test_import_refs_synthetic_predecessors_bookmarked_simple(
     record_synthetic_predecessors: bool,
 ) -> TestResult {
     let synthetic_rewrite_commits = abandon_unreachable_commits && record_synthetic_predecessors;
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let main_repo = &test_repo.repo;
     let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
     let ext_store = ext_repo.store().clone();
@@ -1790,7 +1790,7 @@ fn test_import_refs_synthetic_predecessors_bookmarked_simple(
 
 #[test]
 fn test_import_refs_synthetic_predecessors_some_bookmarked_descendants() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let main_repo = &test_repo.repo;
     let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
     let ext_store = ext_repo.store().clone();
@@ -1872,7 +1872,7 @@ fn test_import_refs_synthetic_predecessors_some_bookmarked_descendants() -> Test
 
 #[test]
 fn test_import_refs_synthetic_predecessors_rewritten_bookmarked_descendants() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let main_repo = &test_repo.repo;
     let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
     let ext_store = ext_repo.store().clone();
@@ -1958,7 +1958,7 @@ fn test_import_refs_synthetic_predecessors_rewritten_bookmarked_descendants() ->
 
 #[test]
 fn test_import_refs_synthetic_predecessors_old_divergent() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let main_repo = &test_repo.repo;
     let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
     let ext_store = ext_repo.store().clone();
@@ -2034,7 +2034,7 @@ fn test_import_refs_synthetic_predecessors_old_divergent() -> TestResult {
 
 #[test]
 fn test_import_refs_synthetic_predecessors_new_divergent() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let main_repo = &test_repo.repo;
     let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
     let ext_store = ext_repo.store().clone();
@@ -2102,7 +2102,7 @@ fn test_import_refs_synthetic_predecessors_new_divergent() -> TestResult {
 
 #[test]
 fn test_import_refs_synthetic_predecessors_reimport_same_commits() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let main_repo = &test_repo.repo;
     let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
     let ext_store = ext_repo.store().clone();
@@ -2199,7 +2199,7 @@ fn test_import_refs_synthetic_predecessors_reimport_same_commits() -> TestResult
 
 #[test]
 fn test_import_refs_reserved_remote_name() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -2226,7 +2226,7 @@ fn test_import_refs_reserved_remote_name() -> TestResult {
 
 #[test]
 fn test_import_some_refs() -> TestResult {
-    let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_workspace = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = auto_track_import_options();
@@ -2432,8 +2432,8 @@ impl GitRepoData {
         std::fs::create_dir(&jj_repo_dir).unwrap();
         let git_repo_path = git_repo.path().to_owned();
         let store_initializers = StoreInitializers {
-            backend: &git_backend_initializer(|git_settings, store_path| {
-                GitBackend::init_external(git_settings, store_path, &git_repo_path)
+            commit_store: &git_commit_store_initializer(|git_settings, store_path| {
+                GitCommitStore::init_external(git_settings, store_path, &git_repo_path)
             }),
             ..default_store_initializers()
         };
@@ -2496,7 +2496,7 @@ fn test_import_refs_missing_git_commit() -> TestResult {
         result,
         Err(GitImportError::MissingRefAncestor {
             symbol,
-            err: BackendError::ObjectNotFound { .. }
+            err: CommitStoreError::ObjectNotFound { .. }
         }) if symbol == remote_symbol("main", "git")
     );
 
@@ -2509,7 +2509,7 @@ fn test_import_refs_missing_git_commit() -> TestResult {
         result,
         Err(GitImportError::MissingHeadTarget {
             id,
-            err: BackendError::ObjectNotFound { .. }
+            err: CommitStoreError::ObjectNotFound { .. }
         }) if id == jj_id(commit2)
     );
 
@@ -2574,7 +2574,7 @@ fn test_import_refs_detached_head() -> TestResult {
 #[test]
 fn test_import_export_head_bare_and_worktree() -> TestResult {
     // The main workspace is backed by a bare Git repository
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
     let commit1_oid = empty_git_commit(&git_repo, "refs/heads/commit1", &[]);
@@ -2597,7 +2597,7 @@ fn test_import_export_head_bare_and_worktree() -> TestResult {
         None,
     )
     .block_on()?;
-    let work_git_repo = get_git_backend(&repo).open_git_repo_at_workdir(&workspace_root)?;
+    let work_git_repo = get_git_commit_store(&repo).open_git_repo_at_workdir(&workspace_root)?;
 
     // Git HEAD shouldn't be imported yet
     assert_eq!(
@@ -3446,7 +3446,7 @@ fn test_export_partial_failure() -> TestResult {
 
 #[test]
 fn test_export_deletions_with_locked_ref() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let git_repo = get_git_repo(&test_repo.repo);
     {
         let config_path = git_repo.path().join("config");
@@ -4363,8 +4363,8 @@ fn test_init() -> TestResult {
     let initial_git_commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     std::fs::create_dir(&jj_repo_dir)?;
     let store_initializers = StoreInitializers {
-        backend: &git_backend_initializer(|git_settings, store_path| {
-            GitBackend::init_external(git_settings, store_path, git_repo.path())
+        commit_store: &git_commit_store_initializer(|git_settings, store_path| {
+            GitCommitStore::init_external(git_settings, store_path, git_repo.path())
         }),
         ..default_store_initializers()
     };
@@ -4683,7 +4683,7 @@ fn test_fetch_environment_options() -> TestResult {
 
 #[test]
 fn test_load_default_fetch_bookmarks() -> TestResult {
-    let mut test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let mut test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let git_repo = get_git_repo(&test_repo.repo);
     let config = git_repo.config_snapshot().clone();
 
@@ -4803,7 +4803,7 @@ fn test_load_default_fetch_bookmarks() -> TestResult {
 
 #[test]
 fn test_load_default_fetch_bookmarks_invalid_configuration() -> TestResult {
-    let mut test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let mut test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let git_repo = get_git_repo(&test_repo.repo);
     let config = git_repo.config_snapshot().clone();
 
@@ -5476,8 +5476,8 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         testutils::git::clone(&clone_repo_dir, source_repo_dir.to_str().unwrap(), None);
     std::fs::create_dir(&jj_repo_dir).unwrap();
     let store_initializers = StoreInitializers {
-        backend: &git_backend_initializer(|git_settings, store_path| {
-            GitBackend::init_external(git_settings, store_path, clone_repo.path())
+        commit_store: &git_commit_store_initializer(|git_settings, store_path| {
+            GitCommitStore::init_external(git_settings, store_path, clone_repo.path())
         }),
         ..default_store_initializers()
     };
@@ -5489,7 +5489,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         )
         .block_on()
         .unwrap();
-    get_git_backend(&jj_repo)
+    get_git_commit_store(&jj_repo)
         .import_head_commits(&[jj_id(initial_git_commit)])
         .unwrap();
     let main_commit = jj_repo
@@ -5925,7 +5925,7 @@ fn test_push_bookmarks_partial_success() -> TestResult {
 
 #[test]
 fn test_push_bookmarks_unmapped_refs() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let subprocess_options = GitSubprocessOptions::from_settings(test_repo.repo.settings())?;
     let remote_git_repo = testutils::git::init_bare(test_repo.env.root().join("remote"));
 
@@ -6052,7 +6052,7 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
 
 #[test]
 fn test_push_bookmarks_unexported_refs() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let subprocess_options = GitSubprocessOptions::from_settings(test_repo.repo.settings())?;
     let remote_git_repo = testutils::git::init_bare(test_repo.env.root().join("remote"));
 
@@ -6869,7 +6869,7 @@ fn test_push_environment_options() -> TestResult {
 
 #[test]
 fn test_bulk_update_extra_on_import_refs() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -6917,8 +6917,8 @@ fn test_bulk_update_extra_on_import_refs() -> TestResult {
 
 #[test]
 fn test_rewrite_imported_commit() -> TestResult {
-    let test_repo = TestRepo::init_with_backend_and_settings(
-        TestRepoBackend::Git,
+    let test_repo = TestRepo::init_with_commit_store_and_settings(
+        TestRepoCommitStore::Git,
         &user_settings_without_change_id(),
     );
     let repo = &test_repo.repo;
@@ -6974,7 +6974,7 @@ fn test_rewrite_imported_commit() -> TestResult {
 #[test]
 fn test_concurrent_write_commit() -> TestResult {
     let settings = &testutils::user_settings();
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
@@ -7044,7 +7044,7 @@ fn test_concurrent_write_commit() -> TestResult {
 fn test_concurrent_read_write_commit() -> TestResult {
     let settings = user_settings_without_change_id();
     // The expected commit ids below are SHA-1
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::GitSha1);
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
@@ -7110,19 +7110,19 @@ fn test_concurrent_read_write_commit() -> TestResult {
                         .reload_at_head(Some(WorkspaceName::DEFAULT))
                         .block_on()
                         .unwrap();
-                    let git_backend = get_git_backend(&repo);
+                    let git_commit_store = get_git_commit_store(&repo);
                     let mut tx = repo.start_transaction();
                     pending_commit_ids = pending_commit_ids
                         .into_iter()
                         .filter_map(|commit_id| {
-                            match git_backend.import_head_commits([&commit_id]) {
+                            match git_commit_store.import_head_commits([&commit_id]) {
                                 Ok(()) => {
                                     // update index as git::import_refs() would do
                                     let commit = repo.store().get_commit(&commit_id).unwrap();
                                     tx.repo_mut().add_head(&commit).block_on().unwrap();
                                     None
                                 }
-                                Err(BackendError::ObjectNotFound { .. }) => Some(commit_id),
+                                Err(CommitStoreError::ObjectNotFound { .. }) => Some(commit_id),
                                 Err(err) => {
                                     eprintln!(
                                         "import error in reader {i} (maybe lock contention?): {}",
@@ -7194,7 +7194,7 @@ fn create_rooted_commit(mut_repo: &mut MutableRepo) -> CommitBuilder<'_> {
 #[test]
 fn test_shallow_commits_lack_parents() -> TestResult {
     let settings = testutils::user_settings();
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
@@ -7220,7 +7220,7 @@ fn test_shallow_commits_lack_parents() -> TestResult {
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
 
     let make_shallow = |repo, mut shallow_commits: Vec<_>| {
-        let shallow_file = get_git_backend(repo).git_repo().shallow_file();
+        let shallow_file = get_git_commit_store(repo).git_repo().shallow_file();
         shallow_commits.sort();
         let mut buf = Vec::<u8>::new();
         for commit in shallow_commits {
@@ -7291,7 +7291,7 @@ fn test_shallow_commits_lack_parents() -> TestResult {
 
 #[test]
 fn test_remote_remove_refs() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
 
     let mut tx = test_repo.repo.start_transaction();
     git::add_remote(tx.repo_mut(), "foo".as_ref(), "https://example.com/", None)?;
@@ -7358,7 +7358,7 @@ fn test_remote_remove_refs() -> TestResult {
 
 #[test]
 fn test_remote_rename_refs() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
 
     let mut tx = test_repo.repo.start_transaction();
     git::add_remote(tx.repo_mut(), "foo".as_ref(), "https://example.com/", None)?;
@@ -7618,7 +7618,7 @@ fn assert_fetch_and_push_urls(
 
 #[test]
 fn test_set_remote_urls() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
@@ -7700,7 +7700,7 @@ fn test_set_remote_urls() -> TestResult {
 
 #[test]
 fn test_remote_name_validation() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::Git);
 
     let try_add_remote = |name: &str| {
         let mut tx = test_repo.repo.start_transaction();

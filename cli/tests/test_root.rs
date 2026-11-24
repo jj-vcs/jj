@@ -15,17 +15,17 @@
 use std::path::Path;
 
 use test_case::test_case;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::TestWorkspace;
 
 use crate::common::TestEnvironment;
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_root(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_root(commit_store: TestRepoCommitStore) -> TestResult {
     let test_env = TestEnvironment::default();
-    let test_workspace = TestWorkspace::init_with_backend(backend);
+    let test_workspace = TestWorkspace::init_with_commit_store(commit_store);
     let root = test_workspace.workspace.workspace_root();
     let subdir = root.join("subdir");
     std::fs::create_dir(&subdir)?;

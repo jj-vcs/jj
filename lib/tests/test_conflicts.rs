@@ -14,10 +14,10 @@
 
 use indoc::indoc;
 use itertools::Itertools as _;
-use jj_core::backend::BackendResult;
-use jj_core::backend::FileId;
-use jj_core::backend::MergedTreeValueExt as _;
-use jj_core::backend::TreeValue;
+use jj_core::commit_store::CommitStoreResult;
+use jj_core::commit_store::FileId;
+use jj_core::commit_store::MergedTreeValueExt as _;
+use jj_core::commit_store::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::conflicts::ConflictMarkerStyle;
 use jj_core::conflicts::ConflictMaterializeOptions;
@@ -819,7 +819,7 @@ fn test_materialize_file_conflict_with_canceled_tree_terms() -> TestResult {
         terms
             .iter()
             .map(|tree| Ok(tree.path_value(path).block_on()?.into_resolved().unwrap()))
-            .collect::<BackendResult<Vec<_>>>()?,
+            .collect::<CommitStoreResult<Vec<_>>>()?,
     );
     let file_id = |tree: &MergedTree| match tree.path_value(path).block_on().unwrap().as_resolved()
     {

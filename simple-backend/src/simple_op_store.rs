@@ -28,10 +28,10 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use itertools::Itertools as _;
-use jj_core::backend::BackendInitError;
-use jj_core::backend::CommitId;
-use jj_core::backend::MillisSinceEpoch;
-use jj_core::backend::Timestamp;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreInitError;
+use jj_core::commit_store::MillisSinceEpoch;
+use jj_core::commit_store::Timestamp;
 use jj_core::content_hash::blake2b_hash;
 use jj_core::dag_walk;
 use jj_core::object_id::HexPrefix;
@@ -74,7 +74,7 @@ const VIEW_ID_LENGTH: usize = 64;
 #[error("Failed to initialize simple operation store")]
 pub struct SimpleOpStoreInitError(#[from] pub PathError);
 
-impl From<SimpleOpStoreInitError> for BackendInitError {
+impl From<SimpleOpStoreInitError> for CommitStoreInitError {
     fn from(err: SimpleOpStoreInitError) -> Self {
         Self::new(err)
     }

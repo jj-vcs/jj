@@ -32,10 +32,10 @@ use std::time::Duration;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendError;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStoreError;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -98,7 +98,7 @@ enum RunError {
     #[error("failed to load a commit's tree")]
     TreeState(#[from] TreeStateError),
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    Backend(#[from] CommitStoreError),
     #[error(transparent)]
     JobFailure(#[from] JoinError),
     #[error(transparent)]

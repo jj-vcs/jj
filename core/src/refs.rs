@@ -16,7 +16,7 @@
 
 use itertools::EitherOrBoth;
 
-use crate::backend::CommitId;
+use crate::commit_store::CommitId;
 use crate::index::Index;
 use crate::index::IndexResult;
 use crate::iter_util::fallible_position;

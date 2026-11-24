@@ -32,10 +32,10 @@ use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use itertools::Itertools as _;
 
-use crate::backend;
-use crate::backend::BackendResult;
-use crate::backend::TreeId;
-use crate::backend::TreeValue;
+use crate::commit_store;
+use crate::commit_store::CommitStoreResult;
+use crate::commit_store::TreeId;
+use crate::commit_store::TreeValue;
 use crate::content_hash::ContentHash;
 use crate::merge::Merge;
 use crate::repo_path::RepoPath;
@@ -109,7 +109,7 @@ pub(crate) async fn rewrite_trees<V: TreeRewriteVisitor>(
     store: &Arc<Store>,
     roots: Merge<(TreeId, V::Context)>,
     visitor: &V,
-) -> BackendResult<Merge<TreeId>> {
+) -> CommitStoreResult<Merge<TreeId>> {
     let mut rewriter = TreeRewriter {
         store: store.clone(),
         visitor,
@@ -140,7 +140,7 @@ type EntryKey<C> = (TreeKey<C>, usize);
 /// Identifies a written tree by the content hash of its path and entries.
 type TreeContentHash = digest::Output<Blake2b512>;
 
-fn tree_content_hash(dir: &RepoPath, tree: &backend::Tree) -> TreeContentHash {
+fn tree_content_hash(dir: &RepoPath, tree: &commit_store::Tree) -> TreeContentHash {
     let mut hasher = Blake2b512::default();
     ContentHash::hash(dir, &mut hasher);
     ContentHash::hash(tree, &mut hasher);
@@ -157,13 +157,13 @@ enum WorkItem<C> {
     // A base tree that has been read.
     ReadTree {
         context: C,
-        result: BackendResult<Tree>,
+        result: CommitStoreResult<Tree>,
     },
     // A rewritten tree that has been written to the store.
     WrittenTree {
         key: TreeKey<C>,
         content_hash: Option<TreeContentHash>,
-        result: BackendResult<TreeId>,
+        result: CommitStoreResult<TreeId>,
     },
 }
 
@@ -195,14 +195,14 @@ struct TreeRewriter<'visitor, V: TreeRewriteVisitor> {
     // Rewritten trees with new contents that wait to be written until all base
     // trees have been read, so that they can reuse a tree with the same contents
     // that another term keeps (only when rewriting conflicted trees)
-    deferred_writes: Vec<(TreeKey<V::Context>, backend::Tree, TreeContentHash)>,
+    deferred_writes: Vec<(TreeKey<V::Context>, commit_store::Tree, TreeContentHash)>,
     unfinished_trees: HashMap<TreeKey<V::Context>, UnfinishedTree>,
     // Entries in parent trees to update when we have finished writing a subtree
     parent_trees: HashMap<TreeKey<V::Context>, Vec<EntryKey<V::Context>>>,
 }
 
 impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
-    async fn run(&mut self) -> BackendResult<()> {
+    async fn run(&mut self) -> CommitStoreResult<()> {
         while let Some(item) = poll_fn(|cx| self.work.poll_next(cx)).await {
             match item {
                 WorkItem::ReadTree { context, result } => {
@@ -347,7 +347,7 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
         base_tree: &Tree,
         entries: Vec<(RepoPathComponentBuf, Option<TreeValue>)>,
     ) {
-        let tree = backend::Tree::from_sorted_entries(
+        let tree = commit_store::Tree::from_sorted_entries(
             entries
                 .into_iter()
                 .filter_map(|(name, value)| Some((name, value?)))
@@ -391,7 +391,7 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
     fn write_or_reuse_tree(
         &mut self,
         key: TreeKey<V::Context>,
-        tree: backend::Tree,
+        tree: commit_store::Tree,
         content_hash: TreeContentHash,
     ) {
         let written_trees = self.written_trees.as_mut().unwrap();
@@ -415,7 +415,7 @@ impl<V: TreeRewriteVisitor> TreeRewriter<'_, V> {
     fn write_tree(
         &mut self,
         key: TreeKey<V::Context>,
-        tree: backend::Tree,
+        tree: commit_store::Tree,
         content_hash: Option<TreeContentHash>,
     ) {
         let store = self.store.clone();

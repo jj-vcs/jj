@@ -1,6 +1,6 @@
 [package]
 name = "jj-git-backend"
-description = "Git commit backend for Jujutsu - an experimental version control system"
+description = "Git commit store for Jujutsu - an experimental version control system"
 
 version.workspace = true
 license.workspace = true

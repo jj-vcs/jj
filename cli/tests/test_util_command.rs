@@ -16,17 +16,17 @@ use std::fs;
 
 use insta::assert_snapshot;
 use test_case::test_case;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::TestWorkspace;
 
 use crate::common::TestEnvironment;
 
-#[test_case(TestRepoBackend::Simple, "Simple" ; "simple backend")]
-#[test_case(TestRepoBackend::Git, "git" ; "git backend")]
-fn test_util_backend_name(backend: TestRepoBackend, expected_name: &str) {
+#[test_case(TestRepoCommitStore::Simple, "Simple" ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git, "git" ; "git backend")]
+fn test_util_backend_name(commit_store: TestRepoCommitStore, expected_name: &str) {
     let test_env = TestEnvironment::default();
-    let test_workspace = TestWorkspace::init_with_backend(backend);
+    let test_workspace = TestWorkspace::init_with_commit_store(commit_store);
     let root = test_workspace.workspace.workspace_root();
     let output = test_env
         .run_jj_in(&root, ["util", "backend", "name"])
@@ -126,7 +126,7 @@ fn test_shell_completions() {
     #[track_caller]
     fn test(shell: &str) {
         let test_env = TestEnvironment::default();
-        // Use the local backend because GitBackend::gc() depends on the git CLI.
+        // Use the local backend because GitCommitStore::gc() depends on the git CLI.
         let output = test_env
             .run_jj_in(".", ["util", "completion", shell])
             .success();

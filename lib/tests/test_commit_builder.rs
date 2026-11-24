@@ -16,11 +16,11 @@ use std::assert_matches;
 
 use futures::StreamExt as _;
 use indoc::indoc;
-use jj_core::backend::BackendError;
-use jj_core::backend::ChangeId;
-use jj_core::backend::MillisSinceEpoch;
-use jj_core::backend::Signature;
-use jj_core::backend::Timestamp;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::MillisSinceEpoch;
+use jj_core::commit_store::Signature;
+use jj_core::commit_store::Timestamp;
 use jj_core::matchers::EverythingMatcher;
 use jj_core::merged_tree::MergedTree;
 use jj_core::repo_path::RepoPath;
@@ -35,7 +35,7 @@ use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::assert_rebased_onto;
 use testutils::assert_tree_eq;
@@ -70,10 +70,10 @@ fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
     paths.iter().map(|&path| path.to_owned()).collect()
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_initial(backend: TestRepoBackend) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(backend);
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_initial(commit_store: TestRepoCommitStore) -> TestResult {
+    let test_repo = TestRepo::init_with_commit_store(commit_store);
     let repo = &test_repo.repo;
     let store = repo.store();
 
@@ -138,11 +138,11 @@ fn test_initial(backend: TestRepoBackend) -> TestResult {
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_rewrite(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_rewrite(commit_store: TestRepoCommitStore) -> TestResult {
     let settings = testutils::user_settings();
-    let test_repo = TestRepo::init_with_backend_and_settings(backend, &settings);
+    let test_repo = TestRepo::init_with_commit_store_and_settings(commit_store, &settings);
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
     let store = repo.store();
@@ -233,12 +233,13 @@ fn test_rewrite(backend: TestRepoBackend) -> TestResult {
 }
 
 // An author field with an empty name/email should get filled in on rewrite
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_rewrite_update_missing_user(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_rewrite_update_missing_user(commit_store: TestRepoCommitStore) -> TestResult {
     let missing_user_settings =
         testutils::user_settings_from_config(StackedConfig::with_defaults());
-    let test_repo = TestRepo::init_with_backend_and_settings(backend, &missing_user_settings);
+    let test_repo =
+        TestRepo::init_with_commit_store_and_settings(commit_store, &missing_user_settings);
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
@@ -283,10 +284,10 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) -> TestResult {
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(backend);
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_rewrite_resets_author_timestamp(commit_store: TestRepoCommitStore) -> TestResult {
+    let test_repo = TestRepo::init_with_commit_store(commit_store);
     let test_env = &test_repo.env;
 
     // Create discardable commit
@@ -353,12 +354,12 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) -> TestResult 
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_rewrite_to_identical_commit(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_rewrite_to_identical_commit(commit_store: TestRepoCommitStore) -> TestResult {
     let timestamp = "2001-02-03T04:05:06+07:00";
     let settings = testutils::user_settings_from_config(config_with_commit_timestamp(timestamp));
-    let test_repo = TestRepo::init_with_backend_and_settings(backend, &settings);
+    let test_repo = TestRepo::init_with_commit_store_and_settings(commit_store, &settings);
     let repo = test_repo.repo;
     let store = repo.store();
 
@@ -382,7 +383,7 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) -> TestResult {
     // Writing to the repo shouldn't work, which would create cycle in
     // predecessors/parent mappings
     let result = builder.write(tx.repo_mut()).block_on();
-    assert_matches!(result, Err(BackendError::Other(_)));
+    assert_matches!(result, Err(CommitStoreError::Other(_)));
     tx.repo_mut().rebase_descendants().block_on()?;
     tx.commit("test").block_on()?;
 
@@ -398,16 +399,16 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) -> TestResult {
         .set_description("rewritten")
         .write()
         .block_on();
-    assert_matches!(result, Err(BackendError::Other(_)));
+    assert_matches!(result, Err(CommitStoreError::Other(_)));
     tx.repo_mut().rebase_descendants().block_on()?;
     tx.commit("test").block_on()?;
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-// #[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_commit_builder_descendants(backend: TestRepoBackend) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(backend);
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+// #[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_commit_builder_descendants(commit_store: TestRepoCommitStore) -> TestResult {
+    let test_repo = TestRepo::init_with_commit_store(commit_store);
     let repo = &test_repo.repo;
     let store = repo.store().clone();
 

@@ -22,7 +22,7 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use pollster::FutureExt as _;
 use test_case::test_case;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::write_random_commit;
@@ -53,13 +53,13 @@ fn count_non_merge_operations(repo: &Arc<ReadonlyRepo>) -> usize {
     num_ops
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_commit_parallel(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_commit_parallel(commit_store: TestRepoCommitStore) -> TestResult {
     // This loads a Repo instance and creates and commits many concurrent
     // transactions from it. It then reloads the repo. That should merge all the
     // operations and all commits should be visible.
-    let test_workspace = TestWorkspace::init_with_backend(backend);
+    let test_workspace = TestWorkspace::init_with_commit_store(commit_store);
     let repo = &test_workspace.repo;
 
     let num_threads = max(num_cpus::get(), 4);
@@ -84,13 +84,14 @@ fn test_commit_parallel(backend: TestRepoBackend) -> TestResult {
     Ok(())
 }
 
-#[test_case(TestRepoBackend::Simple ; "simple backend")]
-#[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_commit_parallel_instances(backend: TestRepoBackend) -> TestResult {
+#[test_case(TestRepoCommitStore::Simple ; "simple backend")]
+#[test_case(TestRepoCommitStore::Git ; "git backend")]
+fn test_commit_parallel_instances(commit_store: TestRepoCommitStore) -> TestResult {
     // Like the test above but creates a new repo instance for every thread, which
     // makes it behave very similar to separate processes.
     let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
+    let test_workspace =
+        TestWorkspace::init_with_commit_store_and_settings(commit_store, &settings);
     let test_env = &test_workspace.env;
 
     let num_threads = max(num_cpus::get(), 4);

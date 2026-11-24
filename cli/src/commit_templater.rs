@@ -29,13 +29,13 @@ use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::ChangeId;
-use jj_lib::backend::CommitId;
-use jj_lib::backend::MergedTreeValue;
-use jj_lib::backend::MergedTreeValueExt as _;
-use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
+use jj_lib::commit_store::ChangeId;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStoreResult;
+use jj_lib::commit_store::MergedTreeValue;
+use jj_lib::commit_store::MergedTreeValueExt as _;
+use jj_lib::commit_store::TreeValue;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
@@ -1865,7 +1865,7 @@ impl TreeDiff {
         repo: &dyn Repo,
         commit: &Commit,
         matcher: Rc<dyn Matcher>,
-    ) -> BackendResult<Self> {
+    ) -> CommitStoreResult<Self> {
         let mut copy_records = CopyRecords::default();
         for parent in commit.parent_ids() {
             let records =
@@ -1885,9 +1885,9 @@ impl TreeDiff {
             .diff_with_copies(&self.to_tree, &*self.matcher, &self.copy_records)
     }
 
-    async fn collect_entries(&self) -> BackendResult<Vec<TreeDiffEntry>> {
+    async fn collect_entries(&self) -> CommitStoreResult<Vec<TreeDiffEntry>> {
         self.diff_stream()
-            .map(TreeDiffEntry::from_backend_entry_with_copies)
+            .map(TreeDiffEntry::from_commit_store_entry_with_copies)
             .try_collect()
             .await
     }
@@ -2116,7 +2116,9 @@ pub struct TreeDiffEntry {
 }
 
 impl TreeDiffEntry {
-    pub fn from_backend_entry_with_copies(entry: CopiesTreeDiffEntry) -> BackendResult<Self> {
+    pub fn from_commit_store_entry_with_copies(
+        entry: CopiesTreeDiffEntry,
+    ) -> CommitStoreResult<Self> {
         Ok(Self {
             path: entry.path,
             values: entry.values?,
@@ -2655,10 +2657,10 @@ mod tests {
     use std::path::PathBuf;
 
     use jiff::tz::TimeZone;
-    use jj_lib::backend::CopyId;
-    use jj_lib::backend::FileId;
-    use jj_lib::backend::SymlinkId;
-    use jj_lib::backend::TreeId;
+    use jj_lib::commit_store::CopyId;
+    use jj_lib::commit_store::FileId;
+    use jj_lib::commit_store::SymlinkId;
+    use jj_lib::commit_store::TreeId;
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
     use jj_lib::fileset::FilesetAliasesMap;
@@ -2668,7 +2670,7 @@ mod tests {
     use jj_lib::revset::RevsetWorkspaceContext;
     use jj_lib::template_parser::FunctionCallNode;
     use jj_lib::template_parser::TemplateAliasesMap;
-    use testutils::TestRepoBackend;
+    use testutils::TestRepoCommitStore;
     use testutils::TestWorkspace;
     use testutils::repo_path_buf;
 
@@ -2700,8 +2702,10 @@ mod tests {
         fn init() -> Self {
             // Stabilize commit id of the initialized working copy
             let settings = stable_settings();
-            let test_workspace =
-                TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &settings);
+            let test_workspace = TestWorkspace::init_with_commit_store_and_settings(
+                TestRepoCommitStore::Git,
+                &settings,
+            );
             let path_converter = RepoPathUiConverter::Fs {
                 cwd: test_workspace.workspace.workspace_root().to_owned(),
                 base: test_workspace.workspace.workspace_root().to_owned(),

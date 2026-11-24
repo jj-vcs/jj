@@ -1,5 +1,5 @@
-use jj_lib::backend::Timestamp;
-use jj_lib::backend::TimestampOutOfRange;
+use jj_lib::commit_store::Timestamp;
+use jj_lib::commit_store::TimestampOutOfRange;
 
 /// Validates the format string by trying to format a dummy timestamp.
 pub fn validate_format(format: &str) -> Result<(), jiff::Error> {

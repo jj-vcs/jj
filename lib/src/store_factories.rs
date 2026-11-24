@@ -24,9 +24,9 @@ use std::sync::Arc;
 
 use thiserror::Error;
 
-use crate::backend::Backend;
-use crate::backend::BackendInitError;
-use crate::backend::BackendLoadError;
+use crate::commit_store::CommitStore;
+use crate::commit_store::CommitStoreInitError;
+use crate::commit_store::CommitStoreLoadError;
 use crate::file_util;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
@@ -47,19 +47,19 @@ use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::workspace_store::WorkspaceStore;
 
-/// Sets up a new `Backend` store for the given `UserSettings` and `path`.
-pub type BackendInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendInitError> + 'a;
+/// Sets up a new `CommitStore` for the given `UserSettings` and `path`.
+pub type CommitStoreInitializer<'a> =
+    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn CommitStore>, CommitStoreInitError> + 'a;
 
 /// Sets up a new `WorkspaceStore` for the given `UserSettings` and `path`.
 pub type WorkspaceStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn WorkspaceStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn WorkspaceStore>, CommitStoreInitError> + 'a;
 
 /// Sets up a new `OpStore` for the given `UserSettings`, `path` and
 /// `RootOperationData`.
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
+    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, CommitStoreInitError>
     + 'a;
 
 /// Sets up a new `OpHeadsStore` for the given `UserSettings`, `path` and
@@ -67,42 +67,46 @@ pub type OpStoreInitializer<'a> =
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpHeadsStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, &OperationId)
-    -> Result<Box<dyn OpHeadsStore>, BackendInitError>
+    -> Result<Box<dyn OpHeadsStore>, CommitStoreInitError>
     + 'a;
 
 /// Sets up a new `IndexStore` for the given `UserSettings` and `path`.
 pub type IndexStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, CommitStoreInitError> + 'a;
 
 /// Sets up a new `SubmoduleStore` for the given `UserSettings` and `path`.
 pub type SubmoduleStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, CommitStoreInitError> + 'a;
 
-/// Loads an existing `Backend` for the given `UserSettings` and `path`.
-type BackendFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendLoadError>>;
+/// Loads an existing `CommitStore` for the given `UserSettings` and `path`.
+type CommitStoreFactory =
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn CommitStore>, CommitStoreLoadError>>;
 
 /// Loads an existing `OpStore` for the given `UserSettings`, `path` and
 /// `RootOperationData`.
 type OpStoreFactory = Box<
-    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
+    dyn Fn(
+        &UserSettings,
+        &Path,
+        RootOperationData,
+    ) -> Result<Box<dyn OpStore>, CommitStoreLoadError>,
 >;
 
 /// Loads an existing `WorkspaceStore` for the given `UserSettings` and `path`.
 type WorkspaceStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn WorkspaceStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn WorkspaceStore>, CommitStoreLoadError>>;
 
 /// Loads an existing `OpHeadsStore` for the given `UserSettings` and `path`.
 type OpHeadsStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, CommitStoreLoadError>>;
 
 /// Loads an existing `IndexStore` for the given `UserSettings` and `path`.
 type IndexStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, CommitStoreLoadError>>;
 
 /// Loads an existing `SubmoduleStore` for the given `UserSettings` and `path`.
 type SubmoduleStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, CommitStoreLoadError>>;
 
 /// Merges `ext` into `base`. Panics if a name already is registered in `base`.
 pub fn merge_factories_map<F>(base: &mut HashMap<String, F>, ext: HashMap<String, F>) {
@@ -120,7 +124,7 @@ pub fn merge_factories_map<F>(base: &mut HashMap<String, F>, ext: HashMap<String
 
 /// `StoreFactories` holds different factories and uses them to load stores with.
 pub struct StoreFactories {
-    backend_factories: HashMap<String, BackendFactory>,
+    commit_store_factories: HashMap<String, CommitStoreFactory>,
     workspace_store_factories: HashMap<String, WorkspaceStoreFactory>,
     op_store_factories: HashMap<String, OpStoreFactory>,
     op_heads_store_factories: HashMap<String, OpHeadsStoreFactory>,
@@ -132,24 +136,24 @@ pub struct StoreFactories {
 #[derive(Debug, Error)]
 pub enum StoreLoadError {
     /// No factory registered under for the store type name.
-    #[error("Unsupported {store} backend type '{store_type}'")]
+    #[error("Unsupported {store} type '{store_type}'")]
     UnsupportedType {
-        /// The store which we tried to load, e.g. `commit` or `operation heads`.
+        /// The store which we tried to load, e.g. `commit store` or `operation heads store`.
         store: &'static str,
         /// The store type, e.g. `git`.
         store_type: String,
     },
-    /// Failed to read the store backend type from disk.
-    #[error("Failed to read {store} backend type")]
+    /// Failed to read the store type from disk.
+    #[error("Failed to read {store} type")]
     ReadError {
-        /// The store which we tried to read, e.g. `commit` or `operation heads`.
+        /// The store which we tried to read, e.g. `commit store` or `operation heads store`.
         store: &'static str,
         /// The error source.
         source: PathError,
     },
     /// The backend failed to load.
     #[error(transparent)]
-    Backend(#[from] BackendLoadError),
+    CommitStore(#[from] CommitStoreLoadError),
     /// The signer failed to initialize.
     #[error(transparent)]
     Signing(#[from] SignInitError),
@@ -159,7 +163,7 @@ impl StoreFactories {
     /// Creates a `StoreFactories` without any values.
     pub fn empty() -> Self {
         Self {
-            backend_factories: HashMap::new(),
+            commit_store_factories: HashMap::new(),
             workspace_store_factories: HashMap::new(),
             op_store_factories: HashMap::new(),
             op_heads_store_factories: HashMap::new(),
@@ -172,7 +176,7 @@ impl StoreFactories {
     /// sides.
     pub fn merge(&mut self, ext: Self) {
         let Self {
-            backend_factories,
+            commit_store_factories,
             workspace_store_factories,
             op_store_factories,
             op_heads_store_factories,
@@ -180,7 +184,7 @@ impl StoreFactories {
             submodule_store_factories,
         } = ext;
 
-        merge_factories_map(&mut self.backend_factories, backend_factories);
+        merge_factories_map(&mut self.commit_store_factories, commit_store_factories);
         merge_factories_map(
             &mut self.workspace_store_factories,
             workspace_store_factories,
@@ -194,25 +198,27 @@ impl StoreFactories {
         );
     }
 
-    /// Registers a new `Backend` for the given `name` and `factory`.
-    pub fn add_backend(&mut self, name: &str, factory: BackendFactory) {
-        self.backend_factories.insert(name.to_string(), factory);
+    /// Registers a new `CommitStore` for the given `name` and `factory`.
+    pub fn add_commit_store(&mut self, name: &str, factory: CommitStoreFactory) {
+        self.commit_store_factories
+            .insert(name.to_string(), factory);
     }
 
-    /// Loads a registered `Backend` for the given `settings` and `store_path`.
-    pub fn load_backend(
+    /// Loads a registered `CommitStore` for the given `settings` and `store_path`.
+    pub fn load_commit_store(
         &self,
         settings: &UserSettings,
         store_path: &Path,
-    ) -> Result<Box<dyn Backend>, StoreLoadError> {
-        let backend_type = read_store_type("commit", store_path.join("type"))?;
-        let backend_factory = self.backend_factories.get(&backend_type).ok_or_else(|| {
-            StoreLoadError::UnsupportedType {
-                store: "commit",
-                store_type: backend_type.clone(),
-            }
-        })?;
-        Ok(backend_factory(settings, store_path)?)
+    ) -> Result<Box<dyn CommitStore>, StoreLoadError> {
+        let commit_store_type = read_store_type("commit store", store_path.join("type"))?;
+        let commit_store_factory = self
+            .commit_store_factories
+            .get(&commit_store_type)
+            .ok_or_else(|| StoreLoadError::UnsupportedType {
+                store: "commit store",
+                store_type: commit_store_type.clone(),
+            })?;
+        Ok(commit_store_factory(settings, store_path)?)
     }
 
     /// Registers a `WorkspaceStore` for the given `name` and `factory`.
@@ -231,7 +237,7 @@ impl StoreFactories {
         // repos do not have this file. In jj 0.51+ switch from read_store_type_compat
         // to read_store_type.
         let workspace_store_type = read_store_type_compat(
-            "workspace",
+            "workspace store",
             store_path.join("type"),
             SimpleWorkspaceStore::NAME,
         )?;
@@ -239,7 +245,7 @@ impl StoreFactories {
             .workspace_store_factories
             .get(&workspace_store_type)
             .ok_or_else(|| StoreLoadError::UnsupportedType {
-                store: "workspace",
+                store: "workspace store",
                 store_type: workspace_store_type.clone(),
             })?;
         Ok(workspace_store_factory(settings, store_path)?)
@@ -257,10 +263,10 @@ impl StoreFactories {
         store_path: &Path,
         root_data: RootOperationData,
     ) -> Result<Box<dyn OpStore>, StoreLoadError> {
-        let op_store_type = read_store_type("operation", store_path.join("type"))?;
+        let op_store_type = read_store_type("operation store", store_path.join("type"))?;
         let op_store_factory = self.op_store_factories.get(&op_store_type).ok_or_else(|| {
             StoreLoadError::UnsupportedType {
-                store: "operation",
+                store: "operation store",
                 store_type: op_store_type.clone(),
             }
         })?;
@@ -279,12 +285,13 @@ impl StoreFactories {
         settings: &UserSettings,
         store_path: &Path,
     ) -> Result<Box<dyn OpHeadsStore>, StoreLoadError> {
-        let op_heads_store_type = read_store_type("operation heads", store_path.join("type"))?;
+        let op_heads_store_type =
+            read_store_type("operation heads store", store_path.join("type"))?;
         let op_heads_store_factory = self
             .op_heads_store_factories
             .get(&op_heads_store_type)
             .ok_or_else(|| StoreLoadError::UnsupportedType {
-                store: "operation heads",
+                store: "operation heads store",
                 store_type: op_heads_store_type.clone(),
             })?;
         Ok(op_heads_store_factory(settings, store_path)?)
@@ -301,12 +308,12 @@ impl StoreFactories {
         settings: &UserSettings,
         store_path: &Path,
     ) -> Result<Box<dyn IndexStore>, StoreLoadError> {
-        let index_store_type = read_store_type("index", store_path.join("type"))?;
+        let index_store_type = read_store_type("index store", store_path.join("type"))?;
         let index_store_factory = self
             .index_store_factories
             .get(&index_store_type)
             .ok_or_else(|| StoreLoadError::UnsupportedType {
-                store: "index",
+                store: "index store",
                 store_type: index_store_type.clone(),
             })?;
         Ok(index_store_factory(settings, store_path)?)
@@ -324,12 +331,12 @@ impl StoreFactories {
         settings: &UserSettings,
         store_path: &Path,
     ) -> Result<Box<dyn SubmoduleStore>, StoreLoadError> {
-        let submodule_store_type = read_store_type("submodule_store", store_path.join("type"))?;
+        let submodule_store_type = read_store_type("submodule store", store_path.join("type"))?;
         let submodule_store_factory = self
             .submodule_store_factories
             .get(&submodule_store_type)
             .ok_or_else(|| StoreLoadError::UnsupportedType {
-                store: "submodule_store",
+                store: "submodule store",
                 store_type: submodule_store_type.clone(),
             })?;
 
@@ -344,9 +351,11 @@ impl StoreFactories {
         settings: &UserSettings,
         repo_path: &Path,
     ) -> Result<RepoLoader, StoreLoadError> {
-        let merge_options = settings.merge_options().map_err(BackendLoadError::new)?;
+        let merge_options = settings
+            .merge_options()
+            .map_err(CommitStoreLoadError::new)?;
         let store = Store::new(
-            self.load_backend(settings, &repo_path.join("store"))?,
+            self.load_commit_store(settings, &repo_path.join("store"))?,
             signer_from_settings(settings)?,
             merge_options,
         );
@@ -377,9 +386,9 @@ impl StoreFactories {
 /// Error from initializing a repo.
 #[derive(Error, Debug)]
 pub enum RepoInitError {
-    /// Failed to initialize the commit backend.
+    /// Failed to initialize the commit store.
     #[error(transparent)]
-    Backend(#[from] BackendInitError),
+    CommitStore(#[from] CommitStoreInitError),
     /// Failed to initialize the operation heads store.
     #[error(transparent)]
     OpHeadsStore(#[from] OpHeadsStoreError),
@@ -391,8 +400,8 @@ pub enum RepoInitError {
 /// `StoreInitializers` holds the initializer for each store and uses them to
 /// create a new repo with.
 pub struct StoreInitializers<'a> {
-    /// Initializes the commit backend.
-    pub backend: &'a BackendInitializer<'a>,
+    /// Initializes the commit store.
+    pub commit_store: &'a CommitStoreInitializer<'a>,
     /// Initializes the workspace store.
     pub workspace_store: &'a WorkspaceStoreInitializer<'a>,
     /// Initializes the operation store.
@@ -419,11 +428,13 @@ impl StoreInitializers<'_> {
 
         let store_path = repo_path.join("store");
         fs::create_dir(&store_path).context(&store_path)?;
-        let backend = (self.backend)(settings, &store_path)?;
-        let backend_path = store_path.join("type");
-        fs::write(&backend_path, backend.name()).context(&backend_path)?;
-        let merge_options = settings.merge_options().map_err(BackendInitError::new)?;
-        let store = Store::new(backend, signer, merge_options);
+        let commit_store = (self.commit_store)(settings, &store_path)?;
+        let commit_store_path = store_path.join("type");
+        fs::write(&commit_store_path, commit_store.name()).context(&commit_store_path)?;
+        let merge_options = settings
+            .merge_options()
+            .map_err(CommitStoreInitError::new)?;
+        let store = Store::new(commit_store, signer, merge_options);
 
         let workspace_store_path = repo_path.join("workspace_store");
         fs::create_dir(&workspace_store_path).context(&workspace_store_path)?;
@@ -488,7 +499,7 @@ impl StoreInitializers<'_> {
             .await
             // If the root op index couldn't be read, the index backend wouldn't
             // be initialized properly.
-            .map_err(BackendInitError::new)?;
+            .map_err(CommitStoreInitError::new)?;
         Ok(loader.create_from(root_operation, root_view, index))
     }
 }

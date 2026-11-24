@@ -24,7 +24,7 @@ use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::assert_tree_eq;
@@ -113,8 +113,10 @@ fn test_eol_conversion_snapshot(
 
     let extra_setting = format!("{extra_setting}\n");
     let user_settings = base_user_settings_with_extra_configs(&extra_setting);
-    let mut test_workspace =
-        TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &user_settings);
+    let mut test_workspace = TestWorkspace::init_with_commit_store_and_settings(
+        TestRepoCommitStore::Git,
+        &user_settings,
+    );
     let file_repo_path = repo_path("test-eol-file");
     let file_disk_path = file_repo_path
         .to_fs_path(test_workspace.workspace.workspace_root())
@@ -189,8 +191,8 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     // store as is.
     let no_eol_conversion_settings =
         base_user_settings_with_extra_configs("working-copy.eol-conversion = \"none\"\n");
-    let mut test_workspace = TestWorkspace::init_with_backend_and_settings(
-        TestRepoBackend::Git,
+    let mut test_workspace = TestWorkspace::init_with_commit_store_and_settings(
+        TestRepoCommitStore::Git,
         &no_eol_conversion_settings,
     );
     let file_repo_path = repo_path("test-eol-file");
@@ -396,8 +398,10 @@ fn test_eol_conversion_update_conflicts(
 
     let extra_setting = format!("{extra_setting}\n");
     let user_settings = base_user_settings_with_extra_configs(&extra_setting);
-    let mut test_workspace =
-        TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &user_settings);
+    let mut test_workspace = TestWorkspace::init_with_commit_store_and_settings(
+        TestRepoCommitStore::Git,
+        &user_settings,
+    );
     let file_repo_path = repo_path("test-eol-file");
     let file_disk_path = file_repo_path.to_fs_path(test_workspace.workspace.workspace_root())?;
 
@@ -519,8 +523,8 @@ fn test_eol_conversion_checkout(
         base_user_settings_with_extra_configs("working-copy.eol-conversion = \"none\"\n");
     // Use the working-copy.eol-conversion = "none" setting, so that the input files
     // are stored as is.
-    let mut test_workspace = TestWorkspace::init_with_backend_and_settings(
-        TestRepoBackend::Git,
+    let mut test_workspace = TestWorkspace::init_with_commit_store_and_settings(
+        TestRepoCommitStore::Git,
         &no_eol_conversion_settings,
     );
     let file_repo_path = repo_path("test-eol-file");

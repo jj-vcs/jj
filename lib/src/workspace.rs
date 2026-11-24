@@ -21,8 +21,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use jj_core::backend::BackendInitError;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitStoreInitError;
 use jj_core::merged_tree::MergedTree;
 use jj_core::op_heads_store::OpHeadsStoreError;
 use jj_core::op_store::OperationId;
@@ -32,7 +32,7 @@ use jj_core::ref_name::WorkspaceNameBuf;
 use jj_core::signing::Signer;
 use jj_core::workspace_store::WorkspaceStoreError;
 #[cfg(feature = "git")]
-use jj_git_backend::git_backend::GitBackend;
+use jj_git_backend::git_backend::GitCommitStore;
 #[cfg(feature = "git")]
 use jj_git_backend::git_backend::canonicalize_git_repo_path;
 use jj_local_util::file_util;
@@ -41,11 +41,11 @@ use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
 use thiserror::Error;
 
-use crate::default_backend_factories::default_backend_initializer;
-use crate::default_backend_factories::default_store_initializers;
-use crate::default_backend_factories::default_working_copy_factory;
+use crate::default_commit_store_factories::default_commit_store_initializer;
+use crate::default_commit_store_factories::default_store_initializers;
+use crate::default_commit_store_factories::default_working_copy_factory;
 #[cfg(feature = "git")]
-use crate::default_backend_factories::git_backend_initializer;
+use crate::default_commit_store_factories::git_commit_store_initializer;
 use crate::repo::CheckOutCommitError;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
@@ -54,7 +54,7 @@ use crate::repo::RepoLoaderError;
 use crate::settings::UserSettings;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
-use crate::store_factories::BackendInitializer;
+use crate::store_factories::CommitStoreInitializer;
 use crate::store_factories::RepoInitError;
 use crate::store_factories::StoreFactories;
 use crate::store_factories::StoreInitializers;
@@ -92,9 +92,9 @@ pub enum WorkspaceInitError {
     /// Error from the workspace store.
     #[error(transparent)]
     WorkspaceStore(#[from] WorkspaceStoreError),
-    /// Error from initializing the commit backend.
+    /// Error from initializing the commit store.
     #[error(transparent)]
-    Backend(#[from] BackendInitError),
+    CommitStore(#[from] CommitStoreInitError),
     /// Error from initializing the signing backend.
     #[error(transparent)]
     SignInit(#[from] SignInitError),
@@ -223,18 +223,18 @@ impl Workspace {
     }
 
     /// Initializes a workspace with a new repo using the
-    /// [`SimpleBackend`](jj_simple_backend::simple_backend::SimpleBackend).
+    /// [`SimpleCommitStore`](jj_simple_backend::simple_backend::SimpleCommitStore).
     pub async fn init_simple(
         user_settings: &UserSettings,
         workspace_root: &Path,
         workspace_name: &WorkspaceName,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(
+        Self::init_with_commit_store(
             user_settings,
             workspace_root,
             workspace_name,
-            default_backend_initializer(),
+            default_commit_store_initializer(),
             signer,
         )
         .await
@@ -249,15 +249,15 @@ impl Workspace {
         workspace_name: &WorkspaceName,
         object_hash: gix::hash::Kind,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
-        let backend_initializer = git_backend_initializer(|git_settings, store_path| {
-            GitBackend::init_internal(git_settings, store_path, object_hash)
+        let commit_store_initializer = git_commit_store_initializer(|git_settings, store_path| {
+            GitCommitStore::init_internal(git_settings, store_path, object_hash)
         });
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(
+        Self::init_with_commit_store(
             user_settings,
             workspace_root,
             workspace_name,
-            &backend_initializer,
+            &commit_store_initializer,
             signer,
         )
         .await
@@ -272,7 +272,7 @@ impl Workspace {
         workspace_name: &WorkspaceName,
         object_hash: gix::hash::Kind,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
-        let backend_initializer = git_backend_initializer(|git_settings, store_path| {
+        let commit_store_initializer = git_commit_store_initializer(|git_settings, store_path| {
             // TODO: Clean up path normalization. store_path is canonicalized by
             // `StoreInitializers::init_repo()`. workspace_root will be
             // canonicalized by `Workspace::new()`, but it's not yet here.
@@ -282,7 +282,7 @@ impl Workspace {
                 } else {
                     workspace_root.to_owned()
                 };
-            GitBackend::init_colocated(
+            GitCommitStore::init_colocated(
                 git_settings,
                 store_path,
                 &store_relative_workspace_root,
@@ -290,11 +290,11 @@ impl Workspace {
             )
         });
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(
+        Self::init_with_commit_store(
             user_settings,
             workspace_root,
             workspace_name,
-            &backend_initializer,
+            &commit_store_initializer,
             signer,
         )
         .await
@@ -311,7 +311,7 @@ impl Workspace {
         workspace_name: &WorkspaceName,
         git_repo_path: &Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
-        let backend_initializer = git_backend_initializer(|git_settings, store_path| {
+        let commit_store_initializer = git_commit_store_initializer(|git_settings, store_path| {
             // If the git repo is inside the workspace, use a relative path to it so the
             // whole workspace can be moved without breaking.
             // TODO: Clean up path normalization. store_path is canonicalized by
@@ -328,14 +328,14 @@ impl Workspace {
                 }
                 _ => git_repo_path.to_owned(),
             };
-            GitBackend::init_external(git_settings, store_path, &store_relative_git_repo_path)
+            GitCommitStore::init_external(git_settings, store_path, &store_relative_git_repo_path)
         });
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(
+        Self::init_with_commit_store(
             user_settings,
             workspace_root,
             workspace_name,
-            &backend_initializer,
+            &commit_store_initializer,
             signer,
         )
         .await
@@ -359,7 +359,7 @@ impl Workspace {
                 .init_repo(user_settings, &repo_dir, signer)
                 .await
                 .map_err(|repo_init_err| match repo_init_err {
-                    RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
+                    RepoInitError::CommitStore(err) => WorkspaceInitError::CommitStore(err),
                     RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
                     RepoInitError::Path(err) => WorkspaceInitError::Path(err),
                 })?;
@@ -388,11 +388,11 @@ impl Workspace {
 
     /// Initializes a workspace with a new repo using the given backend and the
     /// default stores and working copy.
-    pub async fn init_with_backend(
+    pub async fn init_with_commit_store(
         user_settings: &UserSettings,
         workspace_root: &Path,
         workspace_name: &WorkspaceName,
-        backend_initializer: &BackendInitializer<'_>,
+        commit_store_initializer: &CommitStoreInitializer<'_>,
         signer: Signer,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         Self::init_with_factories(
@@ -400,7 +400,7 @@ impl Workspace {
             workspace_root,
             workspace_name,
             &StoreInitializers {
-                backend: backend_initializer,
+                commit_store: commit_store_initializer,
                 ..default_store_initializers()
             },
             signer,

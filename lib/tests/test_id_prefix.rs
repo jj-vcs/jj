@@ -13,11 +13,11 @@
 // limitations under the License.
 
 use itertools::Itertools as _;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
-use jj_core::backend::MillisSinceEpoch;
-use jj_core::backend::Signature;
-use jj_core::backend::Timestamp;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::MillisSinceEpoch;
+use jj_core::commit_store::Signature;
+use jj_core::commit_store::Timestamp;
 use jj_core::index::ResolvedChangeTargets;
 use jj_core::object_id::HexPrefix;
 use jj_core::object_id::ObjectId as _;
@@ -36,7 +36,7 @@ use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
-use testutils::TestRepoBackend;
+use testutils::TestRepoCommitStore;
 use testutils::TestResult;
 
 fn stable_settings() -> UserSettings {
@@ -51,7 +51,7 @@ fn stable_settings() -> UserSettings {
 
 #[test]
 fn test_id_prefix() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::GitSha1);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
     let root_change_id = repo.store().root_change_id();
@@ -261,7 +261,7 @@ fn test_id_prefix() -> TestResult {
 
 #[test]
 fn test_id_prefix_divergent() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::GitSha1);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
 
@@ -405,7 +405,7 @@ fn test_id_prefix_divergent() -> TestResult {
 
 #[test]
 fn test_id_prefix_hidden() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::GitSha1);
+    let test_repo = TestRepo::init_with_commit_store(TestRepoCommitStore::GitSha1);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
 

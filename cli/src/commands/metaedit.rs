@@ -16,8 +16,8 @@ use std::collections::HashSet;
 
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
-use jj_lib::backend::Timestamp;
 use jj_lib::commit::Commit;
+use jj_lib::commit_store::Timestamp;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::time_util::parse_datetime;
 use tracing::instrument;

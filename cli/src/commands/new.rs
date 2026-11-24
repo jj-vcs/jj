@@ -20,7 +20,7 @@ use clap_complete::ArgValueCompleter;
 use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
+use jj_lib::commit_store::CommitId;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::rebase_commit;

@@ -29,9 +29,9 @@ use either::Either;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
-use jj_core::backend::BackendResult;
 use jj_core::commit::Commit;
 use jj_core::commit::merge_commit_trees_no_resolve;
+use jj_core::commit_store::CommitStoreResult;
 use jj_core::index::Index;
 use jj_core::matchers::EverythingMatcher;
 use jj_core::object_id::ObjectId as _;
@@ -566,7 +566,7 @@ impl CompositeChangedPathIndex {
 pub(super) async fn collect_changed_paths(
     index: &dyn Index,
     commit: &Commit,
-) -> BackendResult<Vec<RepoPathBuf>> {
+) -> CommitStoreResult<Vec<RepoPathBuf>> {
     let parents = commit.parents().await?;
     if let [p] = parents.as_slice()
         && commit.tree_ids() == p.tree_ids()

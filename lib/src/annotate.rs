@@ -34,10 +34,10 @@ use futures::TryStreamExt as _;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::CommitId;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreResult;
 use jj_core::conflicts::ConflictMarkerStyle;
 use jj_core::conflicts::ConflictMaterializeOptions;
 use jj_core::conflicts::MaterializedTreeValue;
@@ -170,7 +170,7 @@ impl FileAnnotator {
     pub async fn from_commit(
         starting_commit: &Commit,
         file_path: &RepoPath,
-    ) -> BackendResult<Self> {
+    ) -> CommitStoreResult<Self> {
         let source = Source::load(starting_commit.clone(), file_path).await?;
         Ok(Self::with_source(file_path, source))
     }
@@ -292,7 +292,7 @@ impl Source {
         }
     }
 
-    async fn load(commit: Commit, file_path: &RepoPath) -> Result<Self, BackendError> {
+    async fn load(commit: Commit, file_path: &RepoPath) -> Result<Self, CommitStoreError> {
         let tree = commit.tree();
         let text = get_file_contents(commit.store(), file_path, &tree).await?;
         Ok(Self::new(commit, text))
@@ -323,7 +323,7 @@ struct ContentPrefetcher {
     store: Arc<Store>,
     file_path: RepoPathBuf,
     /// Loads that haven't completed yet.
-    pending: FuturesUnordered<BoxFuture<'static, BackendResult<Source>>>,
+    pending: FuturesUnordered<BoxFuture<'static, CommitStoreResult<Source>>>,
     /// Commits with a load in `pending`. A load dropped by `retain()` keeps
     /// running, so this avoids starting a second load if the commit is
     /// requested again before the first one completes.
@@ -372,7 +372,7 @@ impl ContentPrefetcher {
 
     /// Returns the contents at `commit_id`, loading them if they weren't
     /// prefetched. Other loads that complete while waiting are kept for later.
-    async fn take(&mut self, commit_id: &CommitId) -> BackendResult<Source> {
+    async fn take(&mut self, commit_id: &CommitId) -> CommitStoreResult<Source> {
         self.prefetch(commit_id);
         while !self.loaded.contains_key(commit_id) {
             let source = self
@@ -496,7 +496,7 @@ async fn process_commit(
     state: &mut AnnotationState,
     current_commit_id: &CommitId,
     edges: &[GraphEdge<CommitId>],
-) -> Result<(), BackendError> {
+) -> Result<(), CommitStoreError> {
     let Some(mut current_source) = state.commit_source_map.remove(current_commit_id) else {
         return Ok(());
     };
@@ -624,7 +624,7 @@ async fn get_file_contents(
     store: &Store,
     path: &RepoPath,
     tree: &MergedTree,
-) -> Result<BString, BackendError> {
+) -> Result<BString, CommitStoreError> {
     let file_value = tree.path_value(path).await?;
     let effective_file_value =
         materialize_tree_value(store, path, file_value, tree.labels()).await?;
@@ -655,9 +655,9 @@ mod tests {
     use std::path::Path;
 
     use super::*;
-    use crate::backend::make_root_commit;
+    use crate::commit_store::make_root_commit;
     use crate::signing::Signer;
-    use crate::simple_backend::SimpleBackend;
+    use crate::simple_backend::SimpleCommitStore;
     use crate::tests::new_temp_dir;
 
     fn new_store(store_path: &Path) -> Arc<Store> {
@@ -666,7 +666,7 @@ mod tests {
             same_change: SameChange::Accept,
         };
         Store::new(
-            Box::new(SimpleBackend::init(store_path)),
+            Box::new(SimpleCommitStore::init(store_path)),
             Signer::new(None, vec![]),
             merge_options,
         )

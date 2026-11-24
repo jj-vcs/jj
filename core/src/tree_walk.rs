@@ -28,8 +28,8 @@ use futures::StreamExt as _;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 
-use crate::backend::BackendError;
-use crate::backend::BackendResult;
+use crate::commit_store::CommitStoreError;
+use crate::commit_store::CommitStoreResult;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 
@@ -120,11 +120,11 @@ pub(crate) trait TreeWalkVisitor<'a> {
 }
 
 /// A run of items in path order.
-type ItemRun<I> = VecDeque<(RepoPathBuf, BackendResult<I>)>;
+type ItemRun<I> = VecDeque<(RepoPathBuf, CommitStoreResult<I>)>;
 
 /// The pending work and items of an `OrderedTreeWalk`.
 pub(crate) struct TreeWalkQueue<'a, W, I> {
-    work: PrioritizedFutures<'a, RepoPathBuf, BackendResult<W>>,
+    work: PrioritizedFutures<'a, RepoPathBuf, CommitStoreResult<W>>,
     /// Runs of items that may or may not be ready to emit, keyed by the path of
     /// the run's original first item. No work is scheduled for paths between
     /// the items of a run, so the runs don't overlap and the first item of the
@@ -172,7 +172,7 @@ where
     pub fn schedule(
         &mut self,
         path: RepoPathBuf,
-        work: impl Future<Output = BackendResult<W>> + Send + 'a,
+        work: impl Future<Output = CommitStoreResult<W>> + Send + 'a,
     ) {
         debug_assert!(
             self.open_run
@@ -195,7 +195,7 @@ where
     }
 
     /// Adds an error for failed work at `path`.
-    fn insert_error(&mut self, path: RepoPathBuf, err: BackendError) {
+    fn insert_error(&mut self, path: RepoPathBuf, err: CommitStoreError) {
         self.close_run();
         self.runs
             .entry(path.clone())
@@ -219,7 +219,7 @@ where
     }
 
     /// Removes the first item.
-    fn pop_first_item(&mut self) -> Option<(RepoPathBuf, BackendResult<I>)> {
+    fn pop_first_item(&mut self) -> Option<(RepoPathBuf, CommitStoreResult<I>)> {
         let mut entry = self.runs.first_entry()?;
         let item = entry.get_mut().pop_front().unwrap();
         if entry.get().is_empty() {
@@ -264,7 +264,7 @@ where
     V: TreeWalkVisitor<'a> + Unpin,
     V::Item: Unpin,
 {
-    type Item = (RepoPathBuf, BackendResult<V::Item>);
+    type Item = (RepoPathBuf, CommitStoreResult<V::Item>);
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
@@ -382,7 +382,7 @@ mod tests {
         assert_eq!(*started.lock().unwrap(), BTreeSet::from([1, 2, 3, 4, 5]));
     }
 
-    type DirResult = BackendResult<Vec<TestEntry>>;
+    type DirResult = CommitStoreResult<Vec<TestEntry>>;
 
     /// An entry in a directory walked by `TestVisitor`.
     #[derive(Debug)]
@@ -512,7 +512,7 @@ mod tests {
             TestEntry::File("c"),
         ]))
         .unwrap();
-        b.send(Err(BackendError::Other("read failed".into())))
+        b.send(Err(CommitStoreError::Other("read failed".into())))
             .unwrap();
 
         // The error is emitted in order at the path of the failed work

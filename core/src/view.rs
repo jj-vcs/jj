@@ -20,7 +20,7 @@ use std::collections::HashSet;
 use itertools::Itertools as _;
 use thiserror::Error;
 
-use crate::backend::CommitId;
+use crate::commit_store::CommitId;
 use crate::index::Index;
 use crate::index::IndexResult;
 use crate::op_store;

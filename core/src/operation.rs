@@ -25,7 +25,7 @@ use std::sync::Arc;
 
 use futures::future::try_join_all;
 
-use crate::backend::CommitId;
+use crate::commit_store::CommitId;
 use crate::op_store;
 use crate::op_store::OpStore;
 use crate::op_store::OpStoreResult;

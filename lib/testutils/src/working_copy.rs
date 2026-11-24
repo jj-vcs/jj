@@ -21,7 +21,7 @@ use hegel::TestCase;
 use hegel::generators;
 use hegel::generators::Generator as _;
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
+use jj_lib::commit_store::CommitId;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo_path::RepoPath;

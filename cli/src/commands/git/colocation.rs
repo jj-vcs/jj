@@ -83,7 +83,7 @@ async fn cmd_git_colocation_status(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
 
-    git::get_git_backend(workspace_command.repo().store())?;
+    git::get_git_commit_store(workspace_command.repo().store())?;
 
     let is_colocated = is_colocated_git_workspace(workspace_command.workspace())?;
     let workspace_name = workspace_command.workspace_name();
@@ -150,7 +150,7 @@ async fn cmd_git_colocation_enable(
     _args: &GitColocationEnableArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
-    let git_backend = git::get_git_backend(workspace_command.repo().store())?;
+    let git_backend = git::get_git_commit_store(workspace_command.repo().store())?;
 
     // Ensure that the workspace is not already colocated before proceeding
     if is_colocated_git_workspace(workspace_command.workspace())? {
@@ -245,7 +245,7 @@ async fn cmd_git_colocation_disable(
     _args: &GitColocationDisableArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
-    git::get_git_backend(workspace_command.repo().store())?;
+    git::get_git_commit_store(workspace_command.repo().store())?;
 
     if !is_colocated_git_workspace(workspace_command.workspace())? {
         writeln!(ui.status(), "Workspace is already not colocated with Git.")?;

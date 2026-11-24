@@ -212,7 +212,7 @@ pub async fn cmd_bookmark_list(
     }
 
     #[cfg(feature = "git")]
-    if jj_lib::git::get_git_backend(repo.store()).is_ok() {
+    if jj_lib::git::get_git_commit_store(repo.store()).is_ok() {
         // Print only one of these hints. It's not important to mention unexported
         // bookmarks, but user might wonder why deleted bookmarks are still listed.
         let deleted_tracking = bookmark_list_items

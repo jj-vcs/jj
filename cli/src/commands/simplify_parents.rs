@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
-use jj_lib::backend::BackendError;
+use jj_lib::commit_store::CommitStoreError;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -79,12 +79,12 @@ pub(crate) async fn cmd_simplify_parents(
         .transform_descendants(commit_ids, async |mut rewriter| {
             let num_old_heads = rewriter.new_parents().len();
             if commit_ids_set.contains(rewriter.old_commit().id()) && num_old_heads > 1 {
-                // TODO: BackendError is not the right error here because
-                // the error does not come from `Backend`, but `Index`.
+                // TODO: CommitStoreError is not the right error here because
+                // the error does not come from `CommitStore`, but `Index`.
                 rewriter
                     .simplify_ancestor_merge()
                     .await
-                    .map_err(|err| BackendError::Other(err.into()))?;
+                    .map_err(|err| CommitStoreError::Other(err.into()))?;
             }
             let num_new_heads = rewriter.new_parents().len();
 

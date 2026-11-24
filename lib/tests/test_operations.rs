@@ -20,7 +20,7 @@ use std::time::SystemTime;
 
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
-use jj_core::backend::CommitId;
+use jj_core::commit_store::CommitId;
 use jj_core::index::Index;
 use jj_core::object_id::ObjectId as _;
 use jj_core::op_store::OperationId;

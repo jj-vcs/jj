@@ -19,7 +19,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use itertools::Itertools as _;
-use jj_core::backend::CommitId;
+use jj_core::commit_store::CommitId;
 use jj_core::graph::GraphEdge;
 use jj_core::graph::GraphNode;
 use jj_core::revset_backend::RevsetEvaluationError;

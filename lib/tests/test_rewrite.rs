@@ -16,9 +16,9 @@ use std::assert_matches;
 use std::slice;
 
 use itertools::Itertools as _;
-use jj_core::backend::ChangeId;
 use jj_core::commit::Commit;
 use jj_core::commit::find_recursive_merge_commits;
+use jj_core::commit_store::ChangeId;
 use jj_core::matchers::EverythingMatcher;
 use jj_core::matchers::FilesMatcher;
 use jj_core::merge::Merge;

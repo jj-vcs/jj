@@ -28,20 +28,20 @@ use std::sync::Arc;
 use futures::AsyncReadExt as _;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use jj_core::backend;
-use jj_core::backend::Backend;
-use jj_core::backend::BackendInitError;
-use jj_core::backend::BackendLoadError;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
-use jj_core::backend::CopyHistory;
-use jj_core::backend::CopyId;
-use jj_core::backend::FileId;
-use jj_core::backend::MillisSinceEpoch;
-use jj_core::backend::Signature;
-use jj_core::backend::Timestamp;
-use jj_core::backend::TreeValue;
 use jj_core::commit::Commit;
+use jj_core::commit_store;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStore;
+use jj_core::commit_store::CommitStoreInitError;
+use jj_core::commit_store::CommitStoreLoadError;
+use jj_core::commit_store::CopyHistory;
+use jj_core::commit_store::CopyId;
+use jj_core::commit_store::FileId;
+use jj_core::commit_store::MillisSinceEpoch;
+use jj_core::commit_store::Signature;
+use jj_core::commit_store::Timestamp;
+use jj_core::commit_store::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::matchers::EverythingMatcher;
 use jj_core::matchers::NothingMatcher;
@@ -56,16 +56,16 @@ use jj_core::repo_path::RepoPathComponent;
 use jj_core::signing::Signer;
 use jj_core::store::Store;
 use jj_core::tree::Tree;
-use jj_git_backend::git_backend::GitBackend;
-use jj_git_backend::secret_backend::SecretBackend;
+use jj_git_backend::git_backend::GitCommitStore;
+use jj_git_backend::secret_backend::SecretCommitStore;
 use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
-use jj_lib::default_backend_factories::default_backend_factories;
-use jj_lib::default_backend_factories::default_store_initializers;
-use jj_lib::default_backend_factories::default_working_copy_factories;
-use jj_lib::default_backend_factories::default_workspace_loader_factory;
+use jj_lib::default_commit_store_factories::default_commit_store_factories;
+use jj_lib::default_commit_store_factories::default_store_initializers;
+use jj_lib::default_commit_store_factories::default_working_copy_factories;
+use jj_lib::default_commit_store_factories::default_workspace_loader_factory;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
@@ -84,11 +84,11 @@ use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
-use jj_simple_backend::simple_backend::SimpleBackend;
+use jj_simple_backend::simple_backend::SimpleCommitStore;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
 
-use crate::test_backend::TestBackendFactory;
+use crate::test_backend::TestCommitStoreFactory;
 
 pub mod git;
 pub mod test_backend;
@@ -121,15 +121,15 @@ pub const HERMETIC_GIT_CONFIGS: &[(&str, &str)] = &[
     ("init.defaultBranch", "master"),
 ];
 
-// TODO: Consider figuring out a way to make `GitBackend` and `git(1)` calls in
+// TODO: Consider figuring out a way to make `GitCommitStore` and `git(1)` calls in
 // tests ignore external configuration and removing this function. This is
 // somewhat tricky because `gix` looks at system and user configuration, and
-// `GitBackend` also calls into `git(1)` for things like garbage collection.
+// `GitCommitStore` also calls into `git(1)` for things like garbage collection.
 pub fn hermetic_git() {
     let config_path = hermetic_git_config_path();
     let config_path = config_path.to_str().unwrap();
     let mut envs = [
-        // Prevent GitBackend from loading user and system configurations. For
+        // Prevent GitCommitStore from loading user and system configurations. For
         // gitoxide API use in tests, Config::isolated() is probably better.
         ("GIT_CONFIG_SYSTEM", config_path),
         ("GIT_CONFIG_GLOBAL", config_path),
@@ -218,14 +218,14 @@ pub fn is_external_tool_installed(program_name: impl AsRef<OsStr>) -> bool {
 #[derive(Debug)]
 pub struct TestEnvironment {
     temp_dir: TempDir,
-    test_backend_factory: TestBackendFactory,
+    test_commit_store_factory: TestCommitStoreFactory,
 }
 
 impl TestEnvironment {
     pub fn init() -> Self {
         Self {
             temp_dir: new_temp_dir(),
-            test_backend_factory: TestBackendFactory::default(),
+            test_commit_store_factory: TestCommitStoreFactory::default(),
         }
     }
 
@@ -233,19 +233,22 @@ impl TestEnvironment {
         self.temp_dir.path()
     }
 
-    pub fn default_backend_factories(&self) -> StoreFactories {
-        let mut factories = default_backend_factories();
-        factories.add_backend("test", {
-            let factory = self.test_backend_factory.clone();
+    pub fn default_commit_store_factories(&self) -> StoreFactories {
+        let mut factories = default_commit_store_factories();
+        factories.add_commit_store("test", {
+            let factory = self.test_commit_store_factory.clone();
             Box::new(move |_settings, store_path| Ok(Box::new(factory.load(store_path))))
         });
-        factories.add_backend(
-            SecretBackend::NAME,
+        factories.add_commit_store(
+            SecretCommitStore::NAME,
             Box::new(|settings, store_path| {
                 let git_settings = settings
                     .git_backend_settings()
-                    .map_err(BackendLoadError::new)?;
-                Ok(Box::new(SecretBackend::load(&git_settings, store_path)?))
+                    .map_err(CommitStoreLoadError::new)?;
+                Ok(Box::new(SecretCommitStore::load(
+                    &git_settings,
+                    store_path,
+                )?))
             }),
         );
         factories
@@ -259,7 +262,7 @@ impl TestEnvironment {
         let loader = default_workspace_loader_factory().create(workspace_root)?;
         let workspace = loader.load(
             settings,
-            &self.default_backend_factories(),
+            &self.default_commit_store_factories(),
             &default_working_copy_factories(),
         )?;
         Ok(workspace)
@@ -270,7 +273,7 @@ impl TestEnvironment {
         settings: &UserSettings,
         repo_path: &Path,
     ) -> Arc<ReadonlyRepo> {
-        self.default_backend_factories()
+        self.default_commit_store_factories()
             .load_repo(settings, repo_path)
             .unwrap()
             .load_at_head(Some(WorkspaceName::DEFAULT))
@@ -286,7 +289,7 @@ pub struct TestRepo {
 }
 
 #[derive(PartialEq, Eq, Copy, Clone)]
-pub enum TestRepoBackend {
+pub enum TestRepoCommitStore {
     /// Git backend using the object format from [`git::object_hash()`].
     Git,
     /// Git backend that always uses SHA-1, for tests that depend on specific
@@ -296,31 +299,31 @@ pub enum TestRepoBackend {
     Test,
 }
 
-impl TestRepoBackend {
-    fn init_backend(
+impl TestRepoCommitStore {
+    fn init_commit_store(
         &self,
         env: &TestEnvironment,
         settings: &UserSettings,
         store_path: &Path,
-    ) -> Result<Box<dyn Backend>, BackendInitError> {
+    ) -> Result<Box<dyn CommitStore>, CommitStoreInitError> {
         match self {
-            Self::Git => init_git_backend(settings, store_path, git::object_hash()),
-            Self::GitSha1 => init_git_backend(settings, store_path, gix::hash::Kind::Sha1),
-            Self::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
-            Self::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
+            Self::Git => init_git_commit_store(settings, store_path, git::object_hash()),
+            Self::GitSha1 => init_git_commit_store(settings, store_path, gix::hash::Kind::Sha1),
+            Self::Simple => Ok(Box::new(SimpleCommitStore::init(store_path))),
+            Self::Test => Ok(Box::new(env.test_commit_store_factory.init(store_path))),
         }
     }
 }
 
-fn init_git_backend(
+fn init_git_commit_store(
     settings: &UserSettings,
     store_path: &Path,
     object_hash: gix::hash::Kind,
-) -> Result<Box<dyn Backend>, BackendInitError> {
+) -> Result<Box<dyn CommitStore>, CommitStoreInitError> {
     let git_settings = settings
         .git_backend_settings()
-        .map_err(BackendInitError::new)?;
-    Ok(Box::new(GitBackend::init_internal(
+        .map_err(CommitStoreInitError::new)?;
+    Ok(Box::new(GitCommitStore::init_internal(
         &git_settings,
         store_path,
         object_hash,
@@ -329,19 +332,19 @@ fn init_git_backend(
 
 impl TestRepo {
     pub fn init() -> Self {
-        Self::init_with_backend(TestRepoBackend::Test)
+        Self::init_with_commit_store(TestRepoCommitStore::Test)
     }
 
-    pub fn init_with_backend(backend: TestRepoBackend) -> Self {
-        Self::init_with_backend_and_settings(backend, &user_settings())
+    pub fn init_with_commit_store(commit_store: TestRepoCommitStore) -> Self {
+        Self::init_with_commit_store_and_settings(commit_store, &user_settings())
     }
 
     pub fn init_with_settings(settings: &UserSettings) -> Self {
-        Self::init_with_backend_and_settings(TestRepoBackend::Test, settings)
+        Self::init_with_commit_store_and_settings(TestRepoCommitStore::Test, settings)
     }
 
-    pub fn init_with_backend_and_settings(
-        backend: TestRepoBackend,
+    pub fn init_with_commit_store_and_settings(
+        commit_store: TestRepoCommitStore,
         settings: &UserSettings,
     ) -> Self {
         let env = TestEnvironment::init();
@@ -350,7 +353,9 @@ impl TestRepo {
         fs::create_dir(&repo_dir).unwrap();
 
         let store_initializers = StoreInitializers {
-            backend: &|settings, store_path| backend.init_backend(&env, settings, store_path),
+            commit_store: &|settings, store_path| {
+                commit_store.init_commit_store(&env, settings, store_path)
+            },
             ..default_store_initializers()
         };
         let repo = store_initializers
@@ -378,27 +383,27 @@ pub struct TestWorkspace {
 
 impl TestWorkspace {
     pub fn init() -> Self {
-        Self::init_with_backend(TestRepoBackend::Test)
+        Self::init_with_commit_store(TestRepoCommitStore::Test)
     }
 
-    pub fn init_with_backend(backend: TestRepoBackend) -> Self {
-        Self::init_with_backend_and_settings(backend, &user_settings())
+    pub fn init_with_commit_store(commit_store: TestRepoCommitStore) -> Self {
+        Self::init_with_commit_store_and_settings(commit_store, &user_settings())
     }
 
     pub fn init_with_settings(settings: &UserSettings) -> Self {
-        Self::init_with_backend_and_settings(TestRepoBackend::Test, settings)
+        Self::init_with_commit_store_and_settings(TestRepoCommitStore::Test, settings)
     }
 
-    pub fn init_with_backend_and_settings(
-        backend: TestRepoBackend,
+    pub fn init_with_commit_store_and_settings(
+        commit_store: TestRepoCommitStore,
         settings: &UserSettings,
     ) -> Self {
         let signer = signer_from_settings(settings).unwrap();
-        Self::init_with_backend_and_signer(backend, signer, settings)
+        Self::init_with_commit_store_and_signer(commit_store, signer, settings)
     }
 
-    pub fn init_with_backend_and_signer(
-        backend: TestRepoBackend,
+    pub fn init_with_commit_store_and_signer(
+        commit_store: TestRepoCommitStore,
         signer: Signer,
         settings: &UserSettings,
     ) -> Self {
@@ -407,11 +412,11 @@ impl TestWorkspace {
         let workspace_root = env.root().join("repo");
         fs::create_dir(&workspace_root).unwrap();
 
-        let (workspace, repo) = Workspace::init_with_backend(
+        let (workspace, repo) = Workspace::init_with_commit_store(
             settings,
             &workspace_root,
             WorkspaceName::DEFAULT,
-            &|settings, store_path| backend.init_backend(&env, settings, store_path),
+            &|settings, store_path| commit_store.init_commit_store(&env, settings, store_path),
             signer,
         )
         .block_on()
@@ -628,7 +633,7 @@ impl Drop for TestTreeFileEntryBuilder<'_> {
         let path = std::mem::replace(&mut self.path, RepoPathBuf::root());
         let copy_id = if let Some(copy_history) = self.copy_history.as_ref() {
             self.store
-                .backend()
+                .commit_store()
                 .write_copy(copy_history)
                 .block_on()
                 .unwrap()
@@ -774,7 +779,7 @@ pub fn commit_with_tree(store: &Arc<Store>, tree: MergedTree) -> Commit {
         },
     };
     let (root_tree, conflict_labels) = tree.into_tree_ids_and_labels();
-    let commit = backend::Commit {
+    let commit = commit_store::Commit {
         parents: vec![store.root_commit_id().clone()],
         predecessors: vec![],
         root_tree,
@@ -1051,7 +1056,7 @@ pub fn write_copy_histories(
         };
         let id = repo
             .store()
-            .backend()
+            .commit_store()
             .write_copy(&history)
             .block_on()
             .unwrap();

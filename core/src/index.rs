@@ -22,9 +22,9 @@ use async_trait::async_trait;
 use itertools::Itertools as _;
 use thiserror::Error;
 
-use crate::backend::ChangeId;
-use crate::backend::CommitId;
 use crate::commit::Commit;
+use crate::commit_store::ChangeId;
+use crate::commit_store::CommitId;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::repo_path::RepoPathBuf;

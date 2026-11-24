@@ -61,12 +61,12 @@ use jj_frontend::runner::StaleWorkingCopyError;
 use jj_frontend::runner::WorkingCopyNotWritableReason;
 use jj_frontend::workspace_env::WorkspaceEnvironment;
 use jj_frontend::workspace_env::WorkspaceEnvironmentDiagnostics;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::ChangeId;
-use jj_lib::backend::CommitId;
-use jj_lib::backend::MergedTreeValue;
-use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
+use jj_lib::commit_store::ChangeId;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStoreResult;
+use jj_lib::commit_store::MergedTreeValue;
+use jj_lib::commit_store::TreeValue;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigMigrationRule;
@@ -74,9 +74,9 @@ use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
-use jj_lib::default_backend_factories::default_backend_factories;
-use jj_lib::default_backend_factories::default_working_copy_factories;
-use jj_lib::default_backend_factories::default_workspace_loader_factory;
+use jj_lib::default_commit_store_factories::default_commit_store_factories;
+use jj_lib::default_commit_store_factories::default_working_copy_factories;
+use jj_lib::default_commit_store_factories::default_workspace_loader_factory;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::fileset::FilesetDiagnostics;
@@ -1142,7 +1142,7 @@ impl WorkspaceCommandEnvironment {
         }
 
         let mut git_ignores = GitIgnoreFile::empty();
-        if let Ok(git_backend) = jj_lib::git::get_git_backend(store) {
+        if let Ok(git_backend) = jj_lib::git::get_git_commit_store(store) {
             let git_repo = git_backend.git_repo();
             if let Some(excludes_file_path) = get_excludes_file_path(&git_repo.config_snapshot()) {
                 git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
@@ -1810,7 +1810,7 @@ impl WorkspaceOperationRunner {
         self.repo().view().get_wc_commit_id(self.workspace_name())
     }
 
-    async fn get_wc_commit(&self) -> BackendResult<Option<Commit>> {
+    async fn get_wc_commit(&self) -> CommitStoreResult<Option<Commit>> {
         if let Some(id) = self.get_wc_commit_id() {
             let commit = self.repo().store().get_commit_async(id).await?;
             Ok(Some(commit))
@@ -2160,7 +2160,7 @@ impl WorkspaceCommandHelper {
         self.runner.get_wc_commit_id()
     }
 
-    pub async fn get_wc_commit(&self) -> BackendResult<Option<Commit>> {
+    pub async fn get_wc_commit(&self) -> CommitStoreResult<Option<Commit>> {
         self.runner.get_wc_commit().await
     }
 
@@ -3342,7 +3342,7 @@ jj git init",
             )
         }
         WorkspaceLoadError::StoreLoadError(
-            err @ (StoreLoadError::ReadError { .. } | StoreLoadError::Backend(_)),
+            err @ (StoreLoadError::ReadError { .. } | StoreLoadError::CommitStore(_)),
         ) => internal_error_with_message("The repository appears broken or inaccessible", err),
         WorkspaceLoadError::StoreLoadError(StoreLoadError::Signing(err)) => user_error(err),
         WorkspaceLoadError::WorkingCopyState(err) => internal_error(err),
@@ -3426,7 +3426,7 @@ async fn handle_stale_working_copy(
     repo: Arc<ReadonlyRepo>,
     workspace_name: &WorkspaceName,
 ) -> Result<Option<(Arc<ReadonlyRepo>, Commit)>, RunnerError> {
-    let get_wc_commit = |repo: &ReadonlyRepo| -> BackendResult<Option<_>> {
+    let get_wc_commit = |repo: &ReadonlyRepo| -> CommitStoreResult<Option<_>> {
         repo.view()
             .get_wc_commit_id(workspace_name)
             .map(|id| repo.store().get_commit(id))
@@ -3513,7 +3513,7 @@ pub fn print_updated_commits<'a>(
 
 #[instrument(skip_all)]
 pub fn print_conflicted_paths(
-    conflicts: Vec<(RepoPathBuf, BackendResult<MergedTreeValue>)>,
+    conflicts: Vec<(RepoPathBuf, CommitStoreResult<MergedTreeValue>)>,
     formatter: &mut dyn Formatter,
     path_converter: &RepoPathUiConverter,
 ) -> Result<(), CommandError> {
@@ -4419,7 +4419,7 @@ impl<'a> CliRunner<'a> {
             app: crate::commands::default_app(),
             config_layers: crate::config::default_config_layers(),
             config_migrations: crate::config::default_config_migrations(),
-            store_factories: default_backend_factories(),
+            store_factories: default_commit_store_factories(),
             working_copy_factories: default_working_copy_factories(),
             workspace_loader_factory: default_workspace_loader_factory(),
             revset_extensions: Default::default(),

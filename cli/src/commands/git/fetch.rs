@@ -23,7 +23,7 @@ use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitSettings;
 use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
-use jj_lib::git::get_git_backend;
+use jj_lib::git::get_git_commit_store;
 use jj_lib::git::load_default_fetch_bookmarks;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
@@ -200,7 +200,7 @@ pub async fn cmd_git_fetch(
             remote_ref_exprs.push((remote, ref_expr));
         }
     } else {
-        let git_repo = get_git_backend(tx.repo_mut().store())?.git_repo();
+        let git_repo = get_git_commit_store(tx.repo_mut().store())?.git_repo();
         for &remote in &matching_remotes {
             let bookmark = if let Some(expr) = &common_bookmark_expr {
                 expr.clone()

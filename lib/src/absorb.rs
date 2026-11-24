@@ -23,12 +23,12 @@ use std::sync::Arc;
 use bstr::BString;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::CommitId;
-use jj_core::backend::TreeValue;
 use jj_core::commit::Commit;
 use jj_core::commit::conflict_label_for_commits;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreResult;
+use jj_core::commit_store::TreeValue;
 use jj_core::conflicts::MaterializedFileValue;
 use jj_core::conflicts::MaterializedTreeValue;
 use jj_core::conflicts::materialized_diff_stream;
@@ -60,7 +60,7 @@ pub struct AbsorbSource {
 
 impl AbsorbSource {
     /// Create an absorb source from a single commit.
-    pub async fn from_commit(repo: &dyn Repo, commit: Commit) -> BackendResult<Self> {
+    pub async fn from_commit(repo: &dyn Repo, commit: Commit) -> CommitStoreResult<Self> {
         let parent_tree = commit.parent_tree(repo.index()).await?;
         let source_tree = commit.tree();
         Self::from_tree(commit, source_tree, parent_tree).await
@@ -71,7 +71,7 @@ impl AbsorbSource {
         commit: Commit,
         source_tree: MergedTree,
         parent_tree: MergedTree,
-    ) -> BackendResult<Self> {
+    ) -> CommitStoreResult<Self> {
         let parents = commit.parents().await?;
         Ok(Self {
             commit,
@@ -85,9 +85,9 @@ impl AbsorbSource {
 /// Error splitting an absorb source into modified ancestry trees.
 #[derive(Debug, Error)]
 pub enum AbsorbError {
-    /// Error while contacting the Backend.
+    /// Error while contacting the CommitStore.
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    CommitStore(#[from] CommitStoreError),
     /// Error resolving commit ancestry.
     #[error(transparent)]
     RevsetEvaluation(#[from] RevsetEvaluationError),
@@ -309,7 +309,7 @@ pub async fn absorb_hunks(
     repo: &mut MutableRepo,
     source: &AbsorbSource,
     mut selected_trees: HashMap<CommitId, MergedTreeBuilder>,
-) -> BackendResult<AbsorbStats> {
+) -> CommitStoreResult<AbsorbStats> {
     let mut rewritten_source = None;
     let mut rewritten_destinations = Vec::new();
     let mut num_rebased = 0;

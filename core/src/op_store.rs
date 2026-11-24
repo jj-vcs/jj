@@ -25,9 +25,9 @@ use async_trait::async_trait;
 use itertools::Itertools as _;
 use thiserror::Error;
 
-use crate::backend::CommitId;
-use crate::backend::MillisSinceEpoch;
-use crate::backend::Timestamp;
+use crate::commit_store::CommitId;
+use crate::commit_store::MillisSinceEpoch;
+use crate::commit_store::Timestamp;
 use crate::content_hash::ContentHash;
 use crate::merge::Merge;
 use crate::object_id::HexPrefix;

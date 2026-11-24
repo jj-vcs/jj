@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Defines the commit backend trait and related types. This is the lowest-level
+//! Defines the commit store trait and related types. This is the lowest-level
 //! trait for reading and writing commits, trees, files, etc.
 
 use std::any::Any;
@@ -270,9 +270,9 @@ pub struct RelatedCopy {
 /// Error that may occur during backend initialization.
 #[derive(Debug, Error)]
 #[error(transparent)]
-pub struct BackendInitError(pub Box<dyn std::error::Error + Send + Sync>);
+pub struct CommitStoreInitError(pub Box<dyn std::error::Error + Send + Sync>);
 
-impl BackendInitError {
+impl CommitStoreInitError {
     /// Wraps an error that occurred during backend initialization.
     pub fn new(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
         Self(err.into())
@@ -282,9 +282,9 @@ impl BackendInitError {
 /// Error that may occur during backend loading.
 #[derive(Debug, Error)]
 #[error(transparent)]
-pub struct BackendLoadError(pub Box<dyn std::error::Error + Send + Sync>);
+pub struct CommitStoreLoadError(pub Box<dyn std::error::Error + Send + Sync>);
 
-impl BackendLoadError {
+impl CommitStoreLoadError {
     /// Wraps an error that occurred during backend loading.
     pub fn new(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
         Self(err.into())
@@ -293,7 +293,7 @@ impl BackendLoadError {
 
 /// Commit-backend error that may occur after the backend is loaded.
 #[derive(Debug, Error)]
-pub enum BackendError {
+pub enum CommitStoreError {
     /// The caller attempted to read an object by specifying an ID with an
     /// invalid hash length for this backend.
     #[error(
@@ -391,8 +391,8 @@ pub enum BackendError {
     Unsupported(String),
 }
 
-/// A specialized [`Result`] type for commit backend errors.
-pub type BackendResult<T> = Result<T, BackendError>;
+/// A specialized [`Result`] type for commit store errors.
+pub type CommitStoreResult<T> = Result<T, CommitStoreError>;
 
 /// Identifies the content at a given path in a tree.
 #[derive(ContentHash, Debug, PartialEq, Eq, Clone, Hash)]
@@ -789,9 +789,9 @@ pub fn make_root_commit(root_change_id: ChangeId, empty_tree_id: TreeId) -> Comm
     }
 }
 
-/// Defines the interface for commit backends.
+/// Defines the interface for commit stores.
 #[async_trait]
-pub trait Backend: Any + Send + Sync + Debug {
+pub trait CommitStore: Any + Send + Sync + Debug {
     /// A unique name that identifies this backend. Written to
     /// `.jj/repo/store/type` when the repo is created.
     fn name(&self) -> &str;
@@ -831,7 +831,7 @@ pub trait Backend: Any + Send + Sync + Debug {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>>;
+    ) -> CommitStoreResult<Pin<Box<dyn AsyncRead + Send>>>;
 
     /// Writes the contents of the writer to the backend. Returns the ID of the
     /// written file.
@@ -839,28 +839,28 @@ pub trait Backend: Any + Send + Sync + Debug {
         &self,
         path: &RepoPath,
         contents: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> BackendResult<FileId>;
+    ) -> CommitStoreResult<FileId>;
 
     /// Reads the target of a symlink from the backend. Returns the target path.
     /// It is not a `RepoPath` because it doesn't necessarily point within the
     /// repository.
-    async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String>;
+    async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> CommitStoreResult<String>;
 
     /// Writes a symlink with the given target to the backend and returns its
     /// ID.
-    async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId>;
+    async fn write_symlink(&self, path: &RepoPath, target: &str) -> CommitStoreResult<SymlinkId>;
 
     /// Read the specified `CopyHistory` object.
     ///
     /// Backends that don't support copy tracking may return
-    /// `BackendError::Unsupported`.
-    async fn read_copy(&self, id: &CopyId) -> BackendResult<CopyHistory>;
+    /// `CommitStoreError::Unsupported`.
+    async fn read_copy(&self, id: &CopyId) -> CommitStoreResult<CopyHistory>;
 
     /// Write the `CopyHistory` object and return its ID.
     ///
     /// Backends that don't support copy tracking may return
-    /// `BackendError::Unsupported`.
-    async fn write_copy(&self, copy: &CopyHistory) -> BackendResult<CopyId>;
+    /// `CommitStoreError::Unsupported`.
+    async fn write_copy(&self, copy: &CopyHistory) -> CommitStoreResult<CopyId>;
 
     /// Find all copy histories that are related to the specified one. This is
     /// defined as those that are ancestors of the given specified one, plus
@@ -871,8 +871,8 @@ pub trait Backend: Any + Send + Sync + Debug {
     /// siblings, or even completely unrelated copy histories.
     ///
     /// Backends that don't support copy tracking may return
-    /// `BackendError::Unsupported`.
-    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>>;
+    /// `CommitStoreError::Unsupported`.
+    async fn get_related_copies(&self, copy_id: &CopyId) -> CommitStoreResult<Vec<RelatedCopy>>;
 
     /// Reads the tree at the given path with the given ID.
     ///
@@ -880,11 +880,11 @@ pub trait Backend: Any + Send + Sync + Debug {
     /// called this method, since `Store` shares the read between concurrent
     /// callers. It must therefore not depend on the caller's context, such as
     /// task-locals or the presence of a particular async runtime.
-    async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree>;
+    async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> CommitStoreResult<Tree>;
 
     /// Writes the given tree at the given path to the backend and returns its
     /// ID.
-    async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> BackendResult<TreeId>;
+    async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> CommitStoreResult<TreeId>;
 
     /// Reads the commit with the given ID.
     ///
@@ -892,7 +892,7 @@ pub trait Backend: Any + Send + Sync + Debug {
     /// called this method, since `Store` shares the read between concurrent
     /// callers. It must therefore not depend on the caller's context, such as
     /// task-locals or the presence of a particular async runtime.
-    async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit>;
+    async fn read_commit(&self, id: &CommitId) -> CommitStoreResult<Commit>;
 
     /// Writes a commit and returns its ID and the commit itself. The commit
     /// should contain the data that was actually written, which may differ
@@ -911,7 +911,7 @@ pub trait Backend: Any + Send + Sync + Debug {
         &self,
         contents: Commit,
         sign_with: Option<&mut SigningFn>,
-    ) -> BackendResult<(CommitId, Commit)>;
+    ) -> CommitStoreResult<(CommitId, Commit)>;
 
     /// Get copy records for the dag range `root..head`. If `paths` is None
     /// include all paths, otherwise restrict to only `paths`.
@@ -930,19 +930,19 @@ pub trait Backend: Any + Send + Sync + Debug {
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>>;
+    ) -> CommitStoreResult<BoxStream<'_, CommitStoreResult<CopyRecord>>>;
 
     /// Perform garbage collection.
     ///
     /// All commits reachable from `heads` won't be removed. In addition to that,
     /// objects created after `keep_newer` will be preserved. This mitigates a
     /// risk of deleting new commits created concurrently by another process.
-    async fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()>;
+    async fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> CommitStoreResult<()>;
 }
 
-impl dyn Backend {
+impl dyn CommitStore {
     /// Returns reference of the implementation type.
-    pub fn downcast_ref<T: Backend>(&self) -> Option<&T> {
+    pub fn downcast_ref<T: CommitStore>(&self) -> Option<&T> {
         (self as &dyn Any).downcast_ref()
     }
 }

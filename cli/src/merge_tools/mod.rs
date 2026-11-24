@@ -20,12 +20,12 @@ use std::sync::Arc;
 
 use bstr::ByteSlice as _;
 use futures::future::try_join_all;
-use jj_lib::backend::BackendError;
-use jj_lib::backend::CopyId;
-use jj_lib::backend::FileId;
-use jj_lib::backend::MergedTreeValue;
-use jj_lib::backend::MergedTreeValueExt as _;
-use jj_lib::backend::TreeValue;
+use jj_lib::commit_store::CommitStoreError;
+use jj_lib::commit_store::CopyId;
+use jj_lib::commit_store::FileId;
+use jj_lib::commit_store::MergedTreeValue;
+use jj_lib::commit_store::MergedTreeValueExt as _;
+use jj_lib::commit_store::TreeValue;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
@@ -124,7 +124,7 @@ pub enum ConflictResolveError {
     )]
     EmptyOrUnchanged,
     #[error(transparent)]
-    Backend(#[from] jj_lib::backend::BackendError),
+    Backend(#[from] jj_lib::commit_store::CommitStoreError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
@@ -665,7 +665,7 @@ async fn pick_conflict_side(
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
     add_index: usize,
-) -> Result<MergedTree, BackendError> {
+) -> Result<MergedTree, CommitStoreError> {
     let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     for merge_tool_file in merge_tool_files {
         // We use file IDs here to match the logic for the other external merge tools.

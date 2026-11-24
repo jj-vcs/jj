@@ -23,23 +23,23 @@ use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
 use jj_cli::command_error::CommandError;
 use jj_cli::ui::Ui;
-use jj_lib::backend::Backend;
-use jj_lib::backend::BackendInitError;
-use jj_lib::backend::BackendLoadError;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::ChangeId;
-use jj_lib::backend::Commit;
-use jj_lib::backend::CommitId;
-use jj_lib::backend::CopyHistory;
-use jj_lib::backend::CopyId;
-use jj_lib::backend::CopyRecord;
-use jj_lib::backend::FileId;
-use jj_lib::backend::RelatedCopy;
-use jj_lib::backend::SigningFn;
-use jj_lib::backend::SymlinkId;
-use jj_lib::backend::Tree;
-use jj_lib::backend::TreeId;
-use jj_lib::git_backend::GitBackend;
+use jj_lib::commit_store::ChangeId;
+use jj_lib::commit_store::Commit;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStore;
+use jj_lib::commit_store::CommitStoreInitError;
+use jj_lib::commit_store::CommitStoreLoadError;
+use jj_lib::commit_store::CommitStoreResult;
+use jj_lib::commit_store::CopyHistory;
+use jj_lib::commit_store::CopyId;
+use jj_lib::commit_store::CopyRecord;
+use jj_lib::commit_store::FileId;
+use jj_lib::commit_store::RelatedCopy;
+use jj_lib::commit_store::SigningFn;
+use jj_lib::commit_store::SymlinkId;
+use jj_lib::commit_store::Tree;
+use jj_lib::commit_store::TreeId;
+use jj_lib::git_backend::GitCommitStore;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -58,10 +58,10 @@ enum CustomCommand {
 fn create_store_factories() -> StoreFactories {
     let mut store_factories = StoreFactories::empty();
     // Register the backend so it can be loaded when the repo is loaded. The name
-    // must match `Backend::name()`.
-    store_factories.add_backend(
+    // must match `CommitStore::name()`.
+    store_factories.add_commit_store(
         "jit",
-        Box::new(|settings, store_path| Ok(Box::new(JitBackend::load(settings, store_path)?))),
+        Box::new(|settings, store_path| Ok(Box::new(JitCommitStore::load(settings, store_path)?))),
     );
     store_factories
 }
@@ -76,11 +76,11 @@ async fn run_custom_command(
             let wc_path = command_helper.cwd();
             let settings = command_helper.settings_for_new_workspace(ui, wc_path)?.0;
             // Initialize a workspace with the custom backend
-            Workspace::init_with_backend(
+            Workspace::init_with_commit_store(
                 &settings,
                 wc_path,
                 WorkspaceName::DEFAULT,
-                &|settings, store_path| Ok(Box::new(JitBackend::init(settings, store_path)?)),
+                &|settings, store_path| Ok(Box::new(JitCommitStore::init(settings, store_path)?)),
                 signer_from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
             )
             .await?;
@@ -99,31 +99,31 @@ fn main() -> std::process::ExitCode {
 
 /// A commit backend that's extremely similar to the Git backend
 #[derive(Debug)]
-struct JitBackend {
-    inner: GitBackend,
+struct JitCommitStore {
+    inner: GitCommitStore,
 }
 
-impl JitBackend {
-    fn init(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendInitError> {
+impl JitCommitStore {
+    fn init(settings: &UserSettings, store_path: &Path) -> Result<Self, CommitStoreInitError> {
         let git_settings = settings
             .git_backend_settings()
-            .map_err(BackendInitError::new)?;
+            .map_err(CommitStoreInitError::new)?;
         let inner =
-            GitBackend::init_internal(&git_settings, store_path, gix::hash::Kind::default())?;
+            GitCommitStore::init_internal(&git_settings, store_path, gix::hash::Kind::default())?;
         Ok(Self { inner })
     }
 
-    fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
+    fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, CommitStoreLoadError> {
         let git_settings = settings
             .git_backend_settings()
-            .map_err(BackendLoadError::new)?;
-        let inner = GitBackend::load(&git_settings, store_path)?;
+            .map_err(CommitStoreLoadError::new)?;
+        let inner = GitCommitStore::load(&git_settings, store_path)?;
         Ok(Self { inner })
     }
 }
 
 #[async_trait]
-impl Backend for JitBackend {
+impl CommitStore for JitCommitStore {
     fn name(&self) -> &'static str {
         "jit"
     }
@@ -156,7 +156,7 @@ impl Backend for JitBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
+    ) -> CommitStoreResult<Pin<Box<dyn AsyncRead + Send>>> {
         self.inner.read_file(path, id).await
     }
 
@@ -164,39 +164,39 @@ impl Backend for JitBackend {
         &self,
         path: &RepoPath,
         contents: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> BackendResult<FileId> {
+    ) -> CommitStoreResult<FileId> {
         self.inner.write_file(path, contents).await
     }
 
-    async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
+    async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> CommitStoreResult<String> {
         self.inner.read_symlink(path, id).await
     }
 
-    async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
+    async fn write_symlink(&self, path: &RepoPath, target: &str) -> CommitStoreResult<SymlinkId> {
         self.inner.write_symlink(path, target).await
     }
 
-    async fn read_copy(&self, id: &CopyId) -> BackendResult<CopyHistory> {
+    async fn read_copy(&self, id: &CopyId) -> CommitStoreResult<CopyHistory> {
         self.inner.read_copy(id).await
     }
 
-    async fn write_copy(&self, contents: &CopyHistory) -> BackendResult<CopyId> {
+    async fn write_copy(&self, contents: &CopyHistory) -> CommitStoreResult<CopyId> {
         self.inner.write_copy(contents).await
     }
 
-    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>> {
+    async fn get_related_copies(&self, copy_id: &CopyId) -> CommitStoreResult<Vec<RelatedCopy>> {
         self.inner.get_related_copies(copy_id).await
     }
 
-    async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
+    async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> CommitStoreResult<Tree> {
         self.inner.read_tree(path, id).await
     }
 
-    async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
+    async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> CommitStoreResult<TreeId> {
         self.inner.write_tree(path, contents).await
     }
 
-    async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {
+    async fn read_commit(&self, id: &CommitId) -> CommitStoreResult<Commit> {
         self.inner.read_commit(id).await
     }
 
@@ -204,7 +204,7 @@ impl Backend for JitBackend {
         &self,
         contents: Commit,
         sign_with: Option<&mut SigningFn>,
-    ) -> BackendResult<(CommitId, Commit)> {
+    ) -> CommitStoreResult<(CommitId, Commit)> {
         self.inner.write_commit(contents, sign_with).await
     }
 
@@ -213,11 +213,11 @@ impl Backend for JitBackend {
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
+    ) -> CommitStoreResult<BoxStream<'_, CommitStoreResult<CopyRecord>>> {
         self.inner.get_copy_records(paths, root, head)
     }
 
-    async fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()> {
+    async fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> CommitStoreResult<()> {
         self.inner.gc(heads, keep_newer).await
     }
 }

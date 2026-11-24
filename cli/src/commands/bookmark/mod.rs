@@ -26,7 +26,7 @@ mod untrack;
 use std::io;
 
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
+use jj_lib::commit_store::CommitId;
 use jj_lib::iter_util::fallible_any;
 use jj_lib::op_store::ABSENT_REMOTE_REF;
 use jj_lib::op_store::RefTarget;

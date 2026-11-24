@@ -572,18 +572,18 @@ fn test_broken_repo_structure() {
     [exit status: 255]
     ");
 
-    // Test the error message when the commit backend is of unknown type.
+    // Test the error message when the commit store is of unknown type.
     work_dir.write_file(&store_type_path, "unknown");
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Internal error: This version of the jj binary doesn't support this type of repo
-    Caused by: Unsupported commit backend type 'unknown'
+    Caused by: Unsupported commit store type 'unknown'
     [EOF]
     [exit status: 255]
     ");
 
-    // Test the error message when the file indicating the commit backend type
+    // Test the error message when the file indicating the commit store type
     // cannot be read.
     work_dir.remove_file(&store_type_path);
     work_dir.create_dir(&store_type_path);
@@ -592,7 +592,7 @@ fn test_broken_repo_structure() {
     ------- stderr -------
     Internal error: The repository appears broken or inaccessible
     Caused by:
-    1: Failed to read commit backend type
+    1: Failed to read commit store type
     2: Cannot access $TEST_ENV/repo/.jj/repo/store/type
     [EOF]
     [exit status: 255]
@@ -607,7 +607,7 @@ fn test_broken_repo_structure() {
     ------- stderr -------
     Internal error: The repository appears broken or inaccessible
     Caused by:
-    1: Failed to read commit backend type
+    1: Failed to read commit store type
     2: Cannot access $TEST_ENV/repo/.jj/repo/store/type
     [EOF]
     [exit status: 255]

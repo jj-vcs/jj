@@ -44,11 +44,11 @@ use futures::TryStreamExt as _;
 use futures::stream;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
-use jj_core::backend::TreeValue;
 use jj_core::commit::Commit;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::TreeValue;
 use jj_core::index::IndexError;
 use jj_core::matchers::EverythingMatcher;
 use jj_core::merge::Diff;
@@ -79,7 +79,7 @@ use jj_core::str_util::StringExpression;
 use jj_core::str_util::StringMatcher;
 use jj_core::str_util::StringPattern;
 use jj_core::view::View;
-use jj_git_backend::git_backend::GitBackend;
+use jj_git_backend::git_backend::GitCommitStore;
 use jj_git_backend::git_backend::GitRepoAtWorkdirError;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
@@ -445,19 +445,19 @@ fn to_git_or_remote_tag_ref_name(symbol: RemoteRefSymbol<'_>) -> GitRefNameBuf {
     }
 }
 
-/// Error indicating that the repo is not backed by a [`GitBackend`].
+/// Error indicating that the repo is not backed by a [`GitCommitStore`].
 #[derive(Debug, Error)]
 #[error("The repo is not backed by a Git repo")]
 pub struct UnexpectedGitBackendError;
 
-/// Returns the underlying `GitBackend` implementation.
-pub fn get_git_backend(store: &Store) -> Result<&GitBackend, UnexpectedGitBackendError> {
-    store.backend_impl().ok_or(UnexpectedGitBackendError)
+/// Returns the underlying `GitCommitStore` implementation.
+pub fn get_git_commit_store(store: &Store) -> Result<&GitCommitStore, UnexpectedGitBackendError> {
+    store.commit_store_impl().ok_or(UnexpectedGitBackendError)
 }
 
 /// Returns new thread-local instance to access to the underlying Git repo.
 pub fn get_git_repo(store: &Store) -> Result<gix::Repository, UnexpectedGitBackendError> {
-    get_git_backend(store).map(|backend| backend.git_repo())
+    get_git_commit_store(store).map(|commit_store| commit_store.git_repo())
 }
 
 /// Checks if `git_ref` points to a Git commit object, and returns its id.
@@ -526,7 +526,7 @@ pub enum GitImportError {
         id: CommitId,
         /// Underlying error.
         #[source]
-        err: BackendError,
+        err: CommitStoreError,
     },
     /// Failed to read an ancestor of an imported ref.
     #[error("Ancestor of Git ref {symbol} is missing")]
@@ -535,11 +535,11 @@ pub enum GitImportError {
         symbol: RemoteRefSymbolBuf,
         /// Underlying error.
         #[source]
-        err: BackendError,
+        err: CommitStoreError,
     },
-    /// Error from the commit backend.
+    /// Error from the commit store.
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    CommitStore(#[from] CommitStoreError),
     /// Error from the commit index.
     #[error(transparent)]
     Index(#[from] IndexError),
@@ -552,7 +552,7 @@ pub enum GitImportError {
     /// Error opening the worktree repository.
     #[error(transparent)]
     GitRepoAtWorkdir(#[from] GitRepoAtWorkdirError),
-    /// The repo is not backed by a [`GitBackend`].
+    /// The repo is not backed by a [`GitCommitStore`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
@@ -669,7 +669,8 @@ async fn import_refs_inner(
     options: &GitImportOptions,
 ) -> Result<GitImportStats, GitImportError> {
     let store = mut_repo.store();
-    let git_backend = get_git_backend(store).expect("backend type should have been tested");
+    let git_commit_store =
+        get_git_commit_store(store).expect("commit store type should have been tested");
 
     let RefsToImport {
         changed_git_refs,
@@ -707,7 +708,9 @@ async fn import_refs_inner(
         })
         .try_collect()
         .await?;
-    let heads_imported = git_backend.import_head_commits(missing_head_ids).is_ok();
+    let heads_imported = git_commit_store
+        .import_head_commits(missing_head_ids)
+        .is_ok();
 
     // Import new remote heads
     let mut head_commits = Vec::new();
@@ -718,7 +721,7 @@ async fn import_refs_inner(
         };
         // If bulk-import failed, try again to find bad head or ref.
         if !heads_imported && !index.has_id(id).await? {
-            git_backend
+            git_commit_store
                 .import_head_commits([id])
                 .map_err(missing_ref_err)?;
         }
@@ -1237,8 +1240,8 @@ pub async fn import_head(
     workspace_root: &Path,
 ) -> Result<(), GitImportError> {
     let store = mut_repo.store();
-    let git_backend = get_git_backend(store)?;
-    let git_repo = git_backend.open_git_repo_at_workdir(workspace_root)?;
+    let git_commit_store = get_git_commit_store(store)?;
+    let git_repo = git_commit_store.open_git_repo_at_workdir(workspace_root)?;
 
     let old_git_head = mut_repo.view().git_head(workspace_name);
     let new_git_head_id = git_repo
@@ -1253,12 +1256,12 @@ pub async fn import_head(
     if let Some(head_id) = &new_git_head_id {
         let index = mut_repo.index();
         if !index.has_id(head_id).await? {
-            git_backend.import_head_commits([head_id]).map_err(|err| {
-                GitImportError::MissingHeadTarget {
+            git_commit_store
+                .import_head_commits([head_id])
+                .map_err(|err| GitImportError::MissingHeadTarget {
                     id: head_id.clone(),
                     err,
-                }
-            })?;
+                })?;
         }
         // It's unlikely the imported commits were missing, but I/O-related
         // error can still occur.
@@ -1275,8 +1278,8 @@ pub async fn import_head_commit(
     mut_repo: &mut MutableRepo,
 ) -> Result<Option<Commit>, GitImportError> {
     let store = mut_repo.store();
-    let git_backend = get_git_backend(store)?;
-    let git_repo = git_backend.git_repo();
+    let git_commit_store = get_git_commit_store(store)?;
+    let git_repo = git_commit_store.git_repo();
 
     let Some(oid) = git_repo.head()?.try_into_peeled_id()? else {
         return Ok(None);
@@ -1285,12 +1288,12 @@ pub async fn import_head_commit(
 
     let index = mut_repo.index();
     if !index.has_id(&head_id).await? {
-        git_backend.import_head_commits([&head_id]).map_err(|err| {
-            GitImportError::MissingHeadTarget {
+        git_commit_store
+            .import_head_commits([&head_id])
+            .map_err(|err| GitImportError::MissingHeadTarget {
                 id: head_id.clone(),
                 err,
-            }
-        })?;
+            })?;
     }
     // It's unlikely the imported commits were missing, but I/O-related error
     // can still occur.
@@ -1305,7 +1308,7 @@ pub enum GitExportError {
     /// Error from the Git repo.
     #[error(transparent)]
     Git(#[from] gix::Error),
-    /// The repo is not backed by a [`GitBackend`].
+    /// The repo is not backed by a [`GitCommitStore`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
@@ -1944,7 +1947,7 @@ pub enum GitCreateWorktreeError {
     /// Error opening the worktree repository.
     #[error(transparent)]
     GitRepoAtWorkdir(#[from] GitRepoAtWorkdirError),
-    /// The repo is not backed by a [`GitBackend`].
+    /// The repo is not backed by a [`GitCommitStore`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
@@ -1965,13 +1968,13 @@ pub fn create_worktree(
     subprocess_options: GitSubprocessOptions,
     destination: &Path,
 ) -> Result<(), GitCreateWorktreeError> {
-    let git_backend = get_git_backend(store)?;
+    let git_commit_store = get_git_commit_store(store)?;
 
     // The unborn branch `git worktree add --orphan` insists on naming gets a
     // random name: any name we could derive from the destination may already
     // be taken by an exported bookmark.
     let branch_name = format!("jj-worktree-{:016x}", rand::random::<u64>());
-    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
+    let git_ctx = GitSubprocessContext::from_git_commit_store(git_commit_store, subprocess_options);
 
     let destination_is_populated = destination.exists()
         && !is_empty_dir(destination).map_err(GitCreateWorktreeError::Destination)?;
@@ -1989,7 +1992,7 @@ pub fn create_worktree(
     // worktree can't materialize the branch nobody asked for. If the
     // working-copy commit turns out to have a real parent, the HEAD export
     // replaces this with a detached HEAD.
-    let git_repo = git_backend.open_git_repo_at_workdir(destination)?;
+    let git_repo = git_commit_store.open_git_repo_at_workdir(destination)?;
     let unborn_branch = gix::refs::Target::Symbolic(
         format!("refs/heads/{branch_name}")
             .try_into()
@@ -2040,7 +2043,7 @@ pub enum GitUnlinkWorktreeError {
     /// Error from the Git subprocess.
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
-    /// The repo is not backed by a [`GitBackend`].
+    /// The repo is not backed by a [`GitCommitStore`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
@@ -2066,7 +2069,7 @@ pub fn unlink_worktree(
     if !dot_git.is_file() {
         return Ok(false);
     }
-    let git_backend = get_git_backend(store)?;
+    let git_commit_store = get_git_commit_store(store)?;
     // `git worktree remove` isn't used because it deletes the directory
     // contents, and forgetting a workspace should preserve its files.
     std::fs::remove_file(&dot_git)
@@ -2075,7 +2078,7 @@ pub fn unlink_worktree(
     // TODO: `git worktree prune` removes metadata for all worktrees whose
     // working directories are missing, not just the one we removed. Ideally
     // we'd target only the specific worktree.
-    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
+    let git_ctx = GitSubprocessContext::from_git_commit_store(git_commit_store, subprocess_options);
     git_ctx.spawn_worktree_prune()?;
     Ok(true)
 }
@@ -2083,9 +2086,9 @@ pub fn unlink_worktree(
 /// Error from resetting Git HEAD and index.
 #[derive(Debug, Error)]
 pub enum GitResetHeadError {
-    /// Error from the commit backend.
+    /// Error from the commit store.
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    CommitStore(#[from] CommitStoreError),
     /// Error from the Git repo.
     #[error(transparent)]
     Git(#[from] gix::Error),
@@ -2098,7 +2101,7 @@ pub enum GitResetHeadError {
     /// Failed to update the Git HEAD ref.
     #[error("Failed to update Git HEAD ref")]
     UpdateHeadRef(#[source] gix::Error),
-    /// The repo is not backed by a [`GitBackend`].
+    /// The repo is not backed by a [`GitCommitStore`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
@@ -2118,8 +2121,8 @@ pub async fn reset_head(
     workspace_root: &Path,
     (old_wc_commit, new_wc_commit): (Option<&Commit>, &Commit),
 ) -> Result<(), GitResetHeadError> {
-    let git_backend = get_git_backend(mut_repo.store())?;
-    let git_repo = git_backend.open_git_repo_at_workdir(workspace_root)?;
+    let git_commit_store = get_git_commit_store(mut_repo.store())?;
+    let git_repo = git_commit_store.open_git_repo_at_workdir(workspace_root)?;
 
     let first_parent_id = &new_wc_commit.parent_ids()[0];
     let new_head_target = if first_parent_id != mut_repo.store().root_commit_id() {
@@ -2386,8 +2389,8 @@ pub async fn update_intent_to_add(
     old_tree: &MergedTree,
     new_tree: &MergedTree,
 ) -> Result<(), GitResetHeadError> {
-    let git_backend = get_git_backend(repo.store())?;
-    let git_repo = git_backend.open_git_repo_at_workdir(workspace_root)?;
+    let git_commit_store = get_git_commit_store(repo.store())?;
+    let git_repo = git_commit_store.open_git_repo_at_workdir(workspace_root)?;
     let lock = lock_index(&git_repo)?;
     let mut index = open_index_or_empty(&git_repo)?;
     update_intent_to_add_impl(&git_repo, &mut index, old_tree, new_tree).await?;
@@ -2570,7 +2573,7 @@ pub enum GitRemoteManagementError {
     /// Unexpected error from the Git repo.
     #[error("Unexpected Git error when managing remotes")]
     InternalGitError(#[from] gix::Error),
-    /// The repo is not backed by a [`GitBackend`].
+    /// The repo is not backed by a [`GitCommitStore`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
     /// Failed to expand ref patterns to refspecs.
@@ -3471,9 +3474,10 @@ impl<'a> GitFetch<'a> {
         subprocess_options: GitSubprocessOptions,
         import_options: &'a GitImportOptions,
     ) -> Result<Self, UnexpectedGitBackendError> {
-        let git_backend = get_git_backend(mut_repo.store())?;
-        let git_repo = Box::new(git_backend.git_repo());
-        let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
+        let git_commit_store = get_git_commit_store(mut_repo.store())?;
+        let git_repo = Box::new(git_commit_store.git_repo());
+        let git_ctx =
+            GitSubprocessContext::from_git_commit_store(git_commit_store, subprocess_options);
         Ok(GitFetch {
             mut_repo,
             git_repo,
@@ -3617,7 +3621,7 @@ pub enum GitPushError {
     /// Error from the Git subprocess.
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
-    /// The repo is not backed by a [`GitBackend`].
+    /// The repo is not backed by a [`GitCommitStore`].
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
@@ -3792,9 +3796,9 @@ pub fn push_updates(
         }
     }
 
-    let git_backend = get_git_backend(repo.store())?;
-    let git_repo = git_backend.git_repo();
-    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
+    let git_commit_store = get_git_commit_store(repo.store())?;
+    let git_repo = git_commit_store.git_repo();
+    let git_ctx = GitSubprocessContext::from_git_commit_store(git_commit_store, subprocess_options);
 
     // check the remote exists
     if try_find_active_remote_inner(&git_repo, remote_name).is_none() {

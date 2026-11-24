@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
+use jj_lib::commit_store::CommitId;
 use testutils::TestResult;
 use testutils::git;
 

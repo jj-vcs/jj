@@ -22,7 +22,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use async_trait::async_trait;
-use jj_core::backend::BackendInitError;
+use jj_core::commit_store::CommitStoreInitError;
 use jj_core::hex_util;
 use jj_core::object_id::ObjectId as _;
 use jj_core::op_heads_store::OpHeadsStore;
@@ -39,7 +39,7 @@ use thiserror::Error;
 #[error("Failed to initialize simple operation heads store")]
 pub struct SimpleOpHeadsStoreInitError(#[from] pub PathError);
 
-impl From<SimpleOpHeadsStoreInitError> for BackendInitError {
+impl From<SimpleOpHeadsStoreInitError> for CommitStoreInitError {
     fn from(err: SimpleOpHeadsStoreInitError) -> Self {
         Self::new(err)
     }

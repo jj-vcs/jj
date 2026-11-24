@@ -30,14 +30,14 @@ use futures::TryStreamExt as _;
 use futures::executor::block_on_stream;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
-use jj_core::backend::Signature;
-use jj_core::backend::Timestamp;
-use jj_core::backend::TreeId;
 use jj_core::commit::Commit;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::CommitStoreError;
+use jj_core::commit_store::CommitStoreResult;
+use jj_core::commit_store::Signature;
+use jj_core::commit_store::Timestamp;
+use jj_core::commit_store::TreeId;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::index::IndexError;
 use jj_core::merge::Merge;
@@ -99,7 +99,7 @@ pub struct ConvergeResult {
 pub enum ConvergeError {
     /// A backend error occurred.
     #[error(transparent)]
-    Backend(#[from] BackendError),
+    CommitStore(#[from] CommitStoreError),
     /// An index error occurred.
     #[error(transparent)]
     Index(#[from] IndexError),
@@ -729,7 +729,7 @@ async fn rebase_tree_onto_solution_parents(
     parents: &[CommitId],
     parents_merged_tree: &MergedTree,
     repo: &Arc<ReadonlyRepo>,
-) -> BackendResult<MergedTree> {
+) -> CommitStoreResult<MergedTree> {
     if c.parent_ids() == parents {
         return Ok(c.tree());
     }

@@ -17,9 +17,9 @@ use std::io::Write as _;
 
 use futures::StreamExt as _;
 use futures::stream::BoxStream;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::MergedTreeValue;
-use jj_lib::backend::TreeId;
+use jj_lib::commit_store::CommitStoreResult;
+use jj_lib::commit_store::MergedTreeValue;
+use jj_lib::commit_store::TreeId;
 use jj_lib::merge::Merge;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
@@ -56,7 +56,7 @@ pub async fn cmd_debug_tree(
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
-    let mut entries: BoxStream<(RepoPathBuf, BackendResult<MergedTreeValue>)> =
+    let mut entries: BoxStream<(RepoPathBuf, CommitStoreResult<MergedTreeValue>)> =
         if let Some(tree_id_hex) = &args.id {
             let tree_id =
                 TreeId::try_from_hex(tree_id_hex).ok_or_else(|| user_error("Invalid tree id"))?;

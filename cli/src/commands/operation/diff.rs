@@ -24,10 +24,10 @@ use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
 use jj_frontend::revset_util::default_ignored_remote_name;
-use jj_lib::backend::BackendResult;
-use jj_lib::backend::ChangeId;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::commit_store::ChangeId;
+use jj_lib::commit_store::CommitId;
+use jj_lib::commit_store::CommitStoreResult;
 use jj_lib::evolution::accumulate_predecessors;
 use jj_lib::graph::TopoGroupedGraph;
 use jj_lib::matchers::EverythingMatcher;
@@ -827,23 +827,25 @@ async fn compute_operation_commits_diff(
 
     // Load the commits concurrently since there may be many of them.
     let changes: HashMap<CommitId, ModifiedChange> = stream::iter(changed_ids)
-        .map(async |(commit_id, predecessor_ids)| -> BackendResult<_> {
-            let change = if let Some(predecessor_ids) = predecessor_ids {
-                let (commit, predecessors) = futures::try_join!(
-                    store.get_commit_async(&commit_id),
-                    try_join_all(predecessor_ids.iter().map(|id| store.get_commit_async(id))),
-                )?;
-                ModifiedChange::Existing {
-                    commit,
-                    predecessors,
-                }
-            } else {
-                ModifiedChange::Abandoned {
-                    commit: store.get_commit_async(&commit_id).await?,
-                }
-            };
-            Ok((commit_id, change))
-        })
+        .map(
+            async |(commit_id, predecessor_ids)| -> CommitStoreResult<_> {
+                let change = if let Some(predecessor_ids) = predecessor_ids {
+                    let (commit, predecessors) = futures::try_join!(
+                        store.get_commit_async(&commit_id),
+                        try_join_all(predecessor_ids.iter().map(|id| store.get_commit_async(id))),
+                    )?;
+                    ModifiedChange::Existing {
+                        commit,
+                        predecessors,
+                    }
+                } else {
+                    ModifiedChange::Abandoned {
+                        commit: store.get_commit_async(&commit_id).await?,
+                    }
+                };
+                Ok((commit_id, change))
+            },
+        )
         .buffered(store.concurrency())
         .try_collect()
         .await?;

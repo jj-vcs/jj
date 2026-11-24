@@ -17,9 +17,9 @@ use std::collections::HashSet;
 
 use indexmap::IndexSet;
 use indoc::indoc;
-use jj_core::backend::CommitId;
-use jj_core::backend::FileId;
 use jj_core::commit::Commit;
+use jj_core::commit_store::CommitId;
+use jj_core::commit_store::FileId;
 use jj_core::matchers::EverythingMatcher;
 use jj_core::merged_tree::MergedTree;
 use jj_core::repo_path::RepoPath;

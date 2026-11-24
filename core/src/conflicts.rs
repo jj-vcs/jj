@@ -32,16 +32,16 @@ use futures::stream::BoxStream;
 use futures::try_join;
 use itertools::Itertools as _;
 
-use crate::backend::BackendError;
-use crate::backend::BackendResult;
-use crate::backend::CommitId;
-use crate::backend::CopyId;
-use crate::backend::FileId;
-use crate::backend::MergedTreeValue;
-use crate::backend::MergedTreeValueExt as _;
-use crate::backend::SymlinkId;
-use crate::backend::TreeId;
-use crate::backend::TreeValue;
+use crate::commit_store::CommitId;
+use crate::commit_store::CommitStoreError;
+use crate::commit_store::CommitStoreResult;
+use crate::commit_store::CopyId;
+use crate::commit_store::FileId;
+use crate::commit_store::MergedTreeValue;
+use crate::commit_store::MergedTreeValueExt as _;
+use crate::commit_store::SymlinkId;
+use crate::commit_store::TreeId;
+use crate::commit_store::TreeValue;
 use crate::conflict_labels::ConflictLabels;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffEntryPath;
@@ -98,7 +98,7 @@ async fn get_file_contents(
     store: &Store,
     path: &RepoPath,
     term: Option<&FileId>,
-) -> BackendResult<BString> {
+) -> CommitStoreResult<BString> {
     match term {
         Some(id) => {
             let mut reader = store.read_file(path, id).await?;
@@ -106,7 +106,7 @@ async fn get_file_contents(
             reader
                 .read_to_end(&mut content)
                 .await
-                .map_err(|err| BackendError::ReadFile {
+                .map_err(|err| CommitStoreError::ReadFile {
                     path: path.to_owned(),
                     id: id.clone(),
                     source: err.into(),
@@ -123,7 +123,7 @@ pub async fn extract_as_single_hunk(
     merge: &Merge<Option<FileId>>,
     store: &Store,
     path: &RepoPath,
-) -> BackendResult<Merge<BString>> {
+) -> CommitStoreResult<Merge<BString>> {
     merge
         .try_map_async(|term| get_file_contents(store, path, term.as_ref()))
         .await
@@ -169,12 +169,12 @@ pub struct MaterializedFileValue {
 impl MaterializedFileValue {
     /// Reads file content until EOF. The provided `path` is used only for error
     /// reporting purpose.
-    pub async fn read_all(&mut self, path: &RepoPath) -> BackendResult<Vec<u8>> {
+    pub async fn read_all(&mut self, path: &RepoPath) -> CommitStoreResult<Vec<u8>> {
         let mut buf = Vec::new();
         self.reader
             .read_to_end(&mut buf)
             .await
-            .map_err(|err| BackendError::ReadFile {
+            .map_err(|err| CommitStoreError::ReadFile {
                 path: path.to_owned(),
                 id: self.id.clone(),
                 source: err.into(),
@@ -210,9 +210,9 @@ pub async fn materialize_tree_value(
     path: &RepoPath,
     value: MergedTreeValue,
     conflict_labels: &ConflictLabels,
-) -> BackendResult<MaterializedTreeValue> {
+) -> CommitStoreResult<MaterializedTreeValue> {
     match materialize_tree_value_no_access_denied(store, path, value, conflict_labels).await {
-        Err(BackendError::ReadAccessDenied { source, .. }) => {
+        Err(CommitStoreError::ReadAccessDenied { source, .. }) => {
             Ok(MaterializedTreeValue::AccessDenied(source))
         }
         result => result,
@@ -224,7 +224,7 @@ async fn materialize_tree_value_no_access_denied(
     path: &RepoPath,
     value: MergedTreeValue,
     conflict_labels: &ConflictLabels,
-) -> BackendResult<MaterializedTreeValue> {
+) -> CommitStoreResult<MaterializedTreeValue> {
     match value.into_resolved() {
         Ok(None) => Ok(MaterializedTreeValue::Absent),
         Ok(Some(TreeValue::File {
@@ -267,7 +267,7 @@ pub async fn try_materialize_file_conflict_value(
     path: &RepoPath,
     conflict: &MergedTreeValue,
     conflict_labels: &ConflictLabels,
-) -> BackendResult<Option<MaterializedFileConflictValue>> {
+) -> CommitStoreResult<Option<MaterializedFileConflictValue>> {
     let (Some(unsimplified_ids), Some(executable_bits)) =
         (conflict.to_file_id_merge(), conflict.to_executable_merge())
     else {
@@ -790,7 +790,7 @@ fn diff_size(hunks: &[DiffHunk]) -> usize {
 
 pub struct MaterializedTreeDiffEntry {
     pub path: CopiesTreeDiffEntryPath,
-    pub values: BackendResult<Diff<MaterializedTreeValue>>,
+    pub values: CommitStoreResult<Diff<MaterializedTreeValue>>,
 }
 
 pub fn materialized_diff_stream(
@@ -1060,7 +1060,7 @@ pub async fn update_from_content(
     path: &RepoPath,
     content: &[u8],
     conflict_marker_len: usize,
-) -> BackendResult<Merge<Option<FileId>>> {
+) -> CommitStoreResult<Merge<Option<FileId>>> {
     let simplified_file_ids = file_ids.simplify();
 
     let old_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
@@ -1107,7 +1107,7 @@ pub async fn update_from_content(
     // Now write the new files contents we found by parsing the file with conflict
     // markers.
     let new_file_ids: Vec<Option<FileId>> = try_join_all(zip(&contents, &simplified_file_ids).map(
-        async |(content, file_id)| -> BackendResult<Option<FileId>> {
+        async |(content, file_id)| -> CommitStoreResult<Option<FileId>> {
             if file_id.is_some() || !content.is_empty() {
                 let file_id = store.write_file(path, &mut content.as_slice()).await?;
                 Ok(Some(file_id))

@@ -29,10 +29,10 @@ use futures::future::LocalBoxFuture;
 use futures::stream::LocalBoxStream;
 use thiserror::Error;
 
-use crate::backend::BackendError;
-use crate::backend::ChangeId;
-use crate::backend::CommitId;
 use crate::commit::Commit;
+use crate::commit_store::ChangeId;
+use crate::commit_store::CommitId;
+use crate::commit_store::CommitStoreError;
 use crate::fileset_backend::FilesetExpression;
 use crate::graph::GraphNode;
 use crate::store::Store;
@@ -42,9 +42,9 @@ use crate::time_util::DatePattern;
 /// Error occurred during revset evaluation.
 #[derive(Debug, Error)]
 pub enum RevsetEvaluationError {
-    /// Error from the commit backend.
-    #[error("Unexpected error from commit backend")]
-    Backend(#[from] BackendError),
+    /// Error from the commit store.
+    #[error("Unexpected error from commit store")]
+    CommitStore(#[from] CommitStoreError),
     /// Any other error.
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
@@ -52,12 +52,12 @@ pub enum RevsetEvaluationError {
 
 impl RevsetEvaluationError {
     // TODO: Create a higher-level error instead of putting non-BackendErrors in a
-    // BackendError
-    /// Converts this error into a [`BackendError`].
-    pub fn into_backend_error(self) -> BackendError {
+    // CommitStoreError
+    /// Converts this error into a [`CommitStoreError`].
+    pub fn into_commit_store_error(self) -> CommitStoreError {
         match self {
-            Self::Backend(err) => err,
-            Self::Other(err) => BackendError::Other(err),
+            Self::CommitStore(err) => err,
+            Self::Other(err) => CommitStoreError::Other(err),
         }
     }
 }
@@ -339,7 +339,7 @@ impl<S: Stream<Item = Result<CommitId, RevsetEvaluationError>>> RevsetStreamExt 
             let commit = store
                 .get_commit_async(&commit_id)
                 .await
-                .map_err(RevsetEvaluationError::Backend)?;
+                .map_err(RevsetEvaluationError::CommitStore)?;
             Ok(commit)
         })
         .buffered(store.concurrency())

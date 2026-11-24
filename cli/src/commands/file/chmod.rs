@@ -14,7 +14,7 @@
 
 use clap_complete::ArgValueCompleter;
 use futures::StreamExt as _;
-use jj_lib::backend::TreeValue;
+use jj_lib::commit_store::TreeValue;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;

@@ -21,10 +21,10 @@ use jj_lib::workspace::Workspace;
 /// Returns whether the working copy of `workspace` is shared with a Git
 /// repository.
 pub fn is_colocated_git_workspace(workspace: &Workspace) -> Result<bool, GitRepoAtWorkdirError> {
-    let Ok(git_backend) = git::get_git_backend(workspace.repo_loader().store()) else {
+    let Ok(git_commit_store) = git::get_git_commit_store(workspace.repo_loader().store()) else {
         return Ok(false);
     };
-    match git_backend.open_git_repo_at_workdir(workspace.workspace_root()) {
+    match git_commit_store.open_git_repo_at_workdir(workspace.workspace_root()) {
         Ok(_) => Ok(true),
         Err(GitRepoAtWorkdirError::NotFound { .. }) => Ok(false),
         Err(GitRepoAtWorkdirError::Unrelated { .. }) => Ok(false),

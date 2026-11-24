@@ -18,9 +18,9 @@ use std::sync::Arc;
 
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use jj_core::backend::ChangeId;
-use jj_core::backend::CommitId;
 use jj_core::commit::Commit;
+use jj_core::commit_store::ChangeId;
+use jj_core::commit_store::CommitId;
 use jj_core::index::Index;
 use jj_core::index::ResolvedChangeState;
 use jj_core::index::ResolvedChangeTargets;
@@ -53,7 +53,7 @@ use testutils::commit_transactions;
 use testutils::create_tree;
 use testutils::repo_path;
 use testutils::repo_path_buf;
-use testutils::test_backend::TestBackend;
+use testutils::test_backend::TestCommitStore;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
 
@@ -785,8 +785,8 @@ fn test_reindex_missing_commit() -> TestResult {
     let repo = tx.commit("test").block_on()?;
 
     // Remove historical head commit to simulate bad GC.
-    let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
-    test_backend.remove_commit_unchecked(missing_commit.id());
+    let test_commit_store: &TestCommitStore = repo.store().commit_store_impl().unwrap();
+    test_commit_store.remove_commit_unchecked(missing_commit.id());
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path()); // discard cache
     assert!(repo.store().get_commit(missing_commit.id()).is_err());
 
