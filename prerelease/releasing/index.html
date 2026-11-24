@@ -2401,72 +2401,31 @@ release PRs.</p>
 <code>$NEW_VERSION</code> as placeholders. For example, <code>$OLD_VERSION</code> could be <code>0.32.0</code>
 and <code>$NEW_VERSION</code> could be <code>0.33.0</code>.</p>
 <h3 id="update-changelog">Update changelog<a class="headerlink" href="#update-changelog" title="Permanent link">&para;</a></h3>
-<p>At the top, replace the <code>Unreleased</code> header with:</p>
-<div class="highlight"><pre><span></span><code><span class="gu">## [Unreleased]</span>
-
-<span class="gu">### Release highlights</span>
-
-<span class="gu">### Breaking changes</span>
-
-<span class="gu">### Deprecations</span>
-
-<span class="gu">### New features</span>
-
-<span class="gu">### Fixed bugs</span>
-
-<span class="gu">## [$NEW_VERSION] - YYYY-MM-DD</span>
+<p>Start by compiling the changelog notes in <code>changelog/</code> into a new section of
+<code>CHANGELOG.md</code>:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>changelog<span class="w"> </span>release<span class="w"> </span><span class="nv">$NEW_VERSION</span>
 </code></pre></div>
-<p>Feel free to copy-edit the changelog entries in order to:</p>
+<p>This script does the following:</p>
 <ul>
-<li>Populate "Release highlights" if relevant</li>
-<li>Remove empty sections</li>
+<li>Adds a <code>## [$NEW_VERSION] - &lt;date&gt;</code> section above the previous release
+  (the date defaults to today; pass <code>--date YYYY-MM-DD</code> to override it)</li>
+<li>Fills in its "Contributors" section</li>
+<li>Adds the link comparing <code>$OLD_VERSION</code> with <code>$NEW_VERSION</code> at the bottom of
+  <code>CHANGELOG.md</code></li>
+<li>Deletes the notes from the <code>changelog/</code> directory</li>
+</ul>
+<p>To see the section without changing anything, run <code>uv run changelog preview</code>.</p>
+<p>Listing contributors requires the <a href="https://cli.github.com/">GitHub CLI</a>.</p>
+<p>Then copy-edit the new section in order to:</p>
+<ul>
+<li>Add a <code>### Release highlights</code> section if relevant, at the top (below
+  "Security fixes", if any)</li>
+<li>Add GitHub usernames to contributors if any are missing</li>
 <li>Put more important items first so the reader doesn't miss them</li>
 <li>Make items consistent when it comes to language and formatting</li>
-<li>Catch any misplaced changelog items by looking at the CHANGELOG diff</li>
+<li>Catch any miscategorized changelog items, such as a breaking change that was
+  filed as a new feature</li>
 </ul>
-<p>To get the CHANGELOG diff, you can run</p>
-<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(remote_tags())&#39;</span><span class="w">  </span><span class="c1"># Check that this shows $OLD_VERSION</span>
-jj<span class="w"> </span>diff<span class="w"> </span>--from<span class="w"> </span><span class="s1">&#39;heads(remote_tags())&#39;</span><span class="w"> </span>--to<span class="w"> </span>main<span class="w"> </span>CHANGELOG.md
-</code></pre></div>
-<p>Make sure to add a corresponding reference link at the bottom of the
-CHANGELOG for the new version's tag. It should be the GitHub URL comparing
-<code>$OLD_VERSION</code> with <code>$NEW_VERSION</code> (e.g.,
-<code>https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0</code>). Also update the
-<code>[unreleased]</code> link accordingly, comparing <code>$NEW_VERSION</code> against <code>HEAD</code>.</p>
-<p>Producing the list of contributors is a bit annoying. The current suggestion is
-to run something like this:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">root</span><span class="o">=</span><span class="k">$(</span>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(remote_tags(glob:&quot;v*.*.*&quot;) &amp; ::trunk())&#39;</span><span class="w"> </span>-T<span class="w"> </span>commit_id<span class="k">)</span>
-<span class="nv">filter</span><span class="o">=</span><span class="s1">&#39;</span>
-<span class="s1">map(.commits[] | select(.author.login | (. != null and endswith(&quot;[bot]&quot;) | not)))</span>
-<span class="s1">  | unique_by(if .author.login != null then .author.login else .author.email end)</span>
-<span class="s1">  | map(if .author.login != null</span>
-<span class="s1">        then &quot;* \(.commit.author.name) (@\(.author.login))&quot;</span>
-<span class="s1">        else &quot;* \(.commit.author.name)&quot;</span>
-<span class="s1">        end)</span>
-<span class="s1">  | .[]</span>
-<span class="s1">&#39;</span>
-gh<span class="w"> </span>api<span class="w"> </span><span class="s2">&quot;/repos/jj-vcs/jj/compare/</span><span class="nv">$root</span><span class="s2">...main&quot;</span><span class="w"> </span>--paginate<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-sr<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$filter</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-f
-</code></pre></div>
-<p><a href="https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#compare-two-commits">https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#compare-two-commits</a></p>
-<p>Alternatively, the list can be produced locally:</p>
-<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(remote_tags())..trunk()&#39;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>-T<span class="w"> </span><span class="s1">&#39;if(!self.author().name().ends_with(&quot;[bot]&quot;), &quot;* &quot; ++ self.author() ++ &quot;\n&quot;)&#39;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-fu
-</code></pre></div>
-<p>Then try to find the right GitHub username for each person and copy their name
-and username from their GitHub profile (e.g., <a href="https://github.com/martinvonz">https://github.com/martinvonz</a>).</p>
-<p>It might be good to cross-reference both of these outputs just in case.</p>
-<p>Add the list of contributors under the last subsection for this version (usually
-<code>Fixed bugs</code>):</p>
-<div class="highlight"><pre><span></span><code><span class="gu">### Contributors</span>
-
-Thanks to the people who made this release happen!
-
-
-<span class="k">*</span><span class="w"> </span>Name 1 (@github1)
-<span class="k">*</span><span class="w"> </span>Name 2 (@github2)
-<span class="k">*</span><span class="w"> </span>...
-</code></pre></div>
 <h3 id="update-cargo-versions">Update Cargo versions<a class="headerlink" href="#update-cargo-versions" title="Permanent link">&para;</a></h3>
 <p>Search and replace <code>$OLD_VERSION</code> for <code>$NEW_VERSION</code> in <code>Cargo.toml</code>, then run
 <code>cargo check</code> to update <code>Cargo.lock</code> (don't do that one manually). For example:</p>
