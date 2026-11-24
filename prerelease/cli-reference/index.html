@@ -11344,6 +11344,11 @@ their versions of the same files through the same tools, which will ensure
 that the fixes are not lost. This will never result in new conflicts. Files
 with existing conflicts will be updated on all sides of the conflict, which
 can potentially increase or decrease the number of conflict markers.</p>
+<p>Because formatting a single commit in isolation would cause its descendants
+to be rebased via 3-way merge (which frequently produces unnecessary
+conflicts on lines modified in descendant commits), <code>jj fix</code> always operates
+on a revision and all of its descendants (<code>--source</code>/<code>-s</code>) rather than a
+single revision (<code>--revision</code>/<code>-r</code>).</p>
 <h3 id="deduplication">Deduplication<a class="headerlink" href="#deduplication" title="Permanent link">&para;</a></h3>
 <p>When fixing multiple commits, if the same file content appears at the same
 path in different commits, the tool is run only once and the result is
