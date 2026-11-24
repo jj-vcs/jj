@@ -1454,6 +1454,11 @@ their versions of the same files through the same tools, which will ensure
 that the fixes are not lost. This will never result in new conflicts. Files
 with existing conflicts will be updated on all sides of the conflict, which
 can potentially increase or decrease the number of conflict markers.</p>
+<p>Because formatting a single commit in isolation would cause its descendants
+to be rebased via 3-way merge (which frequently produces unnecessary
+conflicts on lines modified in descendant commits), <code dir="auto">jj fix</code> always operates
+on a revision and all of its descendants (<code dir="auto">--source</code>/<code dir="auto">-s</code>) rather than a
+single revision (<code dir="auto">--revision</code>/<code dir="auto">-r</code>).</p>
 <div class="sl-heading-wrapper level-h3"><h3 id="deduplication">Deduplication</h3><a class="sl-anchor-link" href="#deduplication"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Deduplication”</span></a></div>
 <p>When fixing multiple commits, if the same file content appears at the same
 path in different commits, the tool is run only once and the result is
