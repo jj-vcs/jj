@@ -71,10 +71,11 @@ pub struct WorkspaceAddArgs {
     /// A list of parent revisions for the working-copy commit of the newly
     /// created workspace. You may specify nothing, or any number of parents.
     ///
-    /// If no revisions are specified, the new workspace will be created, and
-    /// its working-copy commit will exist on top of the parent(s) of the
-    /// working-copy commit in the current workspace, i.e. they will share the
-    /// same parent(s).
+    /// If no revisions are specified, this defaults to the
+    /// `revsets.workspace-add` setting, or `@-` if it is not set. The revset
+    /// is evaluated in the current workspace, so with the default setting, the
+    /// working-copy commits of the current workspace and the new workspace
+    /// will share the same parent(s).
     ///
     /// If any revisions are specified, the new workspace will be created, and
     /// the new working-copy commit will be created with all these revisions as
@@ -139,28 +140,26 @@ pub async fn cmd_workspace_add(
     }
     // Resolve the parents before creating the workspace so an invalid revset
     // doesn't leave a half-created workspace behind. If no parent revisions are
-    // specified, create a working-copy commit based on the parents of the current
-    // working-copy commit.
-    let parents = if args.revisions.is_empty() {
-        // Check out parents of the current workspace's working-copy commit.
-        if let Some(old_wc_commit) = old_workspace_command.get_wc_commit().await? {
-            old_wc_commit.parents().await?
-        } else {
-            return Err(
-                user_error("No current working-copy commit to copy parents from")
-                    .hinted("Use `--revision` to specify parent revisions."),
-            );
-        }
+    // specified, use `revsets.workspace-add`.
+    let parent_ids = if !args.revisions.is_empty() {
+        old_workspace_command
+            .resolve_some_revsets(ui, &args.revisions)
+            .await?
     } else {
-        try_join_all(
-            old_workspace_command
-                .resolve_some_revsets(ui, &args.revisions)
-                .await?
-                .iter()
-                .map(|id| repo.store().get_commit_async(id)),
-        )
-        .await?
+        let revset = old_workspace_command
+            .settings()
+            .get_string("revsets.workspace-add")?;
+        old_workspace_command
+            .resolve_some_revsets(ui, &[RevisionArg::from(revset)])
+            .await
+            .map_err(|err| err.hinted("Use `--revision` to specify parent revisions."))?
     };
+    let parents = try_join_all(
+        parent_ids
+            .iter()
+            .map(|id| repo.store().get_commit_async(id)),
+    )
+    .await?;
 
     if !destination_path.exists() {
         fs::create_dir(&destination_path).context(&destination_path)?;
