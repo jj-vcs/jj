@@ -379,17 +379,15 @@ impl GitBackend {
         }
 
         // The input path doesn't include ".git".
-        let opts = open_repo.open_options().clone().open_path_as_is(false);
-        let work_repo = gix::ThreadSafeRepository::open_opts(path, opts)
-            .map_err(|source| {
-                if source.is_not_found() {
-                    let path = path.to_owned();
-                    GitRepoAtWorkdirError::NotFound { path, source }
-                } else {
-                    GitRepoAtWorkdirError::Other(source.into())
-                }
-            })?
-            .to_thread_local();
+        let opts = open_repo.open_options().clone_without_trust();
+        let work_repo = opts.open(path).map_err(|source| {
+            if source.is_not_found() {
+                let path = path.to_owned();
+                GitRepoAtWorkdirError::NotFound { path, source }
+            } else {
+                GitRepoAtWorkdirError::Other(source.into())
+            }
+        })?;
         let canonicalize = |path: &Path| {
             file_util::canonicalize(path).map_err(|err| GitRepoAtWorkdirError::Other(err.into()))
         };

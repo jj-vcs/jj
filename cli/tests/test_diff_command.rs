@@ -4105,13 +4105,11 @@ fn test_diff_binary() {
 
     let output = work_dir.run_jj(["diff"]);
     insta::assert_snapshot!(output, @"
-    Added regular file binary_added.png:
+    Modified regular file binary_added.png (binary_removed.png => binary_added.png):
         (binary)
     Modified regular file binary_modified.png:
         (binary)
     Modified regular file binary_modified_to_text.png:
-        (binary)
-    Removed regular file binary_removed.png:
         (binary)
     Added regular file binary_valid_utf8.png:
         (binary)
@@ -4120,20 +4118,17 @@ fn test_diff_binary() {
 
     let output = work_dir.run_jj(["diff", "--git"]);
     insta::assert_snapshot!(output, @"
-    diff --git a/binary_added.png b/binary_added.png
-    new file mode 100644
-    index 0000000000..deacfbc286
-    Binary files /dev/null and b/binary_added.png differ
+    diff --git a/binary_removed.png b/binary_added.png
+    rename from binary_removed.png
+    rename to binary_added.png
+    index 2b65b23c22..deacfbc286 100644
+    Binary files a/binary_removed.png and b/binary_added.png differ
     diff --git a/binary_modified.png b/binary_modified.png
     index 7f036ce788..f666e11aeb 100644
     Binary files a/binary_modified.png and b/binary_modified.png differ
     diff --git a/binary_modified_to_text.png b/binary_modified_to_text.png
     index 7f036ce788..3bd1f0e297 100644
     Binary files a/binary_modified_to_text.png and b/binary_modified_to_text.png differ
-    diff --git a/binary_removed.png b/binary_removed.png
-    deleted file mode 100644
-    index 2b65b23c22..0000000000
-    Binary files a/binary_removed.png and /dev/null differ
     diff --git a/binary_valid_utf8.png b/binary_valid_utf8.png
     new file mode 100644
     index 0000000000..4227ca4e87
@@ -4144,12 +4139,11 @@ fn test_diff_binary() {
     let output = work_dir.run_jj(["diff", "--stat"]);
     // Rightmost display column          ->|
     insta::assert_snapshot!(output, @"
-    binary_added.png    | (binary) +12 bytes
-    binary_modified.png | (binary)
-    ...fied_to_text.png | (binary) -8 bytes
-    binary_removed.png  | (binary) -16 bytes
-    ...y_valid_utf8.png | (binary) +3 bytes
-    5 files changed, 0 insertions(+), 0 deletions(-)
+    ...binary_added.png} | (binary) -4 bytes
+    binary_modified.png  | (binary)
+    ...ified_to_text.png | (binary) -8 bytes
+    ...ry_valid_utf8.png | (binary) +3 bytes
+    4 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
 }
