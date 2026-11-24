@@ -225,6 +225,27 @@ impl GitSubprocessContext {
         Ok(maybe_branch.map(Into::into))
     }
 
+    /// How we retrieve the remote's object format:
+    ///
+    /// `git ls-remote --show-object-format <remote_name>`
+    ///
+    /// prints a line `object-format: <format>` before the refs, also when the
+    /// remote has no refs.
+    ///
+    /// Returns `None` if Git doesn't support `--show-object-format`.
+    pub(crate) fn spawn_ls_remote_object_format(
+        &self,
+        remote_name: &RemoteName,
+    ) -> Result<Option<gix::hash::Kind>, GitSubprocessError> {
+        let mut command = self.create_command();
+        command.stdout(Stdio::piped());
+        command.args(["ls-remote", "--show-object-format"]);
+        command.args(["--", remote_name.as_str()]);
+        let output = wait_with_output(self.spawn_cmd(command)?)?;
+
+        parse_git_ls_remote_object_format_output(output)
+    }
+
     /// Push references to git
     ///
     /// All pushes are forced, using --force-with-lease to perform a test&set
@@ -611,6 +632,46 @@ fn parse_git_remote_show_default_branch(
         .transpose()
         .map_err(|e| GitSubprocessError::External(format!("git remote output is not utf-8: {e:?}")))
         .map(|b| b.map(|x| x.to_string()))
+}
+
+fn parse_git_ls_remote_object_format_output(
+    output: Output,
+) -> Result<Option<gix::hash::Kind>, GitSubprocessError> {
+    if output.status.success() {
+        let name = output
+            .stdout
+            .lines()
+            .find_map(|line| line.strip_prefix(b"object-format: "))
+            .ok_or_else(|| {
+                GitSubprocessError::External("git ls-remote printed no object format".to_owned())
+            })?;
+        return name
+            .to_str()
+            .ok()
+            .and_then(|name| name.parse().ok())
+            .map(Some)
+            .ok_or_else(|| {
+                GitSubprocessError::External(format!(
+                    "git ls-remote printed an unknown object format: {}",
+                    name.to_str_lossy()
+                ))
+            });
+    }
+
+    // There are some git errors we want to parse out
+    if let Some(option) = parse_unknown_option(&output.stderr) {
+        // Older Git versions can't report the object format
+        if option == "show-object-format" {
+            return Ok(None);
+        }
+        return Err(GitSubprocessError::UnsupportedGitOption(option));
+    }
+
+    if let Some(remote) = parse_no_such_remote(&output.stderr) {
+        return Err(GitSubprocessError::NoSuchRepository(remote));
+    }
+
+    Err(external_git_error(&output.stderr))
 }
 
 // git-push porcelain has the following format (per line)
@@ -1033,6 +1094,9 @@ fatal: the remote end hung up unexpectedly
 !\tdeadbeef:refs/heads/bookmark8\t[remote rejected] (hook failure)
 !\tdeadbeef:refs/heads/bookmark9\t[remote rejected]
 Done";
+    const SAMPLE_LS_REMOTE_OBJECT_FORMAT_OUTPUT: &[u8] = b"object-format: sha256
+e2ede8e0f8b9d2a21429f8aede8249534e4c50129648692e9f65abe6eb563617\trefs/heads/main
+";
     const SAMPLE_OK_STDERR: &[u8] = b"";
 
     #[derive(Debug, Default)]
@@ -1429,6 +1493,19 @@ Done";
             None
         );
         assert_eq!(read_progress_line(b"fatal: this is a git error\n"), None);
+    }
+
+    #[test]
+    fn test_parse_git_ls_remote_object_format_output() {
+        let output = Output {
+            status: exit_status_from_code(0),
+            stdout: SAMPLE_LS_REMOTE_OBJECT_FORMAT_OUTPUT.to_vec(),
+            stderr: b"".to_vec(),
+        };
+        assert_matches!(
+            parse_git_ls_remote_object_format_output(output),
+            Ok(Some(gix::hash::Kind::Sha256))
+        );
     }
 
     #[test]

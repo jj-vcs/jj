@@ -144,9 +144,9 @@ pub struct GitCloneArgs {
 
     /// Object hash algorithm for the local Git repository.
     ///
-    /// If not given, the remote's hash algorithm is used. Git can't report the
-    /// hash algorithm of an empty remote yet, so in that case the
-    /// [git.object-hash config] is used, which defaults to SHA-1.
+    /// If not given, the remote's hash algorithm is used. Detecting it for an
+    /// empty remote needs Git 2.98 or newer. With older Git versions, the
+    /// [git.object-hash config] is used in that case, which defaults to SHA-1.
     ///
     /// If given, it must match the remote's hash algorithm, or the clone fails.
     ///
@@ -430,6 +430,13 @@ async fn fetch_new_remote(
         let mut git_fetch = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
         git_fetch.fetch(remote_name, ref_expr, &mut GitSubprocessUi::new(ui), depth)?;
         let import_stats = git_fetch.import_refs().await?;
+        // Fetching from a remote of another object format only fails if there
+        // is something to fetch, e.g. not if the remote is empty.
+        if import_stats.changed_remote_bookmarks.is_empty()
+            && import_stats.changed_remote_tags.is_empty()
+        {
+            git_fetch.check_object_format(remote_name)?;
+        }
 
         let default_branch = git_fetch.get_default_branch(remote_name)?;
         (default_branch, import_stats)

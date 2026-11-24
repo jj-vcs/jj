@@ -3572,6 +3572,25 @@ impl<'a> GitFetch<'a> {
         Ok(default_branch)
     }
 
+    /// Queries remote for its object format, and fails with an object format
+    /// mismatch if it differs from the local repository's.
+    ///
+    /// Fetching objects already fails on a mismatch, so this is only needed
+    /// when a fetch transferred nothing, e.g. from an empty remote. Does
+    /// nothing if Git is too old to report the remote's object format.
+    #[tracing::instrument(skip(self))]
+    pub fn check_object_format(&self, remote_name: &RemoteName) -> Result<(), GitFetchError> {
+        if try_find_active_remote_inner(&self.git_repo, remote_name).is_none() {
+            return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
+        }
+        let object_hash = self.git_ctx.spawn_ls_remote_object_format(remote_name)?;
+        tracing::debug!(?object_hash);
+        if object_hash.is_some_and(|kind| kind != self.git_repo.object_hash()) {
+            return Err(GitSubprocessError::ObjectFormatMismatch.into());
+        }
+        Ok(())
+    }
+
     /// Import the previously fetched remote-tracking branches and tags into the
     /// jj repo and update jj's local bookmarks and tags.
     ///

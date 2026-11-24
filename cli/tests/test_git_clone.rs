@@ -1108,6 +1108,58 @@ fn test_git_clone_object_format() {
 }
 
 #[test]
+fn test_git_clone_object_format_empty_remote() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    let source_path = test_env.env_root().join("source");
+    gix::ThreadSafeRepository::init_opts(
+        &source_path,
+        gix::create::Kind::Bare,
+        gix::create::Options {
+            object_hash: Some(gix::hash::Kind::Sha256),
+            ..Default::default()
+        },
+        gix::open::Options::isolated(),
+    )
+    .unwrap();
+    let output = std::process::Command::new("git")
+        .args(["ls-remote", "--show-object-format"])
+        .arg(&source_path)
+        .output()
+        .unwrap();
+    if !output.status.success() {
+        eprintln!("Skipping test because git doesn't support `ls-remote --show-object-format`");
+        return;
+    }
+
+    // The format of an empty remote is detected too
+    let output = root_dir.run_jj(["git", "clone", "--colocate", "source", "clone"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    Remote repository uses the sha256 object format. Retrying with it.
+    Fetching into new repo in "$TEST_ENV/clone"
+    Nothing changed.
+    [EOF]
+    "#);
+    let clone_repo = git::open(test_env.env_root().join("clone"));
+    assert_eq!(clone_repo.object_hash(), gix::hash::Kind::Sha256);
+
+    // An explicit --object-hash must match the remote's
+    let output = root_dir.run_jj(["git", "clone", "--object-hash=sha1", "source", "failed"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/failed"
+    Error: The remote repository uses a different object format
+    Hint: jj cannot convert between object formats. To use this remote, clone it into a new repository with `jj git clone`.
+    Hint: Remove `--object-hash` to clone with the remote's object format.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(!test_env.env_root().join("failed").exists());
+}
+
+#[test]
 fn test_git_clone_invalid_immutable_heads() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
