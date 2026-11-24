@@ -22,30 +22,30 @@ use std::io::ErrorKind;
 use std::path::Path;
 use std::sync::Arc;
 
+use jj_core::backend::Backend;
+use jj_core::backend::BackendInitError;
+use jj_core::backend::BackendLoadError;
+use jj_core::index_store::IndexStore;
+use jj_core::op_heads_store::OpHeadsStore;
+use jj_core::op_heads_store::OpHeadsStoreError;
+use jj_core::op_store::OpStore;
+use jj_core::op_store::OperationId;
+use jj_core::op_store::RootOperationData;
+use jj_core::signing::Signer;
+use jj_core::store::Store;
+use jj_core::workspace_store::WorkspaceStore;
+use jj_local_util::file_util;
+use jj_local_util::file_util::IoResultExt as _;
+use jj_local_util::file_util::PathError;
 use thiserror::Error;
 
-use crate::backend::Backend;
-use crate::backend::BackendInitError;
-use crate::backend::BackendLoadError;
-use crate::file_util;
-use crate::file_util::IoResultExt as _;
-use crate::file_util::PathError;
-use crate::index_store::IndexStore;
-use crate::op_heads_store::OpHeadsStore;
-use crate::op_heads_store::OpHeadsStoreError;
-use crate::op_store::OpStore;
-use crate::op_store::OperationId;
-use crate::op_store::RootOperationData;
 use crate::repo::ReadonlyRepo;
 use crate::repo::RepoLoader;
 use crate::settings::UserSettings;
-use crate::signing::Signer;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::simple_workspace_store::SimpleWorkspaceStore;
-use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
-use crate::workspace_store::WorkspaceStore;
 
 /// Sets up a new `Backend` store for the given `UserSettings` and `path`.
 pub type BackendInitializer<'a> =

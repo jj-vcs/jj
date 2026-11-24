@@ -47,6 +47,7 @@ use jj_core::diff::ContentDiff;
 use jj_core::diff::DiffHunkKind;
 use jj_core::files::FileMergeHunkLevel;
 use jj_core::files::MergeOptions;
+use jj_core::fileset_backend::FilesetExpression;
 use jj_core::graph::GraphEdge;
 use jj_core::graph::GraphNode;
 use jj_core::merge::SameChange;
@@ -57,7 +58,6 @@ use jj_core::revset_backend::RevsetEvaluationError;
 use jj_core::revset_backend::RevsetFilterPredicate;
 use jj_core::store::Store;
 
-use crate::fileset::FilesetExpression;
 use crate::repo::Repo;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetExpression;
@@ -654,10 +654,11 @@ async fn get_file_contents(
 mod tests {
     use std::path::Path;
 
+    use jj_core::backend::make_root_commit;
+    use jj_core::signing::Signer;
+    use jj_simple_stores::simple_backend::SimpleBackend;
+
     use super::*;
-    use crate::backend::make_root_commit;
-    use crate::signing::Signer;
-    use crate::simple_backend::SimpleBackend;
     use crate::tests::new_temp_dir;
 
     fn new_store(store_path: &Path) -> Arc<Store> {
