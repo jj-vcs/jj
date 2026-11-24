@@ -47,6 +47,24 @@ fn test_workspaces_invalid_name() {
     ");
 }
 
+#[test]
+fn test_workspaces_invalid_revision() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    test_env.add_config(r"revsets.workspace-add = 'non-existent'");
+    let main_dir = test_env.work_dir("main");
+
+    let output = main_dir.run_jj(["workspace", "add", "../secondary"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Revision `non-existent` doesn't exist
+    Hint: Use `--revision` to specify parent revisions.
+    [EOF]
+    [exit status: 1]
+    ");
+    assert!(!test_env.env_root().join("secondary").exists());
+}
+
 /// Test adding a second and a third workspace
 #[test]
 fn test_workspaces_add_second_and_third_workspace() {
@@ -1538,7 +1556,7 @@ fn test_workspaces_forget() {
     let output = main_dir.run_jj(["workspace", "add", "."]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: No current working-copy commit to copy parents from
+    Error: Workspace `default` doesn't have a working-copy commit
     Hint: Use `--revision` to specify parent revisions.
     [EOF]
     [exit status: 1]
