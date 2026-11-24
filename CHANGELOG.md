@@ -62,6 +62,10 @@ and this project adheres to
   middle of JSON output. Users should set the config option to `false` to avoid
   receiving invalid JSON objects on small terminals.
 
+* `jj squash` now accepts a `--restore-descendants` flag, matching `jj abandon`,
+  `jj diffedit`, and `jj restore`. When used, descendants of the destination
+  commit keep their original content rather than being 3-way merged.
+
 ### Fixed bugs
 
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
