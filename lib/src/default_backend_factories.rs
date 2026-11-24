@@ -18,9 +18,9 @@
 use jj_default_index::DefaultIndexStore;
 #[cfg(feature = "testing")]
 use jj_git_backend::secret_backend::SecretBackend;
-use jj_simple_stores::simple_backend::SimpleBackend;
-use jj_simple_stores::simple_op_heads_store::SimpleOpHeadsStore;
-use jj_simple_stores::simple_op_store::SimpleOpStore;
+use jj_simple_backend::simple_backend::SimpleBackend;
+use jj_simple_backend::simple_op_heads_store::SimpleOpHeadsStore;
+use jj_simple_backend::simple_op_store::SimpleOpStore;
 
 use crate::default_submodule_store::DefaultSubmoduleStore;
 use crate::local_working_copy::LocalWorkingCopy;

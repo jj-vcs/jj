@@ -43,7 +43,7 @@ jj-default-index = { workspace = true }
 jj-dsl = { workspace = true }
 jj-git-backend = { workspace = true, optional = true }
 jj-local-util = { workspace = true }
-jj-simple-stores = { workspace = true }
+jj-simple-backend = { workspace = true }
 maplit = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }
@@ -81,7 +81,7 @@ nix = { workspace = true, features = [ "fs" ] }
 
 [features]
 default = ["git"]
-git = ["dep:gix", "jj-simple-stores/git", "dep:jj-git-backend"]
+git = ["dep:gix", "jj-simple-backend/git", "dep:jj-git-backend"]
 watchman = ["dep:watchman_client", "dep:tokio"]
 testing = ["git", "jj-default-index/testing", "jj-git-backend/testing"]
 

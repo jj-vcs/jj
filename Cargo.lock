@@ -2896,7 +2896,7 @@ dependencies = [
  "jj-dsl",
  "jj-git-backend",
  "jj-local-util",
- "jj-simple-stores",
+ "jj-simple-backend",
  "maplit",
  "memchr",
  "nix 0.32.0",
@@ -2947,7 +2947,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "jj-simple-stores"
+name = "jj-simple-backend"
 version = "0.47.1"
 dependencies = [
  "async-trait",
@@ -4834,7 +4834,7 @@ dependencies = [
  "jj-core",
  "jj-git-backend",
  "jj-lib",
- "jj-simple-stores",
+ "jj-simple-backend",
  "pollster",
  "rand 0.10.4",
  "tempfile",
