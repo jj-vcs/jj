@@ -24,6 +24,8 @@ use jj_core::backend::CommitId;
 use jj_core::index::Index;
 use jj_core::object_id::ObjectId as _;
 use jj_core::op_store::OperationId;
+use jj_core::op_walk::walk_ancestors;
+use jj_core::op_walk::walk_ancestors_range;
 use jj_core::operation::Operation;
 use jj_core::ref_name::WorkspaceName;
 use jj_lib::config::ConfigLayer;
@@ -883,14 +885,11 @@ fn test_walk_ancestors() -> TestResult {
     }
 
     fn collect_ancestors(head_ops: &[Operation]) -> Vec<Operation> {
-        op_walk::walk_ancestors(head_ops)
-            .try_collect()
-            .block_on()
-            .unwrap()
+        walk_ancestors(head_ops).try_collect().block_on().unwrap()
     }
 
     fn collect_ancestors_range(head_ops: &[Operation], root_ops: &[Operation]) -> Vec<Operation> {
-        op_walk::walk_ancestors_range(head_ops, root_ops)
+        walk_ancestors_range(head_ops, root_ops)
             .try_collect()
             .block_on()
             .unwrap()

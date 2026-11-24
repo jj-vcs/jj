@@ -21,12 +21,12 @@ use hegel::TestCase;
 use hegel::generators;
 use hegel::generators::Generator as _;
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
-use jj_lib::merged_tree::MergedTree;
+use jj_core::backend::CommitId;
+use jj_core::merged_tree::MergedTree;
+use jj_core::repo_path::RepoPath;
+use jj_core::repo_path::RepoPathBuf;
+use jj_core::repo_path::RepoPathComponent;
 use jj_lib::repo::ReadonlyRepo;
-use jj_lib::repo_path::RepoPath;
-use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::repo_path::RepoPathComponent;
 
 use crate::create_tree_with;
 
