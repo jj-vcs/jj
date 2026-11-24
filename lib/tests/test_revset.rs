@@ -28,6 +28,7 @@ use jj_core::backend::MillisSinceEpoch;
 use jj_core::backend::Signature;
 use jj_core::backend::Timestamp;
 use jj_core::commit::Commit;
+use jj_core::fileset_backend::FilesetExpression;
 use jj_core::graph::GraphEdge;
 use jj_core::graph::reverse_graph;
 use jj_core::merge::Merge;
@@ -36,29 +37,28 @@ use jj_core::object_id::ObjectId as _;
 use jj_core::op_store::RefTarget;
 use jj_core::op_store::RemoteRef;
 use jj_core::op_store::RemoteRefState;
+use jj_core::ref_name::REMOTE_NAME_FOR_LOCAL_GIT_REPO;
 use jj_core::ref_name::RefName;
 use jj_core::ref_name::RemoteName;
 use jj_core::ref_name::RemoteRefSymbol;
 use jj_core::ref_name::WorkspaceName;
 use jj_core::ref_name::WorkspaceNameBuf;
 use jj_core::repo_path::RepoPath;
+use jj_core::revset_backend::Revset;
+use jj_core::revset_backend::RevsetEvaluationError;
+use jj_core::revset_backend::RevsetFilterPredicate;
 use jj_core::signing::Signer;
 use jj_core::time_util;
 use jj_default_index::DefaultIndexStore;
+use jj_dsl::revset_parser::RevsetAliasesMap;
+use jj_dsl::revset_parser::RevsetDiagnostics;
 use jj_lib::fileset::FilesetAliasesMap;
-use jj_lib::fileset::FilesetExpression;
-use jj_lib::git;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::revset::ResolvedRevset;
-use jj_lib::revset::Revset;
-use jj_lib::revset::RevsetAliasesMap;
-use jj_lib::revset::RevsetDiagnostics;
-use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
-use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::RevsetWorkspaceContext;
@@ -107,7 +107,7 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
         local_variables: HashMap::new(),
         user_email: "",
         current_time: Zoned::now(),
-        default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        default_ignored_remote: Some(REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
         workspace: None,
@@ -238,7 +238,7 @@ fn test_resolve_symbol_commit_id() -> TestResult {
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
         current_time: jiff::Timestamp::now().to_zoned(tz::TimeZone::UTC),
-        default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        default_ignored_remote: Some(REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
         workspace: None,
@@ -713,7 +713,7 @@ fn test_resolve_symbol_bookmarks_only() -> TestResult {
         new_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref()).clone()),
     );
     mut_repo.set_remote_bookmark(
-        remote_symbol("local-remote", git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        remote_symbol("local-remote", REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         tracked_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref()).clone()),
     );
 
@@ -1067,7 +1067,7 @@ fn try_resolve_expression<'a>(
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
         current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned(tz::TimeZone::UTC),
-        default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        default_ignored_remote: Some(REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
         workspace: None,
@@ -1117,7 +1117,7 @@ fn resolve_commit_ids_in_workspace(
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
         current_time: jiff::Timestamp::now().to_zoned(tz::TimeZone::UTC),
-        default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        default_ignored_remote: Some(REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
         workspace: Some(workspace_ctx),
@@ -2622,7 +2622,7 @@ fn test_evaluate_expression_remote_bookmarks() {
     );
     // Git-tracking bookmarks aren't included by default
     mut_repo.set_remote_bookmark(
-        remote_symbol("bookmark", git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        remote_symbol("bookmark", REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         normal_tracked_remote_ref(commit_git_remote.id()),
     );
     // Can get a few bookmarks
@@ -2891,7 +2891,7 @@ fn test_evaluate_expression_remote_tags() {
     );
     // Git-tracking tags aren't included by default
     mut_repo.set_remote_tag(
-        remote_symbol("tag", git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        remote_symbol("tag", REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         normal_tracked_remote_ref(commit_git_remote.id()),
     );
     // Can get a few tags
