@@ -1382,6 +1382,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#graph-colors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph colors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#node-style" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4010,6 +4021,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#graph-colors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph colors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#node-style" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5670,6 +5692,28 @@ your config:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[ui]</span>
 <span class="c1"># Possible values: &quot;curved&quot; (default), &quot;square&quot;, &quot;ascii&quot;, &quot;ascii-large&quot;</span>
 <span class="n">graph</span><span class="p">.</span><span class="n">style</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;square&quot;</span>
+</code></pre></div>
+<h4 id="graph-colors">Graph colors<a class="headerlink" href="#graph-colors" title="Permanent link">&para;</a></h4>
+<p>Each line of the graph can have its own color, so that you can follow a line
+from a fork to a merge. A line keeps its color when it moves to another column.
+Lines use the labels <code>graph line0</code> to <code>graph line11</code>, and a graph with more
+lines wraps around to <code>graph line0</code> again. Node symbols also receive the <code>graph</code>
+and line labels. The line labels have no color by default. You can customize
+the line colors in the <a href="#custom-colors-and-styles"><code>[colors]</code> table</a>.
+For example, these are the default colors of <code>git log --graph</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[colors]</span>
+<span class="s2">&quot;graph line0&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;red&quot;</span>
+<span class="s2">&quot;graph line1&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;green&quot;</span>
+<span class="s2">&quot;graph line2&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;yellow&quot;</span>
+<span class="s2">&quot;graph line3&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blue&quot;</span>
+<span class="s2">&quot;graph line4&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;magenta&quot;</span>
+<span class="s2">&quot;graph line5&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;cyan&quot;</span>
+<span class="s2">&quot;graph line6&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fg</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;red&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">bold</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="s2">&quot;graph line7&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fg</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;green&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">bold</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="s2">&quot;graph line8&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fg</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;yellow&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">bold</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="s2">&quot;graph line9&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fg</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;blue&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">bold</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="s2">&quot;graph line10&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fg</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;magenta&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">bold</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="s2">&quot;graph line11&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fg</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;cyan&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">bold</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <h4 id="node-style">Node style<a class="headerlink" href="#node-style" title="Permanent link">&para;</a></h4>
 <p>The symbols used to represent commits or operations can be customized via

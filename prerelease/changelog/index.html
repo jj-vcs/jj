@@ -9587,6 +9587,13 @@ and this project adheres to
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p>The graph lines in <code>jj log</code>, <code>jj evolog</code>, <code>jj op log</code>, <code>jj op show</code>, and
+  <code>jj op diff</code> can now be colored. Each line uses one of the labels
+  <code>graph line0</code> to <code>graph line11</code>, and keeps its label when it moves to another
+  column. The labels have no color by default. Set them in the <code>[colors]</code> table
+  to turn the colors on. Node symbols also receive the <code>graph</code> and line labels.</p>
+</li>
+<li>
 <p>New <code>with(values..., |names...| body)</code> templating function which allows you to
   assign expressions to name bindings in a lambda. Expressions are re-evaluated
   for each use, so this is effectively the same as defining temporary template
