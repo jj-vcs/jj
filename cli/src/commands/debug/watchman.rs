@@ -89,7 +89,9 @@ pub async fn cmd_debug_watchman(
                 }
             };
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
-            wc.query_watchman(&config).await?;
+            wc.query_watchman(&config)
+                .await
+                .map_err(annotate_watchman_query_error)?;
             writeln!(
                 ui.stdout(),
                 "The watchman server seems to be installed and working correctly."
@@ -106,12 +108,18 @@ pub async fn cmd_debug_watchman(
         }
         DebugWatchmanCommand::QueryClock => {
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
-            let (clock, _changed_files) = wc.query_watchman(&watchman_config).await?;
+            let (clock, _changed_files) = wc
+                .query_watchman(&watchman_config)
+                .await
+                .map_err(annotate_watchman_query_error)?;
             writeln!(ui.stdout(), "Clock: {clock:?}")?;
         }
         DebugWatchmanCommand::QueryChangedFiles => {
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
-            let (_clock, changed_files) = wc.query_watchman(&watchman_config).await?;
+            let (_clock, changed_files) = wc
+                .query_watchman(&watchman_config)
+                .await
+                .map_err(annotate_watchman_query_error)?;
             writeln!(ui.stdout(), "Changed files: {changed_files:?}")?;
         }
         DebugWatchmanCommand::ResetClock => {
@@ -146,4 +154,103 @@ pub async fn cmd_debug_watchman(
 fn check_local_disk_wc(x: &dyn WorkingCopy) -> Result<&LocalWorkingCopy, CommandError> {
     x.downcast_ref()
         .ok_or_else(|| user_error("This command requires a standard local-disk working copy"))
+}
+
+/// Returns `true` if `err` (or any error in its source chain) looks like the
+/// macOS Homebrew Watchman failure where `~/Library/LaunchAgents` is owned by
+/// root, which prevents Watchman from writing its `*.plist` state file.
+/// See <https://github.com/jj-vcs/jj/issues/4064>.
+///
+/// This is best-effort. The telltale text ("LaunchAgents" + "Permission
+/// denied") comes from the Watchman CLI's stderr, which reaches us only via the
+/// `Display` of `watchman_client::Error`'s connection-discovery variant (the
+/// `#[source]` of `jj_lib::fsmonitor::watchman::Error::WatchmanConnectError`).
+/// A future `watchman_client` change to that wording would silently disable the
+/// hint; it would not break anything.
+#[cfg(feature = "watchman")]
+fn is_launchagents_permission_error(err: &(dyn std::error::Error + 'static)) -> bool {
+    let mut source = Some(err);
+    while let Some(err) = source {
+        let message = err.to_string();
+        if message.contains("LaunchAgents") && message.contains("Permission denied") {
+            return true;
+        }
+        source = err.source();
+    }
+    false
+}
+
+/// Converts a `query_watchman` failure into a [`CommandError`], attaching a
+/// macOS remediation hint when the failure looks like the
+/// `~/Library/LaunchAgents` ownership problem described in
+/// <https://github.com/jj-vcs/jj/issues/4064>.
+#[cfg(feature = "watchman")]
+fn annotate_watchman_query_error(err: jj_lib::working_copy::WorkingCopyStateError) -> CommandError {
+    let show_hint = cfg!(target_os = "macos") && is_launchagents_permission_error(&err);
+    let mut cmd_err = CommandError::from(err);
+    if show_hint {
+        cmd_err.add_hint(
+            "On macOS, `watchman` may be unable to write to `~/Library/LaunchAgents` if that \
+             directory is owned by root. If so, run `sudo chown $USER ~/Library/LaunchAgents` \
+             and re-run. See https://github.com/facebook/watchman/issues/326.",
+        );
+    }
+    cmd_err
+}
+
+#[cfg(all(test, feature = "watchman"))]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct ChainError {
+        message: &'static str,
+        source: Option<Box<Self>>,
+    }
+
+    impl std::fmt::Display for ChainError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.message)
+        }
+    }
+
+    impl std::error::Error for ChainError {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            self.source
+                .as_deref()
+                .map(|err| err as &(dyn std::error::Error + 'static))
+        }
+    }
+
+    #[test]
+    fn detects_launchagents_permission_error_in_source_chain() {
+        let err = ChainError {
+            message: "Failed to query watchman",
+            source: Some(Box::new(ChainError {
+                message: "Failed to open \
+                          /Users/me/Library/LaunchAgents/com.github.facebook.watchman.plist for \
+                          write: Permission denied",
+                source: None,
+            })),
+        };
+        assert!(is_launchagents_permission_error(&err));
+    }
+
+    #[test]
+    fn ignores_unrelated_watchman_error() {
+        let err = ChainError {
+            message: "Could not connect to Watchman",
+            source: None,
+        };
+        assert!(!is_launchagents_permission_error(&err));
+    }
+
+    #[test]
+    fn requires_both_launchagents_and_permission_denied() {
+        let err = ChainError {
+            message: "Failed to open /Users/me/Library/LaunchAgents/foo.plist for write",
+            source: None,
+        };
+        assert!(!is_launchagents_permission_error(&err));
+    }
 }
