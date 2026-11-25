@@ -214,6 +214,7 @@ impl Write for UiStderr<'_> {
 
 pub struct Ui {
     quiet: bool,
+    interactive: bool,
     pager: PagerConfig,
     progress_indicator: bool,
     formatter_factory: FormatterFactory,
@@ -344,6 +345,7 @@ impl Ui {
     pub fn null() -> Self {
         Self {
             quiet: true,
+            interactive: false,
             pager: PagerConfig::Disabled,
             progress_indicator: false,
             formatter_factory: FormatterFactory::plain_text(),
@@ -355,6 +357,7 @@ impl Ui {
         let formatter_factory = prepare_formatter_factory(config, &io::stdout())?;
         Ok(Self {
             quiet: config.get("ui.quiet")?,
+            interactive: config.get("ui.interactive")?,
             formatter_factory,
             pager: PagerConfig::from_config(config)?,
             progress_indicator: config.get("ui.progress-indicator")?,
@@ -364,6 +367,7 @@ impl Ui {
 
     pub fn reset(&mut self, config: &StackedConfig) -> Result<(), CommandError> {
         self.quiet = config.get("ui.quiet")?;
+        self.interactive = config.get("ui.interactive")?;
         self.pager = PagerConfig::from_config(config)?;
         self.progress_indicator = config.get("ui.progress-indicator")?;
         self.formatter_factory = prepare_formatter_factory(config, &io::stdout())?;
@@ -560,14 +564,31 @@ impl Ui {
         old_output.finalize(self);
     }
 
+    /// Returns whether interactive prompts are enabled in configuration.
+    pub fn interactive(&self) -> bool {
+        self.interactive
+    }
+
+    /// Overrides whether interactive prompts are enabled.
+    pub fn set_interactive(&mut self, interactive: bool) {
+        self.interactive = interactive;
+    }
+
     pub fn can_prompt(&self) -> bool {
-        matches!(&self.output, UiOutput::Terminal { stderr, .. } if stderr.is_terminal())
-            || env::var("JJ_INTERACTIVE")
-                .map(|v| v == "1")
-                .unwrap_or(false)
+        self.interactive
+            && (matches!(&self.output, UiOutput::Terminal { stderr, .. } if stderr.is_terminal())
+                || env::var("JJ_INTERACTIVE")
+                    .map(|v| v == "1")
+                    .unwrap_or(false))
     }
 
     pub fn prompt(&self, prompt: &str) -> io::Result<String> {
+        if !self.interactive {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "Cannot prompt for input since interactive prompts are disabled",
+            ));
+        }
         if !self.can_prompt() {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
@@ -680,6 +701,12 @@ impl Ui {
     }
 
     pub fn prompt_password(&self, prompt: &str) -> io::Result<String> {
+        if !self.interactive {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "Cannot prompt for input since interactive prompts are disabled",
+            ));
+        }
         if !io::stdout().is_terminal() {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
@@ -776,5 +803,53 @@ fn term_width() -> Option<u16> {
         Some(cols)
     } else {
         crossterm::terminal::size().ok().map(|(cols, _)| cols)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+
+    use jj_lib::config::ConfigLayer;
+    use jj_lib::config::ConfigSource;
+    use jj_lib::config::StackedConfig;
+
+    use super::Ui;
+    use crate::config::default_config_layers;
+
+    fn test_config(toml: &str) -> StackedConfig {
+        let mut config = StackedConfig::with_defaults();
+        config.extend_layers(default_config_layers());
+        if !toml.is_empty() {
+            config.add_layer(ConfigLayer::parse(ConfigSource::CommandArg, toml).unwrap());
+        }
+        config
+    }
+
+    #[test]
+    fn test_ui_interactive_default_and_disabled() {
+        let ui = Ui::with_config(&test_config("")).unwrap();
+        assert!(ui.interactive());
+
+        let mut ui = Ui::with_config(&test_config("ui.interactive = false")).unwrap();
+        assert!(!ui.interactive());
+        assert!(!ui.can_prompt());
+
+        let err = ui.prompt("Continue").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::Unsupported);
+        assert_eq!(
+            err.to_string(),
+            "Cannot prompt for input since interactive prompts are disabled"
+        );
+
+        let err = ui.prompt_password("Password").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::Unsupported);
+        assert_eq!(
+            err.to_string(),
+            "Cannot prompt for input since interactive prompts are disabled"
+        );
+
+        ui.set_interactive(true);
+        assert!(ui.interactive());
     }
 }
