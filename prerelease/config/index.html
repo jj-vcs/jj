@@ -2063,6 +2063,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#ask-for-confirmation-on-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ask for confirmation on push
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#set-of-private-commits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4702,6 +4713,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#ask-for-confirmation-on-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ask for confirmation on push
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#set-of-private-commits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6754,6 +6776,15 @@ default. You can pick a different prefix and formatting by setting the
 </code></pre></div>
 <p>This template should include expressions like <code>change_id</code> to generate unique and
 stable bookmark.</p>
+<h3 id="ask-for-confirmation-on-push">Ask for confirmation on push<a class="headerlink" href="#ask-for-confirmation-on-push" title="Permanent link">&para;</a></h3>
+<p>The command <code>jj git push</code> can be configured to ask for confirmation before
+applying any changes to a remote using the setting <code>git.confirm-before-push</code>.
+Possible values are <code>always</code>, <code>never</code> and <code>on-multiple</code> (default: <code>never</code>);
+a value of <code>on-multiple</code> will prompt the user only when multiple bookmarks
+or tags are about to be updated in a single push. For example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[git]</span>
+<span class="n">confirm-before-push</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;on-multiple&#39;</span>
+</code></pre></div>
 <h3 id="set-of-private-commits">Set of private commits<a class="headerlink" href="#set-of-private-commits" title="Permanent link">&para;</a></h3>
 <p>You can configure the set of private commits by setting <code>git.private-commits</code> to
 a revset. The value is a revset of commits that Jujutsu will refuse to push. If
