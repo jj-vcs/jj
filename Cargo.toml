@@ -63,7 +63,7 @@ erased-serde = "0.4.10"
 etcetera = "0.11.0"
 eyre = "0.6"
 futures = "0.3.32"
-gix = { version = "0.90.0", default-features = false, features = [
+gix = { version = "0.91.0", default-features = false, features = [
     "attributes",
     "auto-chain-error",
     "blob-diff",
@@ -72,7 +72,7 @@ gix = { version = "0.90.0", default-features = false, features = [
     "sha1",
     "sha256",
 ] }
-gix-ignore = { version = "0.24.0" }
+gix-ignore = { version = "0.25.0" }
 globset = "0.4.18"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
 hegeltest = "0.53.1"

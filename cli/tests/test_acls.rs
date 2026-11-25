@@ -24,14 +24,15 @@ fn test_diff() {
 
     work_dir.create_dir("dir");
     work_dir.write_file("a-first", "foo\n");
-    work_dir.write_file("deleted-secret", "foo\n");
+    work_dir.write_file("deleted-secret", "deleted\n");
     work_dir.write_file("dir/secret", "foo\n");
     work_dir.write_file("modified-secret", "foo\n");
     work_dir.write_file("z-last", "foo\n");
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("a-first", "bar\n");
     work_dir.remove_file("deleted-secret");
-    work_dir.write_file("added-secret", "bar\n");
+    // Copy from a-first's original contents, which are used for copy detection.
+    work_dir.write_file("added-secret", "foo\nbar\n");
     work_dir.write_file("dir/secret", "bar\n");
     work_dir.write_file("modified-secret", "bar\n");
     work_dir.write_file("z-last", "bar\n");

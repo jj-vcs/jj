@@ -107,6 +107,32 @@ fn test_git_colocated() -> TestResult {
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+fn test_git_colocated_shared_index_permissions() -> TestResult {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::init(work_dir.root());
+    let config_path = git_repo.path().join("config");
+    let mut config = git_repo.config_file_mut(config_path)?;
+    // Nix sandboxes reject setgid on directories. Keep group bits clear so
+    // object writes can succeed while we check the index's explicit mode.
+    config.set_raw_value("core.sharedRepository", "0604")?;
+    config.commit()?;
+
+    work_dir
+        .run_jj(["git", "init", "--git-repo", "."])
+        .success();
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["status"]).success();
+
+    let mode = git_repo.index_path().metadata()?.permissions().mode();
+    assert_eq!(mode & 0o777, 0o604);
+    Ok(())
+}
+
 #[test]
 fn test_git_colocated_intent_to_add() -> TestResult {
     let test_env = TestEnvironment::default();

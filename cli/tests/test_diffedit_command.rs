@@ -196,7 +196,7 @@ fn test_diffedit() -> TestResult {
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @"
-    C {file3 => file1}
+    A file1
     M file3
     [EOF]
     ");
@@ -710,7 +710,7 @@ fn test_diffedit_merge() -> TestResult {
     let output = work_dir.run_jj(["diff", "-r", "@-", "-s"]);
     insta::assert_snapshot!(output, @"
     M file1
-    C {file1 => file3}
+    A file3
     [EOF]
     ");
 
@@ -779,7 +779,7 @@ fn test_diffedit_old_restore_interactive_tests() -> TestResult {
     insta::assert_snapshot!(output, @"
     D file1
     M file2
-    C {file2 => file3}
+    A file3
     [EOF]
     ");
 
@@ -797,7 +797,7 @@ fn test_diffedit_old_restore_interactive_tests() -> TestResult {
     insta::assert_snapshot!(output, @"
     D file1
     M file2
-    C {file2 => file3}
+    A file3
     [EOF]
     ");
 
