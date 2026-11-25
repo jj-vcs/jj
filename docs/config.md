@@ -658,6 +658,52 @@ edit = true
 You can pass the `--no-edit` flag to `prev` and `next` if you find yourself
 needing the original behavior.
 
+## Default revisions
+
+Commands that operate on a set of revisions fall back to a default revset
+when no revisions are given on the command line. The defaults for commands
+without a dedicated section in this document are configured by the following
+`revsets.*` keys:
+
+- `revsets.arrange` for `jj arrange`
+- `revsets.fix` for `jj fix`
+- `revsets.run` for `jj run`
+- `revsets.sign` for `jj sign`
+- `revsets.simplify-parents` for `jj simplify-parents`
+
+The default values are defined in [revsets.toml].
+
+[revsets.toml]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/revsets.toml
+
+## Default templates
+
+Many commands render their output with a configurable template when no
+`-T`/`--template` option is given. The following `templates.*` keys do not have a
+dedicated section in this document:
+
+- `templates.arrange` for the commit list rendered by `jj arrange`
+- `templates.bookmark_list` for `jj bookmark list`
+- `templates.commit_summary` for a one-line summary of a commit, used by
+  several commands
+- `templates.commit_trailers` for trailers added to new commits
+- `templates.draft_commit_description` for the draft description shown when
+  describing a commit with `jj describe`
+- `templates.duplicate_description` for the description of commits created
+  by `jj duplicate`
+- `templates.file_annotate` for `jj file annotate`
+- `templates.file_list` for `jj file list`
+- `templates.file_show` for `jj file show`
+- `templates.new_description` for the description of the new commit created
+  by `jj new`
+- `templates.op_summary` for a one-line summary of an operation
+- `templates.revert_description` for the description of commits created by
+  `jj revert`
+- `templates.tag_list` for `jj tag list`
+
+The default values are defined in [templates.toml].
+
+[templates.toml]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml
+
 ## List
 
 ### Default Template
@@ -950,6 +996,21 @@ show-cryptographic-signatures = true
   )
 '''
 ```
+
+## Hints
+
+Some commands print hints suggesting follow-up actions, such as how to
+resolve conflicts. Individual hints can be disabled:
+
+```toml
+[hints]
+# Disable the hint about how to resolve conflicts
+resolving-conflicts = false
+```
+
+The default values are defined in [hints.toml].
+
+[hints.toml]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/hints.toml
 
 ## Pager
 
