@@ -2080,6 +2080,7 @@ fn test_git_push_no_description() {
     ------- stderr -------
     Error: Won't push commit 8d23abddc924 since it has no description
     Hint: Rejected commit: yqosqzyt 8d23abdd my-bookmark* | (empty) (no description set)
+    Hint: Run `jj describe yqosqzytrlsw` to set a description, then try again.
     [EOF]
     [exit status: 1]
     ");
@@ -2175,6 +2176,7 @@ fn test_git_push_no_description_on_remote() {
     ------- stderr -------
     Error: Won't push commit f5a334d32294 since it has no description
     Hint: Rejected commit: kxryzmor f5a334d3 imm* | (empty) (no description set)
+    Hint: Run `jj describe kxryzmorwvtz` to set a description, then try again.
     [EOF]
     [exit status: 1]
     ");
@@ -2295,6 +2297,7 @@ fn test_git_push_missing_committer() {
     ------- stderr -------
     Error: Won't push commit 4bd3b55c7759 since it has no description and has no author and/or committer set
     Hint: Rejected commit: kpqxywon 4bd3b55c missing-email* | (empty) (no description set)
+    Hint: Run `jj describe kpqxywonksrl` to set a description, then try again.
     [EOF]
     [exit status: 1]
     ");
