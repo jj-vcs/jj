@@ -215,7 +215,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     ├─╮
     │ ○  deletion
     │ │ ×  file_dir
-    ╭───┤
+    ╭─│─┤
     │ │ ○  dir
     │ ├─╯
     ○ │  file

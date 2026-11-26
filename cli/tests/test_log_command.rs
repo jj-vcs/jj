@@ -2017,26 +2017,35 @@ fn test_graph_line_colors() {
     work_dir
         .run_jj(["new", "subject(a)", "subject(b)", "-m", "merge"])
         .success();
+    // This separate head makes the link from b to base cross the line
+    // from merge to a.
+    work_dir
+        .run_jj(["new", "subject(base)", "-m", "side"])
+        .success();
+    work_dir.run_jj(["new", "-m", "tip"]).success();
 
     // Each line has its own label, and the label follows the line when the
-    // line moves to another column
+    // line moves to another column or crosses another line.
     let output = work_dir.run_jj([
         "--color=debug",
         "log",
         "-r",
-        "::@ ~ root()",
+        "..",
         "-T",
         "description.first_line()",
     ]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m<<graph line0 log commit node working_copy mutable::@>>[0m    <<log commit description first_line::merge>>
-    <<graph line0::├>><<graph line1::─╮>>
-    <<graph line0::│>> <<graph line1 log commit node mutable::○>>  <<log commit description first_line::b>>
-    <<graph line0 log commit node mutable::○>> <<graph line1::│>>  <<log commit description first_line::a>>
-    <<graph line1::├─╯>>
-    <<graph line1 log commit node mutable::○>>  <<log commit description first_line::base>>
-    <<graph line1::│>>
-    <<graph line1::~>>
+    [1m[38;5;2m<<graph line0 log commit node working_copy mutable::@>>[0m  <<log commit description first_line::tip>>
+    <<graph line0 log commit node mutable::○>>  <<log commit description first_line::side>>
+    <<graph line0::│>> <<graph line1 log commit node mutable::○>>    <<log commit description first_line::merge>>
+    <<graph line0::│>> <<graph line1::├>><<graph line2::─╮>>
+    <<graph line0::│>> <<graph line1::│>> <<graph line2 log commit node mutable::○>>  <<log commit description first_line::b>>
+    <<graph line0::├─>><<graph line1::│>><<graph line0::─╯>>
+    <<graph line0::│>> <<graph line1 log commit node mutable::○>>  <<log commit description first_line::a>>
+    <<graph line0::├─╯>>
+    <<graph line0 log commit node mutable::○>>  <<log commit description first_line::base>>
+    <<graph line0::│>>
+    <<graph line0::~>>
     [EOF]
     ");
 
@@ -2045,21 +2054,25 @@ fn test_graph_line_colors() {
         "--color=always",
         "log",
         "-r",
-        "::@ ~ root()",
+        "..",
         "-T",
         "description.first_line()",
         "--config=colors.'graph line0'='bright black'",
         "--config=colors.'graph line1'='white'",
+        "--config=colors.'graph line2'='yellow'",
     ]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m    merge
-    [38;5;8m├[39m[38;5;7m─╮[39m
-    [38;5;8m│[39m [38;5;7m○[39m  b
-    [38;5;8m○[39m [38;5;7m│[39m  a
-    [38;5;7m├─╯[39m
-    [38;5;7m○[39m  base
-    [38;5;7m│[39m
-    [38;5;7m~[39m
+    [1m[38;5;2m@[0m  tip
+    [38;5;8m○[39m  side
+    [38;5;8m│[39m [38;5;7m○[39m    merge
+    [38;5;8m│[39m [38;5;7m├[39m[38;5;3m─╮[39m
+    [38;5;8m│[39m [38;5;7m│[39m [38;5;3m○[39m  b
+    [38;5;8m├─[39m[38;5;7m│[39m[38;5;8m─╯[39m
+    [38;5;8m│[39m [38;5;7m○[39m  a
+    [38;5;8m├─╯[39m
+    [38;5;8m○[39m  base
+    [38;5;8m│[39m
+    [38;5;8m~[39m
     [EOF]
     ");
 }

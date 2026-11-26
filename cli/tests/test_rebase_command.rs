@@ -275,7 +275,7 @@ fn test_rebase_bookmark_with_merge() {
     │ ○  d: c
     │ ○  c
     │ │ ○  b: a
-    ├───╯
+    ├─│─╯
     ○ │  a
     ├─╯
     ◆
@@ -371,7 +371,7 @@ fn test_rebase_single_revision() {
     ○    d: b a
     ├─╮
     │ │ ○  c: b
-    ├───╯
+    ├─│─╯
     ○ │  b: a
     ├─╯
     ○  a
@@ -447,7 +447,7 @@ fn test_rebase_single_revision_merge_parent() {
     ├─╮
     │ ○  b
     │ │ ○  c: a
-    ├───╯
+    ├─│─╯
     ○ │  a
     ├─╯
     ◆
@@ -618,7 +618,7 @@ fn test_rebase_multiple_revisions() {
     │ ○  d: a
     │ │ ○  g: f
     │ │ ○  f: c e
-    ╭───┤
+    ╭─│─┤
     │ │ ○  e: a
     │ ├─╯
     ○ │  c: b
@@ -654,10 +654,10 @@ fn test_rebase_multiple_revisions() {
     │ ○  e: a
     │ │ ○  h: f
     │ │ ○  f: c d
-    ╭───┤
+    ╭─│─┤
     │ │ ○  d: b
     ○ │ │  c: b
-    ├───╯
+    ├─│─╯
     ○ │  b: a
     ├─╯
     ○  a
@@ -2530,7 +2530,7 @@ fn test_rebase_after_before() {
     │ ○  d: a
     ○ │  e: c
     ○ │    c: b1 b2
-    ├───╮
+    ├─│─╮
     │ │ ○  b2: a
     │ ├─╯
     ○ │  b1: a

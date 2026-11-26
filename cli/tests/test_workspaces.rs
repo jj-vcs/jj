@@ -537,9 +537,9 @@ fn test_workspaces_add_workspace_multiple_revisions() {
     │ ○      2d7c9a2d41dc merge@
     │ ├─┬─╮
     │ │ │ ○  27473635a942 "first"
-    ├─────╯
+    ├─│─│─╯
     │ │ ○  62444a45efcf "second"
-    ├───╯
+    ├─│─╯
     │ ○  eba7f49e2358 "third"
     ├─╯
     ◆  000000000000

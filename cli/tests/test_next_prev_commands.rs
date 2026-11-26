@@ -647,7 +647,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     ├─╮
     │ ○  mzvwutvlkqwt 1
     ○ │    zsuskulnrvyr z
-    ├───╮
+    ├─│─╮
     │ │ ○  kkmpptxzrspx y
     │ ├─╯
     ○ │  qpvuntsmwlqt x
@@ -741,7 +741,7 @@ fn test_prev_prompts_on_multiple_parents() {
     ╭─┼─╮
     ○ │ │  qpvuntsmwlqt first
     │ │ ○  kkmpptxzrspx second
-    ├───╯
+    ├─│─╯
     │ ○  mzvwutvlkqwt third
     ├─╯
     ◆  zzzzzzzzzzzz

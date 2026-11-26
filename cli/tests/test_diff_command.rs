@@ -3084,7 +3084,7 @@ fn test_diff_conflict_bases_differ() {
     │ ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left1+right1 91e2d46a (conflict)
     │ ├─╮  (empty) left1+right1
     │ │ ○  royxmykx test.user@example.com 2001-02-03 08:05:13 right1 3087be1f
-    ├───╯  right1
+    ├─│─╯  right1
     │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 left1 9e995075
     ├─╯  left1
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base1 44cfbde6
@@ -3251,11 +3251,11 @@ fn test_diff_conflict_three_sides() {
     │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 side3 f73063c9
     │ │  side3
     × │    kmkuslsw test.user@example.com 2001-02-03 08:05:18 side1+side2 02d6c21d (conflict)
-    ├───╮  (empty) side1+side2
+    ├─│─╮  (empty) side1+side2
     │ │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 side2 bc176227
     │ │ │  side2
     ○ │ │  royxmykx test.user@example.com 2001-02-03 08:05:13 side1 3a079496
-    ├───╯  side1
+    ├─│─╯  side1
     ○ │  zsuskuln test.user@example.com 2001-02-03 08:05:11 base2 75289ea3
     ├─╯  base2
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base1 07965fa1

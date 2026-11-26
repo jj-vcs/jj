@@ -184,7 +184,7 @@ fn test_duplicate_many() {
     │ │ ○    b113bd5c550a   e
     │ │ ├─╮
     │ │ │ ○  6a17a96d77d2   d
-    │ ├───╯
+    │ ├─│─╯
     │ ○ │  991a7501d660   c
     ├─╯ │
     │   ○  1a94ffc6e6aa   b
@@ -220,7 +220,7 @@ fn test_duplicate_many() {
     ├─╮
     │ ○  a2dbb1aad514   d
     │ │ ○  9e54f34ca238   e
-    ╭───┤
+    ╭─│─┤
     │ │ ○  f2ec1b7f4e82   d
     │ ├─╯
     │ ○  991a7501d660   c
@@ -615,7 +615,7 @@ fn test_duplicate_insert_after() {
     │ ○    a78c25cc7d58   a1
     │ ├─╮
     │ │ ○  9b24b49f717e   c1
-    ├───╯
+    ├─│─╯
     │ ○  6a9343b8797a   b1
     ├─╯
     │ ○  e9b68b6313be   a4
@@ -649,7 +649,7 @@ fn test_duplicate_insert_after() {
     │ ├─╮
     │ │ ○  65b6f1fe6b41   b2
     │ │ ○  6a9343b8797a   b1
-    ├───╯
+    ├─│─╯
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
@@ -678,7 +678,7 @@ fn test_duplicate_insert_after() {
     │ ├─╮
     │ │ ○  65b6f1fe6b41   b2
     │ │ ○  6a9343b8797a   b1
-    ├───╯
+    ├─│─╯
     │ ○  5fb83d2b58d6   a3
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
@@ -853,7 +853,7 @@ fn test_duplicate_insert_after() {
     │ ○ │ │  749e778247d3   a3
     │ ╰─┬─╮
     │   │ ○  9b24b49f717e   c1
-    ├─────╯
+    ├───│─╯
     │   ○  5d93a4b8f4bd   a1
     ├───╯
     │ ○  65b6f1fe6b41   b2
@@ -886,7 +886,7 @@ fn test_duplicate_insert_after() {
     │ ╰─┬─╮
     │   │ ○  47a79ab4bbc6   c2
     │   │ ○  9b24b49f717e   c1
-    ├─────╯
+    ├───│─╯
     │   ○  5fb83d2b58d6   a3
     │   ○  7bfd9fbe959c   a2
     │   ○  5d93a4b8f4bd   a1
@@ -1048,7 +1048,7 @@ fn test_duplicate_insert_after() {
     │ ├─╮
     │ │ ○  47a79ab4bbc6   c2
     │ │ ○  9b24b49f717e   c1
-    ├───╯
+    ├─│─╯
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
@@ -1081,7 +1081,7 @@ fn test_duplicate_insert_after() {
     │ ├─╮
     │ │ ○  47a79ab4bbc6   c2
     │ │ ○  9b24b49f717e   c1
-    ├───╯
+    ├─│─╯
     │ ○  5fb83d2b58d6   a3
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
@@ -1245,7 +1245,7 @@ fn test_duplicate_insert_before() {
     │ ○    a78c25cc7d58   a1
     │ ├─╮
     │ │ ○  9b24b49f717e   c1
-    ├───╯
+    ├─│─╯
     │ ○  6a9343b8797a   b1
     ├─╯
     │ ○  e9b68b6313be   a4
@@ -1281,7 +1281,7 @@ fn test_duplicate_insert_before() {
     │ ○    388c8d9d7b49   a3
     │ ├─╮
     │ │ ○  6a9343b8797a   b1
-    ├───╯
+    ├─│─╯
     │ ○  5d93a4b8f4bd   a1
     ├─╯
     ◆  000000000000
@@ -1311,7 +1311,7 @@ fn test_duplicate_insert_before() {
     │ ○    644afaf17a49   a1
     │ ├─╮
     │ │ ○  6a9343b8797a   b1
-    ├───╯
+    ├─│─╯
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
@@ -1337,7 +1337,7 @@ fn test_duplicate_insert_before() {
     │ ○    2d5211a7d52f   c1
     │ ├─╮
     │ │ ○  a6ef03692b89   b1
-    ├───╯
+    ├─│─╯
     │ ○  3323f9c396f8   a1
     ├─╯
     │ ○  65b6f1fe6b41   b2
@@ -1480,7 +1480,7 @@ fn test_duplicate_insert_before() {
     │ │ │ ○  22afb4fd6d02   a1
     │ ╭─┬─╯
     │ │ ○  67d4a9404b6b   b1
-    ├───╯
+    ├─│─╯
     │ ○  73f3594f082f   a3
     ├─╯
     │ ○  65b6f1fe6b41   b2
@@ -1515,7 +1515,7 @@ fn test_duplicate_insert_before() {
     │ ○ │ │  2a37f83808d9   a1
     │ ╰─┬─╮
     │   │ ○  9b24b49f717e   c1
-    ├─────╯
+    ├───│─╯
     │   ○  7bfd9fbe959c   a2
     │   ○  5d93a4b8f4bd   a1
     ├───╯
@@ -1684,7 +1684,7 @@ fn test_duplicate_insert_before() {
     │ ○    469d73d08c1b   a3
     │ ├─╮
     │ │ ○  9b24b49f717e   c1
-    ├───╯
+    ├─│─╯
     │ ○  5d93a4b8f4bd   a1
     ├─╯
     │ ○  65b6f1fe6b41   b2
@@ -1718,7 +1718,7 @@ fn test_duplicate_insert_before() {
     │ ○    b166c219ae16   a1
     │ ├─╮
     │ │ ○  9b24b49f717e   c1
-    ├───╯
+    ├─│─╯
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
@@ -1793,7 +1793,7 @@ fn test_duplicate_insert_after_before() {
     │ │ ○  16aac4aec6de   a1
     │ │ ○  47a79ab4bbc6   c2
     │ │ ○  9b24b49f717e   c1
-    ├───╯
+    ├─│─╯
     │ ○  6a9343b8797a   b1
     ├─╯
     │ ○  e9b68b6313be   a4
@@ -1858,7 +1858,7 @@ fn test_duplicate_insert_after_before() {
     │ │ ○  99b4ea109aff   a3
     │ │ ○  65b6f1fe6b41   b2
     │ │ ○  6a9343b8797a   b1
-    ├───╯
+    ├─│─╯
     │ ○  5d93a4b8f4bd   a1
     ├─╯
     ◆  000000000000
@@ -2199,7 +2199,7 @@ fn test_duplicate_insert_after_before() {
     │ │ ○  0478473bfff3   a1
     │ │ ○  47a79ab4bbc6   c2
     │ │ ○  9b24b49f717e   c1
-    ├───╯
+    ├─│─╯
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯

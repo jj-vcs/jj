@@ -393,7 +393,7 @@ fn test_new_insert_after() {
     ╭─┤
     │ ○  E
     @ │    G
-    ├───╮
+    ├─│─╮
     │ │ ○  D
     │ ├─╯
     ○ │  B
@@ -419,7 +419,7 @@ fn test_new_insert_after() {
     ╭─┤
     │ ○  E
     ○ │    G
-    ├───╮
+    ├─│─╮
     │ │ ○  D
     │ ├─╯
     @ │  H
@@ -599,7 +599,7 @@ fn test_new_insert_before_root_successors() {
     │ │ ○  C
     │ │ ○  B
     │ │ ○  A
-    ├───╯
+    ├─│─╯
     @ │  G
     ├─╯
     ◆  root
@@ -691,7 +691,7 @@ fn test_new_insert_before_no_root_merge() {
     ○ │  D
     │ │ ○  C
     │ │ ○  B
-    ├───╯
+    ├─│─╯
     @ │  G
     ○ │  A
     ├─╯
@@ -788,10 +788,10 @@ fn test_new_insert_after_before() {
     │ │ ○    B
     │ │ ├─╮
     │ │ │ @  H
-    ├─────╯
+    ├─│─│─╯
     ○ │ │  D
     │ │ ○  A
-    ├───╯
+    ├─│─╯
     │ ○  E
     ├─╯
     ◆  root
@@ -884,7 +884,7 @@ fn test_new_insert_after_empty_before() {
     │ ○    F
     │ ├─╮
     │ │ ○  E
-    ├───╯
+    ├─│─╯
     │ ○  D
     ├─╯
     ◆  root

@@ -24,6 +24,7 @@ use renderdag::Ancestor;
 use renderdag::pipeline::Ascii;
 use renderdag::pipeline::AsciiLarge;
 use renderdag::pipeline::BoxDrawing;
+use renderdag::pipeline::CrossingPriority;
 use renderdag::pipeline::GraphRowShaper;
 use renderdag::pipeline::PrefixLineRenderer;
 use renderdag::pipeline::PrefixLinesToText;
@@ -200,7 +201,9 @@ pub fn get_graphlog<'a, K: Clone + Debug + Eq + Hash + 'a>(
     };
     let allocator = build_line_id_allocator_from_rules("parent,incoming,free", LINE_LABELS.len());
     let mut shaper = GraphRowShaper::new().with_line_id_allocator(allocator);
-    shaper.options_mut().min_row_height = 0;
+    let options = shaper.options_mut();
+    options.min_row_height = 0;
+    options.graph_row_shape_style.crossing_priority = CrossingPriority::Vertical;
     Box::new(SaplingGraphLog {
         shaper,
         prefix_lines,

@@ -134,7 +134,7 @@ fn test_parallelize_where_interior_has_non_target_children() {
     │ │ ○ │  71c114f0dd4d 3 parents:
     │ │ ├─╯
     │ │ │ ○  154d3801414a 2c parents: 1 2
-    ╭─┬───╯
+    ╭─┬─│─╯
     │ ○ │  7c8f6e529b52 2 parents:
     │ ├─╯
     ○ │  884fe9b9c656 1 parents:
@@ -175,7 +175,7 @@ fn test_parallelize_where_root_has_non_target_children() {
     │ ○ │  f773cf087413 2 parents:
     │ ├─╯
     │ │ ○  2935e6f82e54 1c parents: 1
-    ├───╯
+    ├─│─╯
     ○ │  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
@@ -221,7 +221,7 @@ fn test_parallelize_with_merge_commit_child() {
     ├─┬─╮
     │ │ ○  3b6586259aa9 3 parents:
     │ │ │ ○  67b28b5cc688 2a-c parents: 1 2 a
-    ╭─┬───┤
+    ╭─┬─│─┤
     │ │ │ ○  8fa549442479 a parents:
     │ │ ├─╯
     │ ○ │  dfd927ce07c0 2 parents:
@@ -300,9 +300,9 @@ fn test_parallelize_head_is_a_merge() {
     │ ○  448c6310957c b parents: a
     │ ○  07fb6466f0cd a parents:
     │ │ ○  b240f5a52f77 2 parents: 0
-    ├───╯
+    ├─│─╯
     │ │ ○  42fc76489fb1 1 parents: 0
-    ├───╯
+    ├─│─╯
     ○ │  fc8a812f1b99 0 parents:
     ├─╯
     ◆  000000000000 parents:
@@ -342,7 +342,7 @@ fn test_parallelize_interior_target_is_a_merge() {
     ╭─┬─╯
     │ ○  55fc07cbd79b a parents:
     │ │ ○  42fc76489fb1 1 parents: 0
-    ├───╯
+    ├─│─╯
     ○ │  fc8a812f1b99 0 parents:
     ├─╯
     ◆  000000000000 parents:
@@ -533,7 +533,7 @@ fn test_parallelize_multiple_heads_with_different_children() {
     │ ○    abdef66ee7e9 3 parents: 1 2
     │ ├─╮
     │ │ ○  7c8f6e529b52 2 parents:
-    ├───╯
+    ├─│─╯
     │ ○  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
@@ -576,7 +576,7 @@ fn test_parallelize_multiple_roots_with_different_parents() {
     │ ├─╯
     │ ○  331119737aad a parents:
     │ │ ○  320daf48ba58 2 parents: 1
-    ├───╯
+    ├─│─╯
     ○ │  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
@@ -603,7 +603,7 @@ fn test_parallelize_complex_nonlinear_target() {
     ╭─┼─╮
     ○ │ │  46cc2c450bba 3 parents: 0
     │ │ │ ○  24113692de1e 2c parents: 2
-    │ ├───╯
+    │ ├─│─╯
     │ ○ │  5664a1d6ac8f 2 parents: 0
     ├─╯ │
     │ ○ │  6d578e6cbc1a 1c parents: 1
@@ -628,11 +628,11 @@ fn test_parallelize_complex_nonlinear_target() {
     ├─╮
     │ ○  47ec86fe7334 3 parents:
     │ │ ○  79e22ba7b736 2c parents: 0 2
-    ╭───┤
+    ╭─│─┤
     │ │ ○  9d6818f73e0d 2 parents:
     │ ├─╯
     │ │ ○  bbeb29b59bee 1c parents: 0 1
-    ╭───┤
+    ╭─│─┤
     │ │ ○  ea96e6d5bb04 1 parents:
     │ ├─╯
     ○ │  973f85cf2550 0 parents:
