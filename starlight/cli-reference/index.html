@@ -3461,7 +3461,7 @@ suitable for checks such as these.</p>
 </li>
 <li>
 <p><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — A list of parent revisions for the working-copy commit of the newly created workspace. You may specify nothing, or any number of parents.</p>
-<p>If no revisions are specified, the new workspace will be created, and its working-copy commit will exist on top of the parent(s) of the working-copy commit in the current workspace, i.e. they will share the same parent(s).</p>
+<p>If no revisions are specified, this defaults to the <code dir="auto">revsets.workspace-add</code> setting, or <code dir="auto">heads(::@ &#x26; immutable())</code> if it is not set. The revset is evaluated in the current workspace, so with the default setting, the new working-copy commit will be created on top of the closest immutable ancestors of the current working-copy commit. That way, the workspaces don't share any mutable commits, which reduces the risk of making one of them stale or causing divergence when rewriting commits from the other.</p>
 <p>If any revisions are specified, the new workspace will be created, and the new working-copy commit will be created with all these revisions as parents, i.e. the working-copy commit will exist as if you had run <code dir="auto">jj new r1 r2 r3 ...</code>.</p>
 </li>
 <li>
