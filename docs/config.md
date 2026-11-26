@@ -2664,6 +2664,16 @@ jj config edit --file ~/.config/jj/conf.d/work.toml
 
   Use `jj root` to see the workspace root directory.
 
+* `--when.commit-backends`: List of commit backend names to match.
+
+  Names are compared case-sensitively and must match the repository's commit
+  backend name exactly (the output of `jj util backend name`). Outside of a
+  repository, this condition never matches.
+
+  ```toml
+  --when.commit-backends = ["git"]  # matches repos using the Git backend
+  ```
+
 * `--when.hostnames`: List of hostnames to match against the `operation.hostname`
   config setting.
 

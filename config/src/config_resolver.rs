@@ -48,6 +48,9 @@ pub struct ConfigResolutionContext<'a> {
     pub repo_path: Option<&'a Path>,
     /// Workspace path: `<workspace_root>`.
     pub workspace_path: Option<&'a Path>,
+    /// Name of the commit backend used by the current repository, matching
+    /// `jj util backend name`. `None` if not in a repository.
+    pub commit_backend_name: Option<&'a str>,
     /// Space-separated subcommand. `jj file show ...` should result in `"file
     /// show"`.
     pub command: Option<&'a str>,
@@ -71,6 +74,9 @@ struct ScopeCondition {
     pub repositories: Option<Vec<PathBuf>>,
     /// Paths to match the workspace path prefix.
     pub workspaces: Option<Vec<PathBuf>>,
+    /// Commit backend names to match (the same name printed by `jj util backend
+    /// name`, e.g. `"git"`).
+    pub commit_backends: Option<Vec<String>>,
     /// Commands to match. Subcommands are matched space-separated.
     /// - `--when.commands = ["foo"]` -> matches "foo", "foo bar", "foo bar baz"
     /// - `--when.commands = ["foo bar"]` -> matches "foo bar", "foo bar baz",
@@ -117,6 +123,7 @@ impl ScopeCondition {
     fn matches(&self, context: &ConfigResolutionContext) -> bool {
         matches_path_prefix(self.repositories.as_deref(), context.repo_path)
             && matches_path_prefix(self.workspaces.as_deref(), context.workspace_path)
+            && matches_commit_backend(self.commit_backends.as_deref(), context.commit_backend_name)
             && matches_platform(self.platforms.as_deref())
             && matches_hostname(self.hostnames.as_deref(), context.hostname)
             && matches_command(self.commands.as_deref(), context.command)
@@ -139,6 +146,14 @@ fn matches_path_prefix(candidates: Option<&[PathBuf]>, actual: Option<&Path>) ->
         (Some(candidates), Some(actual)) => candidates.iter().any(|base| actual.starts_with(base)),
         (Some(_), None) => false, // actual path not known (e.g. not in workspace)
         (None, _) => true,        // no constraints
+    }
+}
+
+fn matches_commit_backend(candidates: Option<&[String]>, actual: Option<&str>) -> bool {
+    match (candidates, actual) {
+        (Some(candidates), Some(actual)) => candidates.iter().any(|candidate| actual == candidate),
+        (Some(_), None) => false, // Backend not known.
+        (None, _) => true,
     }
 }
 
@@ -491,6 +506,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -500,6 +516,7 @@ mod tests {
             home_dir: None,
             repo_path: Some(Path::new("/foo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -518,6 +535,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -527,6 +545,7 @@ mod tests {
             home_dir: None,
             repo_path: Some(Path::new("/foo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -536,6 +555,7 @@ mod tests {
             home_dir: None,
             repo_path: Some(Path::new("/fooo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -545,6 +565,7 @@ mod tests {
             home_dir: None,
             repo_path: Some(Path::new("/foo/baz")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -554,6 +575,7 @@ mod tests {
             home_dir: None,
             repo_path: Some(Path::new("/bar")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -572,6 +594,7 @@ mod tests {
             home_dir: None,
             repo_path: Some(Path::new(r"c:\foo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -581,6 +604,7 @@ mod tests {
             home_dir: None,
             repo_path: Some(Path::new(r"c:\foo\baz")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -590,6 +614,7 @@ mod tests {
             home_dir: None,
             repo_path: Some(Path::new(r"d:\foo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -599,11 +624,56 @@ mod tests {
             home_dir: None,
             repo_path: Some(Path::new(r"d:/bar\baz")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
+    }
+
+    #[test]
+    fn test_condition_commit_backends() {
+        let environment = HashMap::new();
+        let new_context = |backend| ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            commit_backend_name: backend,
+            command: None,
+            hostname: "",
+            environment: &environment,
+        };
+        let new_condition = |backends: &[&str]| ScopeCondition {
+            commit_backends: Some(backends.iter().map(|s| s.to_string()).collect()),
+            ..Default::default()
+        };
+
+        // Outside of a repository.
+        let context = new_context(None);
+        assert!(!new_condition(&["git"]).matches(&context));
+        assert!(!new_condition(&[]).matches(&context));
+        assert!(ScopeCondition::default().matches(&context));
+
+        // Git repository.
+        let context = new_context(Some("git"));
+        assert!(new_condition(&["git"]).matches(&context));
+        assert!(new_condition(&["git", "Simple"]).matches(&context));
+        assert!(new_condition(&["Simple", "git"]).matches(&context));
+        assert!(!new_condition(&["Simple"]).matches(&context));
+        // Exact, case-sensitive matching.
+        assert!(!new_condition(&["Git", "gitx"]).matches(&context));
+        // Empty list never matches.
+        assert!(!new_condition(&[]).matches(&context));
+        // No list (any backend) always matches.
+        assert!(ScopeCondition::default().matches(&context));
+
+        // Simple repository.
+        let context = new_context(Some("Simple"));
+        assert!(new_condition(&["Simple"]).matches(&context));
+        assert!(new_condition(&["git", "Simple"]).matches(&context));
+        assert!(!new_condition(&["simple"]).matches(&context));
+        assert!(!new_condition(&["git"]).matches(&context));
     }
 
     #[test]
@@ -617,6 +687,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -626,6 +697,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "host-a",
             environment: &HashMap::new(),
@@ -635,6 +707,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "host-b",
             environment: &HashMap::new(),
@@ -644,6 +717,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "host-c",
             environment: &HashMap::new(),
@@ -661,6 +735,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &environment,
@@ -735,6 +810,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &environment,
@@ -779,6 +855,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &environment,
@@ -811,6 +888,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -852,6 +930,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -895,6 +974,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -907,6 +987,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo/.jj/repo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -921,6 +1002,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/bar/.jj/repo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -934,6 +1016,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/home/dir/baz/.jj/repo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -972,6 +1055,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -984,6 +1068,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "host-a",
             environment: &HashMap::new(),
@@ -998,6 +1083,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "host-b",
             environment: &HashMap::new(),
@@ -1011,6 +1097,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "host-c",
             environment: &HashMap::new(),
@@ -1049,6 +1136,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -1061,6 +1149,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: Some(Path::new("/foo")),
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -1075,6 +1164,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: Some(Path::new("/bar")),
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -1088,6 +1178,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: Some(Path::new("/home/dir/baz")),
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -1122,6 +1213,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -1134,6 +1226,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: Some("foo"),
             hostname: "",
             environment: &HashMap::new(),
@@ -1148,6 +1241,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: Some("bar"),
             hostname: "",
             environment: &HashMap::new(),
@@ -1161,6 +1255,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: Some("foo baz"),
             hostname: "",
             environment: &HashMap::new(),
@@ -1177,6 +1272,7 @@ mod tests {
             home_dir: None,
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: Some("fooqux"),
             hostname: "",
             environment: &HashMap::new(),
@@ -1211,6 +1307,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -1255,6 +1352,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -1268,6 +1366,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: Some("other"),
             hostname: "",
             environment: &HashMap::new(),
@@ -1281,6 +1380,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/qux")),
             workspace_path: None,
+            commit_backend_name: None,
             command: Some("ABC"),
             hostname: "",
             environment: &HashMap::new(),
@@ -1294,6 +1394,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/bar")),
             workspace_path: None,
+            commit_backend_name: None,
             command: Some("DEF"),
             hostname: "",
             environment: &HashMap::new(),
@@ -1302,6 +1403,58 @@ mod tests {
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1'");
+        Ok(())
+    }
+
+    #[test]
+    fn test_resolve_commit_backends() -> TestResult {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            a = 'a #0'
+            [[--scope]]
+            --when.commit-backends = ['git']
+            a = 'a #0.1 git'
+            [[--scope]]
+            --when.commit-backends = ['git', 'Simple']
+            a = 'a #0.2 git|Simple'
+            [[--scope]]
+            --when.commit-backends = []
+            a = 'a #0.3 none'
+        "}));
+        source_config.add_layer(new_user_layer(indoc! {"
+            --when.commit-backends = ['Simple']
+            a = 'a #1 Simple'
+            [[--scope]]
+            --when.commit-backends = ['git']  # can never match: layer requires Simple
+            a = 'a #1.1 Simple&git'
+        "}));
+
+        let environment = HashMap::new();
+        let new_context = |backend| ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: None,
+            commit_backend_name: backend,
+            command: None,
+            hostname: "",
+            environment: &environment,
+        };
+
+        let resolved_config = resolve(&source_config, &new_context(None))?;
+        assert_eq!(resolved_config.layers().len(), 1);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+
+        let resolved_config = resolve(&source_config, &new_context(Some("git")))?;
+        assert_eq!(resolved_config.layers().len(), 3);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 git'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @"a = 'a #0.2 git|Simple'");
+
+        let resolved_config = resolve(&source_config, &new_context(Some("Simple")))?;
+        assert_eq!(resolved_config.layers().len(), 3);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 git|Simple'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @"a = 'a #1 Simple'");
         Ok(())
     }
 
@@ -1340,6 +1493,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &environment,
@@ -1355,6 +1509,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &environment,
@@ -1373,6 +1528,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &environment,
@@ -1396,6 +1552,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo/.jj/repo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
@@ -1417,6 +1574,7 @@ mod tests {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo/.jj/repo")),
             workspace_path: None,
+            commit_backend_name: None,
             command: None,
             hostname: "",
             environment: &HashMap::new(),
