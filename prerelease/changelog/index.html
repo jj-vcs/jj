@@ -9558,6 +9558,17 @@ and this project adheres to
   (<code>git.private-commits</code>). Commits that are already on the remote being pushed
   to are still not checked.</p>
 </li>
+<li>
+<p><code>jj workspace add</code> now creates the new working-copy commit on top of the
+  closest immutable ancestor (<code>heads(::@ &amp; immutable())</code>) instead of on the
+  parents of the current working-copy commit. Pass <code>-r @-</code> or set
+  <code>revsets.workspace-add = "@-"</code> for the old behavior.</p>
+</li>
+<li>
+<p><code>jj workspace add</code> now fails when the current workspace doesn't have a working
+  copy. It used to fall back to creating the new workspace's working copy on top
+  of the root commit.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
@@ -9600,6 +9611,10 @@ and this project adheres to
   assign expressions to name bindings in a lambda. Expressions are re-evaluated
   for each use, so this is effectively the same as defining temporary template
   aliases for each expression (currently no performance benefit).</p>
+</li>
+<li>
+<p>New <code>revsets.workspace-add</code> config to set the default parents of the new
+  working-copy commit created by <code>jj workspace add</code>.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
