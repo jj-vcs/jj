@@ -2415,7 +2415,7 @@ fn lock_index(git_repo: &gix::Repository) -> Result<gix::lock::File, GitResetHea
         git_repo.index_path(),
         gix::lock::acquire::Fail::AfterDurationWithBackoff(INDEX_LOCK_TIMEOUT),
         None,
-        Default::default(),
+        git_repo.refs.shared_repository_permissions,
     )?;
     Ok(lock)
 }
