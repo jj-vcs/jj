@@ -142,12 +142,14 @@ pub async fn cmd_workspace_add(
     // specified, create a working-copy commit based on the parents of the current
     // working-copy commit.
     let parents = if args.revisions.is_empty() {
-        // Check out parents of the current workspace's working-copy commit, or the
-        // root if there is no working-copy commit in the current workspace.
+        // Check out parents of the current workspace's working-copy commit.
         if let Some(old_wc_commit) = old_workspace_command.get_wc_commit().await? {
             old_wc_commit.parents().await?
         } else {
-            vec![repo.store().root_commit().await]
+            return Err(
+                user_error("No current working-copy commit to copy parents from")
+                    .hinted("Use `--revision` to specify parent revisions."),
+            );
         }
     } else {
         try_join_all(

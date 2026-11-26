@@ -1538,13 +1538,16 @@ fn test_workspaces_forget() {
     let output = main_dir.run_jj(["workspace", "add", "."]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Destination path exists and is not an empty directory
+    Error: No current working-copy commit to copy parents from
+    Hint: Use `--revision` to specify parent revisions.
     [EOF]
     [exit status: 1]
     ");
 
     // Add a third workspace...
-    main_dir.run_jj(["workspace", "add", "../third"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "../third", "-r", "root()"])
+        .success();
     // ... and then forget it, a non-existent one, and the secondary workspace too
     let output = main_dir.run_jj(["workspace", "forget", "secondary", "nonexistent", "third"]);
     insta::assert_snapshot!(output, @"
