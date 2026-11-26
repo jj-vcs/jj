@@ -494,7 +494,14 @@ fn test_git_colocation_enable_disable_child_workspace() {
     main_dir.run_jj(["commit", "-m", "initial"]).success();
 
     main_dir
-        .run_jj(["workspace", "add", "--no-colocate", "../secondary"])
+        .run_jj([
+            "workspace",
+            "add",
+            "--no-colocate",
+            "-r",
+            "@-",
+            "../secondary",
+        ])
         .success();
     let secondary_dir = test_env.work_dir("secondary");
 

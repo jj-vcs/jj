@@ -270,10 +270,12 @@ fn test_git_colocated_update_stale_resets_git_head() {
         .success();
     let secondary_dir = test_env.work_dir("secondary");
     secondary_dir
-        .run_jj(["edit", r#"subject(parent)"#])
+        .run_jj(["edit", "--ignore-immutable", r#"subject(parent)"#])
         .success();
     secondary_dir.write_file("file1", "a\nmodified\n");
-    secondary_dir.run_jj(["status"]).success();
+    secondary_dir
+        .run_jj(["status", "--ignore-immutable"])
+        .success();
 
     let output = work_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @"

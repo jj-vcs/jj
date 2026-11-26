@@ -598,18 +598,31 @@ page](conflicts.md#conflict-markers).
 
 ### Set of immutable commits
 
-You can configure the set of immutable commits via
-`revset-aliases."immutable_heads()"`. The default set of immutable heads is
-`builtin_immutable_heads()`, which in turn is defined as `trunk() | tags() |
-untracked_remote_bookmarks() | untracked_remote_tags()`. For example, to also
-consider the `release@origin` bookmark immutable:
+Commits that have been shared with others, such as commits on remotes, are
+immutable by default. You can configure the set of shared commits via
+`revset-aliases."shared_immutable_heads()"`. The default set of shared heads is
+`builtin_shared_immutable_heads()`, which in turn is defined as `trunk() |
+tags() | untracked_remote_bookmarks() | untracked_remote_tags()`. The set of
+shared commits also decides which commits are shown by default in `jj log`.
+
+For example, to also consider the `release@origin` bookmark shared (and
+therefore immutable):
 
 ```toml
 [revset-aliases]
-"immutable_heads()" = "builtin_immutable_heads() | release@origin"
+"shared_immutable_heads()" = "builtin_shared_immutable_heads() | release@origin"
 ```
 
-To prevent rewriting commits authored by other users:
+You can configure the set of immutable commits via
+`revset-aliases."immutable_heads()"`. The default set of immutable heads is
+`builtin_immutable_heads()`, which in turn is defined as
+`shared_immutable_heads() | (working_copies() ~ present(@))`. That means that
+the working-copy commits of other workspaces are also immutable by default, so
+you don't accidentally make the other workspaces stale. A commit that is checked
+out in the current workspace stays mutable even if another workspace also has it
+checked out. Unlike `shared_immutable_heads()`, `immutable_heads()` doesn't
+affect which commits are shown by default in `jj log`. For example, to prevent
+rewriting commits authored by other users while still showing them in `jj log`:
 
 ```toml
 # The `trunk().. &` bit is an optimization to scan for non-`mine()` commits
@@ -621,12 +634,20 @@ To prevent rewriting commits authored by other users:
 Ancestors of the configured set are also immutable. The root commit is always
 immutable even if the set is empty.
 
+To allow rewriting other workspaces' working-copy commits:
+
+```toml
+[revset-aliases]
+"immutable_heads()" = "shared_immutable_heads()"
+```
+
 !!! warning
 
     Functions such as `remote_bookmarks()` may include hidden revisions.
-    Mentioning them in `immutable_heads()`, even in a negated expression, can
-    temporarily make those revisions and their ancestors reachable. For example,
-    those hidden revisions may then appear in `mutable()`.
+    Mentioning them in `shared_immutable_heads()` or `immutable_heads()`, even
+    in a negated expression, can temporarily make those revisions and their
+    ancestors reachable. For example, those hidden revisions may then appear
+    in `mutable()`.
 
     To exclude bookmarks by name, negate the name pattern:
     `remote_bookmarks(~'private/*')`. Negating the entire revset instead, as
@@ -688,8 +709,8 @@ log = "main@origin.."
 ```
 
 The default value for `revsets.log` is `builtin_log()`, which is defined as
-`'present(@) | ancestors(immutable_heads().., 2) | trunk()'`. You can use
-`builtin_log()` as a starting point for your own custom log revset.
+`'present(@) | ancestors(shared_immutable_heads().., 2) | trunk()'`. You can
+use `builtin_log()` as a starting point for your own custom log revset.
 
 !!! warning
 
@@ -712,7 +733,8 @@ op-diff-changes-in = "mutable() | trunk()"
 ```
 
 The default value for `revsets.op-diff-changes-in` is
-`'mutable() | immutable_heads()'`.
+`'~::(shared_immutable_heads() | root()) | shared_immutable_heads()'`, i.e.
+revisions that have not been shared, plus the shared heads.
 
 ### Prioritize Revsets in the Log over @
 
