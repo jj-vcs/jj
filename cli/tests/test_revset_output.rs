@@ -1031,25 +1031,6 @@ fn test_user_trunk_absent_with_revset_warnings() {
       |           ^-----------^
       |
       = diff_contains() is deprecated; use diff_lines() instead
-    Warning: In `revsets.short-prefixes`
-     --> 1:1
-      |
-    1 | builtin_log()
-      | ^-----------^
-      |
-      = In alias `builtin_log()`
-     --> 1:24
-      |
-    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
-      |                        ^---------------^
-      |
-      = In alias `immutable_heads()`
-     --> 1:11
-      |
-    1 | trunk() | diff_contains("x")
-      |           ^-----------^
-      |
-      = diff_contains() is deprecated; use diff_lines() instead
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main` doesn't exist
     The `trunk()` alias is temporarily set to `root()`.
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.

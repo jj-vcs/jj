@@ -781,6 +781,11 @@
                     "type": "string",
                     "description": "Default set of revisions to advance bookmarks from for jj advance (has access to `to`, the advance destination)",
                     "default": "heads(::to & bookmarks())"
+                },
+                "workspace-add": {
+                    "type": "string",
+                    "description": "Default parents of the new working-copy commit when no explicit revset is given for jj workspace add",
+                    "default": "heads(::@ & immutable())"
                 }
             },
             "additionalProperties": {
@@ -791,10 +796,15 @@
             "type": "object",
             "description": "Custom symbols/function aliases that can be used in revset expressions",
             "properties": {
+                "shared_immutable_heads()": {
+                    "type": "string",
+                    "description": "Revisions that have been shared with others. Ancestors of these are also considered shared. Commits that have not been shared are shown by default in `jj log`. Shared commits are immutable by default.",
+                    "default": "trunk() | tags() | untracked_remote_bookmarks() | untracked_remote_tags()"
+                },
                 "immutable_heads()": {
                     "type": "string",
                     "description": "Revisions to consider immutable. Ancestors of these are also considered immutable. The root commit is always considered immutable.",
-                    "default": "trunk() | tags() | untracked_remote_bookmarks() | untracked_remote_tags()"
+                    "default": "shared_immutable_heads() | (working_copies() ~ present(@))"
                 }
             },
             "additionalProperties": {
