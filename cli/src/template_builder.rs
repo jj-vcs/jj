@@ -3463,10 +3463,20 @@ mod tests {
 
         #[track_caller]
         fn render_ok(&self, template: &str) -> BString {
+            self.render_color_impl(template, false)
+        }
+
+        #[track_caller]
+        fn render_labels(&self, template: &str) -> BString {
+            self.render_color_impl(template, true)
+        }
+
+        #[track_caller]
+        fn render_color_impl(&self, template: &str, debug: bool) -> BString {
             let template = self.parse(template).unwrap();
             let mut output = Vec::new();
             let mut formatter =
-                ColorFormatter::new(&mut output, self.color_rules.clone().into(), false);
+                ColorFormatter::new(&mut output, self.color_rules.clone().into(), debug);
             template.format(&Context, &mut formatter).unwrap();
             drop(formatter);
             output.into()
@@ -5466,23 +5476,23 @@ mod tests {
 
         // Literal
         insta::assert_snapshot!(
-            env.render_ok(r#"label("error", "text")"#),
-            @"[38;5;1mtext[39m");
+            env.render_labels(r#"label("error", "text")"#),
+            @"[38;5;1m<<error::text>>[39m");
 
         // Evaluated property
         insta::assert_snapshot!(
-            env.render_ok(r#"label("error".first_line(), "text")"#),
-            @"[38;5;1mtext[39m");
+            env.render_labels(r#"label("error".first_line(), "text")"#),
+            @"[38;5;1m<<error::text>>[39m");
 
         // Property evaluation error
         insta::assert_snapshot!(
-            env.render_ok("label(fill(-1, 'foo'), 'text')"),
-            @"[38;5;1m<Error: out of range integral type conversion attempted>[39m");
+            env.render_labels("label(fill(-1, 'foo'), 'text')"),
+            @"[38;5;1m<<error::<>><<error heading::Error: >><<error::out of range integral type conversion attempted>>>[39m");
 
         // Template
         insta::assert_snapshot!(
-            env.render_ok(r#"label(if(empty, "error", "warning"), "text")"#),
-            @"[38;5;1mtext[39m");
+            env.render_labels(r#"label(if(empty, "error", "warning"), "text")"#),
+            @"[38;5;1m<<error::text>>[39m");
     }
 
     #[test]
@@ -5755,8 +5765,21 @@ mod tests {
     }
 
     #[test]
+    fn test_if_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_literal("foo", "Foo".to_owned());
+        env.add_literal("bar", "Bar".to_owned());
+
+        // Method labels
+        insta::assert_snapshot!(
+            env.render_labels("if(true, foo.first_line(), bar)"), @"<<foo first_line::Foo>>");
+        insta::assert_snapshot!(env.render_labels("if(false, foo, bar)"), @"<<bar::Bar>>");
+    }
+
+    #[test]
     fn test_try_function() {
         let mut env = TestTemplateEnv::new();
+        env.add_literal("foo", "Foo".to_owned());
         env.add_error::<String>("bad_string", "Bad string");
         env.add_error::<i64>("bad_i64", "Bad i64");
         env.add_error::<SizeHint>("bad_size_hint", "Bad size hint");
@@ -5776,8 +5799,15 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("try(try(bad_string, bad_i64), 'foo')"), @"foo");
 
         // Colorized output
-        insta::assert_snapshot!(env.render_ok("try(bad_string, label('red', 'foo'))"), @"[38;5;9mfoo[39m");
-        insta::assert_snapshot!(env.render_ok("try(label('red', 'foo'), bad_string)"), @"[38;5;9mfoo[39m");
+        insta::assert_snapshot!(
+            env.render_labels("try(bad_string, label('red', 'foo'))"), @"[38;5;9m<<red::foo>>[39m");
+        insta::assert_snapshot!(
+            env.render_labels("try(label('red', 'foo'), bad_string)"), @"[38;5;9m<<red::foo>>[39m");
+
+        // Method labels
+        insta::assert_snapshot!(
+            env.render_labels("try(foo.first_line(), bad_string)"), @"<<foo first_line::Foo>>");
+        insta::assert_snapshot!(env.render_labels("try(bad_i64, foo, foo)"), @"<<foo::Foo>>");
 
         // Serialize
         insta::assert_snapshot!(env.render_ok("json(try(bad_string, 'foo'))"), @r#""foo""#);
@@ -6212,8 +6242,10 @@ mod tests {
         env.add_color("red", crossterm::style::Color::Red);
 
         // If requires both halves of the statement to support the trait.
-        insta::assert_snapshot!(env.render_ok(r#"if(true, label("red", "a"), "b")"#), @"[38;5;9ma[39m");
-        insta::assert_snapshot!(env.render_ok(r#"if(false, label("red", "a"), "b")"#), @"b");
+        insta::assert_snapshot!(
+            env.render_labels(r#"if(true, label("red", "a"), "b")"#), @"[38;5;9m<<red::a>>[39m");
+        insta::assert_snapshot!(
+            env.render_labels(r#"if(false, label("red", "a"), "b")"#), @"b");
         insta::assert_snapshot!(env.render_ok(r#"json(if(true, size_hint, size_hint_2))"#), @"[5,null]");
         insta::assert_snapshot!(env.render_ok(r#"json(if(false, size_hint, size_hint_2))"#), @"[10,null]");
 
@@ -6255,12 +6287,12 @@ mod tests {
         env.add_color("red", crossterm::style::Color::Red);
 
         // Map items are not required to implement both Template and Serialize.
-        insta::assert_snapshot!(env.render_ok(
+        insta::assert_snapshot!(env.render_labels(
             r#"words.map(|x| label("red", x))"#),
-            @"[38;5;9mfoo[39m [38;5;9mbar[39m");
-        insta::assert_snapshot!(env.render_ok(
+            @"[38;5;9m<<words map red::foo>>[39m<<words map:: >>[38;5;9m<<words map red::bar>>[39m");
+        insta::assert_snapshot!(env.render_labels(
             r#"words.map(|x| label("red", x)).join(",")"#),
-            @"[38;5;9mfoo[39m,[38;5;9mbar[39m");
+            @"[38;5;9m<<words map join red::foo>>[39m<<words map join::,>>[38;5;9m<<words map join red::bar>>[39m");
         insta::assert_snapshot!(env.render_ok(
             r#"json(words.map(|x| size_hint))"#),
             @"[[10,null],[10,null]]");
@@ -6315,20 +6347,23 @@ mod tests {
 
         // Preserves static types and color labels of bound variables.
         insta::assert_snapshot!(
-            env.render_ok(r#"with(author, |a| a.name() ++ " <" ++ a.email().local() ++ ">")"#),
-            @"Test Author <[38;5;12mauthor[39m>");
+            env.render_labels(r#"with(author, |a| a.name() ++ " <" ++ a.email().local() ++ ">")"#),
+            @"<<author name::Test Author>> <[38;5;12m<<author email local::author>>[39m>");
         insta::assert_snapshot!(
-            env.render_ok("with(author.email().local(), |l| l)"),
-            @"[38;5;12mauthor[39m");
+            env.render_labels("with(author.email().local(), |l| l)"),
+            @"[38;5;12m<<author email local::author>>[39m");
         insta::assert_snapshot!(
-            env.render_ok(
+            env.render_labels(
                 r#"with(author.email(), committer.email(), |author_email, committer_email|
                     if(author_email == committer_email,
                         author_email,
-                        author_email ++ " / " ++ committer_email
+                        author_email ++ "\n" ++ committer_email
                     )
                 )"#),
-            @"[38;5;12mauthor[38;5;14m@example.com[39m / [38;5;13mcommitter@example.com[39m");
+            @"
+        [38;5;12m<<author email local::author>>[38;5;14m<<author email::@>><<author email domain::example.com>>[39m
+        [38;5;13m<<committer email local::committer>><<committer email::@>><<committer email domain::example.com>>[39m
+        ");
 
         // Nested `with`.
         insta::assert_snapshot!(
