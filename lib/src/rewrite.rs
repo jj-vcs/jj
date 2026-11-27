@@ -29,6 +29,7 @@ use itertools::Itertools as _;
 use jj_core::backend::BackendError;
 use jj_core::backend::BackendResult;
 use jj_core::backend::CommitId;
+use jj_core::backend::MergedTreeValue;
 use jj_core::commit::Commit;
 use jj_core::commit::CommitIteratorExt as _;
 use jj_core::commit::conflict_label_for_commits;
@@ -41,7 +42,10 @@ use jj_core::matchers::Matcher;
 use jj_core::matchers::Visit;
 use jj_core::merge::Diff;
 use jj_core::merge::Merge;
+use jj_core::merged_tree::DiffTreeStep;
+use jj_core::merged_tree::DiffVisitor;
 use jj_core::merged_tree::MergedTree;
+use jj_core::merged_tree_builder::MergedTreeBuilder;
 use jj_core::repo_path::RepoPath;
 use jj_core::revset_backend::RevsetStreamExt as _;
 
@@ -92,6 +96,9 @@ pub async fn restore_tree(
         destination.tree_ids().clone(),
         base_labels,
     );
+    // The paths where the trees are the same would cancel out in the merge below,
+    // so we only need the paths where they differ.
+    let (base_tree, restored_tree) = differing_parts(&base_tree, source, matcher).await?;
 
     // Merging the trees this way ensures that when restoring a conflicted file into
     // a conflicted commit, we preserve the labels of both commits even if the
@@ -110,15 +117,105 @@ pub async fn restore_tree(
             format!("{destination_label} (restore destination)"),
         ),
         (
-            base_tree.filtered(matcher).await?,
+            base_tree,
             format!("{RESTORE_BASE_LABEL} (from {destination_label})"),
         ),
         (
-            source.filtered(matcher).await?,
+            restored_tree,
             format!("restored files (from {source_label})"),
         ),
     ]))
     .await
+}
+
+/// Has an entry for a directory in which every file matches, instead of
+/// entries for the files in it.
+struct DiffFilesAndMatchedTrees;
+
+impl DiffVisitor for DiffFilesAndMatchedTrees {
+    fn visit_tree(&self, _path: &RepoPath, visit: &Visit) -> DiffTreeStep {
+        let all_match = *visit == Visit::AllRecursively;
+        DiffTreeStep {
+            emit: all_match,
+            descend: !all_match,
+        }
+    }
+
+    fn walk_conflict_dirs(&self) -> bool {
+        true
+    }
+}
+
+/// Returns the parts of `tree1` and `tree2` that are at matching paths and
+/// differ between the two trees. Each part has as many sides as its tree, and
+/// the same conflict labels. Directories that are the same in both trees are
+/// not read. Neither are directories in which every file matches.
+async fn differing_parts(
+    tree1: &MergedTree,
+    tree2: &MergedTree,
+    matcher: &dyn Matcher,
+) -> BackendResult<(MergedTree, MergedTree)> {
+    let mut part1 = TreePartBuilder::new(tree1);
+    let mut part2 = TreePartBuilder::new(tree2);
+    let mut diff_stream = tree1.diff_with_visitor(tree2, matcher, DiffFilesAndMatchedTrees);
+    while let Some(entry) = diff_stream.next().await {
+        let Diff { before, after } = entry.values?;
+        part1.set(&entry.path, before);
+        part2.set(&entry.path, after);
+    }
+    // A conflict that's the same in both trees is not in the diff. Add it to both
+    // parts anyway. Otherwise its sides in the destination wouldn't cancel out in
+    // the merge, and the result could have more sides than `tree2`.
+    let mut conflicts = tree1.conflicts_matching(matcher);
+    while let Some((path, value)) = conflicts.next().await {
+        let value = value?;
+        if tree2.path_value(&path).await? == value {
+            part1.set(&path, value.clone());
+            part2.set(&path, value);
+        }
+    }
+    try_join!(part1.write(), part2.write())
+}
+
+/// Builds a tree with the sides and conflict labels of `tree` from the values
+/// at some of its paths.
+struct TreePartBuilder<'a> {
+    tree: &'a MergedTree,
+    /// A builder for each term of the tree.
+    terms: Vec<MergedTreeBuilder>,
+}
+
+impl<'a> TreePartBuilder<'a> {
+    fn new(tree: &'a MergedTree) -> Self {
+        let empty = tree.store().empty_merged_tree();
+        let new_term = |_| MergedTreeBuilder::new(empty.clone());
+        let terms = tree.tree_ids().iter().map(new_term).collect();
+        Self { tree, terms }
+    }
+
+    /// Sets the value at `path`. A resolved value is the same in every term.
+    fn set(&mut self, path: &RepoPath, value: MergedTreeValue) {
+        assert!(value.is_resolved() || value.num_sides() == self.tree.tree_ids().num_sides());
+        for (index, term) in self.terms.iter_mut().enumerate() {
+            let value = value
+                .as_resolved()
+                .unwrap_or_else(|| &value.as_slice()[index]);
+            term.set_or_remove(path.to_owned(), value.clone());
+        }
+    }
+
+    async fn write(self) -> BackendResult<MergedTree> {
+        let trees = try_join_all(self.terms.into_iter().map(MergedTreeBuilder::write_tree)).await?;
+        let tree_ids = trees
+            .into_iter()
+            .map(|tree| tree.into_tree_ids().into_resolved().unwrap())
+            .collect_vec();
+        Ok(MergedTree::new(
+            self.tree.store().clone(),
+            Merge::from_vec(tree_ids),
+            self.tree.labels().clone(),
+        ))
+    }
 }
 
 /// Rebases `old_commit` onto `new_parents`.
