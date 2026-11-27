@@ -6593,19 +6593,20 @@ to do with signing commits on modification of a change (e.g., rebasing or edits)
 <span class="c1"># Could be &quot;~signed()&quot;, or any other revset</span>
 <span class="n">git-sign-on-push</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;~signed() &amp; mine()&quot;</span>
 </code></pre></div>
-<p>With this setup, commits are not signed when they are created or rewritten. At
-push time, <code>revsets.git-sign-on-push</code> is evaluated and all matching mutable
-commits to be pushed will be signed beforehand.</p>
+<p>With this setup, commits are not signed when they are created or rewritten.
+Both <code>jj git push</code> and <code>jj gerrit upload</code> evaluate <code>revsets.git-sign-on-push</code>
+against local commits and sign matching mutable commits before pushing.</p>
 <p>This is useful when the signing backend requires user interaction or is slow,
 because the signing work is deferred to push time. If <code>signing.behavior</code> is set
 to <code>own</code> or <code>force</code>, commits may already be signed when written, and
 <code>revsets.git-sign-on-push</code> would have little or nothing left to sign.</p>
-<p>The commits are signed in their own transaction which is committed before
-the push starts. If the push fails, the commits stay signed and retrying
-does not have to sign them again. If nothing needs signing, no extra
-transaction is created.</p>
-<p>Because signing and pushing are separate operations, <code>jj undo</code> of the push
-operation would not undo the commit signatures.</p>
+<p><code>jj git push</code> saves the signed commits locally before pushing, in a separate
+transaction. They remain signed if the push fails or is undone. If nothing needs
+signing, no extra transaction is created. Because signing and pushing are separate
+operations, <code>jj undo</code> of the push operation would not undo the commit signatures.</p>
+<p><code>jj gerrit upload</code> signs the upload versions after adding Gerrit trailers and
+updating parents, leaving local commits unchanged. Each upload attempt signs
+the selected commits again, including retries after a failure.</p>
 <h2 id="commit-signature-verification">Commit Signature Verification<a class="headerlink" href="#commit-signature-verification" title="Permanent link">&para;</a></h2>
 <p>By default signature verification and display is <strong>disabled</strong> as it incurs a
 performance cost when rendering medium to large change logs. You can enable it
