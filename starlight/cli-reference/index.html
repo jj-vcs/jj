@@ -2838,8 +2838,12 @@ are rebased on top of the amended revisions, propagating the diff. Use
 </li>
 <li>
 <p><code dir="auto">--ignore-errors</code> — Continue with remaining revisions when a command's exit code indicates failure</p>
-<p>Any changes made by a failed command will not be saved, but changes from successful commands are still applied atomically at the end.</p>
-<p>The exit code from any failed command will not impact the exit code of <code dir="auto">jj run</code> itself.</p>
+<p>Any changes made by a failed command will not be saved (unless --keep-changes is specified), but changes from successful commands are still applied atomically at the end.</p>
+<p>If a command fails, keep its changes and continue with the remaining revisions. <code dir="auto">jj run</code> exits with an error if any command failed, unless --ignore-errors is also specified.</p>
+</li>
+<li>
+<p><code dir="auto">--keep-changes</code> — Keep any changes made by the command, even on failure</p>
+<p>Any changes made by a failed command will be kept as if the command succeeded. However, the exit code of the failed command will still impact the exit code of <code dir="auto">jj run</code>.</p>
 </li>
 <li>
 <p><code dir="auto">--sparse-patterns &#x3C;SPARSE_PATTERNS></code> — How to handle sparse patterns when running the command. This is controlled per <code dir="auto">jj run</code> invocation.</p>
