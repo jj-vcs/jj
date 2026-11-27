@@ -25,6 +25,11 @@ jj-lib = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
+[dev-dependencies]
+bstr = { workspace = true }
+eyre = { workspace = true }
+insta = { workspace = true }
+
 [features]
 default = []
 git = ["jj-lib/git"]

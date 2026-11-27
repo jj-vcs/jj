@@ -23,8 +23,15 @@
 #![deny(unused_must_use)]
 #![deny(unsafe_code)]
 
+pub mod formatter;
 #[cfg(feature = "git")]
 pub mod git_util;
 pub mod revset_util;
 pub mod runner;
 pub mod workspace_env;
+
+#[cfg(test)]
+mod tests {
+    // Copied from `testutils::TestResult` to remove dependency cycle.
+    pub type TestResult<T = ()> = eyre::Result<T>;
+}

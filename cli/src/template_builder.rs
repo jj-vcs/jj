@@ -24,6 +24,8 @@ use std::path::PathBuf;
 use bstr::BString;
 use bstr::ByteSlice as _;
 use itertools::Itertools as _;
+use jj_frontend::formatter::FormatRecorder;
+use jj_frontend::formatter::Formatter;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigGetResultExt as _;
@@ -48,8 +50,6 @@ use jj_lib::template_parser::TemplateParseResult;
 use jj_lib::template_parser::UnaryOp;
 use jj_lib::time_util::DatePattern;
 
-use crate::formatter::FormatRecorder;
-use crate::formatter::Formatter;
 use crate::template_value::OpaqueTemplateValue;
 use crate::template_value::TemplateTypeRegistry;
 use crate::template_value::TemplateValue;
@@ -3293,8 +3293,8 @@ mod tests {
     use jj_lib::config::StackedConfig;
 
     use super::*;
-    use crate::formatter;
-    use crate::formatter::ColorFormatter;
+    use crate::color_formatter;
+    use crate::color_formatter::ColorFormatter;
 
     struct TestTemplateLanguage {
         settings: UserSettings,
@@ -3339,7 +3339,7 @@ mod tests {
         current_dir: PathBuf,
         keywords: HashMap<&'static str, (TemplateValueType, TestKeywordValue)>,
         aliases_map: TemplateAliasesMap,
-        color_rules: Vec<(Vec<String>, formatter::Style)>,
+        color_rules: Vec<(Vec<String>, color_formatter::Style)>,
     }
 
     impl TestTemplateEnv {
@@ -3426,7 +3426,7 @@ mod tests {
 
         fn add_color(&mut self, label: &str, fg: crossterm::style::Color) {
             let labels = label.split_whitespace().map(|s| s.to_owned()).collect();
-            let style = formatter::Style {
+            let style = color_formatter::Style {
                 fg: Some(fg),
                 ..Default::default()
             };
