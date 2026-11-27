@@ -3605,6 +3605,9 @@ parsing, for example <code>self.change_id()</code>, are evaluated per call at ru
 <li><code>.original_line_number() -&gt; Integer</code>: 1-based line number in the original commit.</li>
 <li><code>.first_line_in_hunk() -&gt; Boolean</code>: False when the directly preceding line
   references the same commit.</li>
+<li><code>.hunk_index() -&gt; Integer</code>: 0-based hunk index, incremented whenever the
+  directly preceding line references a different commit. Useful for things like
+  alternating colors per hunk using <code>hunk_index % 2 == 0</code>.</li>
 </ul>
 <h3 id="any-type"><code>Any</code> type<a class="headerlink" href="#any-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: maybe, <code>Template</code>: maybe</em></p>
