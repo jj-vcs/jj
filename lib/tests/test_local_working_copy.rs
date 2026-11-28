@@ -1746,6 +1746,41 @@ fn test_gitignores_checkout_never_overwrites_ignored() -> TestResult {
 }
 
 #[test]
+fn test_gitignores_ignored_directory_replaced_by_file() -> TestResult {
+    // Tests that a tracked directory inside a .gitignore'd directory can be
+    // replaced by a file. The tracked files inside it should be deleted.
+    // https://github.com/jj-vcs/jj/issues/10777
+
+    let mut test_workspace = TestWorkspace::init();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+    let repo = test_workspace.repo.clone();
+
+    let gitignore_path = repo_path(".gitignore");
+    let file_path = repo_path("ignored/dir/file");
+    let tree = create_tree_with(&repo, |builder| {
+        builder.file(gitignore_path, "/ignored/\n");
+        builder.file(file_path, "contents");
+    });
+    let commit = commit_with_tree(repo.store(), tree);
+
+    let ws = &mut test_workspace.workspace;
+    ws.check_out(repo.op_id().clone(), None, &commit)
+        .block_on()?;
+
+    // Replace `ignored/dir` with a file
+    let dir_path = repo_path("ignored/dir").to_fs_path_unchecked(&workspace_root);
+    std::fs::remove_dir_all(&dir_path)?;
+    std::fs::write(&dir_path, "contents")?;
+
+    let new_tree = test_workspace.snapshot()?;
+    let expected_tree = create_tree_with(&repo, |builder| {
+        builder.file(gitignore_path, "/ignored/\n");
+    });
+    assert_tree_eq!(new_tree, expected_tree);
+    Ok(())
+}
+
+#[test]
 fn test_gitignores_ignored_directory_already_tracked() -> TestResult {
     // Tests that a .gitignore'd directory that already has a tracked file in it
     // does not get removed when snapshotting the working directory.

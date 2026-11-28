@@ -1906,7 +1906,16 @@ impl FileSnapshotter<'_> {
             let disk_path = tracked_path.to_fs_path(&self.tree_state.working_copy_path)?;
             let metadata = match disk_path.symlink_metadata() {
                 Ok(metadata) => Some(metadata),
-                Err(err) if err.kind() == io::ErrorKind::NotFound => None,
+                // NotADirectory: a parent directory was replaced by a file, so
+                // the tracked file is gone.
+                Err(err)
+                    if matches!(
+                        err.kind(),
+                        io::ErrorKind::NotFound | io::ErrorKind::NotADirectory
+                    ) =>
+                {
+                    None
+                }
                 Err(err) => {
                     return Err(SnapshotError::Other {
                         message: format!("Failed to stat file {}", disk_path.display()),
