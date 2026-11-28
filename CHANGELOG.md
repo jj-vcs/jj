@@ -11,6 +11,10 @@ Changes that have not been released yet are described in the
 [`changelog/`](https://github.com/jj-vcs/jj/tree/main/changelog) directory.
 <!-- END UNRELEASED NOTE -->
 
+* Fixed `jj squash` creating divergent commits when squashing selected paths
+  from descendants into an ancestor and abandoning an emptied source.
+  [#9785](https://github.com/jj-vcs/jj/issues/9785)
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
