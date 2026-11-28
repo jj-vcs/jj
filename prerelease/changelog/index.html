@@ -9625,6 +9625,10 @@ and this project adheres to
   aliases for each expression (currently no performance benefit).</p>
 </li>
 <li>
+<p>In templates, <code>if(condition, then, else)</code> now preserves matching branch types,
+  enabling <code>if(x, 1, 2) + 3</code>.</p>
+</li>
+<li>
 <p>New <code>revsets.workspace-add</code> config to set the default parents of the new
   working-copy commit created by <code>jj workspace add</code>.</p>
 </li>

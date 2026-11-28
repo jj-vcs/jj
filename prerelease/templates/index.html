@@ -3560,8 +3560,9 @@ including capture group 0 for the full match.</p>
 <li><code>json(value: Serialize) -&gt; String</code>: Serialize <code>value</code> in JSON format. To
   serialize multiple values as a JSON object, use <code>json({key =&gt; value, ..})</code>.
   For example, <code>json({"commit_id" =&gt; commit_id, "tags" =&gt; tags})</code>.</li>
-<li><code>if(condition: Boolean, then: Any, [else: Any]) -&gt; Any</code>:
-  Conditionally evaluates to <code>then</code> / <code>else</code> content.</li>
+<li><code>if(condition: Boolean, then, [else])</code>: Conditionally evaluates to <code>then</code> or
+  <code>else</code>. If <code>then</code> and <code>else</code> share the same type, the expression evaluates to
+  that type. Otherwise, the returned type is <code>Any</code>.</li>
 <li><code>try(expr: Any, fallback: Any...) -&gt; Any</code>: Evaluates each expression in order
   and returns the first successful result. Suppresses preceding runtime errors,
   but lets parsing errors (such as type errors) pass through.</li>
@@ -4240,6 +4241,13 @@ documented. You can discover the actual label names used with the
 <p>This can be useful if you are trying to figure out whether or not a label is
 present or which labels you should define or override colors for to get the
 output that you want.</p>
+<p>When a function returns a value from one of its arguments, the selected value
+can retain that argument's automatic labels. For example, <code>if(condition,
+author.name(), committer.name())</code> retains the labels of the selected branch.
+Calling a method on the returned value drops those labels and adds the new
+method's label. For example, <code>if(condition, author.name(),
+committer.name()).upper()</code> has the "upper" label, but not the selected branch's
+"author name" or "committer name" labels.</p>
 <p>Additionally, you can <strong>manually</strong> insert arbitrary labels using the
 <code>label(label, content)</code> function. For example,</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;&quot;ID: &quot; ++ self.id().short().substr(0, 1) ++ label(&quot;id short&quot;, &quot;&lt;redacted&gt;&quot;)&#39;</span>
