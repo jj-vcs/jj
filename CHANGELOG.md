@@ -11,6 +11,168 @@ Changes that have not been released yet are described in the
 [`changelog/`](https://github.com/jj-vcs/jj/tree/main/changelog) directory.
 <!-- END UNRELEASED NOTE -->
 
+### API changes
+
+This section lists changes to the APIs of the library crates (`jj-lib`,
+`jj-core`, etc.) and of `jj-cli`.
+
+#### New crates
+
+* New `jj-config` crate containing the `config`, `secure_config`, `settings`,
+  and `fmt_util` modules. `jj-lib` re-exports them under their old paths.
+
+* New `jj-working-copy` crate containing the `working_copy` module (the
+  `WorkingCopy`, `LockedWorkingCopy`, and `WorkingCopyFactory` traits and
+  related types) and the `gitignore` module. `jj-lib` re-exports them under
+  their old paths.
+
+* New `jj-local-working-copy` crate containing the `local_working_copy` and
+  `fsmonitor` modules. `jj-lib` re-exports them under their old paths.
+
+* New `jj-simple-stores` crate containing the `simple_backend`,
+  `simple_op_store`, and `simple_op_heads_store` modules. `jj-lib` re-exports
+  them under their old paths.
+
+* `op_heads_store` moved from `jj-lib` to `jj-core`, and
+  `REMOTE_NAME_FOR_LOCAL_GIT_REPO` moved from `jj_lib::git` to
+  `jj_core::ref_name`. `jj-lib` re-exports both under their old paths.
+
+#### Breaking changes
+
+* `WorkingCopyFreshness`, `RecoverWorkspaceError`, and
+  `create_and_check_out_recovery_commit()` moved from `jj_lib::working_copy` to
+  `jj_lib::workspace`.
+
+* `StoreFactories` and the `*Initializer` type aliases moved from
+  `jj_lib::repo` to the new `jj_lib::store_factories` module.
+  `RepoLoader::init_from_file_system()` is replaced by
+  `StoreFactories::load_repo()`, and `ReadonlyRepo::init()` is replaced by
+  `StoreInitializers::init_repo()`. The new `StoreInitializers` struct groups
+  the store initializers that used to be passed as separate arguments. Use
+  `jj_lib::default_backend_factories::default_store_initializers()` to get the
+  default initializers and override fields with struct update syntax.
+
+* `Workspace::init_with_factories()` takes a `&StoreInitializers` instead of
+  one argument per store initializer.
+
+* `UserSettings::git_backend_settings()` is replaced by the free function
+  `jj_lib::default_backend_factories::git_backend_settings()`. The new
+  `git_backend_initializer()` helper in the same module creates a
+  `BackendInitializer` for a `GitBackend`.
+
+* `Transaction::new()` now takes only a `&Arc<ReadonlyRepo>` instead of a
+  `MutableRepo` and `&UserSettings`.
+
+* `Store::root_commit()` is now async.
+
+* Revset symbol resolution is now async:
+  `PartialSymbolResolver::resolve_symbol()` (an `#[async_trait(?Send)]` trait
+  method), `SymbolResolver::resolve_symbol()`,
+  `UserRevsetExpression::resolve_user_expression()` (which now also takes
+  `self: &Arc<Self>`), and `jj_frontend`'s `try_resolve_trunk_alias()` and
+  `WorkspaceEnvironment::resolve_immutable_expression()`.
+
+* `IdPrefixContext::populate()`, `IdPrefixIndex::resolve_commit_prefix()`,
+  `IdPrefixIndex::shortest_commit_prefix_len()`, and
+  `IdPrefixIndex::shortest_commit_prefix_len_exact()` are now async.
+
+* `MergedTree::trees()`, `all_merged_tree_entries()`, `TreeMergeExt`, and
+  `ToTreeMergeExt` are no longer public. Use `MergedTree::has_dir()` to check
+  whether a path is a directory.
+
+* `MergedTreeValueExt::to_file_merge()` was renamed to `to_file_id_merge()`.
+  `to_file_id_merge()`, `to_executable_merge()`, `to_copy_id_merge()`, and
+  `is_tree()` now ignore terms of the other kind (trees or non-trees) that
+  cancel out, and replace canceled terms by `None`.
+
+* `HexPrefix::min_prefix_bytes()` was renamed to `lower_bound_bytes()`.
+
+* The `Git` variants of `GitImportError`, `GitExportError`,
+  `GitCreateWorktreeError`, and `GitResetHeadError` now contain a `gix::Error`
+  instead of a boxed error. `GitImportError`, `GitCreateWorktreeError`, and
+  `GitResetHeadError` have a new `GitRepoAtWorkdir` variant, and
+  `GitResetHeadError` has a new `Path` variant.
+
+* `jj_frontend::runner::RunnerError::EventSink` and `RunnerError::event_sink()`
+  are replaced by `RunnerError::EventHandling`.
+
+* `ReadonlyUserRepo` moved from `jj_cli::cli_util` to `jj_frontend::runner`.
+
+* The templater in `jj-cli` was redesigned around type-erased values:
+  * The per-language property enums (`CoreTemplatePropertyKind`,
+    `CommitTemplatePropertyKind`, `OperationTemplatePropertyKind`, and
+    `OperationTemplateLanguagePropertyKind`) are replaced by a single
+    `template_builder::TemplatePropertyKind`, and the `CoreTemplatePropertyVar`
+    and `OperationTemplatePropertyVar` traits are removed.
+  * The `WrapTemplateProperty` trait is replaced by
+    `template_value::TemplateValue`. Value types are registered in a
+    `TemplateTypeRegistry`, which says how they can be formatted, serialized,
+    compared, and converted to booleans.
+  * The `TemplateLanguage` trait's `build_function()` and `build_method()` are
+    replaced by `type_registry()` and `symbol_table()`.
+  * `CoreTemplateBuildFnTable`, `CommitTemplateBuildFnTable`,
+    `OperationTemplateBuildFnTable`, and `OperationTemplateLanguageBuildFnTable`
+    are replaced by `TemplateSymbolTable`. Functions and methods are added with
+    `table.register_functions().insert(name, build_fn)` and
+    `table.register_methods::<T>().insert(name, build_fn)`. The
+    `TemplateBuild*Fn`, `Build*MethodFn`, and `*FnMap` type aliases and
+    `merge_fn_map()` are removed.
+  * `CommitTemplateLanguageExtension::build_fn_table()` and
+    `OperationTemplateLanguageExtension::build_fn_table()` are replaced by
+    `register_symbols()`, which adds symbols directly to the language's table.
+  * `builtin_formattable_list_methods()` and
+    `builtin_unformattable_list_methods()` are replaced by
+    `register_formattable_list_methods()` and
+    `register_unformattable_list_methods()`.
+  * `templater::list_to_boolean()` and `templater::option_to_boolean()` are
+    removed.
+  * `Expression`, `BuildContext`, `SerializeMap`, and `DiffStatsFormatted` have
+    different type and lifetime parameters.
+  * `generic_templater::GenericTemplateLanguage` is removed. Implement
+    `TemplateLanguage` directly instead.
+
+* The `RevsetExpressionEvaluator` methods `resolve()`, `resolve_revset()`,
+  `evaluate()`, `evaluate_to_commit_ids()`, and `evaluate_to_commits()` are now
+  async.
+
+* `graphlog::get_graphlog()` now takes a `&Ui` and a `&mut dyn Formatter`
+  instead of a `&mut dyn Write`, and `SaplingGraphLog::create()` is removed.
+
+#### New features
+
+* New `jj_frontend::runner::RunnerEventHandler` trait for receiving
+  `RunnerEvent`s, and a new `RunnerEvent::NothingChanged` variant.
+
+* New `HexPrefix::upper_bound_bytes()`, which together with
+  `lower_bound_bytes()` gives the range of ids matching a prefix in sorted
+  storage.
+
+* New `MergedTree::has_dir()` and `Merge::replace_canceled_terms()`.
+
+* New `GitFetchError::is_object_format_mismatch()` and
+  `GitPushError::is_object_format_mismatch()`.
+
+* New `jj_local_util::file_util::canonicalize()`, which works on all platforms
+  including WASI.
+
+* `jj-lib` can now be compiled for the `wasm32-wasip2` target (without default
+  features).
+
+* New `jj_cli::cli_util::WorkspaceOperationRunner`, which snapshots the working
+  copy, imports from Git, and finishes transactions without depending on `Ui`.
+  It reports what happens through a `RunnerEventHandler`, so GUIs can reuse it.
+
+* New `jj_cli::template_value` module with `TemplateValue`,
+  `TemplateTypeRegistry`, and related types, and new
+  `template_builder::new_core_type_registry()`,
+  `operation_templater::register_types()`, and
+  `operation_templater::register_symbols()`.
+
+* New `jj_cli::templater::ConfigValueWrapper`,
+  `jj_cli::cli_util::check_json_word_wrap_mangling()`,
+  `jj_cli::diff_util::check_diff_revset_has_no_gaps()`, and
+  `jj_cli::diff_util::DUMMY_DESCRIPTION_PATH`.
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
