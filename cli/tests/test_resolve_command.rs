@@ -553,7 +553,7 @@ fn test_files_still_have_conflicts() -> TestResult {
     │ ×    conflict
     │ ├─╮
     │ │ ○  b
-    ├───╯
+    ├─│─╯
     │ ○  a
     ├─╯
     ○  base

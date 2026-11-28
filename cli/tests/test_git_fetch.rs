@@ -2146,7 +2146,7 @@ fn test_git_fetch_preserve_commits_across_repos() -> TestResult {
     │ ○    f3e9250bd003 "merge" upstream*
     │ ├─╮
     │ │ ○  16ec9ef2877a "message"
-    ├───╯
+    ├─│─╯
     │ ○  bcd7cd779791 "message" upstream@fork
     ├─╯
     ◆  000000000000 ""

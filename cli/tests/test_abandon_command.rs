@@ -35,7 +35,7 @@ fn test_basics() {
     │ ○  [vru] d
     │ ○  [roy] c
     │ │ ○  [zsu] b
-    ├───╯
+    ├─│─╯
     ○ │  [rlv] a
     ├─╯
     ◆  [zzz]
@@ -60,7 +60,7 @@ fn test_basics() {
     ├─╮
     │ ○  [roy] c d
     │ │ ○  [zsu] b
-    ├───╯
+    ├─│─╯
     ○ │  [rlv] a
     ├─╯
     ◆  [zzz]
@@ -85,7 +85,7 @@ fn test_basics() {
     │ ○  [vru] d e??
     │ ○  [roy] c
     │ │ ○  [zsu] b
-    ├───╯
+    ├─│─╯
     ○ │  [rlv] a e??
     ├─╯
     ◆  [zzz]
@@ -111,7 +111,7 @@ fn test_basics() {
     ├─╮
     │ ○  [roy] c
     │ │ ○  [zsu] b
-    ├───╯
+    ├─│─╯
     ○ │  [rlv] a
     ├─╯
     ◆  [zzz]
@@ -159,7 +159,7 @@ fn test_basics() {
     ├─╮
     │ ○  [roy] c
     │ │ ○  [zsu] b
-    ├───╯
+    ├─│─╯
     ○ │  [rlv] a
     ├─╯
     ◆  [zzz]
