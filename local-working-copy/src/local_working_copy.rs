@@ -2674,7 +2674,8 @@ impl TreeState {
             if after.is_absent() {
                 deleted_files.insert(path);
             } else {
-                let file_type = match after.into_resolved() {
+                let mut materialized_conflict_data = None;
+                let file_type = match after.clone().into_resolved() {
                     Ok(value) => match value.unwrap() {
                         TreeValue::File {
                             id: _,
@@ -2696,6 +2697,21 @@ impl TreeState {
                         }
                     },
                     Err(_values) => {
+                        // Remember the marker length that checkout would use for
+                        // this conflict, so the next snapshot can parse the file
+                        // if it was materialized with longer markers.
+                        if let MaterializedTreeValue::FileConflict(file) =
+                            materialize_tree_value(&self.store, &path, after, new_tree.labels())
+                                .await?
+                        {
+                            let conflict_marker_len =
+                                choose_materialized_conflict_marker_len(&file.contents);
+                            materialized_conflict_data = Some(MaterializedConflictData {
+                                conflict_marker_len: conflict_marker_len
+                                    .try_into()
+                                    .unwrap_or(u32::MAX),
+                            });
+                        }
                         // TODO: Try to set the executable bit based on the conflict
                         FileType::Normal {
                             exec_bit: ExecBit(false),
@@ -2706,7 +2722,7 @@ impl TreeState {
                     file_type,
                     mtime: MillisSinceEpoch(0),
                     size: 0,
-                    materialized_conflict_data: None,
+                    materialized_conflict_data,
                 };
                 changed_file_states.push((path, file_state));
             }

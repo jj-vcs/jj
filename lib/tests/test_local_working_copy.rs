@@ -762,6 +762,38 @@ fn test_reset() -> TestResult {
 }
 
 #[test]
+fn test_recover_conflict_with_long_markers() -> TestResult {
+    // A conflict whose sides contain marker-like lines is materialized with
+    // longer markers. After recover(), the next snapshot of the untouched file
+    // should still parse it as the same conflict.
+    let mut test_workspace = TestWorkspace::init();
+    let repo = test_workspace.repo.clone();
+    let op_id = repo.op_id().clone();
+
+    let path = repo_path("file");
+    let base = create_tree(&repo, &[(path, "base\n")]);
+    let left = create_tree(&repo, &[(path, "left\n=======\n")]);
+    let right = create_tree(&repo, &[(path, "right\n-------\n")]);
+    let merged_tree = MergedTree::merge(Merge::from_vec(vec![
+        (left, "left".into()),
+        (base, "base".into()),
+        (right, "right".into()),
+    ]))
+    .block_on()?;
+    let commit = commit_with_tree(repo.store(), merged_tree.clone());
+
+    let ws = &mut test_workspace.workspace;
+    ws.check_out(op_id.clone(), None, &commit).block_on()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
+    locked_ws.locked_wc().recover(&commit).block_on()?;
+    locked_ws.finish(op_id).block_on()?;
+
+    let new_tree = test_workspace.snapshot()?;
+    assert_tree_eq!(new_tree, merged_tree);
+    Ok(())
+}
+
+#[test]
 fn test_checkout_discard() -> TestResult {
     // Start a mutation, do a checkout, and then discard the mutation. The working
     // copy files should remain changed, but the state files should not be
