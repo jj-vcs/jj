@@ -243,6 +243,8 @@ pub struct ReparentStats {
     pub new_head_ids: Vec<OperationId>,
     /// The number of rewritten operations.
     pub rewritten_count: usize,
+    /// Map of old operation ids to the new ids of the rewritten operations.
+    pub rewritten_ids: HashMap<OperationId, OperationId>,
     /// The number of ancestor operations that become unreachable from the
     /// rewritten heads.
     pub unreachable_count: usize,
@@ -299,6 +301,7 @@ pub async fn reparent_range(
     Ok(ReparentStats {
         new_head_ids,
         rewritten_count: rewritten_ids.len(),
+        rewritten_ids,
         unreachable_count,
     })
 }
