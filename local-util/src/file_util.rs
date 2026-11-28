@@ -282,6 +282,37 @@ pub fn new_temp_file_for_replacement(
     Ok((temp_file, new_path))
 }
 
+/// Makes the file content durable before it's published by a subsequent
+/// rename.
+///
+/// On Apple platforms, [`File::sync_data()`] issues `F_FULLFSYNC`, which
+/// flushes the whole drive cache. We only need the content to reach storage
+/// before the rename does, which `F_BARRIERFSYNC` guarantees at a much
+/// lower cost.
+#[cfg(target_vendor = "apple")]
+fn sync_data(file: &File) -> io::Result<()> {
+    use std::os::fd::AsFd as _;
+
+    use nix::errno::Errno;
+    use nix::fcntl::FcntlArg;
+    use nix::fcntl::fcntl;
+
+    loop {
+        match fcntl(file.as_fd(), FcntlArg::F_BARRIERFSYNC) {
+            Ok(_) => return Ok(()),
+            Err(Errno::EINTR) => {}
+            Err(err) => return Err(err.into()),
+        }
+    }
+}
+
+/// Makes the file content durable before it's published by a subsequent
+/// rename.
+#[cfg(not(target_vendor = "apple"))]
+fn sync_data(file: &File) -> io::Result<()> {
+    file.sync_data()
+}
+
 /// Persists the temporary file after synchronizing the content.
 ///
 /// After system crash, the persisted file should have a valid content if
@@ -300,7 +331,7 @@ pub fn persist_temp_file<P: AsRef<Path>>(
     new_path: P,
 ) -> io::Result<File> {
     // Ensure persisted file content is flushed to disk.
-    temp_file.as_file().sync_data()?;
+    sync_data(temp_file.as_file())?;
     let new_path = new_path.as_ref();
     let mut retry_delays = BackoffIterator::with_max_elapsed(Duration::from_secs(2));
     loop {
@@ -337,7 +368,7 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
 ) -> io::Result<File> {
     // Ensure new file content is flushed to disk, so the old file content
     // wouldn't be lost if existed at the same location.
-    temp_file.as_file().sync_data()?;
+    sync_data(temp_file.as_file())?;
     if cfg!(windows) {
         // On Windows, overwriting file can fail if the file is opened without
         // FILE_SHARE_DELETE for example. We don't need to take a risk if the

@@ -11,6 +11,11 @@ Changes that have not been released yet are described in the
 [`changelog/`](https://github.com/jj-vcs/jj/tree/main/changelog) directory.
 <!-- END UNRELEASED NOTE -->
 
+* On macOS, jj now syncs written files with `F_BARRIERFSYNC` instead of
+  `F_FULLFSYNC`, which makes commands that write to the repo faster. The
+  drawback is that recent writes may be lost, but it should not result in
+  a corrupt repo.
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
