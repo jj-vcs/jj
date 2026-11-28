@@ -621,6 +621,8 @@ fn test_import_refs_reimport_git_head_without_ref() -> TestResult {
     let mut tx = repo.start_transaction();
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit(tx.repo_mut());
+    // Persist the commits so Git refs can point to them
+    repo.store().flush()?;
     testutils::git::set_head_to_id(&git_repo, git_id(&commit1));
 
     // Import HEAD.
@@ -657,6 +659,8 @@ fn test_import_refs_reimport_git_head_with_moved_ref() -> TestResult {
     let mut tx = repo.start_transaction();
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit(tx.repo_mut());
+    // Persist the commits so Git refs can point to them
+    repo.store().flush()?;
     git_repo.reference(
         "refs/heads/main",
         git_id(&commit1),
@@ -1366,6 +1370,8 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() -> TestResult {
     let mut tx = repo.start_transaction();
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit(tx.repo_mut());
+    // Persist the commits so Git refs can point to them
+    repo.store().flush()?;
     git_repo.reference(
         "refs/heads/main",
         git_id(&commit1),
@@ -3035,6 +3041,8 @@ fn test_export_import_sequence() -> TestResult {
     let commit_a = write_random_commit(mut_repo);
     let commit_b = write_random_commit(mut_repo);
     let commit_c = write_random_commit(mut_repo);
+    // Persist the commits so Git refs can point to them
+    mut_repo.store().flush()?;
 
     // Import the bookmark pointing to A
     git_repo.reference(

@@ -14,6 +14,7 @@
 
 #![expect(missing_docs)]
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -30,6 +31,9 @@ use std::str::Utf8Error;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+use std::sync::PoisonError;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -92,6 +96,18 @@ use thiserror::Error;
 const CHANGE_ID_LENGTH: usize = 16;
 /// Ref namespace used only for preventing GC.
 const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
+/// Blobs at least this large are written straight to disk instead of being
+/// kept in memory until `flush()`, to bound memory usage when snapshotting
+/// large files. (This is also the default `snapshot.max-new-file-size`.)
+const MAX_IN_MEMORY_BLOB_SIZE: usize = 1024 * 1024;
+/// When the objects kept in memory add up to at least this many bytes, they're
+/// flushed to disk without waiting for an explicit `flush()`. This bounds
+/// memory usage when e.g. snapshotting many small files.
+const MAX_IN_MEMORY_BYTES: usize = 100 * 1024 * 1024;
+/// If at least this many objects are persisted by one `flush()`, they're
+/// written to a single pack file instead of as loose objects. This is the same
+/// heuristic (and default value) as Git's `transfer.unpackLimit`.
+const MIN_OBJECTS_FOR_PACK: usize = 100;
 
 pub const JJ_CONFLICT_README_FILE_NAME: &str = "JJ-CONFLICT-README";
 
@@ -186,6 +202,9 @@ pub struct GitBackend {
     // one for each backend method call. Our GitBackend is most likely to be
     // used in a single-threaded context.
     base_repo: gix::ThreadSafeRepository,
+    // Objects written through this handle are kept in memory until `flush()`
+    // persists them. Reads see both the in-memory objects and the on-disk
+    // object database.
     repo: Mutex<gix::Repository>,
     root_commit_id: CommitId,
     root_change_id: ChangeId,
@@ -193,6 +212,16 @@ pub struct GitBackend {
     shallow_root_ids: OnceLock<Vec<CommitId>>,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
+    // Extra metadata for commits that have been written but not yet flushed.
+    pending_extras: Mutex<HashMap<CommitId, Vec<u8>>>,
+    // Total size of the blobs and trees in the in-memory object store. Only
+    // updated while the Git repo is locked.
+    in_memory_bytes: AtomicUsize,
+    // `MAX_IN_MEMORY_BYTES`, except in tests.
+    max_in_memory_bytes: usize,
+    // ".keep" files of packs written by `flush()` whose commits aren't
+    // protected from GC by no-gc refs yet.
+    pending_keep_files: Mutex<Vec<PathBuf>>,
     git_executable: PathBuf,
     write_change_id_header: bool,
 }
@@ -205,7 +234,7 @@ impl GitBackend {
         extra_metadata_store: TableStore,
         settings: &GitBackendSettings,
     ) -> Self {
-        let repo = base_repo.to_thread_local();
+        let repo = base_repo.to_thread_local().with_object_memory();
         let root_commit_id = CommitId::from_bytes(repo.object_hash().null_ref().as_bytes());
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
         let empty_tree_id =
@@ -219,6 +248,10 @@ impl GitBackend {
             shallow_root_ids: OnceLock::new(),
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
+            pending_extras: Mutex::new(HashMap::new()),
+            in_memory_bytes: AtomicUsize::new(0),
+            max_in_memory_bytes: MAX_IN_MEMORY_BYTES,
+            pending_keep_files: Mutex::new(vec![]),
             git_executable: settings.git_executable.clone(),
             write_change_id_header: settings.write_change_id_header,
         }
@@ -358,6 +391,9 @@ impl GitBackend {
     }
 
     /// Returns a new thread-local handle for the underlying Git repository.
+    ///
+    /// Objects written through this backend are not visible through the
+    /// returned handle until they have been persisted by [`Backend::flush()`].
     ///
     /// Use [`Self::open_git_repo_at_workdir()`] for worktree operations.
     pub fn git_repo(&self) -> gix::Repository {
@@ -548,20 +584,12 @@ impl GitBackend {
         ))
     }
 
-    fn read_tree_for_commit<'repo>(
-        &self,
-        repo: &'repo gix::Repository,
-        id: &CommitId,
-    ) -> BackendResult<gix::Tree<'repo>> {
+    /// Returns the first tree ID of the commit. Must not be called while the
+    /// Git repo is locked.
+    fn root_tree_id_for_commit(&self, id: &CommitId) -> BackendResult<TreeId> {
         let tree = self.read_commit_impl(id)?.root_tree;
         // TODO(kfm): probably want to do something here if it is a merge
-        let tree_id = tree.first();
-        let gix_id = validate_git_object_id(repo, tree_id)?;
-        repo.try_find_object(gix_id)
-            .map_err(|err| to_read_object_err(err, tree_id))?
-            .ok_or_else(|| not_found_err(tree_id))?
-            .try_into_tree()
-            .map_err(|err| to_read_object_err(err, tree_id))
+        Ok(tree.first().clone())
     }
 
     // Similar to gix's write_blob, but compute the hash outside our lock to
@@ -582,11 +610,20 @@ impl GitBackend {
         })?;
 
         let locked_repo = self.lock_git_repo();
+        let num_objects_before = locked_repo.objects.num_objects_in_memory();
         if !locked_repo.objects.exists(&oid) {
+            // Large blobs bypass the in-memory object store. They're unlikely
+            // to be throw-away objects, and keeping them in memory until the
+            // transaction is committed could use a lot of memory.
+            let odb: &dyn gix::objs::Write = if bytes.len() >= MAX_IN_MEMORY_BLOB_SIZE {
+                // The inner handle writes to disk
+                &*locked_repo.objects
+            } else {
+                &locked_repo.objects
+            };
             // reuse the precomputed hash, since Gitoxide provides an API for it (otherwise
             // Gitoxide recomputes it).
-            let write_oid = locked_repo
-                .objects
+            let write_oid = odb
                 .write_buf_with_known_id(gix::objs::Kind::Blob, bytes, oid)
                 .map_err(|err| BackendError::WriteObject {
                     object_type,
@@ -594,6 +631,9 @@ impl GitBackend {
                 })?;
             assert!(oid == write_oid);
         }
+        self.record_in_memory_write(&locked_repo, num_objects_before, bytes.len());
+        drop(locked_repo);
+        self.flush_if_over_memory_limit()?;
         Ok(oid)
     }
 
@@ -620,8 +660,11 @@ impl GitBackend {
             commit.parents.push(self.root_commit_id.clone());
         }
 
+        let pending_extras = self.pending_extras.lock().unwrap().get(id).cloned();
         let table = self.cached_extra_metadata_table()?;
-        if let Some(extras) = table.get_value(id.as_bytes()) {
+        if let Some(extras) = &pending_extras {
+            deserialize_extras(&mut commit, extras);
+        } else if let Some(extras) = table.get_value(id.as_bytes()) {
             deserialize_extras(&mut commit, extras);
         } else {
             // TODO: Remove this hack and map to ObjectNotFound error if we're sure that
@@ -635,6 +678,28 @@ impl GitBackend {
             deserialize_extras(&mut commit, extras);
         }
         Ok(commit)
+    }
+
+    /// Adds `size` to the in-memory byte count if the write that was just
+    /// made through `locked_repo` added an object to the in-memory store.
+    fn record_in_memory_write(
+        &self,
+        locked_repo: &gix::Repository,
+        num_objects_before: usize,
+        size: usize,
+    ) {
+        if locked_repo.objects.num_objects_in_memory() > num_objects_before {
+            self.in_memory_bytes.fetch_add(size, Ordering::Relaxed);
+        }
+    }
+
+    /// Flushes if the in-memory objects have grown too large. Must not be
+    /// called while the Git repo is locked.
+    fn flush_if_over_memory_limit(&self) -> BackendResult<()> {
+        if self.in_memory_bytes.load(Ordering::Relaxed) >= self.max_in_memory_bytes {
+            self.flush()?;
+        }
+        Ok(())
     }
 }
 
@@ -669,6 +734,16 @@ fn gix_open_opts_from_settings(settings: &GitBackendSettings) -> gix::open::Opti
         .open_path_as_is(true)
         // Gitoxide recommends this when correctness is preferred
         .strict_config(true)
+        // The object store can only track a fixed number of pack indices,
+        // determined when the repo is opened. By default, that's only 10% more
+        // than the number of packs at that time (but at least 32), so a few
+        // new packs written by `git fetch`, a concurrent process, or the
+        // backend itself would make object lookups fail. Slots are cheap, so
+        // leave room for plenty of new packs.
+        .object_store_slots(gix::odb::store::init::Slots::AsNeededByDiskState {
+            multiplier: 2.0,
+            minimum: 1024,
+        })
 }
 
 /// Parses the `jj:conflict-labels` header value if present.
@@ -1030,6 +1105,133 @@ fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result
     Ok(())
 }
 
+/// Writes the in-memory objects to the on-disk object database of `repo`,
+/// removing them from `memory` as they're written.
+///
+/// Returns the path to the pack's ".keep" file if a pack was written. The
+/// caller should remove it once the objects are protected by refs.
+fn persist_objects(
+    repo: &gix::Repository,
+    memory: &mut gix::odb::memory::Storage,
+) -> BackendResult<Option<PathBuf>> {
+    // Write in a deterministic order to make debugging easier.
+    let to_persist = memory.keys().copied().sorted_unstable().collect_vec();
+
+    let keep_path = if to_persist.len() >= MIN_OBJECTS_FOR_PACK {
+        write_pack(
+            repo,
+            to_persist.iter().map(|oid| {
+                let (kind, data) = memory.get(oid).unwrap();
+                (*oid, *kind, data.as_slice())
+            }),
+        )?
+    } else {
+        for oid in &to_persist {
+            let (kind, data) = memory.get(oid).unwrap();
+            let written_oid = repo
+                .objects
+                .write_buf_with_known_id(*kind, data, *oid)
+                .map_err(|err| BackendError::WriteObject {
+                    object_type: object_kind_name(*kind),
+                    source: err.into(),
+                })?;
+            debug_assert_eq!(written_oid, *oid);
+        }
+        None
+    };
+    for oid in &to_persist {
+        memory.remove(oid);
+    }
+    Ok(keep_path)
+}
+
+#[derive(Debug, Error)]
+#[error("Failed to write pack file")]
+struct WritePackError(#[source] Box<dyn std::error::Error + Send + Sync>);
+
+/// Writes the given objects to a new pack file (with index) in `repo`'s object
+/// database. Returns the path to the pack's ".keep" file, if any.
+fn write_pack<'a>(
+    repo: &gix::Repository,
+    objects: impl ExactSizeIterator<Item = (gix::ObjectId, gix::objs::Kind, &'a [u8])>,
+) -> BackendResult<Option<PathBuf>> {
+    use gix::odb::pack::data::output;
+    let pack_err = |err: Box<dyn std::error::Error + Send + Sync>| {
+        BackendError::Other(Box::new(WritePackError(err)))
+    };
+
+    let object_hash = repo.object_hash();
+    let num_objects = objects.len();
+    // We don't bother delta-compressing the objects since Git's GC will repack
+    // them anyway. Like Git does for loose objects, we favor speed over size.
+    let entries: Vec<output::Entry> = objects
+        .map(|(oid, kind, data)| {
+            let count = output::Count::from_data(oid, None);
+            let data = gix::objs::Data::new(data, kind, object_hash);
+            output::Entry::from_data(&count, &data, gix::zlib::Compression::BEST_SPEED)
+        })
+        .try_collect()
+        .map_err(|err| pack_err(err.into()))?;
+    let mut pack_bytes = Vec::new();
+    let entries_iter = std::iter::once(Ok::<_, gix::Error>(entries));
+    for written in output::bytes::FromEntriesIter::new(
+        entries_iter,
+        &mut pack_bytes,
+        u32::try_from(num_objects).unwrap(),
+        gix::odb::pack::data::Version::V2,
+        object_hash,
+    ) {
+        written.map_err(|err| pack_err(err.into()))?;
+    }
+
+    let pack_dir = repo.objects.store_ref().path().join("pack");
+    let outcome = gix::odb::pack::Bundle::write_to_directory(
+        &mut std::io::Cursor::new(pack_bytes),
+        Some(&pack_dir),
+        &mut gix::progress::Discard,
+        &std::sync::atomic::AtomicBool::new(false),
+        None::<gix::odb::Handle>,
+        object_hash,
+        gix::odb::pack::bundle::write::Options::default(),
+    )
+    .map_err(|err| pack_err(err.into()))?;
+    tracing::debug!(
+        num_objects,
+        data_path = ?outcome.data_path,
+        "wrote pack file"
+    );
+    Ok(outcome.keep_path)
+}
+
+fn remove_keep_files(keep_paths: &mut Vec<PathBuf>) {
+    for keep_path in keep_paths.drain(..) {
+        if let Err(err) = fs::remove_file(&keep_path) {
+            tracing::warn!(?keep_path, ?err, "failed to remove pack .keep file");
+        }
+    }
+}
+
+fn object_kind_name(kind: gix::objs::Kind) -> &'static str {
+    match kind {
+        gix::objs::Kind::Tree => "tree",
+        gix::objs::Kind::Blob => "blob",
+        gix::objs::Kind::Commit => "commit",
+        gix::objs::Kind::Tag => "tag",
+    }
+}
+
+fn find_git_tree<'repo>(
+    repo: &'repo gix::Repository,
+    tree_id: &TreeId,
+) -> BackendResult<gix::Tree<'repo>> {
+    let gix_id = validate_git_object_id(repo, tree_id)?;
+    repo.try_find_object(gix_id)
+        .map_err(|err| to_read_object_err(err, tree_id))?
+        .ok_or_else(|| not_found_err(tree_id))?
+        .try_into_tree()
+        .map_err(|err| to_read_object_err(err, tree_id))
+}
+
 fn validate_git_object_id(
     repo: &gix::Repository,
     id: &impl ObjectId,
@@ -1104,6 +1306,18 @@ fn import_extra_metadata_entries_from_heads(
         );
     }
     Ok(())
+}
+
+impl Drop for GitBackend {
+    fn drop(&mut self) {
+        // Packs from a failed flush() only contain objects that nothing
+        // persisted refers to, so there's no need to protect them anymore.
+        let pending_keep_files = self
+            .pending_keep_files
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner);
+        remove_keep_files(pending_keep_files);
+    }
 }
 
 impl Debug for GitBackend {
@@ -1309,13 +1523,20 @@ impl Backend for GitBackend {
             })
             .sorted_unstable()
             .collect();
+        let tree = gix::objs::Tree { entries };
         let locked_repo = self.lock_git_repo();
+        let num_objects_before = locked_repo.objects.num_objects_in_memory();
         let oid = locked_repo
-            .write_object(gix::objs::Tree { entries })
+            .write_object(&tree)
             .map_err(|err| BackendError::WriteObject {
                 object_type: "tree",
                 source: Box::new(err),
-            })?;
+            })?
+            .detach();
+        let size = usize::try_from(gix::objs::WriteTo::size(&tree)).unwrap();
+        self.record_in_memory_write(&locked_repo, num_objects_before, size);
+        drop(locked_repo);
+        self.flush_if_over_memory_limit()?;
         Ok(TreeId::from_bytes(oid.as_bytes()))
     }
 
@@ -1400,10 +1621,12 @@ impl Backend for GitBackend {
         // If two writers write commits of the same id with different metadata, they
         // will both succeed and the metadata entries will be "merged" later. Since
         // metadata entry is keyed by the commit id, one of the entries would be lost.
-        // To prevent such race condition locally, we extend the scope covered by the
-        // table lock. This is still racy if multiple machines are involved and the
+        // We check both the pending entries and the persisted table to prevent that
+        // within this process. This is racy if another process writes the same
+        // commit before we flush, or if multiple machines are involved and the
         // repository is rsync-ed.
-        let (table, table_lock) = self.read_extra_metadata_table_locked()?;
+        let table = self.cached_extra_metadata_table()?;
+        let mut pending_extras = self.pending_extras.lock().unwrap();
         let id = loop {
             let mut commit = gix::objs::Commit {
                 message: message.to_owned().into(),
@@ -1439,7 +1662,12 @@ impl Backend for GitBackend {
                         source: Box::new(err),
                     })?;
 
-            match table.get_value(git_id.as_bytes()) {
+            let id = CommitId::from_bytes(git_id.as_bytes());
+            let existing_extras = pending_extras
+                .get(&id)
+                .map(Vec::as_slice)
+                .or_else(|| table.get_value(git_id.as_bytes()));
+            match existing_extras {
                 Some(existing_extras) if existing_extras != extras => {
                     // It's possible a commit already exists with the same
                     // commit id but different change id. Adjust the timestamp
@@ -1456,22 +1684,17 @@ impl Backend for GitBackend {
                     // and read back by `jj`.
                     committer.time.seconds -= 1;
                 }
-                _ => break CommitId::from_bytes(git_id.as_bytes()),
+                _ => break id,
             }
         };
 
-        // Everything up to this point had no permanent effect on the repo except
-        // GC-able objects
-        locked_repo
-            .edit_reference(to_no_gc_ref_update(&id))
-            .map_err(|err| BackendError::Other(Box::new(err)))?;
+        // The commit object is only in memory at this point. It will be
+        // persisted along with its no-gc ref and extra metadata by flush().
+        pending_extras.insert(id.clone(), extras);
 
         // Update the signature to match the one that was actually written to the object
         // store
         contents.committer.timestamp.timestamp = MillisSinceEpoch(committer.time.seconds * 1000);
-        let mut mut_table = table.start_mutation();
-        mut_table.add_entry(id.to_bytes(), extras);
-        self.save_extra_metadata_table(mut_table, &table_lock)?;
         Ok((id, contents))
     }
 
@@ -1481,9 +1704,14 @@ impl Backend for GitBackend {
         root_id: &CommitId,
         head_id: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
-        let repo = self.git_repo();
-        let root_tree = self.read_tree_for_commit(&repo, root_id)?;
-        let head_tree = self.read_tree_for_commit(&repo, head_id)?;
+        // Read the commits before locking the repo since read_commit() locks
+        // it. The trees are read through the locked repo so that unflushed
+        // objects are visible.
+        let root_tree_id = self.root_tree_id_for_commit(root_id)?;
+        let head_tree_id = self.root_tree_id_for_commit(head_id)?;
+        let repo = self.lock_git_repo();
+        let root_tree = find_git_tree(&repo, &root_tree_id)?;
+        let head_tree = find_git_tree(&repo, &head_tree_id)?;
 
         let change_to_copy_record =
             |change: gix::object::tree::diff::Change| -> BackendResult<Option<CopyRecord>> {
@@ -1556,6 +1784,65 @@ impl Backend for GitBackend {
         Ok(futures::stream::iter(records).boxed())
     }
 
+    #[tracing::instrument(skip(self))]
+    fn flush(&self) -> BackendResult<()> {
+        let mut locked_repo = self.lock_git_repo();
+        let mut pending_extras = self.pending_extras.lock().unwrap();
+        if pending_extras.is_empty() && locked_repo.objects.num_objects_in_memory() == 0 {
+            return Ok(());
+        }
+        tracing::debug!(
+            commits_count = pending_extras.len(),
+            objects_count = locked_repo.objects.num_objects_in_memory(),
+            "persisting pending objects"
+        );
+
+        // Lock the extra metadata table before making the commits visible on
+        // disk. If another process imported one of the commits before we've
+        // saved its metadata, it would assign a different change id. Holding
+        // the lock makes it wait until our entries have been saved.
+        let table_and_lock = if pending_extras.is_empty() {
+            None
+        } else {
+            Some(self.read_extra_metadata_table_locked()?)
+        };
+
+        // Take the in-memory objects out of the repo so that writes below go
+        // straight to the on-disk object database. Objects that couldn't be
+        // written are put back so a later flush can retry.
+        let mut memory = locked_repo.objects.take_object_memory().unwrap_or_default();
+        let result = persist_objects(&locked_repo, &mut memory);
+        locked_repo.objects.set_object_memory(memory);
+        let keep_path = result?;
+        self.in_memory_bytes.store(0, Ordering::Relaxed);
+
+        // A pack file written above is protected from GC by a ".keep" file
+        // until the no-gc refs have been created. If creating them fails, the
+        // ".keep" file stays until a later flush succeeds, or until the backend
+        // is dropped.
+        let mut pending_keep_files = self.pending_keep_files.lock().unwrap();
+        pending_keep_files.extend(keep_path);
+
+        let Some((table, table_lock)) = table_and_lock else {
+            remove_keep_files(&mut pending_keep_files);
+            return Ok(());
+        };
+        // Everything up to this point had no permanent effect on the repo except
+        // GC-able objects
+        locked_repo
+            .edit_references(pending_extras.keys().sorted().map(to_no_gc_ref_update))
+            .map_err(|err| BackendError::Other(Box::new(err)))?;
+        remove_keep_files(&mut pending_keep_files);
+
+        let mut mut_table = table.start_mutation();
+        for (id, extras) in pending_extras.iter().sorted() {
+            mut_table.add_entry(id.to_bytes(), extras.clone());
+        }
+        self.save_extra_metadata_table(mut_table, &table_lock)?;
+        pending_extras.clear();
+        Ok(())
+    }
+
     /// Perform garbage collection.
     ///
     /// All commits found in the `index` won't be removed. In addition to that,
@@ -1563,6 +1850,8 @@ impl Backend for GitBackend {
     /// risk of deleting new commits created concurrently by another process.
     #[tracing::instrument(skip(self, new_heads))]
     async fn gc(&self, new_heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()> {
+        // The heads may refer to commits that haven't been persisted yet.
+        self.flush()?;
         let git_repo = self.lock_git_repo();
         let new_heads = new_heads
             .iter()
@@ -1709,6 +1998,49 @@ mod tests {
         )
         .unwrap()
         .to_thread_local()
+    }
+
+    #[test]
+    fn read_from_packs_added_after_open() -> TestResult {
+        let settings = backend_settings();
+        let temp_dir = new_temp_dir();
+        let store_path = temp_dir.path().join("store");
+        fs::create_dir(&store_path)?;
+        let backend =
+            GitBackend::init_internal(&settings, &store_path, gix::hash::Kind::default())?;
+        let pack_dir = backend.git_repo_path().join("objects").join("pack");
+
+        // More packs than gix's default minimum number of index slots
+        let source_repo = git_init(temp_dir.path().join("source"), gix::hash::Kind::default());
+        let mut blob_ids = vec![];
+        for i in 0..40 {
+            let blob_id = source_repo.write_blob(format!("blob {i}"))?.detach();
+            let mut child = Command::new("git")
+                .arg("--git-dir")
+                .arg(source_repo.path())
+                .args(["pack-objects", "-q"])
+                .arg(pack_dir.join("pack"))
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::null())
+                .spawn()?;
+            std::io::Write::write_all(
+                &mut child.stdin.take().unwrap(),
+                format!("{blob_id}\n").as_bytes(),
+            )?;
+            assert!(child.wait()?.success());
+            blob_ids.push(FileId::from_bytes(blob_id.as_bytes()));
+        }
+
+        for (i, blob_id) in blob_ids.iter().enumerate() {
+            let mut contents = vec![];
+            backend
+                .read_file(RepoPath::root(), blob_id)
+                .block_on()?
+                .read_to_end(&mut contents)
+                .block_on()?;
+            assert_eq!(contents, format!("blob {i}").as_bytes());
+        }
+        Ok(())
     }
 
     #[test]
@@ -2114,6 +2446,7 @@ mod tests {
         };
 
         let (initial_commit_id, _init_commit) = backend.write_commit(commit, None).block_on()?;
+        backend.flush()?;
         let commit = backend.read_commit(&initial_commit_id).block_on()?;
         assert_eq!(
             commit.change_id, original_change_id,
@@ -2298,7 +2631,9 @@ mod tests {
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
-            backend.write_commit(commit, None).block_on()
+            let result = backend.write_commit(commit, None).block_on()?;
+            backend.flush()?;
+            Ok(result)
         };
 
         // No parents
@@ -2411,7 +2746,9 @@ mod tests {
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
-            backend.write_commit(commit, None).block_on()
+            let result = backend.write_commit(commit, None).block_on()?;
+            backend.flush()?;
+            Ok(result)
         };
 
         // When writing a tree-level conflict, the root tree on the git side has the
@@ -2489,6 +2826,139 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn keep_file_after_failed_flush() -> TestResult {
+        let settings = backend_settings();
+        let temp_dir = new_temp_dir();
+        let backend =
+            GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::default())?;
+        let git_dir = backend.git_repo_path().to_owned();
+        let pack_dir = git_dir.join("objects").join("pack");
+        let list_keep_files = || {
+            fs::read_dir(&pack_dir)
+                .unwrap()
+                .map(|entry| entry.unwrap().path())
+                .filter(|path| path.extension() == Some("keep".as_ref()))
+                .collect_vec()
+        };
+        // Creating no-gc refs fails while there's a file in place of the
+        // directory they're created in
+        let no_gc_ref_dir = git_dir.join("refs").join("jj").join("keep");
+        fs::create_dir_all(no_gc_ref_dir.parent().unwrap())?;
+        let block_no_gc_refs = || fs::write(&no_gc_ref_dir, "");
+        let write_pack_and_commit = |description: &str| -> TestResult<CommitId> {
+            for i in 0..MIN_OBJECTS_FOR_PACK {
+                backend
+                    .write_file(
+                        RepoPath::root(),
+                        &mut format!("{description} {i}").as_bytes(),
+                    )
+                    .block_on()?;
+            }
+            let signature = Signature {
+                name: "Someone".to_string(),
+                email: "someone@example.com".to_string(),
+                timestamp: Timestamp {
+                    timestamp: MillisSinceEpoch(0),
+                    tz_offset: 0,
+                },
+            };
+            let commit = Commit {
+                parents: vec![backend.root_commit_id().clone()],
+                predecessors: vec![],
+                root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+                conflict_labels: Merge::resolved(String::new()),
+                change_id: ChangeId::new(vec![42; 16]),
+                description: description.to_string(),
+                author: signature.clone(),
+                committer: signature,
+                secure_sig: None,
+            };
+            Ok(backend.write_commit(commit, None).block_on()?.0)
+        };
+
+        // The pack stays protected while the commit has no ref
+        block_no_gc_refs()?;
+        let commit_id = write_pack_and_commit("first")?;
+        assert!(backend.flush().is_err());
+        assert_eq!(list_keep_files().len(), 1);
+
+        // Once a later flush has created the ref, the pack is no longer kept
+        fs::remove_file(&no_gc_ref_dir)?;
+        backend.flush()?;
+        assert!(list_keep_files().is_empty());
+        let git_repo = backend.git_repo();
+        assert!(
+            git_repo
+                .try_find_reference(&to_no_gc_ref_update(&commit_id).name)?
+                .is_some()
+        );
+
+        // If the ref is never created, the pack is no longer kept once the
+        // backend is dropped
+        fs::remove_dir_all(&no_gc_ref_dir)?;
+        block_no_gc_refs()?;
+        write_pack_and_commit("second")?;
+        assert!(backend.flush().is_err());
+        assert_eq!(list_keep_files().len(), 1);
+        drop(backend);
+        assert!(list_keep_files().is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn flush_when_over_memory_limit() -> TestResult {
+        let settings = backend_settings();
+        let temp_dir = new_temp_dir();
+        let mut backend =
+            GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::default())?;
+        backend.max_in_memory_bytes = 100;
+        let git_repo = backend.git_repo();
+        let exists_on_disk = |id: &[u8]| {
+            git_repo
+                .objects
+                .exists(&gix::ObjectId::from_bytes_or_panic(id))
+        };
+
+        let blob1 = backend
+            .write_file(RepoPath::root(), &mut &[b'a'; 60][..])
+            .block_on()?;
+        assert!(!exists_on_disk(blob1.as_bytes()));
+
+        // Rewriting an object that's already in memory doesn't count towards
+        // the limit
+        backend
+            .write_file(RepoPath::root(), &mut &[b'a'; 60][..])
+            .block_on()?;
+        assert!(!exists_on_disk(blob1.as_bytes()));
+
+        // Going over the limit flushes all in-memory objects
+        let blob2 = backend
+            .write_file(RepoPath::root(), &mut &[b'b'; 60][..])
+            .block_on()?;
+        assert!(exists_on_disk(blob1.as_bytes()));
+        assert!(exists_on_disk(blob2.as_bytes()));
+
+        // Trees count towards the limit too. Each entry takes up at least 20
+        // bytes for the object ID, so 5 entries are enough to reach the limit.
+        let tree = Tree::from_sorted_entries(
+            (0..5)
+                .map(|i| {
+                    let name = RepoPathComponentBuf::new(format!("file{i}")).unwrap();
+                    let value = TreeValue::File {
+                        id: blob1.clone(),
+                        executable: false,
+                        copy_id: CopyId::placeholder(),
+                    };
+                    (name, value)
+                })
+                .collect(),
+        );
+        let tree_id = backend.write_tree(RepoPath::root(), &tree).block_on()?;
+        assert!(exists_on_disk(tree_id.as_bytes()));
+        Ok(())
+    }
+
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn commit_has_ref(object_hash: gix::hash::Kind) -> TestResult {
@@ -2516,6 +2986,7 @@ mod tests {
             secure_sig: None,
         };
         let commit_id = backend.write_commit(commit, None).block_on()?.0;
+        backend.flush()?;
         let git_refs = git_repo.references()?;
         let git_ref_ids: Vec<_> = git_refs
             .prefixed("refs/jj/keep/")?
@@ -2594,7 +3065,9 @@ mod tests {
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
-            backend.write_commit(commit, None).block_on()
+            let result = backend.write_commit(commit, None).block_on()?;
+            backend.flush()?;
+            Ok(result)
         };
 
         let (commit_id1, mut commit2) = write_commit(commit1)?;
@@ -2697,6 +3170,7 @@ mod tests {
         let (id, commit) = backend
             .write_commit(commit, Some(&mut signer as &mut SigningFn))
             .block_on()?;
+        backend.flush()?;
         let returned_sig = commit.secure_sig.expect("failed to return the signature");
 
         let commit = backend.read_commit(&id).block_on()?;

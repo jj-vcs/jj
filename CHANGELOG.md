@@ -11,6 +11,10 @@ Changes that have not been released yet are described in the
 [`changelog/`](https://github.com/jj-vcs/jj/tree/main/changelog) directory.
 <!-- END UNRELEASED NOTE -->
 
+* Reading Git objects no longer fails with "The object database has too few
+  index slots" when several pack files are added while `jj` is running (e.g. by
+  a concurrent `git fetch`).
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0

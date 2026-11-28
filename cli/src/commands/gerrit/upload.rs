@@ -744,6 +744,7 @@ pub async fn cmd_gerrit_upload(
             git::GitPushError::NoSuchRemote(_)
             | git::GitPushError::RemoteName(_)
             | git::GitPushError::UnexpectedBackend(_) => user_error(err),
+            git::GitPushError::Backend(err) => err.into(),
             git::GitPushError::Subprocess(_) if err.is_object_format_mismatch() => err.into(),
             git::GitPushError::Subprocess(_) => {
                 user_error_with_message("Internal git error while pushing to gerrit", err)
