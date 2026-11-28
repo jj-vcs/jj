@@ -20,7 +20,7 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
-/// Print the name of the backend used in the current repo
+/// Print the name of the commit backend used in the current repo
 #[derive(clap::Args, Clone, Debug)]
 pub struct UtilBackendNameArgs {}
 
@@ -29,6 +29,9 @@ pub async fn cmd_util_backend_name(
     command: &CommandHelper,
     _args: &UtilBackendNameArgs,
 ) -> Result<(), CommandError> {
+    // NOTE: `--when.commit-backends` matches the commit backend name printed by
+    // this command. If this command adds support for other backends, consider
+    // adding corresponding `--when.*` conditions as well.
     let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
     writeln!(
         ui.stdout(),

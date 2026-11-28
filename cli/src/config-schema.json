@@ -1228,6 +1228,13 @@
                         "type": "string"
                     }
                 },
+                "commit-backends": {
+                    "type": "array",
+                    "description": "List of commit backend names to match (as printed by `jj util backend name`)",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "commands": {
                     "type": "array",
                     "description": "List of subcommands to match",

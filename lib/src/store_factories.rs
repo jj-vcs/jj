@@ -504,6 +504,12 @@ pub fn read_store_type(
         .map_err(|source| StoreLoadError::ReadError { store, source })
 }
 
+/// Reads the commit backend type name of the repository at `repo_path`,
+/// without loading the repository.
+pub fn read_commit_backend_type(repo_path: &Path) -> Result<String, StoreLoadError> {
+    read_store_type("commit", repo_path.join("store").join("type"))
+}
+
 fn read_store_type_compat(
     store: &'static str,
     path: impl AsRef<Path>,

@@ -1162,6 +1162,105 @@ fn test_conditional_config() {
 }
 
 #[test]
+fn test_conditional_config_commit_backends() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(test_env.home_dir(), ["git", "init", "git-repo"])
+        .success();
+    test_env
+        .run_jj_in(test_env.home_dir(), ["debug", "init-simple", "simple-repo"])
+        .success();
+    let git_repo = test_env.home_dir().join("git-repo");
+    let simple_repo = test_env.home_dir().join("simple-repo");
+    test_env
+        .run_jj_in(&git_repo, ["workspace", "add", "../git-ws2"])
+        .success();
+    let git_ws2 = test_env.home_dir().join("git-ws2");
+
+    test_env.add_config(indoc! {"
+        ui.pager = 'base'
+        [[--scope]]
+        --when.commit-backends = ['git']
+        ui.pager = 'git'
+        [[--scope]]
+        --when.commit-backends = ['Simple']
+        ui.pager = 'simple'
+        [[--scope]]
+        --when.commit-backends = ['simple']
+        ui.pager = 'wrong-case'
+        [[--scope]]
+        --when.commit-backends = ['git', 'Simple']
+        ui.pager = 'git-or-simple'
+        [[--scope]]
+        --when.commit-backends = ['nonexistent']
+        ui.pager = 'nonexistent'
+    "});
+
+    let output = test_env.run_jj_in(
+        &git_repo,
+        ["config", "list", "--include-overridden", "ui.pager"],
+    );
+    insta::assert_snapshot!(output, @"
+    # ui.pager = 'base'
+    # ui.pager = 'git'
+    ui.pager = 'git-or-simple'
+    [EOF]
+    ");
+
+    let output = test_env.run_jj_in(
+        &simple_repo,
+        ["config", "list", "--include-overridden", "ui.pager"],
+    );
+    insta::assert_snapshot!(output, @"
+    # ui.pager = 'base'
+    # ui.pager = 'simple'
+    ui.pager = 'git-or-simple'
+    [EOF]
+    ");
+
+    // Switching repositories via -R uses the target repository's backend.
+    let output = test_env.run_jj_in(
+        &git_repo,
+        [
+            "-R",
+            "../simple-repo",
+            "config",
+            "list",
+            "--include-overridden",
+            "ui.pager",
+        ],
+    );
+    insta::assert_snapshot!(output, @"
+    # ui.pager = 'base'
+    # ui.pager = 'simple'
+    ui.pager = 'git-or-simple'
+    [EOF]
+    ");
+
+    // Secondary workspace resolves the shared repository's backend.
+    let output = test_env.run_jj_in(
+        &git_ws2,
+        ["config", "list", "--include-overridden", "ui.pager"],
+    );
+    insta::assert_snapshot!(output, @"
+    # ui.pager = 'base'
+    # ui.pager = 'git'
+    ui.pager = 'git-or-simple'
+    [EOF]
+    ");
+
+    // Outside of a repository, no backend condition matches.
+    let output = test_env.run_jj_in(
+        test_env.home_dir(),
+        ["config", "list", "--include-overridden", "ui.pager"],
+    );
+    insta::assert_snapshot!(output, @"
+    ui.pager = 'base'
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_conditional_config_environments() {
     let mut test_env = TestEnvironment::default();
     test_env

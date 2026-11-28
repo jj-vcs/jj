@@ -43,6 +43,7 @@ use jj_lib::dsl_util::AliasDeclarationParser;
 use jj_lib::dsl_util::AliasesMap;
 use jj_lib::secure_config::LoadedSecureConfig;
 use jj_lib::secure_config::SecureConfig;
+use jj_lib::store_factories::read_commit_backend_type;
 use rand::SeedableRng as _;
 use rand_chacha::ChaCha20Rng;
 use regex::Regex;
@@ -359,6 +360,7 @@ pub struct ConfigEnv {
     user_config_paths: Vec<ConfigPath>,
     repo_config: Option<SecureConfig>,
     workspace_config: Option<SecureConfig>,
+    commit_backend_name: Option<String>,
     command: Option<String>,
     hostname: Option<String>,
     environment: HashMap<String, String>,
@@ -407,6 +409,7 @@ impl ConfigEnv {
             user_config_paths: env.resolve_user(),
             repo_config: None,
             workspace_config: None,
+            commit_backend_name: None,
             command: None,
             hostname: whoami::hostname().ok(),
             environment,
@@ -538,6 +541,9 @@ impl ConfigEnv {
     pub fn reset_repo_path(&mut self, path: &Path) {
         self.repo_config = Some(SecureConfig::new_repo(path.to_path_buf()));
         self.repo_path = Some(path.to_owned());
+        // The config has to be resolved before the repository is loaded, so
+        // read the commit backend type directly from the file system.
+        self.commit_backend_name = read_commit_backend_type(path).ok();
     }
 
     /// Returns a path to the existing repo-specific config file.
@@ -756,6 +762,7 @@ impl ConfigEnv {
             home_dir: self.home_dir.as_deref(),
             repo_path: self.repo_path.as_deref(),
             workspace_path: self.workspace_path.as_deref(),
+            commit_backend_name: self.commit_backend_name.as_deref(),
             command: self.command.as_deref(),
             hostname: self.hostname.as_deref().unwrap_or(""),
             environment: &self.environment,
@@ -2187,6 +2194,7 @@ mod tests {
             user_config_paths: env.resolve_user(),
             repo_config: None,
             workspace_config: None,
+            commit_backend_name: None,
             command: None,
             hostname: None,
             environment: HashMap::new(),

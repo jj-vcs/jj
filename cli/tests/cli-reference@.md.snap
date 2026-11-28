@@ -3795,13 +3795,13 @@ Commands relating to the backend used in the current repo
 
 ###### **Subcommands:**
 
-* `name` — Print the name of the backend used in the current repo
+* `name` — Print the name of the commit backend used in the current repo
 
 
 
 ## `jj util backend name`
 
-Print the name of the backend used in the current repo
+Print the name of the commit backend used in the current repo
 
 **Usage:** `jj util backend name`
 
